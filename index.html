@@ -350,6 +350,60 @@ body[data-view="home"] .stats{display:none}
 .vactions .btn{height:2.75rem;font-size:.8125rem}
 .credit{font-size:.8125rem;color:var(--muted);line-height:1.7}
 
+/* ===== スマホ幅: ホームと訓練画面を 1 画面に収める =====
+   画面全体を縦の flex にし、図（機体画像・上面図・視界）だけを伸縮させる。極端に低い画面では図の最小高さを優先して少しだけスクロールする */
+@media (max-width:63.99rem){
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}
+  body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
+  #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
+  /* ホーム: 機体の絵だけ縮む */
+  .hero2{flex:0 1 auto;min-height:0;justify-content:center}
+  .hero-jet{flex:0 1 auto;min-height:0;object-fit:contain}
+  .modes{gap:.5rem;margin-top:.75rem}
+  .mode{padding:.875rem 1rem}
+  /* 訓練: 脇のメモ・記録は出さず、出題中は成績チップも隠す */
+  body[data-view="train"] aside{display:none}
+  body[data-phase="practice"] .stats,body[data-phase="session"] .stats,body[data-phase="sim"] .stats{display:none}
+  body[data-view="train"] .hdr{padding-bottom:.25rem}
+  .layout{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:.5rem}
+  body[data-view="train"] .layout > .card{flex:1;min-height:0;display:flex;flex-direction:column;padding:.75rem}
+  #quiz:not([hidden]),#sim:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
+  .prompt{margin:.375rem 0 0;font-size:.8125rem;line-height:1.45}
+  #figs{flex:1;min-height:0;display:flex;flex-direction:column}
+  .figs{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:.5rem}
+  .cap{margin-top:.25rem}
+  .fb{margin-top:.5rem;padding:.5rem .75rem}
+  /* 姿勢・複合: 機体画像 */
+  .fig.wide{flex:1;min-height:0;display:flex;flex-direction:column}
+  .d14{flex:1;min-height:6rem;display:flex;justify-content:center}
+  .d14 img{height:100%!important;width:auto!important;max-width:100%;object-fit:contain}
+  /* 方位: 上面図 */
+  .figs.heading > div:first-child{flex:1;min-height:0;display:flex;flex-direction:column}
+  .fig.top,.answered .fig.top{flex:1;min-height:6rem;width:100%;display:flex;justify-content:center;transition:none}
+  .fig.top svg{height:100%;width:auto;max-width:80%}
+  .dirlist{margin-top:.5rem;gap:.375rem}
+  /* 操縦操作: 3 枚の視界 */
+  .frames{flex:1;min-height:0;gap:.375rem}
+  .frame{flex:1;min-height:3.5rem;grid-template-rows:minmax(0,1fr);gap:.375rem}
+  .frame .v{height:100%;min-height:0;display:flex;justify-content:center;border:0;border-radius:0}
+  .frame .v svg{height:100%;width:auto;max-width:100%;border-radius:.625rem;border:1px solid var(--line)}
+  /* 選択肢 */
+  .opts{margin-top:.5rem;gap:.375rem}
+  .opts .ab{padding:.375rem .375rem .25rem;gap:.125rem}
+  .opts .ab .inst{width:auto;height:clamp(5rem,14dvh,7.5rem);aspect-ratio:1}
+  .opts .ab .inst svg{width:100%;height:100%}
+  .opts .ab .pair{width:auto;height:clamp(3.75rem,10dvh,5.5rem)}
+  .opts .ab .pair svg{width:auto;height:100%}
+  .opts.text .ab{padding:.5rem .75rem;min-height:2.75rem}
+  .opts.text .ab .t{font-size:.875rem}
+  /* シミュレーター */
+  .sim .view{flex:1;min-height:6rem;display:flex;justify-content:center;border:0;border-radius:0}
+  .sim .view svg{height:100%;width:auto;max-width:100%;border-radius:.625rem;border:1px solid var(--line)}
+  .sim .row{margin-top:.5rem}
+  .sim .acts{margin-top:.5rem;gap:.375rem}
+  .sim .acts .btn{height:2.75rem}
+}
+
 /* ===== PC 幅 ===== */
 @media (min-width:64rem){
   .app{padding:0 2rem}
@@ -589,6 +643,9 @@ function applyScene(){
   const d=new Date(),t=d.getHours()+d.getMinutes()/60;
   document.body.dataset.scene=settings.scene==='day'||settings.scene==='night'?settings.scene:(t<5?'night':t<7?'dawn':t<17?'day':t<19?'dusk':'night')}
 
+/* 視界 SVG を風防の部分だけ（下のグレアシールドを除く）にして縦を節約する。出題・練習・見え方で共通 */
+const ckCompact=svg=>svg.replace('viewBox="0 0 360 240"','viewBox="0 0 360 188"').replace('aspect-ratio:360/240','aspect-ratio:360/188');
+
 /* ===== 画面内の領域の切り替え ===== */
 function showPane(name){['chooser','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name})}
 function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
@@ -602,7 +659,7 @@ function render(){
   $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
   const figs=$('#figs'),ans=$('#answers');
   if(q.type==='heading'){
-    $('#prompt').textContent='上から見下ろした戦闘機が向いている方位を、8方位から答えてください。';
+    $('#prompt').textContent='機首が向いている方位を 8 方位から選ぶ';
     const grid=`<div class="dirlist">${[0,1,2,3,4,5,6,7].map(i=>`<button class="ab" data-dir="${i}"><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
     figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北</div></div>${grid}</div>`;
     ans.innerHTML='';
@@ -610,20 +667,20 @@ function render(){
   }else if(q.type==='attitude'||q.type==='combo'){
     const cap14='<b>南</b>からの固定視点 — 画面の奥が北、右が東';
     if(q.type==='attitude'){
-      $('#prompt').textContent='第三者視点で見た戦闘機の姿勢に対応する姿勢指示器を選んでください。';
+      $('#prompt').textContent='この姿勢に対応する姿勢指示器を選ぶ';
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14)}</div><div class="cap">${cap14}</div></div>`;
       ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst">${E.svgAI(o.bank,o.pitch)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
     }else{
-      $('#prompt').textContent='第三者視点で見た戦闘機の向きと姿勢の両方に一致する計器（姿勢指示器＋方位指示器）を選んでください。';
+      $('#prompt').textContent='向きと姿勢の両方に一致する計器（姿勢指示器＋方位指示器）を選ぶ';
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14)}</div><div class="cap">${cap14}</div></div>`;
       ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
     }
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else{
     $('#prompt').textContent=q.single
-      ?'コックピットから見た外の様子が①→②→③の順に変化しました。この間に行われた操作を選んでください。'
-      :'コックピットから見た外の様子が①→②→③の順に変化しました。①→②、②→③の順に行われた操作を選んでください。';
-    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(f.bank,f.pitch,f.yaw,i/2)}</div></div>`).join('')}</div></div>`;
+      ?'①→②→③ の変化の間に行われた操作を選ぶ'
+      :'①→②、②→③ の順に行われた操作を選ぶ';
+    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,i/2))}</div></div>`).join('')}</div></div>`;
     ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${'ABCD'[i]}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
@@ -771,7 +828,7 @@ let sim=null;
 function startSim(){applyScene();
   setPhase('sim','練習');showPane('sim');
   sim={bank:0,pitch:0,yaw:0,keys:new Set(),raf:0,last:performance.now(),t0:performance.now()};
-  $('#sim').innerHTML=`<div class="view" id="simView">${E.svgCockpit(0,0,0)}</div>
+  $('#sim').innerHTML=`<div class="view" id="simView">${ckCompact(E.svgCockpit(0,0,0))}</div>
     <div class="row">
       <div><h4>操縦桿を倒す</h4><div class="pad">
         <div class="c"></div><button class="ab" data-k="fwd">奥</button><div class="c"></div>
@@ -846,10 +903,9 @@ function galDraw(){
   if(!gal.sel.length){f=[lv,lv,lv];text='操作なし（水平飛行）'}
   else if(gal.seq&&gal.sel.length>=2){f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));text=E.opsText(ordered)}
   else{const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);f=[lv,step(lv)];f.push(step(f[1]));text=gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')}
-  const compact=svg=>svg.replace('viewBox="0 0 360 240"','viewBox="0 0 360 188"').replace('aspect-ratio:360/240','aspect-ratio:360/188');   // 風防の部分だけ表示
   const desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと 3 枚が入れ替わります';
   out.innerHTML=`<h4>${text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4><div class="sub gdesc">${desc}</div>
-    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${compact(E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true))}</div></div>`).join('')}</div>
+    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true))}</div></div>`).join('')}</div>
     <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;
 }
 

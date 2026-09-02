@@ -4,6 +4,8 @@
   "name": "kokuteki-trainer",
   "compatibility_date": "2026-09-02",
   "observability": { "enabled": true },
+  // routes を書くと workers.dev が自動で無効になるので、動作確認用に明示的に有効化（https://kokuteki-trainer.ama-sunrise.workers.dev/）
+  "workers_dev": true,
   "assets": { "directory": "./" },
   "routes": [{ "pattern": "kokuteki.amaterasu-vocab.com", "custom_domain": true }]
 }

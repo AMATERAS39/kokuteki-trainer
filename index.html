@@ -69,6 +69,16 @@ svg text{user-select:none}
 .homebtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--muted);flex:none}
 .homebtn:hover{background:var(--panel);color:var(--text)}
 body[data-view="home"] .homebtn{color:var(--accent)}
+.brand .name{padding-left:3.25rem}   /* 右側にボタンが 2 つ（更新・メニュー）あるぶん、左に空きを取って中央を保つ */
+/* 更新ボタン: 新しい版が待機していると赤い点（.has）。押すと確認中は矢印が回る（.busy） */
+.updbtn{position:relative;width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--muted);flex:none}
+@media (hover:hover){.updbtn:hover{background:var(--panel);color:var(--text)}}
+.updbtn .ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.updbtn.has{color:var(--text)}
+.updbtn.has::after{content:"";position:absolute;top:.5rem;right:.5rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);box-shadow:0 0 0 .125rem var(--bg)}
+.updbtn.busy .ic{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;bottom:max(1.25rem,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:.75rem;padding:.625rem 1rem;font-size:.8125rem;font-weight:700;box-shadow:0 .5rem 1.5rem rgba(0,0,0,.4);z-index:40;white-space:nowrap}
 .menu{position:relative;flex:none}
 .menubtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--muted)}
 .menubtn:hover{background:var(--panel);color:var(--text)}
@@ -578,6 +588,7 @@ body:not([data-view="train"]) .stats{display:none}
       <div class="brand">
         <button class="homebtn" id="backHome" aria-label="ホーム"><svg class="ic"><use href="#i-home"/></svg></button>
         <div class="name">TENRYU</div>
+        <button class="updbtn" id="updBtn" aria-label="更新"><svg class="ic"><use href="#i-reset"/></svg></button>
         <div class="menu">
           <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="menulist" id="menuList" hidden>
@@ -704,6 +715,7 @@ body:not([data-view="train"]) .stats{display:none}
   </div>
 </div>
 
+<div class="toast" id="toast" hidden></div>
 <div class="install" id="install">
   <img src="icons/icon-192.png" alt="">
   <div class="tx"><span id="installText"></span><small id="installOs"></small></div>
@@ -1219,11 +1231,40 @@ function renderBuy(){
 window.addEventListener('hashchange',route);
 checkKey().finally(route);
 
-/* PWA */
+/* PWA と更新ボタン。新しい sw.js は自動では有効にならず「待機」する（計測の途中で勝手に再読み込みしないため）。
+   待機中は更新ボタンに赤い点を出し、押されたら SKIP_WAITING を送って有効化 → controllerchange で再読み込み。
+   何もしなくても、アプリを閉じて次に開いたときには新しい版になる */
+let swReg=null,toastId=null;
+function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastId);toastId=setTimeout(()=>{t.hidden=true},ms||2200)}
+function setUpdateReady(){$('#updBtn').classList.add('has')}
+function applyWaiting(){if(swReg&&swReg.waiting){try{sessionStorage.setItem('aat.updated','1')}catch(e){}swReg.waiting.postMessage('SKIP_WAITING');return true}return false}
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;
+    if(reg.waiting&&navigator.serviceWorker.controller)setUpdateReady();
+    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)setUpdateReady()})});
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{})});
+    setInterval(()=>reg.update().catch(()=>{}),30*60*1000);
+  }).catch(()=>{}));
   let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(navigator.serviceWorker.controller&&!reloaded){reloaded=true;location.reload()}});
 }
+try{if(sessionStorage.getItem('aat.updated')){sessionStorage.removeItem('aat.updated');toast('更新しました')}}catch(e){}
+$('#updBtn').addEventListener('click',async()=>{
+  const b=$('#updBtn');if(b.classList.contains('busy'))return;
+  b.classList.add('busy');
+  if(applyWaiting())return;   // 待機中の版を有効化 → controllerchange で再読み込み（回転はそのまま）
+  if(!navigator.onLine){b.classList.remove('busy');toast('オフラインのため確認できません');return}
+  let checked=false;
+  try{if(swReg){await swReg.update();checked=true}}catch(e){}
+  const t0=performance.now();
+  while(performance.now()-t0<10000){   // 新しい版が見つかれば installing → installed（待機）になるので、そこまで待って適用する
+    await new Promise(r=>setTimeout(r,250));
+    if(applyWaiting())return;
+    if(!swReg||!swReg.installing)break;
+  }
+  await new Promise(r=>setTimeout(r,600));
+  b.classList.remove('busy');
+  toast(checked?'最新の状態です':'確認できませんでした');
+});
 const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 let deferredPrompt=null;const dismissed=store.get('installDismissed',false);
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(!standalone&&!dismissed){$('#installText').textContent='アプリとしてインストールできます。';$('#installOs').textContent='Android';$('#installClose').style.display='none';$('#install').classList.add('show')}});

@@ -238,3 +238,9 @@ stats[mode] = { n, c, t }   // 出題数, 正解数, 合計秒
 - 視点: 一人称（機首位置のカメラ、FOV 72）と三人称（後方 32 m・上 10 m から追従、機体 GLB を表示、FOV 55）。操縦席視点は利用者の指示で廃止。選択は `aat.simView` に保存。高度の手がかりに地面の影と垂線を描く。
 - 操作: 左に操縦桿（円の中でドラッグ。上 = 奥 = 機首下げ、右 = 右バンク。離すと中央）、右に方向舵ボタン（押している間）。それぞれ pointerId を別に持つので両手で同時に操作できる。キーボードは矢印が操縦桿、A/D（, .）が方向舵。
 - 計器: 視界の下の行に姿勢指示器と方位指示器。`svgHI` の回転部に `.hi-c` を付けて毎フレーム回す。HUD 左上に 高度／方位／バンク／ピッチ。
+
+## 配信（本番 URL）
+
+- 本番: https://kokuteki.amaterasu-vocab.com/ — このアプリ専用の Cloudflare Worker（静的アセット）。リポジトリ直下の `wrangler.jsonc` と `.assetsignore` が設定。Cloudflare の Git 連携（Workers Builds）で main への push ごとに `npx wrangler deploy` が走る。
+- 動作確認用: https://kokuteki-trainer.ama-sunrise.workers.dev/（`workers_dev: true`）。予備: https://amateras39.github.io/kokuteki-trainer/（GitHub Pages）。
+- 注意: vocab-srs の Worker に `*.amaterasu-vocab.com/*` のワイルドカードルートがあり、サブドメインを横取りする。こちらは `kokuteki.amaterasu-vocab.com/*` の明示ルート（ホスト名が具体的なほうが優先）で受けている。vocab-srs のリポジトリ・Worker には触らない。

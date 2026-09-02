@@ -7,5 +7,10 @@
   // routes を書くと workers.dev が自動で無効になるので、動作確認用に明示的に有効化（https://kokuteki-trainer.ama-sunrise.workers.dev/）
   "workers_dev": true,
   "assets": { "directory": "./" },
-  "routes": [{ "pattern": "kokuteki.amaterasu-vocab.com", "custom_domain": true }]
+  // custom_domain で DNS を自動作成しつつ、明示ルートも置く。vocab-srs 側に "*.amaterasu-vocab.com/*" のワイルドカードルートがあり、
+  // ホスト名が具体的なルートのほうが優先されるため、こちらが kokuteki のリクエストを確実に受け取れる。
+  "routes": [
+    { "pattern": "kokuteki.amaterasu-vocab.com", "custom_domain": true },
+    { "pattern": "kokuteki.amaterasu-vocab.com/*", "zone_name": "amaterasu-vocab.com" }
+  ]
 }

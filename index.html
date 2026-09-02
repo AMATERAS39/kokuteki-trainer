@@ -674,6 +674,7 @@ body:not([data-view="train"]) .stats{display:none}
   <div class="layout">
     <main class="card" id="qcard">
       <div id="chooser" class="intro" hidden></div>
+      <div id="setup" class="intro" hidden></div>
       <div id="intro" class="intro" hidden></div>
       <div id="sim" class="sim" hidden></div>
       <div id="gallery" class="gallery" hidden></div>
@@ -718,10 +719,18 @@ body:not([data-view="train"]) .stats{display:none}
 'use strict';
 const E=window.AAT,$=s=>document.querySelector(s);
 const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aat.'+k,JSON.stringify(v))}catch(e){}}};
-/* 設定の既定値（本番はスピード勝負: アルファベット表記・20 問・1 問 5 秒・全体 5 分・解説スキップ）。
-   version が変わったら保存済みの設定を捨てて既定値に戻す */
-const SETTINGS_VERSION=2;
-const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',qLimit:5,sLimit:300,qCount:20,dirLabel:'alpha',scene:'auto',version:SETTINGS_VERSION});
+/* 設定の既定値（表示のみ: 方位の表記・テーマ・背景）。version が変わったら保存済みの設定を捨てて既定値に戻す */
+const SETTINGS_VERSION=3;
+const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',version:SETTINGS_VERSION});
+/* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit/sLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ */
+const MODE_DEFAULTS={
+  heading:{qCount:20,qLimit:5,sLimit:300,skipExplain:true},
+  attitude:{qCount:10,qLimit:10,sLimit:300,skipExplain:true},
+  combo:{qCount:20,qLimit:15,sLimit:480,skipExplain:true},
+  control:{qCount:10,qLimit:20,sLimit:900,skipExplain:true}};
+const modeSet=store.get('modeSet',{});
+const MS=()=>Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});
+function setMS(key,val){modeSet[mode]=Object.assign(MS(),{[key]:val});store.set('modeSet',modeSet)}
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'double',init:'random',bank:'on'};
 const genQ=()=>E.generate(mode,Object.assign({},settings,GEN));
@@ -737,7 +746,7 @@ const DEMO={modes:['heading'],qCount:10};
 const DEMO_ON=false;
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
-const qMax=()=>isFull()?settings.qCount:(settings.qCount>0?Math.min(settings.qCount,DEMO.qCount):DEMO.qCount);   // 体験版は 10 問まで
+const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
 async function checkKey(){
   const k=new URLSearchParams(location.search).get('key');if(!k)return;
   if(!DEMO_ON){history.replaceState(null,'',location.pathname+location.hash);return}
@@ -770,7 +779,7 @@ function applyScene(){
 const ckCompact=svg=>svg.replace('viewBox="0 0 360 240"','viewBox="0 0 360 188"').replace('aspect-ratio:360/240','aspect-ratio:360/188');
 
 /* ===== 画面内の領域の切り替え ===== */
-function showPane(name){['chooser','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name});if(name!=='quiz')$('#feedback').className='fb'}
+function showPane(name){['chooser','setup','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name});if(name!=='quiz')$('#feedback').className='fb'}
 function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
 
 /* ===== 出題 ===== */
@@ -811,7 +820,7 @@ function render(){
 }
 
 /* ===== 1問のタイマー（練習では制限なし） ===== */
-const qLimit=()=>phase==='practice'?0:settings.qLimit;
+const qLimit=()=>phase==='practice'?0:MS().qLimit;
 function startTimer(){
   t0=performance.now();clearInterval(timerId);
   const tick=()=>{
@@ -839,8 +848,8 @@ function finish(g,timedOut){
     renderStats();
     if(session&&qMax()>0&&session.n>=qMax())session.ended=true;
   }else if(practiceLeft>0)practiceLeft--;
-  /* 解説スキップ（計測時のみ）: 正誤の印を短く見せてから次へ */
-  if(!inPractice&&!timedOut){setTimeout(()=>{if(answered)next()},450);return}   // 計測中は解説を出さず自動で次へ（時間切れのときは「次へ」を待つ）
+  /* 解説スキップ（計測時のみ、種目ごとの設定）: 正誤の印を短く見せてから次へ。時間切れのときは「次へ」を待つ */
+  if(!inPractice&&!timedOut&&MS().skipExplain){setTimeout(()=>{if(answered)next()},450);return}
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'check':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
   $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。「次へ」で次の問題に進みます。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
@@ -867,7 +876,7 @@ function next(){
   q=genQ();render();window.scrollTo({top:0});
 }
 
-/* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 説明 → 練習 3 問 → 計測 ===== */
+/* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
 const INTRO={
   heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークは毎回向きが変わります。まず N を確認してから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を A〜D から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
@@ -883,7 +892,27 @@ function enterMode(m,sub){
   if(m==='control'&&sub==='practice'){startSim();return}
   if(m==='control'&&sub==='gallery'){showGallery();return}
   if(sub==='practice'){startPractice();return}   // アプリの説明から「練習する」
-  if(!hideIntro[m])showIntro();else startMeasured();
+  showSetup();
+}
+/* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・全体の制限時間・解説スキップ、説明と練習の表示 */
+function showSetup(){
+  setPhase('setup','計測条件');showPane('setup');
+  const ms=MS(),practice=mode!=='control';
+  const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(ms[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
+  const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
+  $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
+    ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']])}
+    ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
+    ${sel('sLimit','全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[480,'8 分'],[600,'10 分'],[900,'15 分']])}
+    ${sw('skipChk',ms.skipExplain,'解説スキップ（正誤だけ見せて次へ）')}
+    ${sw('introChk',!hideIntro[mode],practice?'開始前に説明と練習 3 問':'開始前に説明')}
+    <div class="acts"><button class="btn" id="setupGo">始める${ic('next','s')}</button></div>`;
+  $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>setMS(el.dataset.key,+el.value)));
+  const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
+  toggle($('#skipChk'),()=>MS().skipExplain,on=>setMS('skipExplain',on));
+  toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro)});
+  $('#setupGo').addEventListener('click',()=>{if(!hideIntro[mode])showIntro();else startMeasured()});
+  window.scrollTo({top:0});
 }
 function showChooser(){
   setPhase('chooser');showPane('chooser');
@@ -897,14 +926,11 @@ function showChooser(){
 }
 function showIntro(){
   setPhase('intro','説明');showPane('intro');
-  const lim=[];if(settings.qLimit>0)lim.push(`1 問 ${settings.qLimit} 秒`);if(settings.sLimit>0)lim.push(`全体 ${fmtSec(settings.sLimit)}`);if(qMax()>0)lim.push(`${qMax()} 問`);
+  const ms=MS(),lim=[];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(ms.sLimit>0)lim.push(`全体 ${fmtSec(ms.sLimit)}`);if(qMax()>0)lim.push(`${qMax()} 問`);
   const practice=mode!=='control';
-  $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。解説は表示せず次々に出題します。</li>`:''}</ul>
-    <label class="chkrow"><button class="chk on" id="hideChk" role="switch" aria-checked="true">${ic('check')}</button>次回からこの説明${practice?'と練習':''}を表示しない</label>
+  $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${ms.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
     <div class="acts"><button class="btn" id="introGo">${practice?'練習を始める（3 問）':'計測を始める'}${ic('next','s')}</button></div>`;
-  let hide=true;const chk=$('#hideChk');
-  chk.addEventListener('click',e=>{e.preventDefault();hide=!hide;chk.classList.toggle('on',hide);chk.setAttribute('aria-checked',hide)});
-  $('#introGo').addEventListener('click',()=>{hideIntro[mode]=hide;store.set('hideIntro',hideIntro);afterIntro()});
+  $('#introGo').addEventListener('click',afterIntro);
   window.scrollTo({top:0});
 }
 function afterIntro(){
@@ -919,7 +945,8 @@ function startMeasured(){
   session={n:0,c:0,t:0,start:performance.now(),ended:false};
   clearInterval(sessTimerId);
   const st=$('#sessTimer');
-  if(settings.sLimit>0){st.hidden=false;const tick=()=>{const rem=Math.max(0,settings.sLimit-(performance.now()-session.start)/1000);
+  const sl=MS().sLimit;
+  if(sl>0){st.hidden=false;const tick=()=>{const rem=Math.max(0,sl-(performance.now()-session.start)/1000);
       $('#sessVal').textContent=fmtSec(rem);st.classList.toggle('warn',rem<=30);if(rem<=0)endSession()};tick();sessTimerId=setInterval(tick,500)}
   else st.hidden=true;
   renderStats();next();
@@ -1068,19 +1095,13 @@ function renderStats(){
 function renderSettingsPage(){
   const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(settings[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
   $('#settingsPage').innerHTML=`<h3>${ic('settings','s')}設定</h3>
-    <div class="setgroup"><h4>計測</h4>
-      ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']])}
-      ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
-      ${sel('sLimit','全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[600,'10 分'],[900,'15 分']])}</div>
     <div class="setgroup"><h4>表示</h4>
       ${sel('dirLabel','方位の表記',[['alpha','アルファベット'],['kanji','漢字']])}
       ${sel('theme','テーマ',[['auto','自動'],['dark','ダーク'],['light','ライト']])}
       ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']])}</div>
     ${DEMO_ON&&isFull()&&store.get('key')?`<div class="setgroup"><h4>PC 用コード</h4><div class="setting"><span>PC の Web 版で入力すると全機能版になります</span><code class="pccode">${store.get('key')}</code></div></div>`:''}
-    <div class="setgroup"><h4>説明と練習</h4>
-      <div class="setting"><span>開始時の説明と練習 3 問</span><button class="btn ghost sm" id="resetIntro">${Object.keys(hideIntro).length?'もう一度表示する':'表示する設定です'}</button></div></div>`;
+    <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
   $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()}));
-  $('#resetIntro').addEventListener('click',()=>{Object.keys(hideIntro).forEach(x=>delete hideIntro[x]);store.set('hideIntro',hideIntro);$('#resetIntro').textContent='表示する設定です'});
 }
 const TIPS={
   heading:'まず N マークの向きを確認し、そこから機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東、180°=南。機首は N と同じ向きにはならない。',
@@ -1171,7 +1192,7 @@ function renderAbout(){
 }
 function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版（Google Play）</h3>
-    <ul><li>方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目すべて。</li><li>操縦操作の 3D 練習シミュレーター（一人称／三人称）と、全操作パターンの見え方。</li><li>出題数・制限時間の制限なし（設定で自由に変更）。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
+    <ul><li>方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目すべて。</li><li>操縦操作の 3D 練習シミュレーター（一人称／三人称）と、全操作パターンの見え方。</li><li>出題数・制限時間の制限なし（種目ごとに開始前に変更）。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
     <div class="acts"><a class="btn" href="${PLAY_URL}" target="_blank" rel="noopener">Google Play で見る${ic('next','s')}</a><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
     <h4 class="codeh">PC で使う（購入済みの方）</h4>
     <div class="sethelp">Android 版または iPhone 版を購入済みなら、そのアプリの設定画面に出る「PC 用コード」を入力すると、この端末でも全機能版になります。</div>

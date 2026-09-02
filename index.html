@@ -49,7 +49,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);lin
 body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 select,input,textarea{-webkit-user-select:auto;user-select:auto}
 img{-webkit-user-drag:none;-webkit-touch-callout:none}
-.d14 img,.hero-jet,.hero-logo{pointer-events:none}
+.d14 img,.hero-jet,.hero-word{pointer-events:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:disabled{cursor:default}
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -373,7 +373,10 @@ body:not([data-view="train"]) .stats{display:none}
 /* 画像は機体が中央になるよう左右対称の余白付き。枠より広く表示してスモークは左端で切れる */
 .hero-jet{position:relative;width:150%;max-width:none;height:auto;margin:0 -25%;filter:drop-shadow(0 1.25rem 1.5rem rgba(0,0,0,.55))}
 /* ロゴは機体と重ならないよう、画像の下の独立した行に右寄せで置く */
-.hero-logo{position:relative;align-self:flex-end;width:28%;max-width:8rem;height:auto;margin-top:.5rem;margin-right:.25rem;filter:drop-shadow(0 .25rem .5rem rgba(0,0,0,.6))}
+/* 立体文字 TENRYU（暫定: CSS の押し出し文字。RIKYU の納品（透明 PNG）が届いたら <img> に差し替える） */
+.hero-word{position:relative;align-self:flex-end;margin:.5rem .5rem 0 0;font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,7.5vw,2.4rem);letter-spacing:.14em;line-height:1;color:#f6f8fb;user-select:none;
+  text-shadow:0 .03em 0 #cfd8e2,0 .06em 0 #b3bfcc,0 .09em 0 #8f9cab,0 .12em 0 #6c7886,0 .15em 0 #4e5967,0 .22em .35em rgba(0,0,0,.6);transform:perspective(18rem) rotateX(16deg) skewX(-5deg)}
+.hero-word span{background:linear-gradient(180deg,#ffffff 0%,#dfe7ef 55%,#f2a93b 56%,#f6d89a 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
 .mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
 @media (hover:hover){.mode:hover{border-color:var(--muted)}}
@@ -541,7 +544,7 @@ body:not([data-view="train"]) .stats{display:none}
   .combo .att{grid-template-columns:1fr 1fr}
   .hero2{margin-top:1.25rem;padding:1.5rem 2rem 1.25rem}
   .hero-jet{width:110%;max-width:56rem;margin:0 auto}
-  .hero-logo{max-width:10rem;margin-right:1rem}
+  .hero-word{font-size:2.8rem;margin-right:1rem}
   .modes{grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem}
   .homeactions{flex-direction:row;justify-content:center}
   .homeactions .btn{width:auto;padding:0 2rem}
@@ -606,7 +609,7 @@ body:not([data-view="train"]) .stats{display:none}
   <section id="view-home" hidden>
     <div class="hero2">
       <img class="hero-jet" src="img/hero.webp" alt="T-4 ブルーインパルス" width="1709" height="678">
-      <img class="hero-logo" src="img/emblem.png" alt="TENRYU" width="635" height="610">
+      <div class="hero-word" aria-label="TENRYU"><span>TENRYU</span></div>
     </div>
     <div class="modes" id="modeCards"></div>
   </section>

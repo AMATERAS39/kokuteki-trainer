@@ -2,8 +2,8 @@
 # 14 方向（bank 0）と 12 方向 × r30/l30/r60/l60 の PNG を、全部に共通の枠で切り出して縮尺を揃え、WebP（品質 92・透明あり）に。
 import os, glob
 from PIL import Image
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-IMG = os.path.join(ROOT, 'app', 'img'); PKG = os.path.join(ROOT, 'package')
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # リポジトリ直下
+IMG = os.path.join(ROOT, 'img'); PKG = os.environ.get('AAT_PKG') or os.path.join(ROOT, 'dev', 'package')   # 一覧の出力先（非公開の控えは AAT_PKG で指定）
 os.makedirs(PKG, exist_ok=True)
 Q = 92; PAD = 40
 files = sorted(glob.glob(os.path.join(IMG, 'bi-*.png')))

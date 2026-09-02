@@ -1,7 +1,7 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v51';
+const CACHE = 'aat-v52';
 const ASSETS = ['./', './index.html', './engine.js?v=29', './viewer.js', './sim3d.js?v=10', './manifest.webmanifest', './privacy.html',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp', './img/hero.webp', './img/bi-logo.png',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp', './img/hero.webp', './img/emblem.png',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),
   /* バンク付き（真上・真下を除く 12 方向 × 左右 × 30/60） */
   ...['north', 'south', 'east', 'west', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].flatMap(n => ['r30', 'l30', 'r60', 'l60'].map(b => `./img/bi-${n}-${b}.webp`))];

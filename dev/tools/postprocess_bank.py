@@ -7,7 +7,7 @@ IMG = os.path.join(ROOT, 'app', 'img'); PKG = os.path.join(ROOT, 'package')
 os.makedirs(PKG, exist_ok=True)
 Q = 92; PAD = 40
 files = sorted(glob.glob(os.path.join(IMG, 'bi-*.png')))
-files = [f for f in files if not os.path.basename(f).startswith(('bi-top', 'bi-icon', 'bi-logo'))]
+files = [f for f in files if not os.path.basename(f).startswith(('bi-top', 'bi-icon', 'bi-logo', 'emblem'))]
 ims = {f: Image.open(f).convert('RGBA') for f in files}
 bb = None
 for im in ims.values():

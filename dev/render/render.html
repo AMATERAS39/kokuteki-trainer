@@ -63,6 +63,37 @@ for (const spec of (P.get('tex') || '').split(',').filter(Boolean)) {
   obj.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { if (m.name === mat && m.map) { t.wrapS = m.map.wrapS; t.wrapT = m.map.wrapT; t.flipY = m.map.flipY; m.map = t; m.needsUpdate = true; } }); } });
   log('tex ' + mat + ' <- ' + file);
 }
+/* 材質の付け替え（?remap=mesh:from>to）。from 材質の面に、to 材質の面から推定した平面写像で UV を与え、to 材質を割り当てる。
+   脚収納部の板（無地の main）に機体下面テクスチャ（bot）を隣と連続するように貼るのに使う */
+for (const spec of (P.get('remap') || '').split(',').filter(Boolean)) {
+  const [mesh, pair] = spec.split(':'); const [from, to] = pair.split('>');
+  obj.traverse(o => {
+    if (!o.isMesh || o.name !== mesh) return;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    const fi = ms.findIndex(m => m.name === from), ti = ms.findIndex(m => m.name === to);
+    const g = o.geometry, pos = g.attributes.position, uv = g.attributes.uv;
+    if (fi < 0 || ti < 0 || !uv || g.index) { log('remap skipped ' + spec); return; }
+    /* to 材質の頂点で u,v = a·x + b·y + c·z + d を最小二乗で当てはめる（4×4 正規方程式） */
+    const A = Array.from({ length: 4 }, () => [0, 0, 0, 0]), bu = [0, 0, 0, 0], bv = [0, 0, 0, 0];
+    for (const gr of g.groups) { if (gr.materialIndex !== ti) continue;
+      for (let i = gr.start; i < gr.start + gr.count; i++) { const r = [pos.getX(i), pos.getY(i), pos.getZ(i), 1];
+        for (let a = 0; a < 4; a++) { bu[a] += r[a] * uv.getX(i); bv[a] += r[a] * uv.getY(i); for (let b = 0; b < 4; b++) A[a][b] += r[a] * r[b]; } } }
+    const solve = (M, y) => { const n = 4, m = M.map((row, i) => [...row, y[i]]);
+      for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r; [m[c], m[p]] = [m[p], m[c]];
+        for (let r = 0; r < n; r++) { if (r === c || Math.abs(m[c][c]) < 1e-12) continue; const f = m[r][c] / m[c][c]; for (let k = c; k <= n; k++) m[r][k] -= f * m[c][k]; } }
+      return m.map((row, i) => Math.abs(row[i]) < 1e-12 ? 0 : row[n] / row[i]); };
+    const cu = solve(A, bu), cv = solve(A, bv);
+    let n = 0;
+    for (const gr of g.groups) { if (gr.materialIndex !== fi) continue; gr.materialIndex = ti;
+      for (let i = gr.start; i < gr.start + gr.count; i++) { const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+        uv.setXY(i, cu[0] * x + cu[1] * y + cu[2] * z + cu[3], cv[0] * x + cv[1] * y + cv[2] * z + cv[3]); n++; } }
+    uv.needsUpdate = true;
+    let mn = [1e9, 1e9], mx = [-1e9, -1e9];
+    for (const gr of g.groups) { if (gr.materialIndex !== ti) continue; for (let i = gr.start; i < gr.start + gr.count; i++) { const u = uv.getX(i), v = uv.getY(i); mn = [Math.min(mn[0], u), Math.min(mn[1], v)]; mx = [Math.max(mx[0], u), Math.max(mx[1], v)]; } }
+    const tm = ms[ti];
+    log(`remap ${mesh}: ${from} -> ${to} (${n} verts) cu=${cu.map(v => v.toFixed(4))} cv=${cv.map(v => v.toFixed(4))} uv[${mn.map(v=>v.toFixed(2))}..${mx.map(v=>v.toFixed(2))}] map=${tm.map && tm.map.image && (tm.map.image.currentSrc || tm.map.image.src || '?').split('/').pop()} wrap=${tm.map && tm.map.wrapS} vc=${tm.vertexColors} color=${tm.color.getHexString()} groups=${g.groups.length}`);
+  });
+}
 /* 脚など飛行中に見えない部品を非表示にする（名前で指定: ?hide=a,b,c） */
 const hide = (P.get('hide') || '').split(',').filter(Boolean);
 obj.traverse(o => { if (o.isMesh && hide.some(h => o.name.toLowerCase().includes(h.toLowerCase()))) o.visible = false; });

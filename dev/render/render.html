@@ -121,7 +121,19 @@ async function save(name) {
   const r = await fetch('/save?name=bi-' + name, { method: 'POST', body: data });
   log(name + ': ' + (await r.text()));
 }
-if (P.has('top')) {
+if (P.has('export')) {
+  /* アプリの 3D ビューア用に GLB を書き出す。非表示メッシュは取り除き、テクスチャは縮小して埋め込む */
+  const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+  const dead = []; obj.traverse(o => { if (o.isMesh && !o.visible) dead.push(o); }); dead.forEach(o => o.parent.remove(o));
+  /* 頂点の共有化とグループ統合で容量を減らす（FBX は面ごとに頂点が重複している） */
+  const { mergeVertices, mergeGroups } = await import('three/addons/utils/BufferGeometryUtils.js');
+  let before = 0, after = 0;
+  obj.traverse(o => { if (!o.isMesh) return; before += o.geometry.attributes.position.count;
+    let g = o.geometry; g.deleteAttribute('normal'); g = mergeGroups(g); g = mergeVertices(g, 1e-4); g.computeVertexNormals(); o.geometry = g; after += g.attributes.position.count; });
+  log(`vertices ${before} -> ${after}`);
+  const glb = await new GLTFExporter().parseAsync(inner, { binary: true, maxTextureSize: +(P.get('maxtex') || 1024) });
+  const r = await fetch('/saveglb?name=t4', { method: 'POST', body: glb }); log('export: ' + (await r.text()));
+} else if (P.has('top')) {
   /* 方位問題用の上面図: 機首が北（画面の上）を向いた姿を z 軸正方向から見る */
   cam.up.set(0, 1, 0); cam.position.set(0, 0, dist); cam.lookAt(0, 0, 0);
   dl.position.set(-3, 4, 8); dl2.position.set(4, -3, 2);

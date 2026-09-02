@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
 <title>航空適性トレーナー</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <style>
 /* ===== デザイントークン（Claude Design 納品 §6）ダークファースト ===== */
 :root{
@@ -197,6 +198,47 @@ aside{display:flex;flex-direction:column;gap:.75rem}
 .install .go{min-height:2.75rem;padding:0 1rem;border-radius:.75rem;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:.8125rem}
 .install .x{width:2.75rem;height:2.75rem;color:var(--muted);font-size:1.25rem}
 
+/* ===== ホーム・説明ページ ===== */
+.back{display:none;align-items:center;gap:.25rem;color:var(--muted);font-size:.8125rem;font-weight:700;margin-right:.75rem;white-space:nowrap}
+.back .ic{transform:rotate(180deg)}
+body:not([data-view="home"]) .back{display:inline-flex}
+body[data-view="home"] .stats{display:none}
+[hidden]{display:none!important}
+.hero{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center;margin-top:.5rem}
+.hero h2{font-family:var(--display);font-weight:700;font-size:1.375rem;margin:0;letter-spacing:.02em}
+.hero p{margin:.5rem 0 0;font-size:.875rem;line-height:1.7;color:var(--muted)}
+.hero img{width:5.5rem;height:5.5rem;object-fit:contain;transform:rotate(-45deg);filter:drop-shadow(0 .5rem 1rem rgba(0,0,0,.5))}
+.modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1.25rem}
+.mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1rem;transition:border-color .12s,transform .12s}
+.mode:hover{border-color:var(--muted)}
+.mode:active{transform:scale(.99)}
+.mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.mode .n,.mode .d,.mode .r{display:block}
+.mode .n{font-size:1rem;font-weight:700}
+.mode .d{font-size:.8125rem;color:var(--muted);margin-top:.125rem}
+.mode .r{font-family:var(--mono);font-size:.6875rem;color:var(--faint);margin-top:.25rem}
+.mode .go{color:var(--accent)}
+.homeactions{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.about{display:flex;flex-direction:column;gap:.75rem;margin-top:.75rem}
+.about .card h3{margin-bottom:.5rem}
+.about .card h3+h3,.about p+h3,.about dl+h3,.about .viewer+h3{margin-top:1rem}
+.about p{margin:.375rem 0 0;font-size:.875rem;line-height:1.7}
+.about dl{margin:.375rem 0 0;font-size:.875rem;line-height:1.7}
+.about dt{font-weight:700;margin-top:.5rem}
+.about dd{margin:0;color:var(--muted)}
+.about ul{margin:.375rem 0 0;padding-left:1.2em;font-size:.875rem;line-height:1.7;color:var(--muted)}
+.viewer{position:relative;margin-top:.75rem;border-radius:.75rem;overflow:hidden;border:1px solid var(--line);background:#cdd3da;aspect-ratio:4/3}
+.viewer canvas{width:100%!important;height:100%!important}
+.vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:#172130;background:#cdd3da}
+.legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:.5rem}
+.legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:.2rem;vertical-align:-.1rem;margin-right:.25rem}
+.dirbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:.375rem;margin-top:.75rem}
+.dirbtns .ab{min-height:2.75rem;font-size:.8125rem;font-weight:700}
+.vactions{display:flex;gap:.5rem;margin-top:.75rem}
+.vactions .btn{height:2.75rem;font-size:.8125rem}
+.credit{font-size:.8125rem;color:var(--muted);line-height:1.7}
+
 /* ===== PC 幅 ===== */
 @media (min-width:64rem){
   .app{padding:0 2rem}
@@ -237,6 +279,15 @@ aside{display:flex;flex-direction:column;gap:.75rem}
   .opts{grid-template-columns:repeat(4,1fr)}
   .att{grid-template-columns:1fr 1fr}
   .combo .att{grid-template-columns:1fr 1fr}
+  .hero{margin-top:1.5rem}
+  .hero h2{font-size:1.75rem}
+  .hero img{width:9rem;height:9rem}
+  .modes{grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem}
+  .homeactions{flex-direction:row;justify-content:center}
+  .homeactions .btn{width:auto;padding:0 2rem}
+  .about{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}
+  .about .card.wide{grid-column:1/-1}
+  .dirbtns{grid-template-columns:repeat(7,1fr)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -271,12 +322,63 @@ aside{display:flex;flex-direction:column;gap:.75rem}
 <div class="app">
   <header class="hdr">
     <div>
-      <div class="brand"><div class="name">航空適性トレーナー</div><div class="pwa">PWA</div></div>
+      <div class="brand"><div style="display:flex;align-items:baseline"><button class="back" id="backHome"><svg class="ic s"><use href="#i-next"/></svg>ホーム</button><div class="name">航空適性トレーナー</div></div><div class="pwa">PWA</div></div>
       <div class="sub">航空学生 適性検査対策：方位・姿勢指示器・操縦操作の反復練習</div>
     </div>
     <div class="stats" id="stats"></div>
   </header>
 
+  <section id="view-home" hidden>
+    <div class="hero">
+      <div>
+        <h2>種目を選んで訓練を始める</h2>
+        <p>航空学生の適性検査で問われる、方位の読み取り・姿勢指示器の読み取り・操縦操作の判断を、短い問題で反復練習します。回答ごとに正誤と解説が出て、解答時間と正答率が記録されます。</p>
+      </div>
+      <img src="img/t4-top.webp" alt="">
+    </div>
+    <div class="modes" id="modeCards"></div>
+    <div class="homeactions"><button class="btn ghost" id="toAbout">使い方と機体の 3D 表示</button></div>
+  </section>
+
+  <section id="view-about" hidden>
+    <div class="about">
+      <div class="card">
+        <h3>このアプリについて</h3>
+        <p>航空学生の適性検査（空間把握・計器の読み取り・操縦の判断）に向けた反復練習用の Web アプリです。ホーム画面に追加するとアプリとして起動でき、オフラインでも動きます。</p>
+        <h3>種目</h3>
+        <dl>
+          <dt>1. 方位</dt><dd>上から見た機体が向いている方位を、N マークを基準に 8 方位から答えます。北が上でない問題も出せます。</dd>
+          <dt>2. 姿勢指示器</dt><dd>南からの固定視点で見た機体の姿勢に合う姿勢指示器を 4 択で選びます。翼は水平で、機首が 14 方向のどれかを向いています。</dd>
+          <dt>1+2. 複合</dt><dd>同じ絵から方位と姿勢の両方を読み、姿勢指示器と方位指示器の組を選びます。</dd>
+          <dt>3. 操縦操作</dt><dd>コックピットから見た外の様子が 3 枚並びます。各区間でどの操作（操縦桿 右/左/奥/手前、ヨー 右/左）が行われたかを答えます。</dd>
+        </dl>
+        <h3>視点と座標の約束</h3>
+        <p>機体は原点にあり、第三者は南から原点を見ています。画面の奥が北、手前が南、右が東、左が西、上が上です。標準状態の機体は機首を北に、機体上部を上に向けています。真下を向くときは、標準状態のまま機首を下げるので、機体下部（腹）が南を向きます。斜め方向は水平面で 45°、上下に 30° です。</p>
+        <h3>計器の読み方</h3>
+        <ul>
+          <li>姿勢指示器は機体側が固定で、地平線側が動きます。機首上げでは水平線が下がって空（青）が広がり、機首下げでは地面（茶）が広がります。右バンクでは水平線が右上がりになります。</li>
+          <li>方位指示器は現在の方位が上に来ます。数字は 10 の位まで（3＝030°、12＝120°）です。</li>
+          <li>操縦桿を右に倒すと機体は右に傾き、景色は左に傾きます。奥に倒すと機首が下がって水平線が上がり、手前に引くと上昇して水平線が下がります。ヨーを踏むと水平線はそのまま景色が横に流れます。</li>
+        </ul>
+      </div>
+      <div class="card wide">
+        <h3>機体を動かして確かめる</h3>
+        <p class="tips">ドラッグで視点を回し、ホイールやピンチで拡大します。下のボタンで機首の向きを 14 方向に切り替えられます。視点は最初、南から原点を見ています。</p>
+        <div class="viewer" id="viewer"><div class="vload" id="vload">3D モデルを読み込み中…</div></div>
+        <div class="legend"><span><i style="background:#ff6b6b"></i>東（x）</span><span><i style="background:#3ed48a"></i>北（y）</span><span><i style="background:#5ab0ff"></i>上（z）</span><span>格子＝水平面</span></div>
+        <div class="dirbtns" id="dirBtns"></div>
+        <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
+      </div>
+      <div class="card">
+        <h3>記録について</h3>
+        <p class="credit">出題数・正解数・解答時間は端末内にだけ保存されます。種目ごとにリセットできます。</p>
+        <h3>クレジット</h3>
+        <p class="credit">機体モデル: T-4 ブルーインパルス（3D モデルとイラストは利用者提供）。画面デザイン: Claude Design。アイコン: RIKYU AI。3D 表示: three.js。</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="view-train" hidden>
   <nav class="tabs" id="tabs" role="tablist">
     <button class="tab" role="tab" data-mode="heading"><svg class="ic"><use href="#i-mode-heading"/></svg><span class="tx"><span class="t">1. 方位</span><span class="d">上面図から8方位を答える</span></span></button>
     <button class="tab" role="tab" data-mode="attitude"><svg class="ic"><use href="#i-mode-attitude"/></svg><span class="tx"><span class="t">2. 姿勢指示器</span><span class="d">第三者視点から計器を選ぶ</span></span></button>
@@ -309,6 +411,7 @@ aside{display:flex;flex-direction:column;gap:.75rem}
         <div class="rec" id="record"></div>
       </div>
     </aside>
+  </div>
   </div>
 </div>
 
@@ -441,10 +544,11 @@ function setMode(m){
   $('#tabdesc').textContent=DESC[m];$('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];
   renderSettings();renderStats();next();
 }
-document.querySelectorAll('#tabs .tab').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+document.querySelectorAll('#tabs .tab').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
 $('#next').addEventListener('click',next);
 $('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('stats',stats);streak=0;renderStats()});
 document.addEventListener('keydown',e=>{
+  if(document.body.dataset.view!=='train')return;
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){if(answered){e.preventDefault();next()}else if(mode==='control'){e.preventDefault();answerControl()}return}
   if(answered)return;
@@ -453,8 +557,51 @@ document.addEventListener('keydown',e=>{
   else if(mode==='control'){if(/^[1-6]$/.test(e.key)){const seg=[...document.querySelectorAll('.seg')].find(s=>!s.querySelector('.sel'))||document.querySelector('.seg');const b=seg.querySelectorAll('[data-op]')[+e.key-1];if(b)b.click()}}
 });
 applyTheme();
-const urlMode=new URLSearchParams(location.search).get('mode');
-setMode(E.MODES[urlMode]?urlMode:E.MODES[mode]?mode:'heading');
+
+/* ===== 画面の切り替え（ホーム / 訓練 / 説明）: URL のハッシュで管理 ===== */
+const MODE_ICON={heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
+function renderHome(){
+  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];
+    const rec=s.n?`${s.n}問 / 正答率 ${Math.round(s.c/s.n*100)}% / 平均 ${(s.t/s.n).toFixed(1)} s`:'まだ記録がありません';
+    return `<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span><span class="n">${E.MODES[m]}</span><span class="d">${DESC[m]}</span><span class="r">${rec}</span></span><span class="go">${ic('next','s')}</span></button>`}).join('');
+  $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
+}
+let viewer=null,viewerLoading=false;
+async function initAbout(){
+  if(viewer){viewer.resume();return}
+  if(viewerLoading)return;viewerLoading=true;
+  const host=$('#viewer'),load=$('#vload');
+  try{
+    const mod=await import('./viewer.js');
+    viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
+    load.remove();
+    $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');
+    $('#dirBtns').querySelectorAll('.ab').forEach(b=>b.addEventListener('click',()=>{$('#dirBtns').querySelectorAll('.ab').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');viewer.setDir(+b.dataset.h,+b.dataset.p)}));
+    $('#dirBtns').querySelector('.ab').classList.add('sel');
+    $('#camReset').addEventListener('click',()=>viewer.resetCamera());
+  }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
+}
+function show(v){
+  document.body.dataset.view=v;
+  $('#view-home').hidden=v!=='home';$('#view-train').hidden=v!=='train';$('#view-about').hidden=v!=='about';
+  window.scrollTo({top:0});
+}
+function route(){
+  const h=location.hash.replace(/^#/,'');let [v,arg]=h.split('/');
+  const urlMode=new URLSearchParams(location.search).get('mode');
+  if(!v&&E.MODES[urlMode]){v='train';arg=urlMode}
+  if(!['home','train','about'].includes(v))v='home';
+  if(v!=='train'){clearInterval(timerId)}
+  if(v!=='about'&&viewer)viewer.pause();
+  show(v);
+  if(v==='home')renderHome();
+  else if(v==='train')setMode(E.MODES[arg]?arg:E.MODES[mode]?mode:'heading');
+  else initAbout();
+}
+$('#backHome').addEventListener('click',()=>{location.hash='#home'});
+$('#toAbout').addEventListener('click',()=>{location.hash='#about'});
+window.addEventListener('hashchange',route);
+route();
 
 /* PWA: オフライン対応とホーム画面への追加 */
 if('serviceWorker' in navigator){

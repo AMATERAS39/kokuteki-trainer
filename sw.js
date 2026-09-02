@@ -1,6 +1,6 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v12';
-const ASSETS = ['./', './index.html', './engine.js', './manifest.webmanifest',
+const CACHE = 'aat-v13';
+const ASSETS = ['./', './index.html', './engine.js', './viewer.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`)];
 
@@ -15,7 +15,8 @@ self.addEventListener('fetch', e => {
   const sameOrigin = new URL(e.request.url).origin === location.origin;
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (res.ok && (sameOrigin || e.request.url.startsWith('https://fonts.'))) {
+      /* 同一オリジン（3D モデル含む）、Google Fonts、three.js の CDN は取得後にキャッシュしてオフラインでも使えるようにする */
+      if (res.ok && (sameOrigin || e.request.url.startsWith('https://fonts.') || e.request.url.startsWith('https://cdn.jsdelivr.net/'))) {
         const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy));
       }
       return res;

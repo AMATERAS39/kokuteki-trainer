@@ -7,6 +7,11 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         name = q.get('name', [''])[0]
+        if urllib.parse.urlparse(self.path).path == '/saveglb':
+            n = int(self.headers.get('Content-Length', 0)); data = self.rfile.read(n)
+            out = os.path.join(ROOT, 'app', 'model', f'{name}.glb'); os.makedirs(os.path.dirname(out), exist_ok=True)
+            open(out, 'wb').write(data)
+            self.send_response(200); self.send_header('Content-Type', 'text/plain'); self.end_headers(); self.wfile.write(f'saved {len(data)} bytes'.encode()); return
         if not name or not all(c.isalnum() or c in '-_' for c in name):
             self.send_response(400); self.end_headers(); return
         n = int(self.headers.get('Content-Length', 0)); body = self.rfile.read(n).decode()

@@ -1,6 +1,6 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v63';
-const ASSETS = ['./', './index.html', './engine.js?v=32', './viewer.js?v=3', './sim3d.js?v=10', './manifest.webmanifest', './privacy.html',
+const CACHE = 'aat-v64';
+const ASSETS = ['./', './index.html', './engine.js?v=32', './viewer.js?v=3', './sim3d.js?v=10', './manifest.webmanifest', './privacy.html', './news.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp', './img/hero.webp',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),
   /* バンク付き（真上・真下を除く 12 方向 × 左右 × 30/60） */
@@ -19,7 +19,12 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  const sameOrigin = new URL(e.request.url).origin === location.origin;
+  const url = new URL(e.request.url), sameOrigin = url.origin === location.origin;
+  /* お知らせは版を上げずに差し替えるので、通信を先に試してキャッシュを更新する（つながらないときは前回の内容） */
+  if (sameOrigin && url.pathname.endsWith('/news.json')) {
+    e.respondWith(fetch(e.request).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; }).catch(() => caches.match(e.request)));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
       /* 同一オリジン（3D モデル含む）、Google Fonts、three.js の CDN は取得後にキャッシュしてオフラインでも使えるようにする */

@@ -75,7 +75,7 @@ svg text{user-select:none}
 .updbtn.has::after{content:"";position:absolute;top:.5rem;right:.5rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);box-shadow:0 0 0 .125rem var(--bg)}
 .updbtn.busy .ic{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.toast{position:fixed;left:50%;bottom:max(1.25rem,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:.75rem;padding:.625rem 1rem;font-size:.8125rem;font-weight:700;box-shadow:0 .5rem 1.5rem rgba(0,0,0,.4);z-index:40;white-space:nowrap}
+.toast{position:fixed;left:50%;bottom:calc(max(1.25rem,env(safe-area-inset-bottom)) + 1.25rem);transform:translateX(-50%);background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:.75rem;padding:.625rem 1rem;font-size:.8125rem;font-weight:700;box-shadow:0 .5rem 1.5rem rgba(0,0,0,.4);z-index:40;white-space:nowrap}
 .menu{position:relative;flex:none}
 .menubtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent)}
 @media (hover:hover){.menubtn:hover{background:var(--panel)}}
@@ -83,6 +83,23 @@ svg text{user-select:none}
 .menulist{position:absolute;right:0;top:3rem;min-width:11rem;background:var(--panel2);border:1px solid var(--line2);border-radius:.75rem;padding:.375rem;box-shadow:0 1rem 2rem rgba(0,0,0,.5);z-index:20;display:flex;flex-direction:column}
 .menulist button{text-align:left;padding:.75rem .875rem;border-radius:.5rem;font-size:.875rem;font-weight:700}
 .menulist button:hover{background:var(--panel)}
+.menulist button{display:flex;align-items:center;gap:.5rem}
+.menulist .dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);flex:none}
+.menubtn.has{position:relative}
+.menubtn.has::after{content:"";position:absolute;top:.5rem;right:.5rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);box-shadow:0 0 0 .125rem var(--bg)}
+/* 画面下の固定表示: 左に版、右に著作権 */
+.foot{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:1rem;
+  padding:.25rem 1rem calc(.25rem + env(safe-area-inset-bottom));font-family:var(--mono);font-size:.625rem;letter-spacing:.04em;color:var(--faint);
+  background:linear-gradient(180deg,transparent,var(--bg) 45%);pointer-events:none;z-index:15}
+/* お知らせ */
+.news{display:flex;flex-direction:column;gap:.75rem;margin-top:.75rem}
+.news .it{border:1px solid var(--line);border-radius:.75rem;padding:.75rem .875rem;background:var(--panel2)}
+.news .hd{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.news .tag{font-family:var(--mono);font-size:.625rem;font-weight:700;border-radius:.375rem;padding:0 .375rem;border:1px solid var(--line2);color:var(--muted)}
+.news .tag.notice{color:var(--accent);border-color:var(--accent)}
+.news .dt{font-family:var(--mono);font-size:.6875rem;color:var(--faint)}
+.news .t{font-size:.875rem;font-weight:700;margin-top:.25rem}
+.news .b{font-size:.8125rem;line-height:1.7;color:var(--muted);margin-top:.25rem}
 .sub{display:none;font-size:.75rem;color:var(--muted);margin-top:.25rem}
 @media (display-mode:standalone){.sub{display:block}}
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:.375rem;margin-top:.625rem}
@@ -344,7 +361,7 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 .h3row{display:flex;justify-content:space-between;align-items:center}
 
 /* インストール案内 */
-.install{display:none;position:fixed;left:1rem;right:1rem;bottom:max(.75rem,env(safe-area-inset-bottom));background:var(--panel2);border:1px solid var(--line2);border-radius:1rem;padding:.875rem 1rem;
+.install{display:none;position:fixed;left:1rem;right:1rem;bottom:calc(max(.75rem,env(safe-area-inset-bottom)) + 1.25rem);background:var(--panel2);border:1px solid var(--line2);border-radius:1rem;padding:.875rem 1rem;
   grid-template-columns:2.5rem 1fr auto;gap:.75rem;align-items:center;box-shadow:0 1rem 2rem rgba(0,0,0,.5);z-index:10;max-width:40rem;margin:0 auto}
 .install.show{display:grid}
 .install img{width:2.5rem;height:2.5rem;border-radius:.625rem;display:block}
@@ -447,7 +464,7 @@ body:not([data-view="train"]) .stats{display:none}
 /* ===== スマホ幅: ホームと訓練画面を 1 画面に収める =====
    画面全体を縦の flex にし、図（機体画像・上面図・視界）だけを伸縮させる。極端に低い画面では図の最小高さを優先して少しだけスクロールする */
 @media (max-width:63.99rem){
-  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:max(.5rem,env(safe-area-inset-bottom))}
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:calc(max(.5rem,env(safe-area-inset-bottom)) + 1rem)}
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
   /* ホーム: 機体の絵だけ縮む */
@@ -601,8 +618,10 @@ body:not([data-view="train"]) .stats{display:none}
         <div class="menu">
           <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="menulist" id="menuList" hidden>
+            <button data-go="news">お知らせ<span class="dot" id="newsDot" hidden></span></button>
             <button data-go="settings">設定</button>
             <button data-go="about">アプリの説明</button>
+            <button data-act="restore">購入を復元</button>
             <button data-go="buy">全機能版について</button>
           </div>
         </div>
@@ -676,6 +695,10 @@ body:not([data-view="train"]) .stats{display:none}
     </div>
   </section>
 
+  <section id="view-news" hidden>
+    <div class="about"><div class="card" id="newsPage"></div></div>
+  </section>
+
   <section id="view-buy" hidden>
     <div class="about"><div class="card" id="buyPage"></div></div>
   </section>
@@ -725,6 +748,7 @@ body:not([data-view="train"]) .stats{display:none}
   </div>
 </div>
 
+<footer class="foot"><span id="footVer"></span><span>© 2026 AMATERAS</span></footer>
 <div class="toast" id="toast" hidden></div>
 <div class="install" id="install">
   <img src="icons/icon-192.png" alt="">
@@ -764,7 +788,7 @@ const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab
 const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
-const APP_VER='v63';   // 表示用の版。sw.js の CACHE と合わせる
+const APP_VER='v64';   // 表示用の版。sw.js の CACHE と合わせる
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1180,9 +1204,46 @@ function renderHome(){
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash=lock(b.dataset.mode)?'#buy':'#train/'+b.dataset.mode}));
   $('#modeCards').querySelectorAll('[data-go2]').forEach(b=>b.addEventListener('click',()=>{location.hash='#'+b.dataset.go2}));
 }
+/* お知らせ: news.json（利用者が送るお知らせと、版ごとの更新情報）。新しいお知らせが届いたらメニューボタンに赤い点を出し、メニューを開いたら消す */
+let newsItems=null,latestNotice=null;
+async function loadNews(){
+  if(newsItems)return newsItems;
+  const get=async o=>{const r=await fetch('news.json',o);if(!r.ok)throw 0;return r.json()};
+  let d=null;
+  try{d=await get({cache:'no-store'})}catch(e){try{d=await get({})}catch(e2){d=null}}
+  const list=(d&&Array.isArray(d.items)?d.items:[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id)));
+  if(d)newsItems=list;   // 読めなかったときは覚えない（次に開いたときにもう一度試す）
+  return list;
+}
+async function checkNews(){
+  const items=await loadNews();const n=items.find(i=>i.type==='notice');if(!n)return;
+  latestNotice=n.id;
+  if(store.get('newsSeen')!==n.id){menuBtn.classList.add('has');$('#newsDot').hidden=false}
+}
+function markNewsSeen(){if(latestNotice)store.set('newsSeen',latestNotice);menuBtn.classList.remove('has');$('#newsDot').hidden=true}
+async function renderNews(){
+  const page=$('#newsPage');
+  page.innerHTML='<h3>お知らせ</h3><div class="sub2">読み込み中…</div>';
+  const items=await loadNews();
+  markNewsSeen();
+  page.innerHTML='<h3>お知らせ</h3>'+(items.length?`<div class="news">${items.map(i=>{
+    const notice=i.type==='notice';
+    return `<div class="it"><div class="hd"><span class="tag${notice?' notice':''}">${notice?'お知らせ':'更新'}</span><span class="dt">${i.date||''}</span></div>`
+      +`<div class="t">${i.title||''}</div><div class="b">${i.body||''}</div></div>`}).join('')}</div>`
+    :'<div class="sub2">お知らせはまだありません。</div>');
+}
+/* 購入の復元: 端末に残っているコードで全機能版を有効にし直す */
+async function restorePurchase(){
+  const k=store.get('key');
+  if(k){try{const h=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(k)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    if(h===FULL_HASH){edition='full';store.set('edition','full');toast('全機能版を復元しました');if(document.body.dataset.view==='home')renderHome();return}}catch(e){}}
+  if(isFull()){toast('全機能版は有効です');return}
+  toast('購入したコードを入力してください');location.hash='#buy';
+}
 const menuBtn=$('#menuBtn'),menuList=$('#menuList');
 function closeMenu(){menuList.hidden=true;menuBtn.setAttribute('aria-expanded','false')}
-menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuList.hidden;menuBtn.setAttribute('aria-expanded',String(!menuList.hidden))});
+menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuList.hidden;menuBtn.setAttribute('aria-expanded',String(!menuList.hidden));if(!menuList.hidden)markNewsSeen()});
+menuList.querySelectorAll('[data-act="restore"]').forEach(b=>b.addEventListener('click',()=>{closeMenu();restorePurchase()}));
 menuList.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{closeMenu();if(!confirmLeave())return;leaveSession();location.hash='#'+b.dataset.go}));
 document.addEventListener('click',e=>{if(!menuList.hidden&&!e.target.closest('.menu'))closeMenu()});
 let viewer=null,viewerLoading=false;
@@ -1210,7 +1271,7 @@ async function initAbout(){
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
-const VIEWS=['home','train','settings','about','buy'];
+const VIEWS=['home','train','settings','about','news','buy'];
 function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});window.scrollTo({top:0})}
 let currentHash='';
 function route(){
@@ -1230,6 +1291,7 @@ function route(){
   else if(v==='train')enterMode(E.MODES[arg]?arg:'heading',sub);
   else if(v==='settings')renderSettingsPage();
   else if(v==='buy')renderBuy();
+  else if(v==='news')renderNews();
   else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':`この Web 版は体験版です（方位のみ・1 回 ${DEMO.qCount} 問まで）。全機能は Google Play 版で使えます。`;initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
@@ -1265,7 +1327,7 @@ function renderBuy(){
       else $('#buyMsg').textContent='コードが違います。'}catch(e){$('#buyMsg').textContent='この環境では確認できません（https で開いてください）。'}});
 }
 window.addEventListener('hashchange',route);
-checkKey().finally(route);
+checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews()});
 
 /* PWA と更新ボタン。新しい sw.js はインストールできしだい有効になる（待機させると、更新ボタンのない古い版の端末が移れない）。
    ただしページは勝手に読み込み直さない: 新しい版が有効になったら更新ボタンに赤い点を出し、押されたら読み込み直す。

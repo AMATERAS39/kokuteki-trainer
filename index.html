@@ -764,7 +764,7 @@ const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab
 const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
-const APP_VER='v62';   // 表示用の版。sw.js の CACHE と合わせる
+const APP_VER='v63';   // 表示用の版。sw.js の CACHE と合わせる
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1267,12 +1267,12 @@ function renderBuy(){
 window.addEventListener('hashchange',route);
 checkKey().finally(route);
 
-/* PWA と更新ボタン。新しい sw.js は自動では有効にならず「待機」する（計測の途中で勝手に再読み込みしないため）。
-   待機中は更新ボタンに赤い点を出し、押されたら SKIP_WAITING を送って有効化 → controllerchange で再読み込み。
-   何もしなくても、アプリを閉じて次に開いたときには新しい版になる */
-let swReg=null,toastId=null;
+/* PWA と更新ボタン。新しい sw.js はインストールできしだい有効になる（待機させると、更新ボタンのない古い版の端末が移れない）。
+   ただしページは勝手に読み込み直さない: 新しい版が有効になったら更新ボタンに赤い点を出し、押されたら読み込み直す。
+   計測の途中で画面が切り替わらないようにするため。何もしなくても、次に開いたときには新しい版になる */
+let swReg=null,toastId=null,updReady=false;
 function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastId);toastId=setTimeout(()=>{t.hidden=true},ms||2200)}
-function setUpdateReady(){$('#updBtn').classList.add('has')}
+function setUpdateReady(){updReady=true;$('#updBtn').classList.add('has')}
 function applyWaiting(){if(swReg&&swReg.waiting){try{sessionStorage.setItem('aat.updated','1')}catch(e){}swReg.waiting.postMessage('SKIP_WAITING');return true}return false}
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;
@@ -1281,13 +1281,19 @@ if('serviceWorker' in navigator){
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{})});
     setInterval(()=>reg.update().catch(()=>{}),30*60*1000);
   }).catch(()=>{}));
-  let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(navigator.serviceWorker.controller&&!reloaded){reloaded=true;location.reload()}});
+  /* 新しい版が有効になった: 出題中でなければすぐ読み込み直し、出題中なら赤い点を出して更新ボタンを待つ */
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!navigator.serviceWorker.controller)return;
+    setUpdateReady();
+    if(phase!=='session'&&phase!=='practice'&&phase!=='sim'){try{sessionStorage.setItem('aat.updated','1')}catch(e){}location.reload()}
+  });
 }
 try{if(sessionStorage.getItem('aat.updated')){sessionStorage.removeItem('aat.updated');toast('更新しました')}}catch(e){}
 $('#updBtn').addEventListener('click',async()=>{
   const b=$('#updBtn');if(b.classList.contains('busy'))return;
   b.classList.add('busy');
   if(applyWaiting())return;   // 待機中の版を有効化 → controllerchange で再読み込み（回転はそのまま）
+  if(updReady){try{sessionStorage.setItem('aat.updated','1')}catch(e){}location.reload();return}   // 有効化済み: 読み込み直すだけ
   if(!navigator.onLine){b.classList.remove('busy');toast('オフラインのため確認できません');return}
   let checked=false;
   try{if(swReg){await swReg.update();checked=true}}catch(e){}

@@ -45,7 +45,9 @@ let meshes = 0, textured = 0;
 obj.traverse(o => { if (o.isMesh) { meshes++; const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => {
   if (m.map) { textured++; m.color.setRGB(1, 1, 1); if (m.map.colorSpace !== undefined) m.map.colorSpace = THREE.SRGBColorSpace; }
   if (m.emissive) m.emissive.setRGB(0, 0, 0); if (m.specular) m.specular.setRGB(.05, .05, .05); m.shininess = 8;
-  m.side = P.get('side') === 'double' ? THREE.DoubleSide : THREE.FrontSide; m.needsUpdate = true; }); } });
+  m.side = P.get('side') === 'front' ? THREE.FrontSide : THREE.DoubleSide; m.needsUpdate = true; }); } });
+/* 法線を形状から計算し直す（元データの法線が内向きの面が黒く描かれるのを防ぐ）。?fixnormals=0 で無効 */
+if (P.get('fixnormals') !== '0') obj.traverse(o => { if (o.isMesh && o.geometry) { o.geometry.deleteAttribute('normal'); o.geometry.computeVertexNormals(); } });
 const box = new THREE.Box3().setFromObject(obj); const size = box.getSize(new THREE.Vector3()); const ctr = box.getCenter(new THREE.Vector3());
 const names = []; obj.traverse(o => { if (o.isMesh) names.push(o.name + '[' + (Array.isArray(o.material) ? o.material.map(m => m.name).join('|') : o.material.name) + ']'); });
 log(`meshes ${meshes} textured ${textured} size ${size.x.toFixed(1)} ${size.y.toFixed(1)} ${size.z.toFixed(1)}\n` + names.join('\n'));

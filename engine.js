@@ -265,7 +265,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     return `<svg viewBox="0 0 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="上面図">
 <circle cx="100" cy="100" r="96" fill="var(--bezel)"/><circle cx="100" cy="100" r="88" fill="var(--card)" stroke="var(--line2)" stroke-width="1"/>${ticks}
 <g transform="rotate(${phi} 100 100)"><polygon points="100,13 94,27 106,27" fill="var(--accent)"/><text x="100" y="42" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--accent)">N</text></g>
-<image href="img/t4-top.png" x="28" y="28" width="144" height="144" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta} 100 100)"/></svg>`;
+<image href="img/t4-top.webp" x="28" y="28" width="144" height="144" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta} 100 100)"/></svg>`;
   }
   function figAttitude(bank, pitch, front, sideRight) {
     /* バンク: 後方図は時計回り = 右バンク。前方図は左右が逆に見えるので符号反転。
@@ -281,7 +281,7 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
 
   /* 14 方向の絵（南からの固定視点）と読み方の凡例 */
   function figDir14(d) {
-    return `<div class="d14"><img src="img/bi-${d.id}.png" alt="第三者視点（南から）" style="width:100%;height:auto;display:block">
+    return `<div class="d14"><img src="img/bi-${d.id}.webp" alt="第三者視点（南から）" style="width:100%;height:auto;display:block">
 <svg class="d14legend" viewBox="0 0 76 54" aria-hidden="true"><g stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 44V14M13 19l5-5 5 5"/><path d="M18 44h36M49 39l5 5-5 5"/><path d="M18 44l14-11M27 33l5-0 0 5"/></g>
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="18" y="10" text-anchor="middle">上</text><text x="58" y="48">東</text><text x="36" y="30">北</text></g></svg></div>`;
   }

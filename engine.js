@@ -265,8 +265,11 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
   /* ---------- 描画: コックピット視界 ---------- */
   const PEAKS = (() => { const h = [22, 40, 18, 55, 30, 72, 26, 48, 20, 64, 36, 28, 58, 24, 44, 30, 68, 22, 50, 34, 26, 60, 18, 42, 30, 54, 20, 46, 38, 24]; return h.map((v, i) => [-870 + i * 60, -v]); })();
   /* progress: 前進の度合い 0..1。時間が進むと機体が前進し、景色（山・塔・太陽）が大きく見える */
-  function svgCockpit(bank, pitch, yaw, progress = 0) {
+  /* marks: true で目印を描く（雪山の頂と塔の先端にオレンジの輪、①の水平線の位置に破線）。見え方の確認画面用 */
+  function svgCockpit(bank, pitch, yaw, progress = 0, marks = false) {
     const id = 'ck' + (++uid), kp = 5, ky = 6, sc = (1 + 0.45 * progress).toFixed(3);
+    const mk = marks ? '<circle cx="-90" cy="-72" r="16" fill="none" stroke="#f2a93b" stroke-width="3"/><circle cx="230" cy="-42" r="14" fill="none" stroke="#f2a93b" stroke-width="3"/>' : '';
+    const ref = marks ? '<line x1="16" x2="344" y1="108" y2="108" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9"/><text x="20" y="102" font-size="11" font-family="var(--mono)" fill="#f2a93b">①の水平線</text>' : '';
     const mtn = 'M-900,0 ' + PEAKS.map(p => `L${p[0]},${p[1]}`).join(' ') + ' L900,0 Z';
     const ground = [10, 22, 38, 60, 90, 130, 180].map((y, i) => `<line x1="-900" x2="900" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .02}"/>`).join('');
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
@@ -275,9 +278,9 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
 <rect x="-900" y="-900" width="1800" height="900" fill="var(--sky)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--earth)"/>${ground}
 <g class="ck-yaw" transform="translate(${(-yaw * ky).toFixed(1)} 0) scale(${sc})"><circle cx="110" cy="-96" r="15" fill="#ffd36b"/><path d="${mtn}" fill="#4a5c70"/>
 <path d="M-130,0 L-90,-72 L-50,0 Z" fill="#65788d"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="#e8eef4"/>
-<rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/></g>
+<rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/>${mk}</g>
 <line x1="-900" x2="900" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g></g>
-<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>
+${ref}<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>
 <path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z" fill="none" stroke="var(--line)" stroke-width="4"/>
 <path d="M0,240 L0,190 Q180,170 360,190 L360,240 Z" fill="var(--glare, #1a2027)"/><path d="M0,192 Q180,172 360,192" fill="none" stroke="var(--line2)" stroke-width="3"/></svg>`;
   }

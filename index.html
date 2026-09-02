@@ -145,6 +145,8 @@ svg text{user-select:none}
 .gallery .frames{max-width:26rem;margin:0 auto}
 .gallery .gexp{margin:.75rem 0 0;padding-left:1.2em;font-size:.8125rem;line-height:1.6;color:var(--muted)}
 .gallery .gexp b{color:var(--text)}
+.gallery .gsel.off{opacity:.35;pointer-events:none}
+.gallery .gexp{min-height:3.2rem}
 .gallery .acts{margin-top:1rem}
 
 /* ===== レイアウト ===== */
@@ -525,7 +527,7 @@ body[data-view="home"] .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる">×</button>
 </div>
 
-<script src="engine.js?v=22"></script>
+<script src="engine.js?v=23"></script>
 <script>
 (function(){
 'use strict';
@@ -785,8 +787,8 @@ function showGallery(){
   const row=(title,ids,cols)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、水平飛行①からの②③を表示します。操縦桿と方向舵を両方選ぶと複合パターンになります。</div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2)}
-    <div class="gsel" id="gseqRow" hidden><div class="gl">複数の操作</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">順番に行う</button></div></div>
-    <div class="gsel" id="gorderRow" hidden><div class="gl">順番</div><div class="gp"><button class="ab" data-first="stick">操縦桿 → 方向舵</button><button class="ab" data-first="rudder">方向舵 → 操縦桿</button></div></div>
+    <div class="gsel" id="gseqRow"><div class="gl">複数の操作</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">順番に行う</button></div></div>
+    <div class="gsel" id="gorderRow"><div class="gl">順番</div><div class="gp"><button class="ab" data-first="stick">操縦桿 → 方向舵</button><button class="ab" data-first="rudder">方向舵 → 操縦桿</button></div></div>
     <div id="gout"></div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
@@ -800,20 +802,21 @@ function showGallery(){
 }
 function galDraw(){
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
-  $('#gseqRow').hidden=gal.sel.length<2;
+  $('#gseqRow').classList.toggle('off',gal.sel.length<2);
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
-  $('#gorderRow').hidden=!(gal.seq&&gal.sel.length>=2);
+  $('#gorderRow').classList.toggle('off',!(gal.seq&&gal.sel.length>=2));
   $('#gallery').querySelectorAll('[data-first]').forEach(b=>b.classList.toggle('sel',b.dataset.first===gal.first));
   const out=$('#gout');
-  if(!gal.sel.length){out.innerHTML='<div class="sub" style="margin-top:.75rem">上のボタンで操作を選んでください。</div>';return}
   const lv={bank:0,pitch:0,yaw:0};let f,text;
   /* 順番に行う: 選んだ「順番」に従い、①→②で 1 つ目、②→③で 2 つ目 */
   const ordered=gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group===gal.first?0:1)-(E.OP_BY_ID[b].group===gal.first?0:1));
-  if(gal.seq&&gal.sel.length>=2){f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));text=E.opsText(ordered)}
+  if(!gal.sel.length){f=[lv,lv,lv];text='操作なし（水平飛行）'}
+  else if(gal.seq&&gal.sel.length>=2){f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));text=E.opsText(ordered)}
   else{const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);f=[lv,step(lv)];f.push(step(f[1]));text=gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')}
   out.innerHTML=`<h4>${text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4>
-    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(x.bank,x.pitch,x.yaw,i/2)}</div></div>`).join('')}</div>
-    <ul class="gexp">${gal.sel.map(id=>{const o=E.OP_BY_ID[id];return `<li><b>${o.base}</b>: ${o.view} → ${o.body}</li>`}).join('')}</ul>`;
+    <div class="sub">目印: <span style="color:var(--accent)">○</span> 雪山の頂と塔の先端、<span style="color:var(--accent)">- - -</span> ①の水平線の位置</div>
+    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true)}</div></div>`).join('')}</div>
+    <ul class="gexp">${gal.sel.length?gal.sel.map(id=>{const o=E.OP_BY_ID[id];return `<li><b>${o.base}</b>: ${o.view} → ${o.body}</li>`}).join(''):'<li>上のボタンで操作を選ぶと、この 3 枚が入れ替わります。</li>'}</ul>`;
 }
 
 /* ===== 記録・設定 ===== */

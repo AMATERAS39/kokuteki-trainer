@@ -19,7 +19,7 @@ const W = +(P.get('w') || 1200), H = +(P.get('h') || 800);
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setSize(W, H); renderer.setPixelRatio(1);
-renderer.setClearColor(0x000000, P.has('probe') ? 1 : 0);
+renderer.setClearColor(0x000000, P.has('probe') && !P.has('save') ? 1 : 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 /* 照明: 環境光を主体にして、陰影が濃く出ないようにする（?hemi= ?dir= で調整） */
@@ -102,11 +102,12 @@ inner.scale.setScalar(10 / Math.max(size.x, size.y, size.z));
 /* モデル固有の軸を標準状態（機首 +y, 機体上部 +z）に合わせる回転（度）。試し描画で決める */
 inner.rotation.set(+(P.get('ax') || 0) * D, +(P.get('ay') || 0) * D, +(P.get('az') || 0) * D, P.get('order') || 'XYZ');
 const pivot = new THREE.Group(); pivot.add(inner); scene.add(pivot);
-if (P.has('probe')) { scene.add(new THREE.AxesHelper(9)); const g = new THREE.GridHelper(20, 20, 0x444444, 0x666666); g.rotation.x = Math.PI / 2; scene.add(g); }
+if (P.has('probe') && !P.has('save')) { scene.add(new THREE.AxesHelper(9)); const g = new THREE.GridHelper(20, 20, 0x444444, 0x666666); g.rotation.x = Math.PI / 2; scene.add(g); }
 
 /* 方位 h（北0°時計回り）とピッチ p（機首上げ正）へ。標準状態から Rx(p) → Rz(-h) */
-function setDir(h, p) {
-  const m = new THREE.Matrix4().makeRotationZ(-h * D).multiply(new THREE.Matrix4().makeRotationX(p * D));
+function setDir(h, p, bank = 0) {
+  /* bank: 右バンク正。機体前後軸（+y）回りの回転を最後に掛ける */
+  const m = new THREE.Matrix4().makeRotationZ(-h * D).multiply(new THREE.Matrix4().makeRotationX(p * D)).multiply(new THREE.Matrix4().makeRotationY(bank * D));
   pivot.quaternion.setFromRotationMatrix(m);
 }
 /* 斜め方向のピッチ角 [°]（?dp= で指定。既定 30。方位の 45° は固定） */
@@ -145,7 +146,8 @@ if (P.has('export')) {
   setDir(315, 0); renderer.render(scene, cam); await save('icon-src'); log('icon saved');
 } else if (P.has('probe')) {
   /* 試し描き: ?hd=方位 ?p=ピッチ（h はキャンバス高さに使うので別名） */
-  setDir(+(P.get('hd') || 0), +(P.get('p') || 0)); renderer.render(scene, cam); log('probe rendered');
+  setDir(+(P.get('hd') || 0), +(P.get('p') || 0), +(P.get('bk') || 0)); renderer.render(scene, cam); log('probe rendered');
+  if (P.has('save')) await save(P.get('save'));
 } else if (P.has('one')) {
   const d = DIRS.find(x => x[0] === P.get('one')); setDir(d[1], d[2]); renderer.render(scene, cam); log('rendered ' + d[0]);
 } else {

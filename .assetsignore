@@ -1,0 +1,8 @@
+# Worker の配信から外すもの（リポジトリ直下が配信ディレクトリなので、開発用のものをここで除外する）
+.git
+.gitignore
+.nojekyll
+.assetsignore
+README.md
+wrangler.jsonc
+dev

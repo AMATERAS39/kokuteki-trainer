@@ -1,0 +1,9 @@
+{
+  // Cloudflare Worker（静的アセットのみ）。vocab-srs と同じ流儀で、このアプリ専用の Worker として配信する。
+  // 配信 URL: https://kokuteki.amaterasu-vocab.com/（custom_domain なので、デプロイ時に DNS レコードも自動で作られる）
+  "name": "kokuteki-trainer",
+  "compatibility_date": "2026-09-02",
+  "observability": { "enabled": true },
+  "assets": { "directory": "./" },
+  "routes": [{ "pattern": "kokuteki.amaterasu-vocab.com", "custom_domain": true }]
+}

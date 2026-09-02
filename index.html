@@ -574,6 +574,7 @@ body:not([data-view="train"]) .stats{display:none}
 <symbol id="i-rudder-right-on" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect class="f" x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M8 20h8"/><path class="f" d="M13 17l4 3-4 3z"/></symbol>
 <symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11.5L12 4.5l8.5 7"/><path d="M6 10v9.5h12V10"/><path d="M10 19.5v-5h4v5"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
 <symbol id="i-cross" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
@@ -907,8 +908,16 @@ const INTRO={
   combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を A〜D から選びます。','方位指示器は現在の方位が上に来ます。'],
   control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を A〜D の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。']
 };
+/* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
+   計測に進んだら（startMeasured）ホームボタンに戻る。入口の判定は説明ページのボタンが立てる pendingBack で行う（同じハッシュを操縦操作の選択画面からも使うため） */
+let backTo=null,pendingBack=null,scrollTarget=null;
+function setBack(target){
+  backTo=target;const b=$('#backHome');
+  b.querySelector('use').setAttribute('href',target?'#i-back':'#i-home');b.setAttribute('aria-label',target?'戻る':'ホーム');
+}
 function enterMode(m,sub){
   if(!isFull()&&!DEMO.modes.includes(m)){location.hash='#buy';return}
+  setBack(sub==='practice'?pendingBack:null);pendingBack=null;
   mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);clearInterval(sessTimerId);
   $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
   $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
@@ -965,6 +974,7 @@ function startPractice(){
   q=genQ();render();window.scrollTo({top:0});
 }
 function startMeasured(){
+  setBack(null);
   setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
   session={n:0,c:0,t:0,start:performance.now(),ended:false};
   clearInterval(sessTimerId);
@@ -1192,15 +1202,19 @@ function route(){
   leaveSession();
   if(v!=='about'&&viewer)viewer.pause();
   currentHash='#'+h;
+  if(v!=='train')setBack(null);
   show(v);
   if(v==='home')renderHome();
   else if(v==='train')enterMode(E.MODES[arg]?arg:'heading',sub);
   else if(v==='settings')renderSettingsPage();
   else if(v==='buy')renderBuy();
-  else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':`この Web 版は体験版です（方位のみ・1 回 ${DEMO.qCount} 問まで）。全機能は Google Play 版で使えます。`;initAbout()}
+  else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':`この Web 版は体験版です（方位のみ・1 回 ${DEMO.qCount} 問まで）。全機能は Google Play 版で使えます。`;initAbout();
+    if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
 }
-$('#backHome').addEventListener('click',()=>{if(!confirmLeave())return;leaveSession();location.hash='#home'});
+$('#backHome').addEventListener('click',()=>{
+  if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}   // 説明ページの練習ボタンへ戻る
+  if(!confirmLeave())return;leaveSession();location.hash='#home'});
 /* アプリの説明の図: 既存の描画関数で組み立てる（説明ページは 1 画面に収める対象外） */
 let aboutDrawn=false;
 function renderAbout(){
@@ -1212,7 +1226,7 @@ function renderAbout(){
   $('#abTop').innerHTML=E.figTopDown(135,45)+'<div class="ext">N が右上、機首は N から 90° → 東</div>';
   $('#abOps').innerHTML=E.OPS.map(o=>{const f=E.applyOp({bank:0,pitch:0,yaw:0},o.id);return `<div class="op"><div class="opt">${o.ja}</div><div class="opv">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,0.5,true))}</div><div class="opd">${o.view}</div></div>`}).join('');
   $('#abPractice').innerHTML=Object.keys(E.MODES).map(m=>`<button class="btn ghost" data-pr="${m}">${E.MODES[m]}</button>`).join('');
-  $('#abPractice').querySelectorAll('[data-pr]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.pr+'/practice'}));
+  $('#abPractice').querySelectorAll('[data-pr]').forEach(b=>b.addEventListener('click',()=>{pendingBack='about';location.hash='#train/'+b.dataset.pr+'/practice'}));
 }
 function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版（Google Play）</h3>

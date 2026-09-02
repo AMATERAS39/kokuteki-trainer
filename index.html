@@ -764,6 +764,7 @@ const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab
 const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
+const APP_VER='v62';   // 表示用の版。sw.js の CACHE と合わせる
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1142,6 +1143,8 @@ function renderSettingsPage(){
       ${sel('dirLabel','方位の表記',[['alpha','アルファベット'],['kanji','漢字']])}
       ${sel('theme','テーマ',[['auto','自動'],['dark','ダーク'],['light','ライト']])}
       ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']])}</div>
+    <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
+      <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>
     ${DEMO_ON&&isFull()&&store.get('key')?`<div class="setgroup"><h4>PC 用コード</h4><div class="setting"><span>PC の Web 版で入力すると全機能版になります</span><code class="pccode">${store.get('key')}</code></div></div>`:''}
     <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
   $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()}));

@@ -87,6 +87,27 @@ svg text{user-select:none}
 .tab[aria-selected="true"]{background:var(--panel);color:var(--accent);border-bottom-color:var(--accent)}
 .tabdesc{padding:.5rem 0 0;font-size:.75rem;color:var(--muted)}
 
+/* ===== 訓練画面の種目バー・タイマー・成績 ===== */
+.modebar{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.25rem 0 0}
+.mb-l{display:flex;align-items:center;gap:.625rem;min-width:0}
+.mb-l .ic{color:var(--accent)}
+.mb-n{font-family:var(--display);font-weight:700;font-size:1rem}
+.mb-d{font-size:.75rem;color:var(--muted)}
+.sess{display:flex;align-items:center;gap:.375rem;font-family:var(--mono);font-size:.875rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.sess.warn{color:var(--bad)}
+.timer.warn{color:var(--bad)}
+.summary{text-align:center;padding:.5rem 0}
+.summary h2{font-family:var(--display);font-weight:700;font-size:1.25rem;margin:0}
+.summary .sub{font-size:.8125rem;color:var(--muted);margin-top:.25rem}
+.summary .grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:1rem 0}
+.summary .cell{background:var(--panel2);border:1px solid var(--line);border-radius:.75rem;padding:.75rem .5rem}
+.summary .cell .v{font-family:var(--mono);font-size:1.375rem;font-weight:700;font-variant-numeric:tabular-nums}
+.summary .cell .l{font-size:.6875rem;color:var(--muted)}
+.summary .acts{display:flex;flex-direction:column;gap:.5rem}
+.setgroup{margin-top:1rem}
+.setgroup h4{margin:0 0 .25rem;font-size:.75rem;letter-spacing:.08em;color:var(--accent);font-family:var(--display)}
+.sethelp{font-size:.75rem;color:var(--faint);margin-top:.5rem}
+
 /* ===== レイアウト ===== */
 .layout{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:.75rem}
 aside{display:flex;flex-direction:column;gap:.75rem}
@@ -212,6 +233,8 @@ aside{display:flex;flex-direction:column;gap:.75rem}
 .back{display:none;align-items:center;gap:.25rem;color:var(--muted);font-size:.8125rem;font-weight:700;margin-right:.75rem;white-space:nowrap}
 .back .ic{transform:rotate(180deg)}
 body:not([data-view="home"]) .back{display:inline-flex}
+/* ホーム以外では長いタイトルを隠し、戻るボタンだけにする（スマホ幅） */
+@media (max-width:40rem){body:not([data-view="home"]) .brand .name{display:none}}
 body[data-view="home"] .stats{display:none}
 [hidden]{display:none!important}
 .hero{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center;margin-top:.5rem}
@@ -346,6 +369,7 @@ body[data-view="home"] .stats{display:none}
           <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="menulist" id="menuList" hidden>
             <button data-go="home">ホーム</button>
+            <button data-go="settings">設定</button>
             <button data-go="about">アプリの説明</button>
           </div>
         </div>
@@ -414,20 +438,23 @@ body[data-view="home"] .stats{display:none}
     </div>
   </section>
 
+  <section id="view-settings" hidden>
+    <div class="card side" id="settingsPage"></div>
+  </section>
+
   <div id="view-train" hidden>
-  <nav class="tabs" id="tabs" role="tablist">
-    <button class="tab" role="tab" data-mode="heading"><svg class="ic"><use href="#i-mode-heading"/></svg><span class="tx"><span class="t">方位</span><span class="d">上面図から8方位を答える</span></span></button>
-    <button class="tab" role="tab" data-mode="attitude"><svg class="ic"><use href="#i-mode-attitude"/></svg><span class="tx"><span class="t">姿勢指示器</span><span class="d">南から見た姿勢を計器で選ぶ</span></span></button>
-    <button class="tab" role="tab" data-mode="combo"><svg class="ic"><use href="#i-mode-combo"/></svg><span class="tx"><span class="t">方位×姿勢指示器</span><span class="d">方位と姿勢を同時に読む</span></span></button>
-    <button class="tab" role="tab" data-mode="control"><svg class="ic"><use href="#i-mode-control"/></svg><span class="tx"><span class="t">操縦操作</span><span class="d">3枚の視界から操作を選ぶ</span></span></button>
-  </nav>
-  <div class="tabdesc" id="tabdesc"></div>
+  <div class="modebar">
+    <div class="mb-l"><svg class="ic" id="modeIcon"><use href="#i-mode-heading"/></svg><div><div class="mb-n" id="modeName"></div><div class="mb-d" id="tabdesc"></div></div></div>
+    <div class="sess" id="sessTimer" hidden><svg class="ic xs"><use href="#i-timer"/></svg><span id="sessVal"></span></div>
+  </div>
 
   <div class="layout">
     <main class="card" id="qcard">
+      <div id="summary" class="summary" hidden></div>
+      <div id="quiz">
       <div class="qhead">
         <div class="qno">問題 <b id="qno">1</b></div>
-        <div class="timer" id="timer"><svg class="ic xs"><use href="#i-timer"/></svg><span id="tval">0.0</span><small>s</small></div>
+        <div class="timer" id="timer"><svg class="ic xs"><use href="#i-timer"/></svg><span id="tval">0.0</span><small id="tunit">s</small></div>
       </div>
       <p class="prompt" id="prompt"></p>
       <div id="figs"></div>
@@ -438,9 +465,9 @@ body[data-view="home"] .stats{display:none}
         <button class="btn" id="next">次の問題<svg class="ic s"><use href="#i-next"/></svg></button>
       </div>
       <div class="kbd" id="kbd"><svg class="ic s"><use href="#i-keyboard"/></svg><span id="kbdText"></span></div>
+      </div>
     </main>
     <aside>
-      <div class="card side" id="settings"></div>
       <div class="card side"><h3>解き方のメモ</h3><p class="tips" id="tips"></p></div>
       <div class="card side">
         <div class="h3row"><h3>記録</h3><button class="reset" id="reset"><svg class="ic xs"><use href="#i-reset"/></svg>リセット</button></div>
@@ -464,26 +491,31 @@ body[data-view="home"] .stats{display:none}
 'use strict';
 const E=window.AAT,$=s=>document.querySelector(s);
 const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aat.'+k,JSON.stringify(v))}catch(e){}}};
-const settings=Object.assign({theme:'auto'},E.DEFAULT_SETTINGS,store.get('settings',{}));
+/* 設定: qLimit=1問の制限秒(0=なし) sLimit=全体の制限秒(0=なし) dirLabel=方位の表記(kanji|alpha) */
+const settings=Object.assign({theme:'auto',qLimit:15,sLimit:0,dirLabel:'kanji'},E.DEFAULT_SETTINGS,store.get('settings',{}));
 const stats=Object.assign({heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
-let mode=store.get('mode','heading'),q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
+let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
+let session=null,sessTimerId=null;   // 進行中のセッション {n,c,t,start,ended}
 const DIR_KEYS={0:'8',1:'9',2:'6',3:'3',4:'2',5:'1',6:'4',7:'7'};
 const DESC={heading:'上面図から8方位を答える',attitude:'南から見た姿勢を計器で選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を選ぶ'};
+const MODE_ICON={heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
 const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
+const dirLabel=i=>settings.dirLabel==='alpha'?E.DIRS[i].k:E.DIRS[i].ja;
 
-function applyTheme(){document.documentElement.dataset.theme=settings.theme==='auto'?'':settings.theme;
-  if(settings.theme==='auto')document.documentElement.removeAttribute('data-theme');
+function applyTheme(){
+  if(settings.theme==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=settings.theme;
   $('meta[name=theme-color]').setAttribute('content',getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0b1017')}
 
+/* ===== 出題 ===== */
 function render(){
   qcount++;answered=false;
   $('#qno').textContent=qcount;$('#qcard').classList.remove('answered');
-  $('#feedback').className='fb';$('#timer').classList.remove('stopped');
+  $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
   const figs=$('#figs'),ans=$('#answers');
   if(q.type==='heading'){
     $('#prompt').textContent='上から見下ろした戦闘機が向いている方位を、8方位から答えてください。';
     const grid=`<div class="dirgrid">${[7,0,1,6,-1,2,5,4,3].map(i=>i<0?'<div class="dot"><i></i></div>':
-      `<button class="ab" data-dir="${i}"><svg class="ic" style="transform:rotate(${i*45}deg)"><use href="#i-arrow-dir"/></svg><span class="t">${E.DIRS[i].ja}</span><span class="k">${E.DIRS[i].k}</span><span class="mk"></span></button>`).join('')}</div>`;
+      `<button class="ab" data-dir="${i}"><svg class="ic" style="transform:rotate(${i*45}deg)"><use href="#i-arrow-dir"/></svg><span class="t">${dirLabel(i)}</span><span class="k">${DIR_KEYS[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
     figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北${q.phi?'（北の向き: <b>ランダム</b>）':''}</div></div>${grid}</div>`;
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
@@ -509,16 +541,38 @@ function render(){
   }
   startTimer();
 }
-function startTimer(){t0=performance.now();clearInterval(timerId);timerId=setInterval(()=>{$('#tval').textContent=((performance.now()-t0)/1000).toFixed(1)},100)}
-function stopTimer(){clearInterval(timerId);const s=(performance.now()-t0)/1000;$('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
-function finish(g){
-  answered=true;const s=stopTimer();$('#qcard').classList.add('answered');
+
+/* ===== 1問のタイマー（制限時間つき） ===== */
+function startTimer(){
+  t0=performance.now();clearInterval(timerId);
+  $('#tunit').textContent='s';
+  const tick=()=>{
+    const el=(performance.now()-t0)/1000;
+    if(settings.qLimit>0){const rem=Math.max(0,settings.qLimit-el);$('#tval').textContent=rem.toFixed(1);$('#timer').classList.toggle('warn',rem<=3);if(rem<=0){timeoutQuestion();return}}
+    else $('#tval').textContent=el.toFixed(1);
+  };
+  tick();timerId=setInterval(tick,100);
+}
+function stopTimer(){clearInterval(timerId);const s=Math.min((performance.now()-t0)/1000,settings.qLimit>0?settings.qLimit:1e9);$('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
+function timeoutQuestion(){
+  if(answered)return;
+  const g=q.type==='heading'?E.gradeHeading(q,-1):q.type==='control'?E.gradeControl(q,-1):E.gradeOpts(q,-1);
+  if(q.type==='heading')mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,()=>false);
+  else mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,()=>false);
+  finish(g,true);
+}
+function finish(g,timedOut){
+  answered=true;const s=stopTimer();
   const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=s;store.set('stats',stats);
+  if(session){session.n++;if(g.ok)session.c++;session.t+=s}
   streak=g.ok?streak+1:0;
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
-  $('#fbTitle').textContent=g.ok?'正解 ✓':'不正解 ✗';$('#fbTime').textContent=s.toFixed(1)+' s';
+  $('#fbTitle').textContent=timedOut?'時間切れ ✗':g.ok?'正解 ✓':'不正解 ✗';$('#fbTime').textContent=s.toFixed(1)+' s';
   $('#explain').innerHTML=`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
+  $('#feedback').classList.add('show');
   renderStats();
+  if(session&&session.ended){$('#next').textContent='結果を見る';$('#next').focus({preventScroll:true});return}
+  $('#next').innerHTML=`次の問題${ic('next','s')}`;
   if(settings.auto&&g.ok)setTimeout(()=>{if(answered)next()},1200);else $('#next').focus({preventScroll:true});
 }
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
@@ -533,23 +587,75 @@ function answerOpts(i){
   mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,b=>+b.dataset.i===i);
   finish(g);
 }
-function next(){q=E.generate(mode,settings);render();window.scrollTo({top:0})}
+function next(){
+  if(session&&session.ended){showSummary();return}
+  q=E.generate(mode,settings);render();window.scrollTo({top:0});
+}
+
+/* ===== セッション（種目ごと・途中で切り替えない） ===== */
+function startSession(m){
+  mode=m;store.set('mode',m);qcount=0;streak=0;
+  session={n:0,c:0,t:0,start:performance.now(),ended:false};
+  $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
+  $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];
+  $('#summary').hidden=true;$('#quiz').hidden=false;
+  clearInterval(sessTimerId);
+  const st=$('#sessTimer');
+  if(settings.sLimit>0){st.hidden=false;const tick=()=>{const rem=Math.max(0,settings.sLimit-(performance.now()-session.start)/1000);
+      $('#sessVal').textContent=`${Math.floor(rem/60)}:${String(Math.floor(rem%60)).padStart(2,'0')}`;st.classList.toggle('warn',rem<=30);
+      if(rem<=0)endSession()};tick();sessTimerId=setInterval(tick,500)}
+  else st.hidden=true;
+  renderStats();next();
+}
+function endSession(){
+  if(!session||session.ended)return;
+  session.ended=true;clearInterval(sessTimerId);$('#sessVal').textContent='0:00';
+  if(!answered){clearInterval(timerId);showSummary()}   // 回答中なら即終了。回答済みなら「結果を見る」で表示
+  else{$('#next').textContent='結果を見る'}
+}
+function leaveSession(){clearInterval(timerId);clearInterval(sessTimerId);session=null}
+function showSummary(){
+  clearInterval(timerId);const s=session;const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
+  $('#quiz').hidden=true;const sm=$('#summary');sm.hidden=false;
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${settings.sLimit>0?'制限時間に達しました':'お疲れさまでした'}</div>
+    <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
+    <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
+  $('#again').addEventListener('click',()=>startSession(mode));
+  $('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});
+  window.scrollTo({top:0});
+}
+/* 訓練中に他の画面へ移るときは確認する */
+function confirmLeave(){
+  if(document.body.dataset.view!=='train'||!session||session.ended)return true;
+  return confirm('訓練を中断してこの種目を終了しますか？');
+}
+
+/* ===== 記録・設定 ===== */
 function renderStats(){
   const st=stats[mode],acc=st.n?Math.round(st.c/st.n*100)+'%':'—',avg=st.n?(st.t/st.n).toFixed(1):'—';
   const chip=(l,v,cls)=>`<div class="stat ${cls||''}"><div class="v${v==='—'?' dim':''}">${v}</div><div class="l">${l}</div></div>`;
-  $('#stats').innerHTML=chip('出題',st.n)+chip('正解',st.c)+chip('正答率',acc)+chip('平均 s',avg)+chip('連続',streak,'streak');
+  const sn=session?session.n:0,sc=session?session.c:0;
+  $('#stats').innerHTML=chip('出題',sn)+chip('正解',sc)+chip('正答率',sn?Math.round(sc/sn*100)+'%':'—')+chip('平均 s',session&&sn?(session.t/sn).toFixed(1):'—')+chip('連続',streak,'streak');
   $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span>${s.n}問 / ${s.n?Math.round(s.c/s.n*100)+'%':'—'} / ${s.n?(s.t/s.n).toFixed(1):'—'} s</span>`}).join('');
 }
-function renderSettings(){
-  const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${settings[key]===v?' selected':''}>${t}</option>`).join('')}</select></label>`;
-  let h=`<h3>${ic('settings','s')}設定</h3>`;
-  if(mode==='heading')h+=sel('north','北の向き',[['fixed','上に固定'],['random','ランダム（難）']]);
-  if(mode==='control'){h+=sel('ops','操作数',[['single','単一操作を継続'],['double','区間ごとに1操作']]);h+=sel('init','①の初期姿勢',[['level','水平'],['random','ランダム（難）']])}
-  h+=`<div class="setting"><span>正解したら自動で次へ</span><button class="chk${settings.auto?' on':''}" id="autoChk" role="switch" aria-checked="${settings.auto}">${settings.auto?'✓':''}</button></div>`;
-  h+=sel('theme','テーマ',[['auto','端末に合わせる'],['dark','ダーク'],['light','ライト']]);
-  $('#settings').innerHTML=h;
-  $('#settings').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{settings[s.dataset.key]=s.value;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();else next()}));
-  $('#autoChk').addEventListener('click',e=>{settings.auto=!settings.auto;store.set('settings',settings);e.currentTarget.classList.toggle('on',settings.auto);e.currentTarget.textContent=settings.auto?'✓':'';e.currentTarget.setAttribute('aria-checked',settings.auto)});
+function renderSettingsPage(){
+  const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(settings[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
+  const chk=(key,label)=>`<div class="setting"><span>${label}</span><button class="chk${settings[key]?' on':''}" data-chk="${key}" role="switch" aria-checked="${!!settings[key]}">${settings[key]?'✓':''}</button></div>`;
+  $('#settingsPage').innerHTML=`<h3>${ic('settings','s')}設定</h3>
+    <div class="setgroup"><h4>制限時間</h4>
+      ${sel('qLimit','1問あたり',[[0,'なし'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒'],[60,'60 秒']])}
+      ${sel('sLimit','種目全体',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[600,'10 分'],[900,'15 分']])}
+      <div class="sethelp">1問の時間が切れると不正解として次へ進みます。全体の時間が切れるとその種目を終了し、成績を表示します。</div></div>
+    <div class="setgroup"><h4>表記</h4>
+      ${sel('dirLabel','方位の表記',[['kanji','漢字（北・北東 …）'],['alpha','アルファベット（N・NE …）']])}
+      ${sel('theme','テーマ',[['auto','端末に合わせる'],['dark','ダーク'],['light','ライト']])}</div>
+    <div class="setgroup"><h4>出題</h4>
+      ${sel('north','方位: 北の向き',[['fixed','上に固定'],['random','ランダム（難）']])}
+      ${sel('ops','操縦操作: 操作数',[['single','単一操作'],['double','2 操作（順に）']])}
+      ${sel('init','操縦操作: ①の初期姿勢',[['level','水平'],['random','ランダム（難）']])}
+      ${chk('auto','正解したら自動で次へ')}</div>`;
+  $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme()}));
+  $('#settingsPage').querySelectorAll('[data-chk]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.chk;settings[k]=!settings[k];store.set('settings',settings);b.classList.toggle('on',settings[k]);b.textContent=settings[k]?'✓':'';b.setAttribute('aria-checked',settings[k])}));
 }
 const TIPS={
   heading:'N マークを基準に、機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東。北が上でない問題では、まず N の位置を確認する。',
@@ -558,17 +664,11 @@ const TIPS={
   control:'操縦桿を右に倒す → 機体が右に傾き景色は左に傾く。奥に倒す → 機首が下がり水平線が上がる。手前に引く → 上昇し水平線が下がる。右方向舵を踏む → 水平のまま右を向き景色が左へ流れる。選択肢は①→②、②→③の順。'
 };
 const KBD={heading:'テンキー 8/9/6/3/2/1/4/7 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
-function setMode(m){
-  mode=m;store.set('mode',m);
-  document.querySelectorAll('#tabs .tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.mode===m?'true':'false'));
-  $('#tabdesc').textContent=DESC[m];$('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];
-  renderSettings();renderStats();next();
-}
-document.querySelectorAll('#tabs .tab').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
+
 $('#next').addEventListener('click',next);
-$('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('stats',stats);streak=0;renderStats()});
+$('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
 document.addEventListener('keydown',e=>{
-  if(document.body.dataset.view!=='train')return;
+  if(document.body.dataset.view!=='train'||!session||$('#quiz').hidden)return;
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){if(answered){e.preventDefault();next()}return}
   if(answered)return;
@@ -577,8 +677,7 @@ document.addEventListener('keydown',e=>{
 });
 applyTheme();
 
-/* ===== 画面の切り替え（ホーム / 訓練 / 説明）: URL のハッシュで管理 ===== */
-const MODE_ICON={heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
+/* ===== 画面の切り替え（ホーム / 訓練 / 設定 / 説明）: URL のハッシュで管理 ===== */
 function renderHome(){
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="n">${E.MODES[m]}</span><span class="go">${ic('next','s')}</span></button>`).join('');
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
@@ -587,7 +686,7 @@ function renderHome(){
 const menuBtn=$('#menuBtn'),menuList=$('#menuList');
 function closeMenu(){menuList.hidden=true;menuBtn.setAttribute('aria-expanded','false')}
 menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuList.hidden;menuBtn.setAttribute('aria-expanded',String(!menuList.hidden))});
-menuList.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{closeMenu();location.hash='#'+b.dataset.go}));
+menuList.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{closeMenu();if(!confirmLeave())return;leaveSession();location.hash='#'+b.dataset.go}));
 document.addEventListener('click',e=>{if(!menuList.hidden&&!e.target.closest('.menu'))closeMenu()});
 let viewer=null,viewerLoading=false;
 async function initAbout(){
@@ -604,31 +703,38 @@ async function initAbout(){
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
+const VIEWS=['home','train','settings','about'];
 function show(v){
   document.body.dataset.view=v;
-  $('#view-home').hidden=v!=='home';$('#view-train').hidden=v!=='train';$('#view-about').hidden=v!=='about';
+  VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});
   window.scrollTo({top:0});
 }
+let currentHash='';
 function route(){
   const h=location.hash.replace(/^#/,'');let [v,arg]=h.split('/');
   const urlMode=new URLSearchParams(location.search).get('mode');
   if(!v&&E.MODES[urlMode]){v='train';arg=urlMode}
-  if(!['home','train','about'].includes(v))v='home';
-  if(v!=='train'){clearInterval(timerId)}
+  if(!VIEWS.includes(v))v='home';
+  /* ブラウザの戻るなどで訓練から離れる場合も確認する */
+  if(document.body.dataset.view==='train'&&v!=='train'&&session&&!session.ended){
+    if(!confirm('訓練を中断してこの種目を終了しますか？')){history.replaceState(null,'',currentHash||'#train/'+mode);return}
+  }
+  if(v!=='train')leaveSession();
   if(v!=='about'&&viewer)viewer.pause();
+  currentHash='#'+h;
   show(v);
   if(v==='home')renderHome();
-  else if(v==='train')setMode(E.MODES[arg]?arg:E.MODES[mode]?mode:'heading');
+  else if(v==='train')startSession(E.MODES[arg]?arg:'heading');
+  else if(v==='settings')renderSettingsPage();
   else initAbout();
 }
-$('#backHome').addEventListener('click',()=>{location.hash='#home'});
+$('#backHome').addEventListener('click',()=>{if(!confirmLeave())return;leaveSession();location.hash='#home'});
 window.addEventListener('hashchange',route);
 route();
 
 /* PWA: オフライン対応とホーム画面への追加 */
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-  /* 新しい版のサービスワーカーに切り替わったら一度だけ再読み込みして、新旧ファイルの混在を防ぐ */
   let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(navigator.serviceWorker.controller&&!reloaded){reloaded=true;location.reload()}});
 }
 const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;

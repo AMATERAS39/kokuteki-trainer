@@ -257,7 +257,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
       if (major) { const t = HI_LABELS[i / 3], cardinal = /[NESW]/.test(t); card += `<text transform="rotate(${a})" y="-56" text-anchor="middle" font-size="${cardinal ? 20 : 13}" font-weight="700" font-family="var(--display)" fill="${cardinal ? 'var(--accent)' : '#fff'}">${t}</text>`; }
     }
     return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="方位指示器">
-<circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><g transform="rotate(${-heading})">${card}</g>
+<circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><g class="hi-c" transform="rotate(${-heading})">${card}</g>
 <path d="M0,-30 L4,-16 L4,-2 L22,8 L22,13 L4,7 L4,16 L11,21 L11,25 L0,22 L-11,25 L-11,21 L-4,16 L-4,7 L-22,13 L-22,8 L-4,-2 L-4,-16 Z" fill="var(--accent)" opacity=".9"/>
 <polygon points="0,-96 -7,-84 7,-84" fill="var(--accent)"/><circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
   }

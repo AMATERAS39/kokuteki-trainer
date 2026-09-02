@@ -124,7 +124,31 @@ svg text{user-select:none}
 .intro .choice .ab{min-height:5rem;gap:.375rem}
 .intro .choice .ab .t{font-size:1rem;font-weight:700}
 .intro .choice .ab .d{font-size:.75rem;color:var(--muted)}
-.sim .view{border-radius:.625rem;overflow:hidden;border:1px solid var(--line)}
+.sim .view{position:relative;overflow:hidden;border-radius:.625rem;border:1px solid var(--line);background:#0b1017;height:24rem}
+.sim .view canvas{position:absolute;inset:0}
+.sim .hud{position:absolute;left:.5rem;top:.5rem;display:grid;grid-template-columns:auto auto;gap:.125rem .75rem;font-family:var(--mono);font-size:.625rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8);pointer-events:none;z-index:2}
+.sim .hud b{font-size:.8125rem;margin:0 .125rem;font-variant-numeric:tabular-nums}
+.sim .views{position:absolute;right:.5rem;top:.5rem;display:flex;gap:.25rem;z-index:2}
+.sim .vb{font-size:.6875rem;font-weight:700;padding:.3rem .5rem;border-radius:.375rem;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.sim .vb.sel{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.sim .cross{position:absolute;left:50%;top:50%;width:7rem;transform:translate(-50%,-50%);pointer-events:none;z-index:1}
+.sim .cockpit{position:absolute;left:-6%;right:-6%;bottom:0;height:36%;background:var(--glare,#1a2027);border-top:.25rem solid var(--line2);border-radius:50% 50% 0 0/45% 45% 0 0;display:flex;justify-content:center;align-items:center;gap:8%;padding-top:2%;z-index:1}
+.sim .cockpit .inst{height:78%;aspect-ratio:1}
+.sim .inst svg{height:100%;width:100%;display:block}
+.sim .wallmsg{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:rgba(200,60,60,.85);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:2}
+.sim .vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:var(--muted);background:var(--panel2);z-index:3}
+.sim .instrow{display:flex;justify-content:center;gap:1.5rem;margin-top:.5rem}
+.sim .instrow .inst{height:clamp(4.5rem,12dvh,7rem);aspect-ratio:1}
+.sim .ctl{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.5rem;align-items:center}
+.sim .stick{position:relative;width:clamp(6.5rem,20dvh,9rem);aspect-ratio:1;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);margin:0 auto;touch-action:none;display:flex;align-items:center;justify-content:center;user-select:none}
+.sim .stick .knob{width:42%;aspect-ratio:1;border-radius:50%;background:var(--accent);box-shadow:0 .25rem .75rem rgba(0,0,0,.5);pointer-events:none}
+.sim .stick .lb{position:absolute;font-size:.625rem;color:var(--muted);font-weight:700;pointer-events:none}
+.sim .stick .lb.t{top:.3rem;left:50%;transform:translateX(-50%)}.sim .stick .lb.b{bottom:.3rem;left:50%;transform:translateX(-50%)}
+.sim .stick .lb.l{left:.4rem;top:50%;transform:translateY(-50%)}.sim .stick .lb.r{right:.4rem;top:50%;transform:translateY(-50%)}
+.sim .rud .pedals{margin-top:0}
+.sim .rud .pedals .ab{min-height:clamp(3.5rem,10dvh,4.5rem);font-size:1rem}
+.sim .acts.row3{flex-direction:row;gap:.375rem}
+.sim .acts.row3 .btn{flex:1;font-size:.8125rem;padding:0 .25rem;height:2.75rem;gap:.25rem}
 .sim .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem;align-items:start}
 .sim .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:.375rem}
 .sim .pad .ab,.sim .pedals .ab{min-height:3.25rem;font-size:.75rem;font-weight:700;user-select:none;touch-action:none}
@@ -408,9 +432,7 @@ body[data-view="home"] .stats{display:none}
   .opts.text .ab{padding:.5rem .75rem;min-height:2.75rem}
   .opts.text .ab .t{font-size:.875rem}
   /* シミュレーター */
-  .sim .view{flex:1;min-height:6rem;display:flex;justify-content:center;border:0;border-radius:0}
-  .sim .view svg{height:100%;width:auto;max-width:100%;border-radius:.625rem;border:1px solid var(--line)}
-  .sim .row{margin-top:.5rem}
+  .sim .view{flex:1;min-height:7rem;height:auto}
   .sim .acts{margin-top:.5rem;gap:.375rem}
   .sim .acts .btn{height:2.75rem}
 }
@@ -622,7 +644,7 @@ body[data-view="home"] .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=25"></script>
+<script src="engine.js?v=26"></script>
 <script>
 (function(){
 'use strict';
@@ -839,48 +861,62 @@ function confirmLeave(){
 /* ===== 操縦操作の練習: 操縦桿と方向舵を動かして視界の変化を見る ===== */
 let sim=null;
 function startSim(){applyScene();
-  setPhase('sim','練習');showPane('sim');
-  sim={bank:0,pitch:0,yaw:0,keys:new Set(),raf:0,last:performance.now(),t0:performance.now()};
-  $('#sim').innerHTML=`<div class="view" id="simView">${ckCompact(E.svgCockpit(0,0,0))}</div>
-    <div class="row">
-      <div><h4>操縦桿を倒す</h4><div class="pad">
-        <div class="c"></div><button class="ab" data-k="fwd">奥</button><div class="c"></div>
-        <button class="ab" data-k="left">左</button><div class="c"><i></i></div><button class="ab" data-k="right">右</button>
-        <div class="c"></div><button class="ab" data-k="back">手前</button><div class="c"></div></div>
-        <h4 style="margin-top:.75rem">方向舵を踏む</h4><div class="pedals"><button class="ab" data-k="rl">左</button><button class="ab" data-k="rr">右</button></div></div>
-      <div><h4>姿勢指示器</h4><div class="ai" id="simAI">${E.svgAI(0,0)}</div>
-        <div class="read"><div>バンク<b id="rBank">0°</b></div><div>ピッチ<b id="rPitch">0°</b></div><div>ヨー<b id="rYaw">0°</b></div></div></div>
+  stopSim();setPhase('sim','練習');showPane('sim');
+  const view=store.get('simView')||'first';
+  const inst=`<div class="inst ai">${E.svgAI(0,0)}</div><div class="inst hi">${E.svgHI(0)}</div>`;
+  $('#sim').innerHTML=`<div class="view" id="simView">
+      <div class="hud"><div class="ro"><span>高度</span><b id="rAlt">80</b><span>m</span></div><div class="ro"><span>方位</span><b id="rHdg">000</b></div><div class="ro"><span>バンク</span><b id="rBank">0°</b></div><div class="ro"><span>ピッチ</span><b id="rPitch">0°</b></div></div>
+      <div class="views">${[['first','一人称'],['cockpit','操縦席'],['third','三人称']].map(([v,t])=>`<button class="vb${v===view?' sel':''}" data-view="${v}">${t}</button>`).join('')}</div>
+      <svg class="cross" viewBox="0 0 140 40" aria-hidden="true"><g stroke="var(--hud,#8ce99a)" stroke-width="2" fill="none"><line x1="70" y1="10" x2="70" y2="30"/><line x1="60" y1="20" x2="80" y2="20"/><path d="M8,20 h32 v8 M132,20 h-32 v8"/></g></svg>
+      <div class="cockpit" id="simCockpit"${view==='cockpit'?'':' hidden'}>${inst}</div>
+      <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
+      <div class="vload" id="simLoad">3D を読み込み中…</div>
     </div>
-    <div class="hint">ボタンを押している間だけ操作が続きます。操縦桿を右に倒すと機体が右に傾き、景色は左に傾きます。</div>
-    <div class="acts"><button class="btn ghost" id="simReset">水平に戻す</button><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
-  const press=(b,on)=>{const k=b.dataset.k;if(on){sim.keys.add(k);b.classList.add('down')}else{sim.keys.delete(k);b.classList.remove('down')}};
-  sim.raf=setInterval(()=>simFrame(performance.now()),33);   // 前進の表現のため常に描画を更新
-  $('#sim').querySelectorAll('[data-k]').forEach(b=>{
-    b.addEventListener('pointerdown',e=>{e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch(_){}press(b,true)});
-    ['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,()=>press(b,false)));
+    <div class="instrow" id="instRow"${view==='cockpit'?' hidden':''}>${inst}</div>
+    <div class="ctl">
+      <div class="stick" id="stick"><span class="lb t">奥</span><span class="lb b">手前</span><span class="lb l">左</span><span class="lb r">右</span><div class="knob" id="knob"></div></div>
+      <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab" data-r="-1">左</button><button class="ab" data-r="1">右</button></div></div>
+    </div>
+    <div class="acts row3"><button class="btn ghost" id="simLevel">水平に戻す</button><button class="btn ghost" id="simHome">位置を戻す</button><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
+  sim={h:null,keys:new Set(),ptr:null,rud:new Map()};
+  /* 操縦桿（左）: 円の中でドラッグ。上 = 奥（機首下げ）、右 = 右バンク。離すと中央に戻る */
+  const stick=$('#stick'),knob=$('#knob');
+  const applyInput=()=>{if(!sim||!sim.h)return;const i=sim.h.input,k=sim.keys;
+    if(sim.ptr===null){i.x=(k.has('ArrowRight')?1:0)-(k.has('ArrowLeft')?1:0);i.y=(k.has('ArrowUp')?1:0)-(k.has('ArrowDown')?1:0);knob.style.transform=`translate(${i.x*30}%,${-i.y*30}%)`}
+    let r=0;sim.rud.forEach(v=>r+=v);if(k.has('a')||k.has(','))r-=1;if(k.has('d')||k.has('.'))r+=1;i.r=Math.max(-1,Math.min(1,r))};
+  const setStick=e=>{const rc=stick.getBoundingClientRect();let dx=(e.clientX-(rc.left+rc.width/2))/(rc.width/2),dy=(e.clientY-(rc.top+rc.height/2))/(rc.height/2);const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
+    if(sim.h){sim.h.input.x=dx;sim.h.input.y=-dy}knob.style.transform=`translate(${(dx*30).toFixed(1)}%,${(dy*30).toFixed(1)}%)`};
+  stick.addEventListener('pointerdown',e=>{if(sim.ptr!==null)return;sim.ptr=e.pointerId;try{stick.setPointerCapture(e.pointerId)}catch(_){}setStick(e);e.preventDefault()});
+  stick.addEventListener('pointermove',e=>{if(e.pointerId===sim.ptr)setStick(e)});
+  ['pointerup','pointercancel'].forEach(ev=>stick.addEventListener(ev,e=>{if(e.pointerId!==sim.ptr)return;sim.ptr=null;if(sim.h){sim.h.input.x=0;sim.h.input.y=0}knob.style.transform='';applyInput()}));
+  /* 方向舵（右）: 押している間だけ。両手で同時に操作できる */
+  $('#sim').querySelectorAll('[data-r]').forEach(b=>{
+    b.addEventListener('pointerdown',e=>{e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch(_){}sim.rud.set(e.pointerId,+b.dataset.r);b.classList.add('down');applyInput()});
+    ['pointerup','pointercancel'].forEach(ev=>b.addEventListener(ev,e=>{sim.rud.delete(e.pointerId);b.classList.remove('down');applyInput()}));
   });
-  $('#simReset').addEventListener('click',()=>{sim.bank=0;sim.pitch=0;sim.yaw=0;simDraw()});
+  sim.kd=e=>{if(document.body.dataset.view!=='train'||!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(/^Arrow|^[ad,.]$/.test(k)){e.preventDefault();sim.keys.add(k);applyInput()}};
+  sim.ku=e=>{if(!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(sim.keys.delete(k))applyInput()};
+  window.addEventListener('keydown',sim.kd);window.addEventListener('keyup',sim.ku);
+  /* 視点 */
+  $('#sim').querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;store.set('simView',v);
+    $('#sim').querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('sel',x===b));$('#simCockpit').hidden=v!=='cockpit';$('#instRow').hidden=v==='cockpit';if(sim.h)sim.h.setView(v)}));
+  $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
+  $('#simHome').addEventListener('click',()=>{if(sim.h)sim.h.home()});
   $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
+  /* 計器と読み取り値の更新（毎フレーム） */
+  const ais=[...$('#sim').querySelectorAll('.inst.ai svg')],his=[...$('#sim').querySelectorAll('.inst.hi svg')],K=E.CK.aiK,f=x=>`${x>0?'+':''}${Math.round(x)}°`;
+  let lastTxt=0;
+  const onState=s=>{
+    ais.forEach(a=>{a.querySelector('.ai-h').setAttribute('transform',`rotate(${-s.b}) translate(0 ${(s.p*K).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-s.b})`)});
+    his.forEach(h=>h.querySelector('.hi-c').setAttribute('transform',`rotate(${-s.h})`));
+    const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
+  };
+  const mySim=sim;
+  import('./sim3d.js?v=1').then(mod=>{if(sim!==mySim)return;sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput()})
+    .catch(err=>{if(sim===mySim)$('#simLoad').textContent='3D を読み込めませんでした。通信状態を確認してください。';console.error(err)});
   window.scrollTo({top:0});
 }
-function simFrame(now){
-  if(!sim)return;
-  const dt=Math.min(0.05,(now-sim.last)/1000);sim.last=now;const k=sim.keys;
-  if(k.has('right'))sim.bank+=45*dt;if(k.has('left'))sim.bank-=45*dt;
-  if(k.has('fwd'))sim.pitch-=18*dt;if(k.has('back'))sim.pitch+=18*dt;
-  if(k.has('rr'))sim.yaw+=25*dt;if(k.has('rl'))sim.yaw-=25*dt;
-  sim.bank=Math.max(-60,Math.min(60,sim.bank));sim.pitch=Math.max(-40,Math.min(40,sim.pitch));sim.yaw=Math.max(-120,Math.min(120,sim.yaw));
-  simDraw();
-}
-function simDraw(){
-  const {bank,pitch,yaw}=sim,C=E.CK;
-  const v=$('#simView');v.querySelector('.ck-att').setAttribute('transform',`translate(180 108) rotate(${-bank}) translate(0 ${(pitch*C.kp).toFixed(1)})`);
-  const prog=((performance.now()-sim.t0)/1000%8)/8;   // 8 秒で景色が最大まで近づき、また遠景に戻る
-  v.querySelector('.ck-yaw').setAttribute('transform',`translate(${(-yaw*C.ky).toFixed(1)} 0) scale(${(1+C.grow*prog).toFixed(3)})`);
-  const a=$('#simAI');a.querySelector('.ai-h').setAttribute('transform',`rotate(${-bank}) translate(0 ${(pitch*C.aiK).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-bank})`);
-  const f=x=>`${x>0?'+':''}${Math.round(x)}°`;$('#rBank').textContent=f(bank);$('#rPitch').textContent=f(pitch);$('#rYaw').textContent=f(yaw);
-}
-function stopSim(){if(sim){clearInterval(sim.raf);sim=null}}
+function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('keydown',sim.kd);window.removeEventListener('keyup',sim.ku);sim=null}}
 
 /* ===== 操縦操作: 操作パターンの見え方（操作を選んで①→②→③を縦に表示。複数選択で複合パターン） ===== */
 const gal={sel:[],seq:false,first:'stick'};   // sel: 選択中の操作 id、seq: true=順番に行う / false=同時に行う、first: 順番に行うとき先に行う側

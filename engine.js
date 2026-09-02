@@ -14,16 +14,23 @@
     { k: 'N', ja: '北' }, { k: 'NE', ja: '北東' }, { k: 'E', ja: '東' }, { k: 'SE', ja: '南東' },
     { k: 'S', ja: '南' }, { k: 'SW', ja: '南西' }, { k: 'W', ja: '西' }, { k: 'NW', ja: '北西' }
   ];
-  const MODES = { heading: '方位', attitude: '姿勢指示器', combo: '複合', control: '操縦操作' };
+  const MODES = { heading: '方位', attitude: '姿勢指示器', combo: '方位×姿勢指示器', control: '操縦操作' };
+  /* base: 文末形、cont: 連用形（「〜し、」でつなぐ） */
   const OPS = [
-    { id: 'stick-right', ja: '操縦桿 右', group: 'stick', effect: { bank: 20 }, body: '機体が右に傾く', view: '景色が左に傾く（水平線が右上がりになる）' },
-    { id: 'stick-left', ja: '操縦桿 左', group: 'stick', effect: { bank: -20 }, body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
-    { id: 'stick-forward', ja: '操縦桿 奥', group: 'stick', effect: { pitch: -8 }, body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
-    { id: 'stick-back', ja: '操縦桿 手前', group: 'stick', effect: { pitch: 8 }, body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
-    { id: 'rudder-right', ja: 'ヨー 右', group: 'rudder', effect: { yaw: 10 }, body: '水平のまま右を向く', view: '水平線は変わらず、景色が左へ流れる' },
-    { id: 'rudder-left', ja: 'ヨー 左', group: 'rudder', effect: { yaw: -10 }, body: '水平のまま左を向く', view: '水平線は変わらず、景色が右へ流れる' }
+    { id: 'stick-right', ja: '操縦桿 右', base: '操縦桿を右に倒す', cont: '操縦桿を右に倒し', group: 'stick', effect: { bank: 20 }, body: '機体が右に傾く', view: '景色が左に傾く（水平線が右上がりになる）' },
+    { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', effect: { bank: -20 }, body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
+    { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', effect: { pitch: -8 }, body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
+    { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', effect: { pitch: 8 }, body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
+    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', effect: { yaw: 10 }, body: '水平のまま右を向く', view: '水平線は変わらず、景色が左へ流れる' },
+    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', effect: { yaw: -10 }, body: '水平のまま左を向く', view: '水平線は変わらず、景色が右へ流れる' }
   ];
   const OP_BY_ID = Object.fromEntries(OPS.map(o => [o.id, o]));
+  const OPPOSITE = { 'stick-right': 'stick-left', 'stick-left': 'stick-right', 'stick-forward': 'stick-back', 'stick-back': 'stick-forward', 'rudder-right': 'rudder-left', 'rudder-left': 'rudder-right' };
+  /* 操作列を文にする: 単一操作なら「操縦桿を右に倒す」、2 操作なら「操縦桿を右に倒し、右方向舵を踏む」 */
+  function opsText(ops) {
+    if (ops.length === 2 && ops[0] === ops[1]) return OP_BY_ID[ops[0]].base;
+    return ops.map((id, i) => i < ops.length - 1 ? OP_BY_ID[id].cont : OP_BY_ID[id].base).join('、');
+  }
   const HI_LABELS = ['N', '3', '6', 'E', '12', '15', 'S', '21', '24', 'W', '30', '33'];
   /* 第三者視点（南からの固定視点）で機首が向く 14 方向。heading は北 0° 時計回り、pitch は機首上げ正 [°]。
      読み方: 画面の奥が北、手前が南、右が東、左が西。 */
@@ -94,7 +101,21 @@
     const init = { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
     const frames = [init];
     for (const op of ops) frames.push(applyOp(frames[frames.length - 1], op));
-    return { type: 'control', ops, frames, init, single: s.ops === 'single' };
+    const single = s.ops === 'single';
+    /* 4 択: 正解の操作列 + 似た誤答（順序入れ替え・逆操作・別の操作） */
+    const key = a => a.join('|');
+    const cands = [];
+    if (single) { for (const o of OPS) if (o.id !== first) cands.push([o.id, o.id]); }
+    else {
+      const [a, b] = ops;
+      if (a !== b) cands.push([b, a]);
+      cands.push([OPPOSITE[a], b], [a, OPPOSITE[b]], [OPPOSITE[a], OPPOSITE[b]]);
+      for (const o of OPS) { if (o.id !== a) cands.push([o.id, b]); if (o.id !== b) cands.push([a, o.id]); }
+      cands.push([b, b], [a, a]);
+    }
+    const dis = pickDistractors(cands, c => key(c) !== key(ops), 3);
+    const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
+    return { type: 'control', ops, frames, init, single, opts };
   }
   function generate(mode, settings) {
     const s = Object.assign({}, DEFAULT_SETTINGS, settings);
@@ -124,12 +145,11 @@
     }
     return { ok, correct: ci, answerText: answerText + '）', lines };
   }
-  function gradeControl(q, ops) {
-    const seg = q.ops.map((o, i) => o === ops[i]);
-    const ok = seg.every(Boolean);
-    const lines = q.ops.map((id, i) => { const o = OP_BY_ID[id]; return `${'①②③'[i]}→${'①②③'[i + 1]}：${o.view} → ${o.body} → ${o.ja}。`; });
+  function gradeControl(q, i) {
+    const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
+    const lines = q.ops.map((id, k) => { const o = OP_BY_ID[id]; return `${'①②③'[k]}→${'①②③'[k + 1]}：${o.view} → ${o.body} → ${o.base}。`; });
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
-    return { ok, seg, correct: q.ops, answerText: q.ops.map(id => OP_BY_ID[id].ja).join(' → '), lines };
+    return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`, lines };
   }
 
   /* ---------- 描画: 上面図 ---------- */
@@ -286,6 +306,6 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="18" y="10" text-anchor="middle">上</text><text x="58" y="48">東</text><text x="36" y="30">北</text></g></svg></div>`;
   }
 
-  global.AAT = { DIRS, DIR14, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, generate, applyOp,
+  global.AAT = { DIRS, DIR14, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, generate, applyOp, opsText,
     gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, figTopDown, figAttitude, figDir14 };
 })(window);

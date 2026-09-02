@@ -6,13 +6,13 @@
 <meta name="theme-color" content="#0b1017">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="航空適性">
+<meta name="apple-mobile-web-app-title" content="適性検査">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/favicon-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
-<title>航空適性トレーナー</title>
+<title>パイロット適性検査トレーニング</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <style>
 /* ===== デザイントークン（Claude Design 納品 §6）ダークファースト ===== */
@@ -60,8 +60,15 @@ svg text{user-select:none}
 .hdr{padding:max(1rem,env(safe-area-inset-top)) 0 .75rem}
 @media (display-mode:standalone){.hdr{padding-top:max(3.5rem,env(safe-area-inset-top))}}
 .brand{display:flex;align-items:baseline;justify-content:space-between;gap:1rem}
-.brand .name{font-family:var(--display);font-weight:700;font-size:1.0625rem;letter-spacing:.02em}
-.brand .pwa{font-family:var(--mono);font-size:.6875rem;color:var(--faint)}
+.brand{align-items:center}
+.brand .name{font-family:var(--display);font-weight:700;font-size:1rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu{position:relative;flex:none}
+.menubtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--muted)}
+.menubtn:hover{background:var(--panel);color:var(--text)}
+.menubtn .ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.menulist{position:absolute;right:0;top:3rem;min-width:11rem;background:var(--panel2);border:1px solid var(--line2);border-radius:.75rem;padding:.375rem;box-shadow:0 1rem 2rem rgba(0,0,0,.5);z-index:20;display:flex;flex-direction:column}
+.menulist button{text-align:left;padding:.75rem .875rem;border-radius:.5rem;font-size:.875rem;font-weight:700}
+.menulist button:hover{background:var(--panel)}
 .sub{display:none;font-size:.75rem;color:var(--muted);margin-top:.25rem}
 @media (display-mode:standalone){.sub{display:block}}
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:.375rem;margin-top:.625rem}
@@ -135,6 +142,9 @@ aside{display:flex;flex-direction:column;gap:.75rem}
 .opts .ab .inst{width:70%}
 .opts .ab .pair{display:grid;grid-template-columns:1fr 1fr;gap:.25rem;width:92%}
 .opts .ab .lab{font-family:var(--mono);font-size:.8125rem;font-weight:700;color:var(--muted)}
+.opts.text{grid-template-columns:1fr}
+.opts.text .ab{flex-direction:row;justify-content:flex-start;gap:.875rem;text-align:left;padding:.875rem 1rem;min-height:3.25rem}
+.opts.text .ab .t{font-size:.9375rem;font-weight:700;line-height:1.4}
 .opts .ab.sel .lab{color:var(--accent)}
 .seg{margin-top:1rem}
 .seghead{display:flex;align-items:center;justify-content:space-between}
@@ -208,8 +218,8 @@ body[data-view="home"] .stats{display:none}
 .hero h2{font-family:var(--display);font-weight:700;font-size:1.375rem;margin:0;letter-spacing:.02em}
 .hero p{margin:.5rem 0 0;font-size:.875rem;line-height:1.7;color:var(--muted)}
 .hero img{width:5.5rem;height:5.5rem;object-fit:contain;transform:rotate(-45deg);filter:drop-shadow(0 .5rem 1rem rgba(0,0,0,.5))}
-.modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1.25rem}
-.mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1rem;transition:border-color .12s,transform .12s}
+.modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
+.mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
 .mode:hover{border-color:var(--muted)}
 .mode:active{transform:scale(.99)}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
@@ -277,6 +287,7 @@ body[data-view="home"] .stats{display:none}
   .submitrow .btn{width:auto;padding:0 2.5rem}
   .kbd{display:flex}
   .opts{grid-template-columns:repeat(4,1fr)}
+  .opts.text{grid-template-columns:1fr 1fr}
   .att{grid-template-columns:1fr 1fr}
   .combo .att{grid-template-columns:1fr 1fr}
   .hero{margin-top:1.5rem}
@@ -322,68 +333,82 @@ body[data-view="home"] .stats{display:none}
 <div class="app">
   <header class="hdr">
     <div>
-      <div class="brand"><div style="display:flex;align-items:baseline"><button class="back" id="backHome"><svg class="ic s"><use href="#i-next"/></svg>ホーム</button><div class="name">航空適性トレーナー</div></div><div class="pwa">PWA</div></div>
-      <div class="sub">航空学生 適性検査対策：方位・姿勢指示器・操縦操作の反復練習</div>
+      <div class="brand">
+        <div style="display:flex;align-items:baseline;min-width:0"><button class="back" id="backHome"><svg class="ic s"><use href="#i-next"/></svg>ホーム</button><div class="name">パイロット適性検査トレーニング</div></div>
+        <div class="menu">
+          <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <div class="menulist" id="menuList" hidden>
+            <button data-go="home">ホーム</button>
+            <button data-go="about">アプリの説明</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="stats" id="stats"></div>
   </header>
 
   <section id="view-home" hidden>
-    <div class="hero">
-      <div>
-        <h2>種目を選んで訓練を始める</h2>
-        <p>航空学生の適性検査で問われる、方位の読み取り・姿勢指示器の読み取り・操縦操作の判断を、短い問題で反復練習します。回答ごとに正誤と解説が出て、解答時間と正答率が記録されます。</p>
-      </div>
-      <img src="img/t4-top.webp" alt="">
-    </div>
     <div class="modes" id="modeCards"></div>
-    <div class="homeactions"><button class="btn ghost" id="toAbout">使い方と機体の 3D 表示</button></div>
   </section>
 
   <section id="view-about" hidden>
     <div class="about">
       <div class="card">
-        <h3>このアプリについて</h3>
-        <p>航空学生の適性検査（空間把握・計器の読み取り・操縦の判断）に向けた反復練習用の Web アプリです。ホーム画面に追加するとアプリとして起動でき、オフラインでも動きます。</p>
-        <h3>種目</h3>
-        <dl>
-          <dt>1. 方位</dt><dd>上から見た機体が向いている方位を、N マークを基準に 8 方位から答えます。北が上でない問題も出せます。</dd>
-          <dt>2. 姿勢指示器</dt><dd>南からの固定視点で見た機体の姿勢に合う姿勢指示器を 4 択で選びます。翼は水平で、機首が 14 方向のどれかを向いています。</dd>
-          <dt>1+2. 複合</dt><dd>同じ絵から方位と姿勢の両方を読み、姿勢指示器と方位指示器の組を選びます。</dd>
-          <dt>3. 操縦操作</dt><dd>コックピットから見た外の様子が 3 枚並びます。各区間でどの操作（操縦桿 右/左/奥/手前、ヨー 右/左）が行われたかを答えます。</dd>
-        </dl>
-        <h3>視点と座標の約束</h3>
-        <p>機体は原点にあり、第三者は南から原点を見ています。画面の奥が北、手前が南、右が東、左が西、上が上です。標準状態の機体は機首を北に、機体上部を上に向けています。真下を向くときは、標準状態のまま機首を下げるので、機体下部（腹）が南を向きます。斜め方向は水平面で 45°、上下に 30° です。</p>
-        <h3>計器の読み方</h3>
+        <h3>アプリの説明</h3>
         <ul>
-          <li>姿勢指示器は機体側が固定で、地平線側が動きます。機首上げでは水平線が下がって空（青）が広がり、機首下げでは地面（茶）が広がります。右バンクでは水平線が右上がりになります。</li>
-          <li>方位指示器は現在の方位が上に来ます。数字は 10 の位まで（3＝030°、12＝120°）です。</li>
-          <li>操縦桿を右に倒すと機体は右に傾き、景色は左に傾きます。奥に倒すと機首が下がって水平線が上がり、手前に引くと上昇して水平線が下がります。ヨーを踏むと水平線はそのまま景色が横に流れます。</li>
+          <li>航空学生の適性検査（方位・姿勢指示器・操縦操作）の反復練習。</li>
+          <li>回答ごとに正誤と解説を表示。解答時間と正答率は端末内に記録。</li>
+          <li>ホーム画面に追加するとアプリとして起動。オフラインでも動作。</li>
+        </ul>
+        <h3>種目</h3>
+        <ul>
+          <li><b>方位</b>: 上面図の機体が向く方位を 8 方位から選ぶ。</li>
+          <li><b>姿勢指示器</b>: 南から見た機体の姿勢に合う姿勢指示器を 4 択で選ぶ。</li>
+          <li><b>方位×姿勢指示器</b>: 同じ絵から方位と姿勢を読み、計器の組を 4 択で選ぶ。</li>
+          <li><b>操縦操作</b>: 視界 3 枚の変化から、行われた操作を 4 択で選ぶ。</li>
+        </ul>
+        <h3>視点と座標</h3>
+        <ul>
+          <li>機体は原点、視点は南。奥が北、右が東、上が上。</li>
+          <li>標準状態: 機首が北、機体上部が上。</li>
+          <li>真下: 標準状態から機首を下げるので、腹が南を向く。</li>
+          <li>斜め: 水平面で 45°、上下に 30°。</li>
+        </ul>
+        <h3>計器と操作</h3>
+        <ul>
+          <li>姿勢指示器: 機体側が固定、地平線側が動く。機首上げで空が広がり、機首下げで地面が広がる。右バンクで水平線が右上がり。</li>
+          <li>方位指示器: 現在の方位が上。数字は 10 の位まで（3＝030°）。</li>
+          <li>操縦桿 右: 機体が右に傾く（景色は左に傾く）。奥: 機首が下がる（水平線が上がる）。手前: 上昇（水平線が下がる）。</li>
+          <li>方向舵: 水平のまま向きが変わる（景色が横に流れる）。</li>
         </ul>
       </div>
       <div class="card wide">
-        <h3>機体を動かして確かめる</h3>
-        <p class="tips">ドラッグで視点を回し、ホイールやピンチで拡大します。下のボタンで機首の向きを 14 方向に切り替えられます。視点は最初、南から原点を見ています。</p>
+        <h3>機体を動かす</h3>
+        <ul>
+          <li>ドラッグで視点を回転、ホイール／ピンチで拡大。</li>
+          <li>ボタンで機首の向きを 14 方向に切り替え。</li>
+        </ul>
         <div class="viewer" id="viewer"><div class="vload" id="vload">3D モデルを読み込み中…</div></div>
         <div class="legend"><span><i style="background:#ff6b6b"></i>東（x）</span><span><i style="background:#3ed48a"></i>北（y）</span><span><i style="background:#5ab0ff"></i>上（z）</span><span>格子＝水平面</span></div>
         <div class="dirbtns" id="dirBtns"></div>
         <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
       </div>
       <div class="card">
-        <h3>記録について</h3>
-        <p class="credit">出題数・正解数・解答時間は端末内にだけ保存されます。種目ごとにリセットできます。</p>
         <h3>クレジット</h3>
-        <p class="credit">機体モデル: T-4 ブルーインパルス（3D モデルとイラストは利用者提供）。画面デザイン: Claude Design。アイコン: RIKYU AI。3D 表示: three.js。</p>
+        <ul>
+          <li>機体: T-4 ブルーインパルス（3D モデルは利用者提供）</li>
+          <li>画面デザイン: Claude Design ／ アイコン: RIKYU AI ／ 3D 表示: three.js</li>
+        </ul>
       </div>
     </div>
   </section>
 
   <div id="view-train" hidden>
   <nav class="tabs" id="tabs" role="tablist">
-    <button class="tab" role="tab" data-mode="heading"><svg class="ic"><use href="#i-mode-heading"/></svg><span class="tx"><span class="t">1. 方位</span><span class="d">上面図から8方位を答える</span></span></button>
-    <button class="tab" role="tab" data-mode="attitude"><svg class="ic"><use href="#i-mode-attitude"/></svg><span class="tx"><span class="t">2. 姿勢指示器</span><span class="d">第三者視点から計器を選ぶ</span></span></button>
-    <button class="tab" role="tab" data-mode="combo"><svg class="ic"><use href="#i-mode-combo"/></svg><span class="tx"><span class="t">1+2. 複合</span><span class="d">方位と姿勢を同時に読む</span></span></button>
-    <button class="tab" role="tab" data-mode="control"><svg class="ic"><use href="#i-mode-control"/></svg><span class="tx"><span class="t">3. 操縦操作</span><span class="d">3枚の視界から操作を答える</span></span></button>
+    <button class="tab" role="tab" data-mode="heading"><svg class="ic"><use href="#i-mode-heading"/></svg><span class="tx"><span class="t">方位</span><span class="d">上面図から8方位を答える</span></span></button>
+    <button class="tab" role="tab" data-mode="attitude"><svg class="ic"><use href="#i-mode-attitude"/></svg><span class="tx"><span class="t">姿勢指示器</span><span class="d">南から見た姿勢を計器で選ぶ</span></span></button>
+    <button class="tab" role="tab" data-mode="combo"><svg class="ic"><use href="#i-mode-combo"/></svg><span class="tx"><span class="t">方位×姿勢指示器</span><span class="d">方位と姿勢を同時に読む</span></span></button>
+    <button class="tab" role="tab" data-mode="control"><svg class="ic"><use href="#i-mode-control"/></svg><span class="tx"><span class="t">操縦操作</span><span class="d">3枚の視界から操作を選ぶ</span></span></button>
   </nav>
   <div class="tabdesc" id="tabdesc"></div>
 
@@ -432,7 +457,7 @@ const settings=Object.assign({theme:'auto'},E.DEFAULT_SETTINGS,store.get('settin
 const stats=Object.assign({heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
 let mode=store.get('mode','heading'),q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
 const DIR_KEYS={0:'8',1:'9',2:'6',3:'3',4:'2',5:'1',6:'4',7:'7'};
-const DESC={heading:'上面図から8方位を答える',attitude:'第三者視点から計器を選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を答える'};
+const DESC={heading:'上面図から8方位を答える',attitude:'南から見た姿勢を計器で選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を選ぶ'};
 const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
 
 function applyTheme(){document.documentElement.dataset.theme=settings.theme==='auto'?'':settings.theme;
@@ -465,17 +490,11 @@ function render(){
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else{
     $('#prompt').textContent=q.single
-      ?'コックピットから見た外の様子が①→②→③の順に変化しました。この間に続けて行われた操作を1つ選んでください。'
-      :'コックピットから見た外の様子が①→②→③の順に変化しました。各区間で行われた操作を選んでください（操作は1区間に1つ）。';
+      ?'コックピットから見た外の様子が①→②→③の順に変化しました。この間に行われた操作を選んでください。'
+      :'コックピットから見た外の様子が①→②→③の順に変化しました。①→②、②→③の順に行われた操作を選んでください。';
     figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(f.bank,f.pitch,f.yaw)}</div></div>`).join('')}</div></div>`;
-    const segs=q.single?[{label:'①→②→③'}]:[{label:'①→②'},{label:'②→③'}];
-    ans.innerHTML=`<div class="segs">${segs.map((s,si)=>`<div class="seg" data-seg="${si}"><div class="seghead"><div class="t">区間 <span>${s.label}</span></div><div class="st">未選択</div></div><div class="ops">${E.OPS.map(o=>`<button class="ab" data-op="${o.id}">${ic(o.id,'off')}${ic(o.id+'-on','on')}<span class="t">${o.ja}</span><span class="mk"></span></button>`).join('')}</div></div>`).join('')}</div>
-      <div class="submitrow"><button class="btn mt" id="submit" disabled>回答する</button></div><div class="hint" id="subhint">${q.single?'操作を選ぶと押せます':'2区間とも選ぶと押せます'}</div>`;
-    ans.querySelectorAll('.seg').forEach(seg=>seg.querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{if(answered)return;
-      seg.querySelectorAll('[data-op]').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
-      const st=seg.querySelector('.st');st.textContent='選択済';st.classList.add('on');
-      const all=[...ans.querySelectorAll('.seg')].every(s=>s.querySelector('.sel'));$('#submit').disabled=!all;$('#subhint').style.display=all?'none':''})));
-    $('#submit').addEventListener('click',answerControl);
+    ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${'ABCD'[i]}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
+    ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
   startTimer();
 }
@@ -499,19 +518,9 @@ function answerHeading(i){
   finish(g);
 }
 function answerOpts(i){
-  if(answered)return;const g=E.gradeOpts(q,i);
+  if(answered)return;const g=q.type==='control'?E.gradeControl(q,i):E.gradeOpts(q,i);
   mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,b=>+b.dataset.i===i);
   finish(g);
-}
-function answerControl(){
-  if(answered)return;
-  const segs=[...document.querySelectorAll('.seg')];
-  const sels=segs.map(s=>s.querySelector('[data-op].sel'));
-  if(sels.some(x=>!x))return;
-  const ops=q.single?[sels[0].dataset.op,sels[0].dataset.op]:sels.map(x=>x.dataset.op);
-  const g=E.gradeControl(q,ops);
-  segs.forEach((seg,si)=>{const ci=q.single?0:si;mark(seg.querySelectorAll('[data-op]'),b=>b.dataset.op===q.ops[ci],b=>b===sels[si])});
-  $('#submit').disabled=true;finish(g);
 }
 function next(){q=E.generate(mode,settings);render();window.scrollTo({top:0})}
 function renderStats(){
@@ -535,9 +544,9 @@ const TIPS={
   heading:'N マークを基準に、機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東。北が上でない問題では、まず N の位置を確認する。',
   attitude:'視点は常に南。画面の奥が北、手前が南、右が東、左が西。翼は水平なので水平線が傾いた選択肢は誤り。機首上げ → 水平線が下がり空が広がる。機首下げ → 地面が広がる。真上・真下は腹面／背面が見える。',
   combo:'まず機首の向き（奥・手前・右・左）で方位を決め、次に上向きか下向きかでピッチを決める。方位指示器は現在の方位が上に来る（数字は 10 の位まで: 3=030°, 12=120°）。',
-  control:'操縦桿 右 → 機体が右に傾き景色は左に傾く。奥 → 機体が沈む（水平線が上がる）。手前 → 上昇（水平線が下がる）。ヨー右 → 水平のまま右を向く（景色が左へ流れる）。操作は 1 区間に 1 つ。'
+  control:'操縦桿を右に倒す → 機体が右に傾き景色は左に傾く。奥に倒す → 機首が下がり水平線が上がる。手前に引く → 上昇し水平線が下がる。右方向舵を踏む → 水平のまま右を向き景色が左へ流れる。選択肢は①→②、②→③の順。'
 };
-const KBD={heading:'テンキー 8/9/6/3/2/1/4/7 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜6 で操作（未選択の区間から順に）、Enter で回答／次へ'};
+const KBD={heading:'テンキー 8/9/6/3/2/1/4/7 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 function setMode(m){
   mode=m;store.set('mode',m);
   document.querySelectorAll('#tabs .tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.mode===m?'true':'false'));
@@ -550,22 +559,25 @@ $('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('s
 document.addEventListener('keydown',e=>{
   if(document.body.dataset.view!=='train')return;
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
-  if(e.key==='Enter'){if(answered){e.preventDefault();next()}else if(mode==='control'){e.preventDefault();answerControl()}return}
+  if(e.key==='Enter'){if(answered){e.preventDefault();next()}return}
   if(answered)return;
   if(mode==='heading'){const map={'8':0,'9':1,'6':2,'3':3,'2':4,'1':5,'4':6,'7':7,w:0,e:1,d:2,c:3,x:4,z:5,a:6,q:7};if(e.key in map){e.preventDefault();answerHeading(map[e.key])}}
-  else if(mode==='attitude'||mode==='combo'){if(/^[1-4]$/.test(e.key)){e.preventDefault();answerOpts(+e.key-1)}}
-  else if(mode==='control'){if(/^[1-6]$/.test(e.key)){const seg=[...document.querySelectorAll('.seg')].find(s=>!s.querySelector('.sel'))||document.querySelector('.seg');const b=seg.querySelectorAll('[data-op]')[+e.key-1];if(b)b.click()}}
+  else{if(/^[1-4]$/.test(e.key)){e.preventDefault();answerOpts(+e.key-1)}}
 });
 applyTheme();
 
 /* ===== 画面の切り替え（ホーム / 訓練 / 説明）: URL のハッシュで管理 ===== */
 const MODE_ICON={heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
 function renderHome(){
-  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];
-    const rec=s.n?`${s.n}問 / 正答率 ${Math.round(s.c/s.n*100)}% / 平均 ${(s.t/s.n).toFixed(1)} s`:'まだ記録がありません';
-    return `<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span><span class="n">${E.MODES[m]}</span><span class="d">${DESC[m]}</span><span class="r">${rec}</span></span><span class="go">${ic('next','s')}</span></button>`}).join('');
+  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="n">${E.MODES[m]}</span><span class="go">${ic('next','s')}</span></button>`).join('');
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
 }
+/* 右上メニュー */
+const menuBtn=$('#menuBtn'),menuList=$('#menuList');
+function closeMenu(){menuList.hidden=true;menuBtn.setAttribute('aria-expanded','false')}
+menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuList.hidden;menuBtn.setAttribute('aria-expanded',String(!menuList.hidden))});
+menuList.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{closeMenu();location.hash='#'+b.dataset.go}));
+document.addEventListener('click',e=>{if(!menuList.hidden&&!e.target.closest('.menu'))closeMenu()});
 let viewer=null,viewerLoading=false;
 async function initAbout(){
   if(viewer){viewer.resume();return}
@@ -599,7 +611,6 @@ function route(){
   else initAbout();
 }
 $('#backHome').addEventListener('click',()=>{location.hash='#home'});
-$('#toAbout').addEventListener('click',()=>{location.hash='#about'});
 window.addEventListener('hashchange',route);
 route();
 

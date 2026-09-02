@@ -44,7 +44,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const cv = renderer.domElement; cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none';
   container.appendChild(cv);
   const world = new THREE.Scene();
-  world.fog = new THREE.Fog(col.skyHz, 900, 4600);
+  world.fog = new THREE.Fog(col.skyHz, 1200, 5200);
 
   /* 空: 上から水平線への縦グラデーションの大きな球（霧の影響を受けない） */
   const sky = new THREE.Mesh(new THREE.SphereGeometry(6000, 24, 12), new THREE.ShaderMaterial({
@@ -62,13 +62,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
 
   /* 光: 昼は明るく、朝夕はやや弱く、夜は暗く */
-  const li = night ? 0.35 : dim ? 1.3 : 2.0;
-  world.add(new THREE.HemisphereLight(col.skyTop, col.earth, li));
-  world.add(new THREE.AmbientLight(0xffffff, night ? 0.15 : 0.45));
-  const sun = new THREE.DirectionalLight(0xffffff, night ? 0.15 : dim ? 0.9 : 1.2); sun.position.set(dim ? 1 : 0.4, dim ? -0.3 : -0.6, dim ? 0.25 : 1).multiplyScalar(1000); world.add(sun);
+  /* 夜は月明かりとして青白い光を十分に当てる（暗すぎると見え方の練習にならない） */
+  if (night) { col.earth = col.earth.clone().lerp(new THREE.Color(0x4a5566), 0.5); col.mtn = col.mtn.clone().lerp(new THREE.Color(0x6b7a90), 0.45); }
+  const li = night ? 1.2 : dim ? 1.3 : 2.0;
+  world.add(new THREE.HemisphereLight(night ? new THREE.Color(0x9fb4d8) : col.skyTop, col.earth, li));
+  world.add(new THREE.AmbientLight(night ? 0xb8c4dc : 0xffffff, night ? 0.6 : 0.45));
+  const sun = new THREE.DirectionalLight(night ? 0xc9d6f0 : 0xffffff, night ? 0.9 : dim ? 0.9 : 1.2); sun.position.set(dim ? 1 : 0.4, dim ? -0.3 : -0.6, dim ? 0.25 : 1).multiplyScalar(1000); world.add(sun);
 
   /* 地面（格子つき）と滑走路 */
-  const lineCol = hex(col.earth.clone().lerp(new THREE.Color(night ? 0x8899aa : 0xffffff), night ? 0.35 : 0.45));
+  const lineCol = hex(col.earth.clone().lerp(new THREE.Color(night ? 0xc0ccdd : 0xffffff), night ? 0.6 : 0.45));
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.MeshLambertMaterial({ map: gridTexture(hex(col.earth), lineCol) }));
   ground.material.map.repeat.set(14, 14); ground.material.map.offset.set(0.5, 0.5);   // 原点が格子の交点に来る
   world.add(ground);
@@ -88,12 +90,20 @@ export function mount(container, { onState, view = 'first' } = {}) {
     world.add(w); walls.push(w);
   });
 
-  /* 山並み: 壁の外側の環。高い山には雪 */
+  /* 山: 見え方を学ぶのが目的なので、空間の中の近くに置く。出題の絵と同じく、開始位置の正面やや左に雪山、やや右に塔。
+     さらに空間の中に中くらいの山を散らし、壁の外にも遠景の環を置く */
   const mtnMat = new THREE.MeshLambertMaterial({ color: col.mtn }), snowMat = new THREE.MeshLambertMaterial({ color: col.snow });
-  for (let i = 0; i < 30; i++) {
-    const a = i / 30 * Math.PI * 2 + rnd() * 0.15, r = 2400 + rnd() * 700, hgt = 350 + rnd() * 550, rad = 300 + rnd() * 350;
-    const m = new THREE.Mesh(new THREE.ConeGeometry(rad, hgt, 7), mtnMat); m.rotation.x = Math.PI / 2; m.position.set(r * Math.cos(a), r * Math.sin(a), hgt / 2); world.add(m);
-    if (hgt > 600) { const s = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.3, hgt * 0.3, 7), snowMat); s.rotation.x = Math.PI / 2; s.position.set(m.position.x, m.position.y, hgt - hgt * 0.15); world.add(s); }
+  const mountain = (x, y, hgt, rad, snow) => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(rad, hgt, 8), mtnMat); m.rotation.x = Math.PI / 2; m.position.set(x, y, hgt / 2); world.add(m);
+    if (snow) { const s = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.28, hgt * 0.28, 8), snowMat); s.rotation.x = Math.PI / 2; s.position.set(x, y, hgt - hgt * 0.14); world.add(s); }
+  };
+  mountain(-260, 320, 420, 260, true);                     // 正面左の雪山（開始位置から約 800 m）
+  mountain(-520, 700, 300, 220, false); mountain(120, 900, 340, 240, true); mountain(560, 520, 260, 200, false);
+  [[-900, -300], [900, -100], [-700, 1100], [800, 1150], [-1100, 600], [1100, 800], [-500, -1000], [700, -900], [-1150, -1000], [1150, -1150], [300, 1300], [-1250, 100]]
+    .forEach(([x, y], i) => mountain(x, y, 180 + (i % 4) * 60, 140 + (i % 3) * 50, i % 4 === 3));
+  for (let i = 0; i < 24; i++) {                            // 遠景の環（壁の外）
+    const a = i / 24 * Math.PI * 2 + rnd() * 0.2, r = 2200 + rnd() * 500, hgt = 400 + rnd() * 500;
+    mountain(r * Math.cos(a), r * Math.sin(a), hgt, 300 + rnd() * 300, hgt > 650);
   }
 
   /* 民家・木・塔（インスタンス描画）。滑走路の帯は空ける */
@@ -121,8 +131,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
     m4.compose(v3.set(x, y, 1), q, s3.set(1.4, 1.4, 2.2)); trunks.setMatrixAt(i, m4);
   }
   world.add(trees, trunks);
-  for (let i = 0; i < 6; i++) {   // 塔（先端は赤）
-    const [x, y] = pick(), h = 60 + rnd() * 70;
+  for (let i = 0; i < 6; i++) {   // 塔（先端は赤）。最初の 1 本は正面右の目印
+    const [x, y] = i === 0 ? [230, 260] : pick(), h = i === 0 ? 120 : 60 + rnd() * 70;
     const t = new THREE.Mesh(new THREE.BoxGeometry(4, 4, h), new THREE.MeshLambertMaterial({ color: 0x8a949e })); t.position.set(x, y, h / 2); world.add(t);
     const tip = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 6), new THREE.MeshBasicMaterial({ color: 0xff5a4a })); tip.position.set(x, y, h + 3); world.add(tip);
   }
@@ -188,7 +198,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   raf = requestAnimationFrame(frame);
 
-  function setView(v) { curView = v; plane.visible = v === 'third'; cam.fov = v === 'third' ? 55 : v === 'cockpit' ? 62 : 72; cam.updateProjectionMatrix(); camPos.set(0, 0, 0); }
+  function setView(v) { curView = v; plane.visible = v === 'third'; cam.fov = v === 'third' ? 55 : 72; cam.updateProjectionMatrix(); camPos.set(0, 0, 0); }
   setView(view);
 
   return {

@@ -132,8 +132,6 @@ svg text{user-select:none}
 .sim .vb{font-size:.6875rem;font-weight:700;padding:.3rem .5rem;border-radius:.375rem;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .sim .vb.sel{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .sim .cross{position:absolute;left:50%;top:50%;width:7rem;transform:translate(-50%,-50%);pointer-events:none;z-index:1}
-.sim .cockpit{position:absolute;left:-6%;right:-6%;bottom:0;height:36%;background:var(--glare,#1a2027);border-top:.25rem solid var(--line2);border-radius:50% 50% 0 0/45% 45% 0 0;display:flex;justify-content:center;align-items:center;gap:8%;padding-top:2%;z-index:1}
-.sim .cockpit .inst{height:78%;aspect-ratio:1}
 .sim .inst svg{height:100%;width:100%;display:block}
 .sim .wallmsg{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:rgba(200,60,60,.85);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:2}
 .sim .vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:var(--muted);background:var(--panel2);z-index:3}
@@ -862,17 +860,16 @@ function confirmLeave(){
 let sim=null;
 function startSim(){applyScene();
   stopSim();setPhase('sim','練習');showPane('sim');
-  const view=store.get('simView')||'first';
+  const view=store.get('simView')==='third'?'third':'first';
   const inst=`<div class="inst ai">${E.svgAI(0,0)}</div><div class="inst hi">${E.svgHI(0)}</div>`;
   $('#sim').innerHTML=`<div class="view" id="simView">
       <div class="hud"><div class="ro"><span>高度</span><b id="rAlt">80</b><span>m</span></div><div class="ro"><span>方位</span><b id="rHdg">000</b></div><div class="ro"><span>バンク</span><b id="rBank">0°</b></div><div class="ro"><span>ピッチ</span><b id="rPitch">0°</b></div></div>
-      <div class="views">${[['first','一人称'],['cockpit','操縦席'],['third','三人称']].map(([v,t])=>`<button class="vb${v===view?' sel':''}" data-view="${v}">${t}</button>`).join('')}</div>
+      <div class="views">${[['first','一人称'],['third','三人称']].map(([v,t])=>`<button class="vb${v===view?' sel':''}" data-view="${v}">${t}</button>`).join('')}</div>
       <svg class="cross" viewBox="0 0 140 40" aria-hidden="true"><g stroke="var(--hud,#8ce99a)" stroke-width="2" fill="none"><line x1="70" y1="10" x2="70" y2="30"/><line x1="60" y1="20" x2="80" y2="20"/><path d="M8,20 h32 v8 M132,20 h-32 v8"/></g></svg>
-      <div class="cockpit" id="simCockpit"${view==='cockpit'?'':' hidden'}>${inst}</div>
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="vload" id="simLoad">3D を読み込み中…</div>
     </div>
-    <div class="instrow" id="instRow"${view==='cockpit'?' hidden':''}>${inst}</div>
+    <div class="instrow" id="instRow">${inst}</div>
     <div class="ctl">
       <div class="stick" id="stick"><span class="lb t">奥</span><span class="lb b">手前</span><span class="lb l">左</span><span class="lb r">右</span><div class="knob" id="knob"></div></div>
       <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab" data-r="-1">左</button><button class="ab" data-r="1">右</button></div></div>
@@ -899,7 +896,7 @@ function startSim(){applyScene();
   window.addEventListener('keydown',sim.kd);window.addEventListener('keyup',sim.ku);
   /* 視点 */
   $('#sim').querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;store.set('simView',v);
-    $('#sim').querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('sel',x===b));$('#simCockpit').hidden=v!=='cockpit';$('#instRow').hidden=v==='cockpit';if(sim.h)sim.h.setView(v)}));
+    $('#sim').querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('sel',x===b));if(sim.h)sim.h.setView(v)}));
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
   $('#simHome').addEventListener('click',()=>{if(sim.h)sim.h.home()});
   $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
@@ -912,7 +909,7 @@ function startSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=1').then(mod=>{if(sim!==mySim)return;sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput()})
+  import('./sim3d.js?v=4').then(mod=>{if(sim!==mySim)return;sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput()})
     .catch(err=>{if(sim===mySim)$('#simLoad').textContent='3D を読み込めませんでした。通信状態を確認してください。';console.error(err)});
   window.scrollTo({top:0});
 }

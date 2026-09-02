@@ -150,6 +150,18 @@ if (P.has('export')) {
   if (P.has('save')) await save(P.get('save'));
 } else if (P.has('one')) {
   const d = DIRS.find(x => x[0] === P.get('one')); setDir(d[1], d[2]); renderer.render(scene, cam); log('rendered ' + d[0]);
+} else if (P.has('banks')) {
+  /* バンク付きの一括描画: ?banks=30,60 で、真上・真下を除く 12 方向 × 左右 × 各角度を bi-<方向>-r30 / -l30 … として保存。bank 0 の 14 方向も同時に描き直す（切り出し枠を共通にするため） */
+  const banks = P.get('banks').split(',').map(Number).filter(Boolean);
+  for (const [n, h, p] of DIRS) { setDir(h, p); renderer.render(scene, cam); await save(n); }
+  for (const [n, h, p] of DIRS) {
+    if (n === 'up' || n === 'down') continue;
+    for (const b of banks) {
+      setDir(h, p, b); renderer.render(scene, cam); await save(`${n}-r${b}`);
+      setDir(h, p, -b); renderer.render(scene, cam); await save(`${n}-l${b}`);
+    }
+  }
+  log('ALL DONE');
 } else {
   for (const [n, h, p] of DIRS) { setDir(h, p); renderer.render(scene, cam); await save(n); }
   log('ALL DONE');

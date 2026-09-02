@@ -35,10 +35,10 @@
   /* 第三者視点（南からの固定視点）で機首が向く 14 方向。heading は北 0° 時計回り、pitch は機首上げ正 [°]。
      読み方: 画面の奥が北、手前が南、右が東、左が西。 */
   const DIR14 = [
-    { id: 'north', ja: '北', heading: 0, pitch: 0, read: '機首が画面の奥を向いている → 北。翼は水平。' },
-    { id: 'south', ja: '南', heading: 180, pitch: 0, read: '機首がこちら（手前）を向いている → 南。翼は水平。' },
-    { id: 'east', ja: '東', heading: 90, pitch: 0, read: '機首が画面の右を向いている → 東。側面が見えるので水平飛行。' },
-    { id: 'west', ja: '西', heading: 270, pitch: 0, read: '機首が画面の左を向いている → 西。側面が見えるので水平飛行。' },
+    { id: 'north', ja: '北', heading: 0, pitch: 0, read: '機首が画面の奥を向いている → 北。' },
+    { id: 'south', ja: '南', heading: 180, pitch: 0, read: '機首がこちら（手前）を向いている → 南。' },
+    { id: 'east', ja: '東', heading: 90, pitch: 0, read: '機首が画面の右を向いている → 東。側面が見えるので機首は水平（ピッチなし）。' },
+    { id: 'west', ja: '西', heading: 270, pitch: 0, read: '機首が画面の左を向いている → 西。側面が見えるので機首は水平（ピッチなし）。' },
     { id: 'up', ja: '上', heading: null, pitch: 90, read: '機首が真上。腹面（下側）が見えている → 垂直上昇。姿勢指示器はほぼ全面が空。' },
     { id: 'down', ja: '下', heading: null, pitch: -90, read: '機首が真下。背面（上側）が見えている → 垂直降下。姿勢指示器はほぼ全面が地面。' },
     { id: 'ne_up', ja: '北東上', heading: 45, pitch: 30, read: '機首が奥・右・上 → 北東へ上昇。' },
@@ -51,7 +51,7 @@
     { id: 'sw_down', ja: '南西下', heading: 225, pitch: -30, read: '機首が手前・左・下 → 南西へ降下。' }
   ];
 
-  const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false };
+  const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on' };
   /* 視界・姿勢指示器のリアルタイム更新に使う係数（svgCockpit / svgAI と同じ値） */
   const CK = { kp: 5, ky: 6, aiK: 2.4, grow: 0.45 };
 
@@ -74,23 +74,28 @@
   }
   /* 種目2: 14 方向の絵 → 姿勢指示器。翼は常に水平なので、正解はバンク 0。
      誤答はバンクを付けたもの・ピッチを反転したもの・水平にしたもの。 */
+  /* バンク: 設定 bank が 'off' でなければ、真上・真下を除く 12 方向で 0 / ±30 / ±60 から選ぶ（水平が 1/3） */
+  const BANKS = [30, 60];
+  const pickBank = (s, d) => (s.bank === 'off' || Math.abs(d.pitch) === 90) ? 0 : pick([0, 0, 30, -30, 60, -60]);
+  const otherMag = b => b === 0 ? 0 : Math.sign(b) * (Math.abs(b) === 30 ? 60 : 30);
   function genAttitude(s) {
-    const d = pick(DIR14), pitch = d.pitch, bank = 0;
-    /* 真上・真下（±90°）はバンク違いの誤答が見分けにくいので、ピッチ違いの誤答だけにする */
+    const d = pick(DIR14), pitch = d.pitch, bank = pickBank(s, d);
+    /* 真上・真下（±90°）はバンク違いの誤答が見分けにくいので、ピッチ違いの誤答だけにする。
+       それ以外は「左右逆のバンク」「水平」「大きさ違い」「ピッチ違い」を混ぜる */
     const cands = Math.abs(pitch) === 90
       ? [[0, -pitch], [0, 30 * Math.sign(pitch)], [0, -30 * Math.sign(pitch)], [0, 0]]
-      : [[0, -pitch], [30, pitch], [-30, pitch], [30, -pitch], [-30, -pitch], [0, pitch === 0 ? 30 : 0], [0, pitch === 0 ? -30 : 90 * Math.sign(pitch)]]
-        .filter(([b, p]) => !(b === 0 && p === pitch));
+      : [[-bank, pitch], [0, pitch], [otherMag(bank), pitch], [bank, -pitch], [-bank, -pitch], [0, -pitch], [bank, pitch === 0 ? 30 : 0], [bank === 0 ? 30 : bank, pitch === 0 ? -30 : 0], [30, pitch], [-30, pitch]]
+        .filter(([b, p]) => !(b === bank && p === pitch));
     const dis = pickDistractors(cands, () => true, 3);
     const opts = shuffle([{ bank, pitch, ok: true }, ...dis.map(([b, p]) => ({ bank: b, pitch: p, ok: false }))]);
     return { type: 'attitude', dir14: d, bank, pitch, opts };
   }
   /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。 */
   function genCombo(s) {
-    const d = pick(DIR14.filter(x => x.heading !== null)), heading = d.heading, pitch = d.pitch, bank = 0;
-    const cands = [[heading + 180, 0, pitch], [360 - heading, 0, pitch], [heading + 90, 0, pitch], [heading - 90, 0, pitch], [heading + 45, 0, pitch], [heading - 45, 0, pitch],
-      [heading, 0, -pitch], [heading + 180, 0, -pitch], [360 - heading, 0, -pitch], [heading, 30, pitch], [heading, -30, pitch], [heading, 0, pitch === 0 ? 30 : 0]]
-      .map(([h, b, p]) => [norm(h), b, p]).filter(([h, b, p]) => !(h === heading && b === 0 && p === pitch));
+    const d = pick(DIR14.filter(x => x.heading !== null)), heading = d.heading, pitch = d.pitch, bank = pickBank(s, d);
+    const cands = [[heading + 180, bank, pitch], [360 - heading, bank, pitch], [heading + 90, bank, pitch], [heading - 90, bank, pitch], [heading + 45, bank, pitch], [heading - 45, bank, pitch],
+      [heading, bank, -pitch], [heading + 180, bank, -pitch], [360 - heading, bank, -pitch], [heading, -bank, pitch], [heading, 0, pitch], [heading, otherMag(bank), pitch], [heading, bank === 0 ? 30 : bank, pitch === 0 ? 30 : 0], [heading + 180, -bank, pitch]]
+      .map(([h, b, p]) => [norm(h), b, p]).filter(([h, b, p]) => !(h === heading && b === bank && p === pitch));
     const dis = pickDistractors(cands, () => true, 3);
     const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);
     return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, opts };
@@ -139,11 +144,12 @@
   }
   function gradeOpts(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
-    const { pitch } = q, d = q.dir14;
+    const { pitch, bank } = q, d = q.dir14;
     const lines = [d.read];
-    lines.push('翼が水平なのでバンクなし。水平線が傾いている選択肢は誤り。');
+    if (bank) lines.push(`${bankText(bank)}：機首の向きに対して${bank > 0 ? '右' : '左'}の翼が下がっている（南から見た絵では、機首がこちらを向くほど左右が逆に見える）。姿勢指示器では水平線が${bank > 0 ? '右上がり' : '左上がり'}に傾く。`);
+    else lines.push('翼が水平なのでバンクなし。水平線が傾いている選択肢は誤り。');
     lines.push(pitch > 0 ? '機首上げ：姿勢指示器では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
-    let answerText = `${'ABCD'[ci]}（機首 ${d.ja}：${pitchText(pitch)}`;
+    let answerText = `${'ABCD'[ci]}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;
     if (q.type === 'combo') {
       lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。方位指示器では ${HI_LABELS[q.heading / 30] || q.heading / 10} が上に来ます。`);
       answerText += ` / ${DIRS[q.dir].ja}`;
@@ -312,12 +318,14 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
   }
 
   /* 14 方向の絵（南からの固定視点）と読み方の凡例 */
-  function figDir14(d) {
-    return `<div class="d14"><img src="img/bi-${d.id}.webp" alt="第三者視点（南から）" style="width:100%;height:auto;display:block">
+  /* bank: 0 なら bi-<id>.webp、右バンク 30 なら bi-<id>-r30.webp、左バンク 60 なら bi-<id>-l60.webp */
+  function figDir14(d, bank = 0) {
+    const suffix = bank ? `-${bank > 0 ? 'r' : 'l'}${Math.abs(bank)}` : '';
+    return `<div class="d14"><img src="img/bi-${d.id}${suffix}.webp" alt="第三者視点（南から）" style="width:100%;height:auto;display:block">
 <svg class="d14legend" viewBox="0 0 76 54" aria-hidden="true"><g stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 44V14M13 19l5-5 5 5"/><path d="M18 44h36M49 39l5 5-5 5"/><path d="M18 44l14-11M27 33l5-0 0 5"/></g>
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="18" y="10" text-anchor="middle">上</text><text x="58" y="48">東</text><text x="36" y="30">北</text></g></svg></div>`;
   }
 
-  global.AAT = { DIRS, DIR14, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,
+  global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,
     gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, figTopDown, figAttitude, figDir14 };
 })(window);

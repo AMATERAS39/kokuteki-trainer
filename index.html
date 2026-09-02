@@ -437,6 +437,17 @@ body[data-view="home"] .stats{display:none}
   .opts .ab .pair svg{width:auto;height:100%}
   .opts.text .ab{padding:.5rem .75rem;min-height:2.75rem}
   .opts.text .ab .t{font-size:.875rem}
+  /* 解説（.fb.show）が出ているときは 1 画面に収まらないので、図の伸縮をやめて通常の流れ（スクロール）に戻す。
+     こうしないと図が min-height 0 までつぶれて選択肢に重なる */
+  body[data-view="train"] .layout > .card:has(.fb.show){flex:none}
+  .card:has(.fb.show) #quiz,.card:has(.fb.show) #figs,.card:has(.fb.show) .figs,.card:has(.fb.show) .fig.wide,.card:has(.fb.show) .figs.heading > div:first-child,.card:has(.fb.show) .frames,.card:has(.fb.show) .frame{flex:none}
+  .card:has(.fb.show) .d14{display:block;height:auto;min-height:0}
+  .card:has(.fb.show) .d14 img{height:auto!important;width:100%!important}
+  .card:has(.fb.show) .fig.top{display:block;width:60%;margin:0 auto;min-height:0}
+  .card:has(.fb.show) .fig.top svg{height:auto;width:100%}
+  .card:has(.fb.show) .frame{min-height:0;grid-template-rows:auto}
+  .card:has(.fb.show) .frame .v{height:auto;display:block}
+  .card:has(.fb.show) .frame .v svg{height:auto;width:100%}
   /* シミュレーター */
   .sim .view{flex:1;min-height:7rem;height:auto}
   .sim .acts{margin-top:.5rem;gap:.375rem}
@@ -656,7 +667,7 @@ body[data-view="home"] .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=26"></script>
+<script src="engine.js?v=27"></script>
 <script>
 (function(){
 'use strict';
@@ -732,11 +743,11 @@ function render(){
     const cap14='<b>南</b>からの固定視点 — 画面の奥が北、右が東';
     if(q.type==='attitude'){
       $('#prompt').textContent='この姿勢に対応する姿勢指示器を選ぶ';
-      figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14)}</div><div class="cap">${cap14}</div></div>`;
+      figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
       ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst">${E.svgAI(o.bank,o.pitch)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
     }else{
       $('#prompt').textContent='向きと姿勢の両方に一致する計器（姿勢指示器＋方位指示器）を選ぶ';
-      figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14)}</div><div class="cap">${cap14}</div></div>`;
+      figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
       ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
     }
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
@@ -812,8 +823,8 @@ function next(){
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 説明 → 練習 3 問 → 計測 ===== */
 const INTRO={
   heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークは毎回向きが変わります。まず N を確認してから機首を読みます。'],
-  attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を A〜D から選びます。','翼は水平です。機首が上向きなら空が広がり、下向きなら地面が広がります。'],
-  combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と上下の向きの両方に合う「姿勢指示器＋方位指示器」の組を A〜D から選びます。','方位指示器は現在の方位が上に来ます。'],
+  attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を A〜D から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
+  combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を A〜D から選びます。','方位指示器は現在の方位が上に来ます。'],
   control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を A〜D の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。']
 };
 function enterMode(m,sub){
@@ -1017,6 +1028,7 @@ function renderSettingsPage(){
     <div class="setgroup"><h4>出題</h4>
       ${sel('north','方位: N マークの向き',[['random','ランダム（標準）'],['fixed','上に固定（易）']])}
       ${sel('ops','操縦操作: 操作数',[['single','単一操作'],['double','2 操作（順に）']])}
+      ${sel('bank','姿勢指示器: バンク',[['on','あり（水平・±30°・±60°）'],['off','なし（水平のみ）']])}
       ${sel('init','操縦操作: ①の初期姿勢',[['level','水平'],['random','ランダム（難）']])}
       ${chk('auto','（解説ありのとき）正解したら自動で次へ')}</div>`;
   $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()}));
@@ -1025,7 +1037,7 @@ function renderSettingsPage(){
 }
 const TIPS={
   heading:'まず N マークの向きを確認し、そこから機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東、180°=南。機首は N と同じ向きにはならない。',
-  attitude:'視点は常に南。画面の奥が北、手前が南、右が東、左が西。翼は水平なので水平線が傾いた選択肢は誤り。機首上げ → 水平線が下がり空が広がる。機首下げ → 地面が広がる。真上・真下は腹面／背面が見える。',
+  attitude:'視点は常に南。画面の奥が北、手前が南、右が東、左が西。機首上げ → 水平線が下がり空が広がる。機首下げ → 地面が広がる。バンクは機首の向きに対して右翼が下がれば右バンク（水平線が右上がり）。機首がこちらを向くと左右が逆に見えるので注意。真上・真下は腹面／背面が見える。',
   combo:'まず機首の向き（奥・手前・右・左）で方位を決め、次に上向きか下向きかでピッチを決める。方位指示器は現在の方位が上に来る（数字は 10 の位まで: 3=030°, 12=120°）。',
   control:'操縦桿を右に倒す → 機体が右に傾き景色は左に傾く。奥に倒す → 機首が下がり水平線が上がる。手前に引く → 上昇し水平線が下がる。右方向舵を踏む → 水平のまま右を向き景色が左へ流れる。選択肢は①→②、②→③の順。'
 };

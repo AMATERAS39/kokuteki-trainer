@@ -423,7 +423,8 @@ body:not([data-view="train"]) .stats{display:none}
 .dirbtns .ab{min-height:2.75rem;font-size:.8125rem;font-weight:700}
 .vactions{display:flex;gap:.5rem;margin-top:.75rem}
 .vactions .btn{height:2.75rem;font-size:.8125rem}
-.credit{font-size:.8125rem;color:var(--muted);line-height:1.7}
+.credit{font-size:.8125rem;color:var(--muted);line-height:1.7;margin:.5rem 0 0}
+.credit a{color:var(--accent);text-decoration:underline;text-underline-offset:.15em}
 
 /* ===== スマホ幅: ホームと訓練画面を 1 画面に収める =====
    画面全体を縦の flex にし、図（機体画像・上面図・視界）だけを伸縮させる。極端に低い画面では図の最小高さを優先して少しだけスクロールする */
@@ -649,6 +650,10 @@ body:not([data-view="train"]) .stats{display:none}
         <div class="legend"><span><i style="background:#ff6b6b"></i>東（x）</span><span><i style="background:#3ed48a"></i>北（y）</span><span><i style="background:#5ab0ff"></i>上（z）</span><span>格子＝水平面</span></div>
         <div class="dirbtns" id="dirBtns"></div>
         <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
+      </div>
+      <div class="card">
+        <h3>クレジット</h3>
+        <p class="credit">機体の 3D モデル: 航空自衛隊アクロバットチーム　T-4ブルーインパルス（3Dえいじくん 様）。モデルデータは BOOTH で販売されています。<br><a href="https://eiji-mappa.booth.pm/items/3328542" target="_blank" rel="noopener">BOOTH の販売ページ</a>（3D モデルの利用と掲載は作者の了承済み）</p>
       </div>
     </div>
   </section>

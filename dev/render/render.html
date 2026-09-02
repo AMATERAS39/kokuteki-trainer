@@ -51,6 +51,18 @@ if (P.get('fixnormals') !== '0') obj.traverse(o => { if (o.isMesh && o.geometry)
 const box = new THREE.Box3().setFromObject(obj); const size = box.getSize(new THREE.Vector3()); const ctr = box.getCenter(new THREE.Vector3());
 const names = []; obj.traverse(o => { if (o.isMesh) names.push(o.name + '[' + (Array.isArray(o.material) ? o.material.map(m => m.name).join('|') : o.material.name) + ']'); });
 log(`meshes ${meshes} textured ${textured} size ${size.x.toFixed(1)} ${size.y.toFixed(1)} ${size.z.toFixed(1)}\n` + names.join('\n'));
+/* 特定メッシュの特定材質を単色に置き換える（?paint=mesh/material/rrggbb,...）。脚収納部の内側を機体色で塗るのに使う */
+for (const spec of (P.get('paint') || '').split(',').filter(Boolean)) {
+  const [mesh, mat, hex] = spec.split('/');
+  obj.traverse(o => { if (o.isMesh && o.name === mesh) { const ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach(m => { if (m.name === mat || (mat === '_' && !m.name)) { m.map = null; m.color.setHex(parseInt(hex, 16)); m.needsUpdate = true; log('paint ' + mesh + '/' + mat); } }); } });
+}
+/* テクスチャ差し替え（?tex=material:file,...）。UV の対応を調べる用 */
+for (const spec of (P.get('tex') || '').split(',').filter(Boolean)) {
+  const [mat, file] = spec.split(':'); const t = await new THREE.TextureLoader().loadAsync('/t4model/' + file); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false;
+  obj.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { if (m.name === mat && m.map) { t.wrapS = m.map.wrapS; t.wrapT = m.map.wrapT; t.flipY = m.map.flipY; m.map = t; m.needsUpdate = true; } }); } });
+  log('tex ' + mat + ' <- ' + file);
+}
 /* 脚など飛行中に見えない部品を非表示にする（名前で指定: ?hide=a,b,c） */
 const hide = (P.get('hide') || '').split(',').filter(Boolean);
 obj.traverse(o => { if (o.isMesh && hide.some(h => o.name.toLowerCase().includes(h.toLowerCase()))) o.visible = false; });

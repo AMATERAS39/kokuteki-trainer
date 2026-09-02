@@ -136,10 +136,10 @@ svg text{user-select:none}
 
 .gallery h2{font-family:var(--display);font-weight:700;font-size:1.125rem;margin:0}
 .gallery .sub{font-size:.8125rem;color:var(--muted);margin-top:.25rem}
-.gallery .gsel{display:grid;grid-template-columns:6rem 1fr;gap:.5rem;align-items:center;margin-top:.5rem}
+.gallery .gsel{display:grid;grid-template-columns:4.5rem 1fr;gap:.5rem;align-items:center;margin-top:.5rem}
 .gallery .gl{font-size:.8125rem;color:var(--muted)}
 .gallery .gp{display:grid;grid-template-columns:1fr 1fr;gap:.375rem}
-.gallery .gp .ab{min-height:2.75rem;font-size:.875rem;font-weight:700}
+.gallery .gp .ab{min-height:2.75rem;font-size:.875rem;font-weight:700;padding:.25rem}
 .gallery h4{margin:1rem 0 .5rem;font-size:.9375rem}
 .gallery .frames{max-width:26rem;margin:0 auto}
 .gallery .gexp{margin:.75rem 0 0;padding-left:1.2em;font-size:.8125rem;line-height:1.6;color:var(--muted)}
@@ -780,15 +780,16 @@ function stopSim(){if(sim){clearInterval(sim.raf);sim=null}}
 const gal={sel:[],seq:false};   // sel: 選択中の操作 id（選んだ順）、seq: true=順番に行う / false=同時に行う
 function showGallery(){
   setPhase('gallery','見え方');showPane('gallery');
-  const pair=(title,a,b)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp"><button class="ab" data-op="${a}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button><button class="ab" data-op="${b}">${E.OP_BY_ID[b].ja.split(' ')[1]}</button></div></div>`;
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、水平飛行①からの②③を表示します。複数選ぶと複合パターンになります。</div>
-    ${pair('操縦桿 左右','stick-left','stick-right')}${pair('操縦桿 前後','stick-forward','stick-back')}${pair('方向舵','rudder-left','rudder-right')}
+  /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。操縦桿＋方向舵の組み合わせだけが複合パターン */
+  const row=(title,ids,cols)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、水平飛行①からの②③を表示します。操縦桿と方向舵を両方選ぶと複合パターンになります。</div>
+    ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2)}
     <div class="gsel" id="gseqRow" hidden><div class="gl">複数の操作</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">順番に行う</button></div></div>
     <div id="gout"></div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
-    const id=b.dataset.op,opp=E.OPS.find(o=>o.id===id)&&({'stick-left':'stick-right','stick-right':'stick-left','stick-forward':'stick-back','stick-back':'stick-forward','rudder-left':'rudder-right','rudder-right':'rudder-left'})[id];
-    if(gal.sel.includes(id))gal.sel=gal.sel.filter(x=>x!==id);else{gal.sel=gal.sel.filter(x=>x!==opp);gal.sel.push(id)}
+    const id=b.dataset.op,grp=b.dataset.grp;
+    if(gal.sel.includes(id))gal.sel=gal.sel.filter(x=>x!==id);else{gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group!==grp);gal.sel.push(id)}
     galDraw()}));
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw()}));
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});

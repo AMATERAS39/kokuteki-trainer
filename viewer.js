@@ -44,12 +44,12 @@ export async function mount(container, { modelUrl = 'model/t4.glb', onProgress }
     g.lineWidth = 10; g.strokeStyle = 'rgba(255,255,255,.9)'; g.strokeText(text, 64, 70);
     g.fillStyle = color; g.fillText(text, 64, 70);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sp.scale.set(4.2, 4.2, 1); return sp;
+    return new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
   }
+  /* 水平面の四方に置く。画面上での大きさが一定になるよう、毎フレーム カメラとの距離で拡大率を直す（機体に重ならない大きさ） */
   const marks = new THREE.Group();
-  for (const [t, x, y, col, s] of [['北', 0, 17, '#1f8f5a', 1.35], ['東', 17, 0, '#c0392b', 1], ['南', 0, -17, '#3c4b5c', 1], ['西', -17, 0, '#3c4b5c', 1]]) {
-    const sp = dirLabel(t, col); sp.position.set(x, y, -5); sp.scale.multiplyScalar(s); marks.add(sp);
+  for (const [t, x, y, col, base] of [['北', 0, 12, '#1f8f5a', 2.6], ['東', 11, 0, '#c0392b', 2.2], ['南', 0, -12, '#3c4b5c', 2.2], ['西', -11, 0, '#3c4b5c', 2.2]]) {
+    const sp = dirLabel(t, col); sp.position.set(x, y, -5.6); sp.userData.base = base; marks.add(sp);
   }
   scene.add(marks);
 
@@ -79,6 +79,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb', onProgress }
   function frame(now) {
     if (!running) return;
     if (animating) { const k = Math.min(1, (now - t0) / 450), e = k < .5 ? 2 * k * k : -1 + (4 - 2 * k) * k; pivot.quaternion.slerpQuaternions(qFrom, qTo, e); if (k >= 1) animating = false; }
+    for (const sp of marks.children) { const k = sp.userData.base * cam.position.distanceTo(sp.position) / 24; sp.scale.set(k, k, 1); }
     controls.update(); renderer.render(scene, cam); raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);

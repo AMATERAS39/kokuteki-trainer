@@ -252,7 +252,7 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 /* 回答ボタン（共通状態） */
 .ab{position:relative;min-height:3.25rem;border-radius:.75rem;border:1px solid var(--line2);background:var(--panel2);color:var(--text);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.125rem;padding:.375rem;transition:border-color .12s,background .12s}
-.ab:hover:not(:disabled){border-color:var(--muted)}
+@media (hover:hover){.ab:hover:not(:disabled){border-color:var(--muted)}}
 .ab.sel{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
 .ab.ok{border:2px solid var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
 .ab.ng{border:2px solid var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
@@ -366,7 +366,7 @@ body:not([data-view="train"]) .stats{display:none}
 .hero-logo{position:relative;align-self:flex-end;width:22%;max-width:6.5rem;height:auto;margin-top:.5rem;margin-right:.25rem;filter:drop-shadow(0 .25rem .5rem rgba(0,0,0,.6))}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
 .mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
-.mode:hover{border-color:var(--muted)}
+@media (hover:hover){.mode:hover{border-color:var(--muted)}}
 .mode:active{transform:scale(.99)}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .mode .n,.mode .d,.mode .r{display:block}
@@ -764,6 +764,7 @@ const DESC={heading:'上面図から8方位を答える',attitude:'南から見�
 const MODE_ICON={heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
 const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
 const dirLabel=i=>settings.dirLabel==='alpha'?E.DIRS[i].k:E.DIRS[i].ja;
+const DIR_ORDER=[0,2,4,6,7,1,5,3];   // 方位ボタンの並び: 上段 N E S W、下段 NW NE SW SE（利用者の指定）
 const fmtSec=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
 function applyTheme(){
@@ -792,7 +793,7 @@ function render(){
   const figs=$('#figs'),ans=$('#answers');
   if(q.type==='heading'){
     $('#prompt').textContent='機首が向いている方位を 8 方位から選ぶ';
-    const grid=`<div class="dirlist">${[0,1,2,3,4,5,6,7].map(i=>`<button class="ab" data-dir="${i}"><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
+    const grid=`<div class="dirlist">${DIR_ORDER.map(i=>`<button class="ab" data-dir="${i}"><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
     figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北</div></div>${grid}</div>`;
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));

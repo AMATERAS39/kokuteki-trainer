@@ -33,7 +33,7 @@ Web アプリ（PWA）を Android アプリとして包む TWA（Trusted Web Act
 ## 3. Play Console でアプリを作る
 1. Play Console → 「アプリを作成」。アプリ名、デフォルトの言語 日本語、アプリ／ゲーム: アプリ、無料／有料: 有料。
 2. 「ダッシュボード」の「アプリのセットアップ」を上から順に埋める:
-   - プライバシーポリシー: https://kokuteki.amaterasu-vocab.com/privacy.html（privacy.html の連絡先を先に埋めておく）
+   - プライバシーポリシー: https://kokuteki.amaterasu-vocab.com/privacy（Worker は .html を省いた URL に転送するので、こちらを登録する）
    - アプリのアクセス: すべての機能が制限なしで利用可能
    - 広告: 広告を含まない
    - コンテンツのレーティング: アンケートに回答（すべて「なし」）

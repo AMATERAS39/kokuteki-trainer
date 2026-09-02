@@ -199,6 +199,8 @@ aside{display:flex;flex-direction:column;gap:.75rem}
 .attp{border-radius:.625rem;overflow:hidden;border:1px solid var(--line)}
 .d14{position:relative;border-radius:.625rem;overflow:hidden;border:1px solid var(--line);background:var(--d14bg,#cdd3da)}
 /* 背景の昼／夜（設定 scene: auto/day/night。auto は回答時の時刻で決める）。機体画像の背景と、操縦操作の視界に適用 */
+/* 昼はテーマの --sky（暗めの青）ではなく、明るい青空〜水平線の薄い水色にする（暗いと夜と区別がつきにくい） */
+body[data-scene="day"]{--d14bg:#d6dde5;--ck-sky-top:#2f86e0;--ck-sky-hz:#b4dcf7;--ck-earth:#9a6535;--ck-sun:#ffd95a;--ck-mtn:#6b8199;--ck-mtn2:#8a9db1;--ck-snow:#f6f9fc}
 body[data-scene="dawn"]{--d14bg:#e7d3c5;--ck-sky-top:#4a5c9e;--ck-sky-hz:#f8b26c;--ck-earth:#6b4727;--ck-sun:#ffc25f;--ck-mtn:#55607f;--ck-mtn2:#6f7995;--ck-snow:#f7e3d7}
 body[data-scene="dusk"]{--d14bg:#d9b9aa;--ck-sky-top:#33305f;--ck-sky-hz:#f2704a;--ck-earth:#4e3321;--ck-sun:#ff9a4a;--ck-mtn:#3b3652;--ck-mtn2:#524b6b;--ck-snow:#edc5b5}
 body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--ck-sun:#e7ecf3;--ck-mtn:#1e2a3a;--ck-mtn2:#2a394c;--ck-snow:#b7c3d0;--ck-star:#e3eaf5}

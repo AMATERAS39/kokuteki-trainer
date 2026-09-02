@@ -146,7 +146,28 @@ svg text{user-select:none}
 .gallery .gexp{margin:.75rem 0 0;padding-left:1.2em;font-size:.8125rem;line-height:1.6;color:var(--muted)}
 .gallery .gexp b{color:var(--text)}
 .gallery .gsel.off{opacity:.35;pointer-events:none}
-.gallery .gexp{min-height:3.2rem}
+/* 見え方画面は 1 画面に収める: 記録チップを隠し、フレームは画面の高さから逆算 */
+body[data-phase="gallery"] .stats,body[data-phase="gallery"] aside{display:none}
+body[data-phase="gallery"]{padding-bottom:.5rem}
+body[data-phase="gallery"] .hdr{padding-bottom:.25rem}
+body[data-phase="gallery"] .card{padding:.75rem 1rem}
+.gallery h2{font-size:1rem}
+.gallery .sub{display:block;font-size:.75rem;margin-top:.125rem}
+.gallery h2+.sub{display:none}   /* 1 画面に収めるため冒頭の説明は出さない */
+.gallery .gsel{margin-top:.375rem;grid-template-columns:4rem 1fr}
+.gallery .gp{gap:.3rem}
+.gallery .gp .ab{min-height:2.25rem;font-size:.8125rem;padding:.125rem}
+.gallery [data-first]{font-size:.6875rem}
+.gallery h4{margin:.625rem 0 0;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gallery .gdesc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gallery .frames{gap:.3rem;margin-top:.375rem;max-width:none}
+.gallery .frame{grid-template-columns:1.25rem 1fr;gap:.3rem}
+.gallery .frame .n{font-size:.8125rem}
+.gallery .frame .v{height:calc((100vh - 31.5rem)/3);height:calc((100dvh - 31.5rem)/3);min-height:3.25rem;max-height:11rem;display:flex;justify-content:center;border:0;background:transparent}
+.gallery .frame .v svg{height:100%;width:auto;max-width:100%;border-radius:.5rem;border:1px solid var(--line)}
+.gallery .glegend{text-align:center;margin-top:.25rem}
+.gallery .acts{margin-top:.5rem}
+.gallery .acts .btn{height:2.5rem;font-size:.8125rem}
 .gallery .acts{margin-top:1rem}
 
 /* ===== レイアウト ===== */
@@ -353,6 +374,7 @@ body[data-view="home"] .stats{display:none}
   .figs.heading .dirlist .ab{min-height:3.75rem}
   .frames{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
   .gallery .frames{grid-template-columns:1fr}
+  .gallery .frame .v{height:calc((100vh - 24rem)/3);max-height:14rem}
   .frame{grid-template-columns:1fr}
   .frame .n{order:2;text-align:center;margin-top:.375rem;font-size:.8125rem}
   .segs{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
@@ -558,7 +580,7 @@ function applyTheme(){
 
 /* ===== 画面内の領域の切り替え ===== */
 function showPane(name){['chooser','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name})}
-function setPhase(p,label){phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
+function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
 
 /* ===== 出題 ===== */
 function render(){
@@ -787,7 +809,7 @@ function showGallery(){
   const row=(title,ids,cols)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、水平飛行①からの②③を表示します。操縦桿と方向舵を両方選ぶと複合パターンになります。</div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2)}
-    <div class="gsel" id="gseqRow"><div class="gl">複数の操作</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">順番に行う</button></div></div>
+    <div class="gsel" id="gseqRow"><div class="gl">複数操作</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">順番に行う</button></div></div>
     <div class="gsel" id="gorderRow"><div class="gl">順番</div><div class="gp"><button class="ab" data-first="stick">操縦桿 → 方向舵</button><button class="ab" data-first="rudder">方向舵 → 操縦桿</button></div></div>
     <div id="gout"></div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
@@ -813,10 +835,11 @@ function galDraw(){
   if(!gal.sel.length){f=[lv,lv,lv];text='操作なし（水平飛行）'}
   else if(gal.seq&&gal.sel.length>=2){f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));text=E.opsText(ordered)}
   else{const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);f=[lv,step(lv)];f.push(step(f[1]));text=gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')}
-  out.innerHTML=`<h4>${text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4>
-    <div class="sub">目印: <span style="color:var(--accent)">○</span> 雪山の頂と塔の先端、<span style="color:var(--accent)">- - -</span> ①の水平線の位置</div>
-    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true)}</div></div>`).join('')}</div>
-    <ul class="gexp">${gal.sel.length?gal.sel.map(id=>{const o=E.OP_BY_ID[id];return `<li><b>${o.base}</b>: ${o.view} → ${o.body}</li>`}).join(''):'<li>上のボタンで操作を選ぶと、この 3 枚が入れ替わります。</li>'}</ul>`;
+  const compact=svg=>svg.replace('viewBox="0 0 360 240"','viewBox="0 0 360 188"').replace('aspect-ratio:360/240','aspect-ratio:360/188');   // 風防の部分だけ表示
+  const desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと 3 枚が入れ替わります';
+  out.innerHTML=`<h4>${text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4><div class="sub gdesc">${desc}</div>
+    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${compact(E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true))}</div></div>`).join('')}</div>
+    <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;
 }
 
 /* ===== 記録・設定 ===== */

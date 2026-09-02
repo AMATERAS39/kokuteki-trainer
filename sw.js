@@ -1,6 +1,6 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v19';
-const ASSETS = ['./', './index.html', './engine.js?v=19', './viewer.js', './manifest.webmanifest',
+const CACHE = 'aat-v20';
+const ASSETS = ['./', './index.html', './engine.js?v=20', './viewer.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp', './img/hero.webp', './img/bi-logo.png',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`)];
 

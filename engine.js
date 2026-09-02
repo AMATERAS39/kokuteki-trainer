@@ -55,11 +55,10 @@
 
   /* ---------- 出題生成 ---------- */
   /* N マークの向きと機首の向きが一致すると答えが自明になるので、機首は N と別の向きだけを出題する（dir≠0）。
-     N マークの角度はランダム。画面の上（±10°）には置かない（画面上部が常に N にならないようにする）。 */
+     N マークは 8 方位（45° 刻み、上を含む）のいずれかにランダムに置く。 */
   function genHeading(s) {
     const dir = 1 + rnd(7);
-    let phi = 0;
-    if (s.north !== 'fixed') { do { phi = rnd(360); } while (phi < 10 || phi > 350); }
+    const phi = s.north === 'fixed' ? 0 : rnd(8) * 45;
     return { type: 'heading', dir, phi, theta: norm(phi + dir * 45) };
   }
   function pickDistractors(cands, isValid, n) {

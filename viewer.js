@@ -36,6 +36,23 @@ export async function mount(container, { modelUrl = 'model/t4.glb', onProgress }
 
   /* 地面の格子（z = −6 の水平面）と方位の矢印 */
   const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; scene.add(grid);
+  /* 方位の札（北・東・南・西）。板ではなく常に正面を向くスプライトなので、視点を回しても読める */
+  function dirLabel(text, color) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.font = 'bold 92px "Zen Kaku Gothic New", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 10; g.strokeStyle = 'rgba(255,255,255,.9)'; g.strokeText(text, 64, 70);
+    g.fillStyle = color; g.fillText(text, 64, 70);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sp.scale.set(4.2, 4.2, 1); return sp;
+  }
+  const marks = new THREE.Group();
+  for (const [t, x, y, col, s] of [['北', 0, 17, '#1f8f5a', 1.35], ['東', 17, 0, '#c0392b', 1], ['南', 0, -17, '#3c4b5c', 1], ['西', -17, 0, '#3c4b5c', 1]]) {
+    const sp = dirLabel(t, col); sp.position.set(x, y, -5); sp.scale.multiplyScalar(s); marks.add(sp);
+  }
+  scene.add(marks);
+
   const axes = new THREE.Group();
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -6), 12, 0xff6b6b, 1.6, 0.9));
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -6), 12, 0x3ed48a, 1.6, 0.9));

@@ -99,7 +99,9 @@
     const cands = [...hc, ...ac, [norm(heading + 180), -bank, pitch]].filter(([h, b, p]) => !(h === heading && b === bank && p === pitch));
     const dis = pickDistractors(cands, () => true, 3);
     const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);
-    return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, opts };
+    /* 方位指示器の印を付ける方位: 機首の方位と重ならないものを毎回抽選する（重なると印が真上に来て答えが自明になる） */
+    const mark = pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45));
+    return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, mark, opts };
   }
   function applyOp(state, opId) {
     const e = OP_BY_ID[opId].effect;
@@ -151,7 +153,9 @@
     lines.push(pitch > 0 ? '機首上げ：姿勢指示器では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
     let answerText = `${'ABCD'[ci]}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;
     if (q.type === 'combo') {
-      lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。方位指示器では ${HI_LABELS[q.heading / 30] || q.heading / 10} が上に来ます。`);
+      const NPOS = ['真上', '右上', '右', '右下', '真下', '左下', '左', '左上'];
+      const m = ((q.mark || 0) - q.dir + 8) % 8;
+      lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。機首は常に上を向き、方位指示器の ${DIRS[q.mark || 0].k}（${DIRS[q.mark || 0].ja}）の印は ${NPOS[m]} に来ます。印を付ける方位は毎回変わります。`);
       answerText += ` / ${DIRS[q.dir].ja}`;
     }
     return { ok, correct: ci, answerText: answerText + '）', lines };
@@ -255,13 +259,17 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
 <path d="M-44,0 H-16 L-8,8 L0,0 L8,8 L16,0 H44" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 <circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
   }
-  function svgHI(heading) {
+  function svgHI(heading, mark = 0) {
+    /* 目盛りは 10° 刻み、印は 1 箇所だけ（方位モードの上面図の N マークと同じ読み方にそろえる）。
+       mark は印を付ける方位（0=N, 1=NE, … 45° 刻み）。出題ごとに変わり、機首の方位とは重ならない。
+       目盛りは 8 方位のぶんだけ（45° 刻み。方位モードの上面図と同じ） */
     let card = '';
-    for (let i = 0; i < 36; i++) {
-      const a = i * 10, major = i % 3 == 0;
-      card += `<line x1="0" y1="-88" x2="0" y2="${major ? -74 : -80}" stroke="#fff" stroke-width="${major ? 2.5 : 1.5}" transform="rotate(${a})"/>`;
-      if (major) { const t = HI_LABELS[i / 3], cardinal = /[NESW]/.test(t); card += `<text transform="rotate(${a})" y="-56" text-anchor="middle" font-size="${cardinal ? 20 : 13}" font-weight="700" font-family="var(--display)" fill="${cardinal ? 'var(--accent)' : '#fff'}">${t}</text>`; }
+    for (let i = 0; i < 8; i++) {
+      const a = i * 45, major = i % 2 == 0;
+      card += `<line x1="0" y1="-88" x2="0" y2="${major ? -72 : -78}" stroke="#fff" stroke-width="${major ? 3 : 2}" transform="rotate(${a})"/>`;
     }
+    const mk = DIRS[((mark % 8) + 8) % 8].k;
+    card += `<g transform="rotate(${mark * 45})"><polygon points="0,-86 -7,-68 7,-68" fill="var(--accent)"/><text y="-44" text-anchor="middle" font-size="${mk.length > 1 ? 17 : 22}" font-weight="700" font-family="var(--display)" fill="var(--accent)">${mk}</text></g>`;
     return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="方位指示器">
 <circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><g class="hi-c" transform="rotate(${-heading})">${card}</g>
 <path d="M0,-30 L4,-16 L4,-2 L22,8 L22,13 L4,7 L4,16 L11,21 L11,25 L0,22 L-11,25 L-11,21 L-4,16 L-4,7 L-22,13 L-22,8 L-4,-2 L-4,-16 Z" fill="var(--accent)" opacity=".9"/>

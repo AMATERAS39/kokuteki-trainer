@@ -278,7 +278,8 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1rem}
 .opts .ab{padding:.625rem .5rem .5rem;gap:.375rem}
 .opts .ab .inst{width:70%}
-.opts .ab .pair{display:grid;grid-template-columns:1fr 1fr;gap:.25rem;width:92%}
+.opts .ab .pair{display:flex;justify-content:center;gap:.25rem;width:92%}
+.opts .ab .pair svg{width:calc(50% - .125rem);height:auto;flex:none}
 .opts .ab .lab{font-family:var(--mono);font-size:.8125rem;font-weight:700;color:var(--muted)}
 .opts.text{grid-template-columns:1fr}
 .opts.text .ab{flex-direction:row;justify-content:flex-start;gap:.875rem;text-align:left;padding:.875rem 1rem;min-height:3.25rem}
@@ -428,6 +429,13 @@ body:not([data-view="train"]) .stats{display:none}
 .viewer canvas{width:100%!important;height:100%!important}
 .vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:#172130;background:#cdd3da}
 .legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:.5rem}
+/* 3D ビューアの計器: いま選んでいる向きの姿勢指示器と方位指示器 */
+.vinst{display:flex;gap:1rem;align-items:flex-start;justify-content:center;margin-top:.75rem}
+.vinst .i{display:flex;flex-direction:column;align-items:center;gap:.375rem;width:clamp(5rem,26vw,8rem)}
+.vinst .i svg{width:100%;height:auto}
+.vinst .l{font-size:.75rem;color:var(--muted)}
+.vinst .i.dim{opacity:.4}
+.vinst-note{font-size:.75rem;color:var(--faint);text-align:center;margin-top:.375rem}
 .legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:.2rem;vertical-align:-.1rem;margin-right:.25rem}
 .dirbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:.375rem;margin-top:.75rem}
 .dirbtns .ab{min-height:2.75rem;font-size:.8125rem;font-weight:700}
@@ -478,8 +486,7 @@ body:not([data-view="train"]) .stats{display:none}
   .opts .ab{padding:.375rem .375rem .25rem;gap:.125rem}
   .opts .ab .inst{width:auto;height:clamp(5rem,14dvh,7.5rem);aspect-ratio:1}
   .opts .ab .inst svg{width:100%;height:100%}
-  .opts .ab .pair{display:flex;justify-content:center;gap:.25rem;width:auto;height:auto}
-  .opts .ab .pair svg{width:auto;height:clamp(3.75rem,10dvh,5.5rem);aspect-ratio:1;flex:none}
+  .opts .ab .pair{width:100%;max-width:11.5rem}
   .opts.text .ab{padding:.5rem .75rem;min-height:2.75rem}
   .opts.text .ab .t{font-size:.875rem}
   /* 解説（.fb.show）が出ているときは 1 画面に収まらないので、図の伸縮をやめて通常の流れ（スクロール）に戻す。
@@ -636,7 +643,7 @@ body:not([data-view="train"]) .stats{display:none}
       <div class="card">
         <h3>方位指示器</h3>
         <div class="fig2"><div class="figbox sm" id="abHI"></div>
-          <ul><li>現在の方位が上に来る。数字は 10 の位まで（3＝030°、12＝120°）。</li><li>方位×姿勢指示器では、姿勢指示器との組で答える。</li></ul></div>
+          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印を付ける方位は毎回変わる（N とは限らない）。印の文字が示す向きと、印の位置から機首の方位を読む。</li><li>N が左に見えれば機首は東、真下なら南。方位×姿勢指示器では、姿勢指示器との組で答える。</li></ul></div>
       </div>
       <div class="card">
         <h3>方位（上面図）</h3>
@@ -661,7 +668,8 @@ body:not([data-view="train"]) .stats{display:none}
           <li>ボタンで機首の向きを 14 方向に切り替え。</li>
         </ul>
         <div class="viewer" id="viewer"><div class="vload" id="vload">3D モデルを読み込み中…</div></div>
-        <div class="legend"><span><i style="background:#ff6b6b"></i>東（x）</span><span><i style="background:#3ed48a"></i>北（y）</span><span><i style="background:#5ab0ff"></i>上（z）</span><span>格子＝水平面</span></div>
+        <div class="legend"><span><i style="background:#ff6b6b"></i>東（x）</span><span><i style="background:#3ed48a"></i>北（y）</span><span><i style="background:#5ab0ff"></i>上（z）</span><span>格子＝水平面</span><span>水平面の「北・東・南・西」の字が方位</span></div>
+        <div class="vinst" id="vInst"></div>
         <div class="dirbtns" id="dirBtns"></div>
         <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
       </div>
@@ -725,7 +733,7 @@ body:not([data-view="train"]) .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=29"></script>
+<script src="engine.js?v=32"></script>
 <script>
 (function(){
 'use strict';
@@ -818,7 +826,7 @@ function render(){
     }else{
       $('#prompt').textContent='向きと姿勢の両方に一致する計器（姿勢指示器＋方位指示器）を選ぶ';
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
-      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
+      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading,q.mark)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
     }
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else{
@@ -1175,17 +1183,27 @@ menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuLi
 menuList.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{closeMenu();if(!confirmLeave())return;leaveSession();location.hash='#'+b.dataset.go}));
 document.addEventListener('click',e=>{if(!menuList.hidden&&!e.target.closest('.menu'))closeMenu()});
 let viewer=null,viewerLoading=false;
+/* 3D ビューアの計器: 選んでいる向き（方位 h・ピッチ p、バンクなし）の見え方。真上・真下は方位が定まらないので方位指示器を薄くする */
+function renderVInst(h,p){
+  const vertical=Math.abs(p)===90;
+  $('#vInst').innerHTML=`<div class="i"><div class="l">姿勢指示器</div>${E.svgAI(0,p)}</div>`
+    +`<div class="i${vertical?' dim':''}"><div class="l">方位指示器</div>${E.svgHI(h)}</div>`;
+  const note=$('#vInstNote');if(note)note.remove();
+  if(vertical)$('#vInst').insertAdjacentHTML('afterend','<div class="vinst-note" id="vInstNote">真上・真下は機首が水平でないため、方位は定まりません。</div>');
+}
 async function initAbout(){
   if(viewer){viewer.resume();return}
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js');
+    const mod=await import('./viewer.js?v=2');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');
-    $('#dirBtns').querySelectorAll('.ab').forEach(b=>b.addEventListener('click',()=>{$('#dirBtns').querySelectorAll('.ab').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');viewer.setDir(+b.dataset.h,+b.dataset.p)}));
+    $('#dirBtns').querySelectorAll('.ab').forEach(b=>b.addEventListener('click',()=>{$('#dirBtns').querySelectorAll('.ab').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+      viewer.setDir(+b.dataset.h,+b.dataset.p);renderVInst(+b.dataset.h,+b.dataset.p)}));
     $('#dirBtns').querySelector('.ab').classList.add('sel');
+    renderVInst(0,0);
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
@@ -1223,7 +1241,7 @@ function renderAbout(){
   const D=id=>E.DIR14.find(d=>d.id===id);
   $('#abView').innerHTML=E.figDir14(D('north'));
   $('#abAtt').innerHTML=[['ne_up',0,30,'機首上げ 30°'],['ne_down',0,-30,'機首下げ 30°'],['north',30,0,'右バンク 30°']].map(([id,b,p,t])=>`<div class="ex"><div class="figbox">${E.figDir14(D(id),b)}</div><div class="exai">${E.svgAI(b,p)}</div><div class="ext">${t}</div></div>`).join('');
-  $('#abHI').innerHTML=E.svgHI(120)+'<div class="ext">方位 120°（南東）</div>';
+  $('#abHI').innerHTML=E.svgHI(90,0)+'<div class="ext">機首は東（090°）— N の印が左に来る</div>';
   $('#abTop').innerHTML=E.figTopDown(135,45)+'<div class="ext">N が右上、機首は N から 90° → 東</div>';
   $('#abOps').innerHTML=E.OPS.map(o=>{const f=E.applyOp({bank:0,pitch:0,yaw:0},o.id);return `<div class="op"><div class="opt">${o.ja}</div><div class="opv">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,0.5,true))}</div><div class="opd">${o.view}</div></div>`}).join('');
   $('#abPractice').innerHTML=Object.keys(E.MODES).map(m=>`<button class="btn ghost" data-pr="${m}">${E.MODES[m]}</button>`).join('');

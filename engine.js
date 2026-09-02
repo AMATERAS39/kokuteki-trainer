@@ -77,25 +77,26 @@
   /* バンク: 設定 bank が 'off' でなければ、真上・真下を除く 12 方向で 0 / ±30 / ±60 から選ぶ（水平が 1/3） */
   const BANKS = [30, 60];
   const pickBank = (s, d) => (s.bank === 'off' || Math.abs(d.pitch) === 90) ? 0 : pick([0, 0, 30, -30, 60, -60]);
-  const otherMag = b => b === 0 ? 0 : Math.sign(b) * (Math.abs(b) === 30 ? 60 : 30);
+  /* 誤答は「機首の上下・水平」と「バンクの左右・水平」の区分が正解と必ず違うものだけ（絵からは角度の大きさまで読めないので、大きさだけが違う選択肢は出さない）。
+     誤答の角度は正解と同じ大きさ（正解が水平なら 30°、真上・真下なら 30°）にそろえる */
+  const cls = (b, p) => `${Math.sign(b)}/${Math.sign(p)}`;
+  function attCands(bank, pitch) {
+    const pm = pitch ? (Math.abs(pitch) === 90 ? 30 : Math.abs(pitch)) : 30, bm = bank ? Math.abs(bank) : 30, out = [];
+    for (const bs of [-1, 0, 1]) for (const ps of [-1, 0, 1]) if (cls(bs, ps) !== cls(bank, pitch)) out.push([bs * bm, ps * pm]);
+    return out;
+  }
   function genAttitude(s) {
     const d = pick(DIR14), pitch = d.pitch, bank = pickBank(s, d);
-    /* 真上・真下（±90°）はバンク違いの誤答が見分けにくいので、ピッチ違いの誤答だけにする。
-       それ以外は「左右逆のバンク」「水平」「大きさ違い」「ピッチ違い」を混ぜる */
-    const cands = Math.abs(pitch) === 90
-      ? [[0, -pitch], [0, 30 * Math.sign(pitch)], [0, -30 * Math.sign(pitch)], [0, 0]]
-      : [[-bank, pitch], [0, pitch], [otherMag(bank), pitch], [bank, -pitch], [-bank, -pitch], [0, -pitch], [bank, pitch === 0 ? 30 : 0], [bank === 0 ? 30 : bank, pitch === 0 ? -30 : 0], [30, pitch], [-30, pitch]]
-        .filter(([b, p]) => !(b === bank && p === pitch));
-    const dis = pickDistractors(cands, () => true, 3);
+    const dis = pickDistractors(attCands(bank, pitch), () => true, 3);
     const opts = shuffle([{ bank, pitch, ok: true }, ...dis.map(([b, p]) => ({ bank: b, pitch: p, ok: false }))]);
     return { type: 'attitude', dir14: d, bank, pitch, opts };
   }
-  /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。 */
+  /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。誤答は「方位違い（姿勢は同じ）」と「姿勢の区分違い（方位は同じ）」を混ぜる */
   function genCombo(s) {
     const d = pick(DIR14.filter(x => x.heading !== null)), heading = d.heading, pitch = d.pitch, bank = pickBank(s, d);
-    const cands = [[heading + 180, bank, pitch], [360 - heading, bank, pitch], [heading + 90, bank, pitch], [heading - 90, bank, pitch], [heading + 45, bank, pitch], [heading - 45, bank, pitch],
-      [heading, bank, -pitch], [heading + 180, bank, -pitch], [360 - heading, bank, -pitch], [heading, -bank, pitch], [heading, 0, pitch], [heading, otherMag(bank), pitch], [heading, bank === 0 ? 30 : bank, pitch === 0 ? 30 : 0], [heading + 180, -bank, pitch]]
-      .map(([h, b, p]) => [norm(h), b, p]).filter(([h, b, p]) => !(h === heading && b === bank && p === pitch));
+    const hc = [heading + 180, 360 - heading, heading + 90, heading - 90, heading + 45, heading - 45].map(norm).filter(h => h !== heading).map(h => [h, bank, pitch]);
+    const ac = attCands(bank, pitch).map(([b, p]) => [heading, b, p]);
+    const cands = [...hc, ...ac, [norm(heading + 180), -bank, pitch]].filter(([h, b, p]) => !(h === heading && b === bank && p === pitch));
     const dis = pickDistractors(cands, () => true, 3);
     const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);
     return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, opts };

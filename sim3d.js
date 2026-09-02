@@ -138,12 +138,36 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
 
   /* 機体（三人称のときだけ表示）と、高度の手がかり（地面の影と垂線） */
-  const plane = new THREE.Group(); world.add(plane); plane.visible = false;
+  const plane = new THREE.Group(); world.add(plane);
+  /* 操縦席の部品。座標はモデル座標 ×k（k = 13/全長）で書き、読み込み後に GLB と同じ平行移動（eyeOff）を掛ける。
+     目安（この座標系）: 風防の上端 z≈0.43、前席の背もたれ上端 z≈0.32、前席 y≈2.4〜3.5、風防の前端 y≈3.55、床 z≈-0.97。
+     モデルには座席と風防しかないので、計器盤・グレアシールド・操縦桿・方向舵ペダルを自作する。目は前席の後ろ寄り・背もたれの少し上 */
+  const EYE = new THREE.Vector3(0, 2.55, 0.40), eyeOff = new THREE.Vector3(), seatMeshes = [];
+  const cockpit = new THREE.Group(); plane.add(cockpit);
+  const dark = new THREE.MeshLambertMaterial({ color: 0x1b2027 }), mid = new THREE.MeshLambertMaterial({ color: 0x2e3640 }), grip = new THREE.MeshLambertMaterial({ color: 0x14171b }), metal = new THREE.MeshLambertMaterial({ color: 0x8a939e });
+  const shield = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 0.04), grip); shield.position.set(0, 3.45, 0.05); shield.rotation.x = 0.3; cockpit.add(shield);      // グレアシールド（風防の下）
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 0.3), dark); panel.position.set(0, 3.35, -0.2); panel.rotation.x = 0.35; cockpit.add(panel);            // 計器盤（その下は足元の空間）
+  const dialMat = new THREE.MeshBasicMaterial({ color: 0x0b0d10 });
+  [-0.16, 0.16].forEach(x => { const d = new THREE.Mesh(new THREE.CircleGeometry(0.045, 16), dialMat); d.position.set(x, 3.29, -0.16); d.rotation.x = -Math.PI / 2 + 0.35; cockpit.add(d); });
+  const stick = new THREE.Group(); stick.position.set(0, 3.2, -0.9); cockpit.add(stick);                                                                                 // 操縦桿（根元が回転の中心）
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.65, 10).rotateX(Math.PI / 2), metal); shaft.position.set(0, 0, 0.325); stick.add(shaft);
+  const g1 = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.12, 4, 10).rotateX(Math.PI / 2), grip); g1.position.set(0, 0.01, 0.7); stick.add(g1);
+  const g2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.04), new THREE.MeshLambertMaterial({ color: 0xc0392b })); g2.position.set(0, 0.035, 0.75); stick.add(g2);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.05, 12).rotateX(Math.PI / 2), mid); base.position.set(0, 3.2, -0.92); cockpit.add(base);
+  const pedalGeo = new THREE.BoxGeometry(0.16, 0.05, 0.14);
+  const pedalL = new THREE.Mesh(pedalGeo, mid), pedalR = new THREE.Mesh(pedalGeo, mid); pedalL.rotation.x = -0.5; pedalR.rotation.x = -0.5; cockpit.add(pedalL, pedalR);
+  const PEDAL = { y: 3.5, z: -0.72, x: 0.2, travel: 0.09 };
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.02), dark); floor.position.set(0, 3.3, -0.98); cockpit.add(floor);
+  const lamp = new THREE.PointLight(0xffe2b8, 0.9, 2.5); lamp.position.set(0, 2.9, 0.3); cockpit.add(lamp);   // 操縦席の灯り（夜でも部品が見える）
+  const vis = { x: 0, y: 0, r: 0 };   // 表示用になめらかに追従させた入力
   new GLTFLoader().load('model/t4.glb', g => {
     g.scene.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
     const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), k = 13 / Math.max(size.y, 1e-3);   // 全長 13 m
     g.scene.scale.setScalar(k); const c = box.getCenter(new THREE.Vector3()).multiplyScalar(k); g.scene.position.set(-c.x, -c.y, -c.z);
     plane.add(g.scene);
+    cockpit.position.copy(g.scene.position); eyeOff.copy(g.scene.position);   // 操縦席の部品と目の位置はモデル座標（×k）で書いてあるので、同じ平行移動を掛ける
+    g.scene.traverse(o => { if (o.isMesh && /^mesh_2(_|$)/.test(o.name)) seatMeshes.push(o); });   // 前席（一人称では隠す。目の真下で視界を塞ぐため）
+    seatMeshes.forEach(m => { m.visible = curView === 'third'; });
   }, undefined, () => {});
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false })); shadow.position.z = 0.8; world.add(shadow);
   const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 1)]);
@@ -153,8 +177,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false };
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
   let curView = view;
-  const cam = new THREE.PerspectiveCamera(70, 1, 0.5, 9000);
-  const camPos = new THREE.Vector3(), tmp = new THREE.Vector3(), R = new THREE.Matrix4(), Rh = new THREE.Matrix4(), RX90 = new THREE.Matrix4().makeRotationX(Math.PI / 2), qc = new THREE.Quaternion();
+  const cam = new THREE.PerspectiveCamera(70, 1, 0.08, 9000);
+  const camPos = new THREE.Vector3(), tmp = new THREE.Vector3(), R = new THREE.Matrix4(), Rh = new THREE.Matrix4(), RX90 = new THREE.Matrix4().makeRotationX(Math.PI / 2), TILT = new THREE.Matrix4().makeRotationX(-16 * D), qc = new THREE.Quaternion();
   function rotation() { return R.makeRotationZ(-st.h * D).multiply(new THREE.Matrix4().makeRotationX(st.p * D)).multiply(new THREE.Matrix4().makeRotationY(st.b * D)); }
 
   function resize() { const w = container.clientWidth || 1, h = container.clientHeight || 1; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
@@ -173,6 +197,10 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   function place() {
     rotation();
+    vis.x += (input.x - vis.x) * 0.25; vis.y += (input.y - vis.y) * 0.25; vis.r += (input.r - vis.r) * 0.25;
+    stick.rotation.set(-0.38 * vis.y, 0.38 * vis.x, 0);                       // 奥に倒す → 先端が前へ、右 → 先端が右へ
+    pedalL.position.set(-PEDAL.x, PEDAL.y - PEDAL.travel * vis.r, PEDAL.z);   // 右方向舵 → 右ペダルが前に出て左が戻る
+    pedalR.position.set(PEDAL.x, PEDAL.y + PEDAL.travel * vis.r, PEDAL.z);
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
@@ -182,8 +210,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
       if (camPos.lengthSq() === 0) camPos.copy(tmp); else camPos.lerp(tmp, 0.12);
       cam.position.copy(camPos); cam.up.set(0, 0, 1); cam.lookAt(tmp.set(0, 20, 2).applyMatrix4(Rh).add(plane.position));
     } else {
-      cam.position.copy(tmp.set(0, 3.5, 1.0).applyMatrix4(R).add(plane.position));
-      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(R, RX90));
+      cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(R).add(plane.position));
+      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(R, RX90).multiply(TILT));   // 一人称は少し下向き（計器盤と操縦桿が視界に入る）
     }
     sky.position.copy(cam.position);
   }
@@ -198,7 +226,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   raf = requestAnimationFrame(frame);
 
-  function setView(v) { curView = v; plane.visible = v === 'third'; cam.fov = v === 'third' ? 55 : 72; cam.updateProjectionMatrix(); camPos.set(0, 0, 0); }
+  function setView(v) { curView = v; cockpit.visible = v !== 'third'; seatMeshes.forEach(m => { m.visible = v === 'third'; }); cam.fov = v === 'third' ? 55 : 68; cam.updateProjectionMatrix(); camPos.set(0, 0, 0); }
   setView(view);
 
   return {

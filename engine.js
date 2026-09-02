@@ -106,8 +106,10 @@
     return { bank: state.bank + (e.bank || 0), pitch: state.pitch + (e.pitch || 0), yaw: state.yaw + (e.yaw || 0) };
   }
   function genControl(s) {
-    const first = pick(OPS).id;
-    const ops = s.ops === 'single' ? [first, first] : [first, pick(OPS).id];
+    /* 2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。同じ操作の繰り返しや、左右の切り返し（左に倒して右に倒す等）は出さない */
+    const STICK = OPS.filter(o => o.group === 'stick'), RUDDER = OPS.filter(o => o.group === 'rudder');
+    const first = s.ops === 'single' ? pick(OPS).id : pick(STICK).id;
+    const ops = s.ops === 'single' ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';
     const init = { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
     const frames = [init];
@@ -118,11 +120,8 @@
     const cands = [];
     if (single) { for (const o of OPS) if (o.id !== first) cands.push([o.id, o.id]); }
     else {
-      const [a, b] = ops;
-      if (a !== b) cands.push([b, a]);
-      cands.push([OPPOSITE[a], b], [a, OPPOSITE[b]], [OPPOSITE[a], OPPOSITE[b]]);
-      for (const o of OPS) { if (o.id !== a) cands.push([o.id, b]); if (o.id !== b) cands.push([a, o.id]); }
-      cands.push([b, b], [a, a]);
+      /* 誤答も同じ形（操縦桿 → 方向舵）: 操縦桿 4 × 方向舵 2 のうち正解以外の 7 通り */
+      for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
     }
     const dis = pickDistractors(cands, c => key(c) !== key(ops), 3);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));

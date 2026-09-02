@@ -467,19 +467,15 @@ body:not([data-view="train"]) .stats{display:none}
   .opts .ab{padding:.375rem .375rem .25rem;gap:.125rem}
   .opts .ab .inst{width:auto;height:clamp(5rem,14dvh,7.5rem);aspect-ratio:1}
   .opts .ab .inst svg{width:100%;height:100%}
-  .opts .ab .pair{width:auto;height:clamp(3.75rem,10dvh,5.5rem)}
-  .opts .ab .pair svg{width:auto;height:100%}
+  .opts .ab .pair{display:flex;justify-content:center;gap:.25rem;width:auto;height:auto}
+  .opts .ab .pair svg{width:auto;height:clamp(3.75rem,10dvh,5.5rem);aspect-ratio:1;flex:none}
   .opts.text .ab{padding:.5rem .75rem;min-height:2.75rem}
   .opts.text .ab .t{font-size:.875rem}
   /* 解説（.fb.show）が出ているときは 1 画面に収まらないので、図の伸縮をやめて通常の流れ（スクロール）に戻す。
-     こうしないと図が min-height 0 までつぶれて選択肢に重なる */
+     こうしないと図が min-height 0 までつぶれて選択肢に重なる。図の大きさは変えない: 解説を出す直前に freezeFigs() が
+     .d14 / .fig.top / .frame の高さを inline で固定するので、ここでは容れ物の flex を止めるだけにする */
   body[data-view="train"] .layout > .card:has(#quiz:not([hidden]) .fb.show){flex:none}
   .card:has(#quiz:not([hidden]) .fb.show) #quiz,.card:has(#quiz:not([hidden]) .fb.show) #figs,.card:has(#quiz:not([hidden]) .fb.show) .figs,.card:has(#quiz:not([hidden]) .fb.show) .fig.wide,.card:has(#quiz:not([hidden]) .fb.show) .figs.heading > div:first-child,.card:has(#quiz:not([hidden]) .fb.show) .frames,.card:has(#quiz:not([hidden]) .fb.show) .frame{flex:none}
-  .card:has(#quiz:not([hidden]) .fb.show) .d14{display:block;height:auto;min-height:0}
-  .card:has(#quiz:not([hidden]) .fb.show) .d14 img{height:auto!important;width:100%!important}
-  .card:has(#quiz:not([hidden]) .fb.show) .fig.top{display:block;width:60%;margin:0 auto;min-height:0}
-  .card:has(#quiz:not([hidden]) .fb.show) .fig.top svg{height:auto;width:100%}
-  .card:has(#quiz:not([hidden]) .fb.show) .frame{min-height:0;grid-template-rows:auto}
   .card:has(#quiz:not([hidden]) .fb.show) .frame .v{height:auto;display:block}
   .card:has(#quiz:not([hidden]) .fb.show) .frame .v svg{height:auto;width:100%}
   /* シミュレーター */
@@ -713,7 +709,7 @@ body:not([data-view="train"]) .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=28"></script>
+<script src="engine.js?v=29"></script>
 <script>
 (function(){
 'use strict';
@@ -727,10 +723,10 @@ const MODE_DEFAULTS={
   heading:{qCount:20,qLimit:5,sLimit:300,skipExplain:true},
   attitude:{qCount:10,qLimit:10,sLimit:300,skipExplain:true},
   combo:{qCount:20,qLimit:15,sLimit:480,skipExplain:true},
-  control:{qCount:10,qLimit:20,sLimit:900,skipExplain:true}};
+  control:{qCount:10,qLimit:20,sLimit:900,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
 const modeSet=store.get('modeSet',{});
 const MS=()=>Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});
-function setMS(key,val){modeSet[mode]=Object.assign(MS(),{[key]:val});store.set('modeSet',modeSet)}
+function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}   // 変更したキーだけ保存（既定値の変更を反映させるため）
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'double',init:'random',bank:'on'};
 const genQ=()=>E.generate(mode,Object.assign({},settings,GEN));
@@ -851,6 +847,7 @@ function finish(g,timedOut){
   }else if(practiceLeft>0)practiceLeft--;
   /* 解説スキップ（計測時のみ、種目ごとの設定）: 正誤の印を短く見せてから次へ。時間切れのときは「次へ」を待つ */
   if(!inPractice&&!timedOut&&MS().skipExplain){setTimeout(()=>{if(answered)next()},450);return}
+  freezeFigs();
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'check':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
   $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。「次へ」で次の問題に進みます。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
@@ -858,6 +855,18 @@ function finish(g,timedOut){
   else if(session&&session.ended)$('#next').textContent='結果を見る';
   else $('#next').innerHTML=`次の問題${ic('next','s')}`;
   $('#next').focus({preventScroll:true});
+  revealFeedback();
+}
+/* 解説を出す前に図の高さを固定する（スマホ幅の 1 画面レイアウトの伸縮を止めても、図の大きさが変わらないように）。次の出題で図を作り直すので自然に解除される */
+function freezeFigs(){
+  if(!matchMedia('(max-width:63.99rem)').matches)return;
+  const rem=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
+  $('#figs').querySelectorAll('.d14,.fig.top,.frame').forEach(el=>{const h=el.getBoundingClientRect().height;if(h>0){el.style.height=(h/rem).toFixed(3)+'rem';el.style.flex='none'}});
+}
+/* 解説が画面の外にあるときだけ、解説の下端（「次へ」）が見えるところまでなめらかにスクロールする。解説が長ければ先頭を合わせる */
+function revealFeedback(){
+  requestAnimationFrame(()=>{const fb=$('#feedback');if(!fb.classList.contains('show'))return;const r=fb.getBoundingClientRect();
+    if(r.bottom>innerHeight||r.top<0)fb.scrollIntoView({behavior:'smooth',block:r.height>innerHeight*.85?'start':'end'})});
 }
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
   if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').innerHTML=ic('check')}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').innerHTML=ic('cross')}else b.classList.add('dim')})}

@@ -51,11 +51,15 @@
     { id: 'sw_down', ja: '南西下', heading: 225, pitch: -30, read: '機首が手前・左・下 → 南西へ降下。' }
   ];
 
-  const DEFAULT_SETTINGS = { north: 'fixed', view: 'rear', ops: 'double', init: 'level', auto: false };
+  const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false };
 
   /* ---------- 出題生成 ---------- */
+  /* N マークの向きと機首の向きが一致すると答えが自明になるので、機首は N と別の向きだけを出題する（dir≠0）。
+     N マークの角度はランダム。画面の上（±10°）には置かない（画面上部が常に N にならないようにする）。 */
   function genHeading(s) {
-    const dir = rnd(8), phi = s.north === 'random' ? rnd(360) : 0;
+    const dir = 1 + rnd(7);
+    let phi = 0;
+    if (s.north !== 'fixed') { do { phi = rnd(360); } while (phi < 10 || phi > 350); }
     return { type: 'heading', dir, phi, theta: norm(phi + dir * 45) };
   }
   function pickDistractors(cands, isValid, n) {

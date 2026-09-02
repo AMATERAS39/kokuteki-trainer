@@ -488,7 +488,7 @@ body[data-view="home"] .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる">×</button>
 </div>
 
-<script src="engine.js"></script>
+<script src="engine.js?v=19"></script>
 <script>
 (function(){
 'use strict';
@@ -519,7 +519,7 @@ function render(){
     $('#prompt').textContent='上から見下ろした戦闘機が向いている方位を、8方位から答えてください。';
     /* 方位の配置に並べると図と見比べるだけで解けてしまうので、北から時計回りの固定順の文字だけの一覧にする */
     const grid=`<div class="dirlist">${[0,1,2,3,4,5,6,7].map(i=>`<button class="ab" data-dir="${i}"><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
-    figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北${q.phi?'（北の向き: <b>ランダム</b>）':''}</div></div>${grid}</div>`;
+    figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北</div></div>${grid}</div>`;
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
   }else if(q.type==='attitude'||q.type==='combo'){
@@ -653,7 +653,7 @@ function renderSettingsPage(){
       ${sel('dirLabel','方位の表記',[['kanji','漢字（北・北東 …）'],['alpha','アルファベット（N・NE …）']])}
       ${sel('theme','テーマ',[['auto','端末に合わせる'],['dark','ダーク'],['light','ライト']])}</div>
     <div class="setgroup"><h4>出題</h4>
-      ${sel('north','方位: 北の向き',[['fixed','上に固定'],['random','ランダム（難）']])}
+      ${sel('north','方位: N マークの向き',[['random','ランダム（標準）'],['fixed','上に固定（易）']])}
       ${sel('ops','操縦操作: 操作数',[['single','単一操作'],['double','2 操作（順に）']])}
       ${sel('init','操縦操作: ①の初期姿勢',[['level','水平'],['random','ランダム（難）']])}
       ${chk('auto','正解したら自動で次へ')}</div>`;
@@ -661,7 +661,7 @@ function renderSettingsPage(){
   $('#settingsPage').querySelectorAll('[data-chk]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.chk;settings[k]=!settings[k];store.set('settings',settings);b.classList.toggle('on',settings[k]);b.textContent=settings[k]?'✓':'';b.setAttribute('aria-checked',settings[k])}));
 }
 const TIPS={
-  heading:'N マークを基準に、機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東。北が上でない問題では、まず N の位置を確認する。',
+  heading:'まず N マークの向きを確認し、そこから機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東、180°=南。機首は N と同じ向きにはならない。',
   attitude:'視点は常に南。画面の奥が北、手前が南、右が東、左が西。翼は水平なので水平線が傾いた選択肢は誤り。機首上げ → 水平線が下がり空が広がる。機首下げ → 地面が広がる。真上・真下は腹面／背面が見える。',
   combo:'まず機首の向き（奥・手前・右・左）で方位を決め、次に上向きか下向きかでピッチを決める。方位指示器は現在の方位が上に来る（数字は 10 の位まで: 3=030°, 12=120°）。',
   control:'操縦桿を右に倒す → 機体が右に傾き景色は左に傾く。奥に倒す → 機首が下がり水平線が上がる。手前に引く → 上昇し水平線が下がる。右方向舵を踏む → 水平のまま右を向き景色が左へ流れる。選択肢は①→②、②→③の順。'

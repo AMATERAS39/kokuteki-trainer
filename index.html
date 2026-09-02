@@ -45,6 +45,11 @@
 html{font-size:100%;-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);line-height:1.6;
   padding:0 0 3rem;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+/* 長押しで文字選択・コピー・画像保存のメニューが出ないようにする（シミュレーターの押しっぱなし操作で邪魔になる）。入力欄だけは通常どおり */
+body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+select,input,textarea{-webkit-user-select:auto;user-select:auto}
+img{-webkit-user-drag:none;-webkit-touch-callout:none}
+.d14 img,.hero-jet,.hero-logo{pointer-events:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:disabled{cursor:default}
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -972,6 +977,8 @@ document.addEventListener('keydown',e=>{
   else{if(/^[1-4]$/.test(e.key)){e.preventDefault();answerOpts(+e.key-1)}}
 });
 applyTheme();applyScene();
+/* 右クリック／長押しのコンテキストメニューも抑止（入力欄は除く） */
+document.addEventListener('contextmenu',e=>{if(!e.target.closest('select,input,textarea'))e.preventDefault()});
 
 /* ===== 画面の切り替え（ホーム / 訓練 / 設定 / 説明）: URL のハッシュで管理 ===== */
 function renderHome(){

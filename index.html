@@ -136,12 +136,14 @@ svg text{user-select:none}
 
 .gallery h2{font-family:var(--display);font-weight:700;font-size:1.125rem;margin:0}
 .gallery .sub{font-size:.8125rem;color:var(--muted);margin-top:.25rem}
-.gallery .op{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--line)}
-.gallery .op h4{margin:0 0 .5rem;font-size:.9375rem}
-.gallery .frames3{display:grid;grid-template-columns:repeat(3,1fr);gap:.375rem}
-.gallery .frames3 .v{border-radius:.5rem;overflow:hidden;border:1px solid var(--line)}
-.gallery .frames3 .n{font-family:var(--mono);font-size:.75rem;color:var(--accent);text-align:center;margin-top:.25rem}
-.gallery .op .d{font-size:.8125rem;color:var(--muted);margin-top:.375rem}
+.gallery .gsel{display:grid;grid-template-columns:6rem 1fr;gap:.5rem;align-items:center;margin-top:.5rem}
+.gallery .gl{font-size:.8125rem;color:var(--muted)}
+.gallery .gp{display:grid;grid-template-columns:1fr 1fr;gap:.375rem}
+.gallery .gp .ab{min-height:2.75rem;font-size:.875rem;font-weight:700}
+.gallery h4{margin:1rem 0 .5rem;font-size:.9375rem}
+.gallery .frames{max-width:26rem;margin:0 auto}
+.gallery .gexp{margin:.75rem 0 0;padding-left:1.2em;font-size:.8125rem;line-height:1.6;color:var(--muted)}
+.gallery .gexp b{color:var(--text)}
 .gallery .acts{margin-top:1rem}
 
 /* ===== レイアウト ===== */
@@ -347,6 +349,7 @@ body[data-view="home"] .stats{display:none}
   .figs.heading .dirlist{margin-top:0;gap:.625rem;grid-template-columns:repeat(2,1fr)}
   .figs.heading .dirlist .ab{min-height:3.75rem}
   .frames{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+  .gallery .frames{grid-template-columns:1fr}
   .frame{grid-template-columns:1fr}
   .frame .n{order:2;text-align:center;margin-top:.375rem;font-size:.8125rem}
   .segs{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
@@ -773,16 +776,37 @@ function simDraw(){
 }
 function stopSim(){if(sim){clearInterval(sim.raf);sim=null}}
 
-/* ===== 操縦操作: 全操作パターンの見え方（①→②→③） ===== */
+/* ===== 操縦操作: 操作パターンの見え方（操作を選んで①→②→③を縦に表示。複数選択で複合パターン） ===== */
+const gal={sel:[],seq:false};   // sel: 選択中の操作 id（選んだ順）、seq: true=順番に行う / false=同時に行う
 function showGallery(){
-  setPhase('gallery','一覧');showPane('gallery');
-  const lv={bank:0,pitch:0,yaw:0};
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">水平飛行①から同じ操作を続けたときの②③。時間が進むと前進するので景色は大きくなります。</div>`+
-    E.OPS.map(o=>{const f=[lv,E.applyOp(lv,o.id)];f.push(E.applyOp(f[1],o.id));
-      return `<div class="op"><h4>${o.base}</h4><div class="frames3">${f.map((x,i)=>`<div><div class="v">${E.svgCockpit(x.bank,x.pitch,x.yaw,i/2)}</div><div class="n">${'①②③'[i]}</div></div>`).join('')}</div><div class="d">${o.view} → ${o.body}</div></div>`}).join('')+
-    `<div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
+  setPhase('gallery','見え方');showPane('gallery');
+  const pair=(title,a,b)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp"><button class="ab" data-op="${a}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button><button class="ab" data-op="${b}">${E.OP_BY_ID[b].ja.split(' ')[1]}</button></div></div>`;
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、水平飛行①からの②③を表示します。複数選ぶと複合パターンになります。</div>
+    ${pair('操縦桿 左右','stick-left','stick-right')}${pair('操縦桿 前後','stick-forward','stick-back')}${pair('方向舵','rudder-left','rudder-right')}
+    <div class="gsel" id="gseqRow" hidden><div class="gl">複数の操作</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">順番に行う</button></div></div>
+    <div id="gout"></div>
+    <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
+  $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.op,opp=E.OPS.find(o=>o.id===id)&&({'stick-left':'stick-right','stick-right':'stick-left','stick-forward':'stick-back','stick-back':'stick-forward','rudder-left':'rudder-right','rudder-right':'rudder-left'})[id];
+    if(gal.sel.includes(id))gal.sel=gal.sel.filter(x=>x!==id);else{gal.sel=gal.sel.filter(x=>x!==opp);gal.sel.push(id)}
+    galDraw()}));
+  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw()}));
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
-  window.scrollTo({top:0});
+  galDraw();window.scrollTo({top:0});
+}
+function galDraw(){
+  $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
+  $('#gseqRow').hidden=gal.sel.length<2;
+  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
+  const out=$('#gout');
+  if(!gal.sel.length){out.innerHTML='<div class="sub" style="margin-top:.75rem">上のボタンで操作を選んでください。</div>';return}
+  const lv={bank:0,pitch:0,yaw:0};let f;
+  if(gal.seq&&gal.sel.length>=2){f=[lv,E.applyOp(lv,gal.sel[0])];f.push(E.applyOp(f[1],gal.sel[1]))}
+  else{const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);f=[lv,step(lv)];f.push(step(f[1]))}
+  const text=gal.seq&&gal.sel.length>=2?E.opsText(gal.sel.slice(0,2)):gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋');
+  out.innerHTML=`<h4>${text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4>
+    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(x.bank,x.pitch,x.yaw,i/2)}</div></div>`).join('')}</div>
+    <ul class="gexp">${gal.sel.map(id=>{const o=E.OP_BY_ID[id];return `<li><b>${o.base}</b>: ${o.view} → ${o.body}</li>`}).join('')}</ul>`;
 }
 
 /* ===== 記録・設定 ===== */

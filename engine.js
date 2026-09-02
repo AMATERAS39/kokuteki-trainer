@@ -1,0 +1,291 @@
+/* 航空適性トレーナー ロジック層
+   出題生成・採点・計器 SVG 生成。色は CSS 変数のみ参照し、レイアウトには関与しない。 */
+(function (global) {
+  'use strict';
+  const D = Math.PI / 180;
+  const rnd = n => Math.floor(Math.random() * n);
+  const pick = a => a[rnd(a.length)];
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1);[a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const norm = a => ((a % 360) + 360) % 360;
+  let uid = 0;
+
+  /* ---------- 定数 ---------- */
+  const DIRS = [
+    { k: 'N', ja: '北' }, { k: 'NE', ja: '北東' }, { k: 'E', ja: '東' }, { k: 'SE', ja: '南東' },
+    { k: 'S', ja: '南' }, { k: 'SW', ja: '南西' }, { k: 'W', ja: '西' }, { k: 'NW', ja: '北西' }
+  ];
+  const MODES = { heading: '方位', attitude: '姿勢指示器', combo: '複合', control: '操縦操作' };
+  const OPS = [
+    { id: 'stick-right', ja: '操縦桿 右', group: 'stick', effect: { bank: 20 }, body: '機体が右に傾く', view: '景色が左に傾く（水平線が右上がりになる）' },
+    { id: 'stick-left', ja: '操縦桿 左', group: 'stick', effect: { bank: -20 }, body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
+    { id: 'stick-forward', ja: '操縦桿 奥', group: 'stick', effect: { pitch: -8 }, body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
+    { id: 'stick-back', ja: '操縦桿 手前', group: 'stick', effect: { pitch: 8 }, body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
+    { id: 'rudder-right', ja: 'ヨー 右', group: 'rudder', effect: { yaw: 10 }, body: '水平のまま右を向く', view: '水平線は変わらず、景色が左へ流れる' },
+    { id: 'rudder-left', ja: 'ヨー 左', group: 'rudder', effect: { yaw: -10 }, body: '水平のまま左を向く', view: '水平線は変わらず、景色が右へ流れる' }
+  ];
+  const OP_BY_ID = Object.fromEntries(OPS.map(o => [o.id, o]));
+  const HI_LABELS = ['N', '3', '6', 'E', '12', '15', 'S', '21', '24', 'W', '30', '33'];
+  /* 第三者視点（南からの固定視点）で機首が向く 14 方向。heading は北 0° 時計回り、pitch は機首上げ正 [°]。
+     読み方: 画面の奥が北、手前が南、右が東、左が西。 */
+  const DIR14 = [
+    { id: 'north', ja: '北', heading: 0, pitch: 0, read: '機首が画面の奥を向いている → 北。翼は水平。' },
+    { id: 'south', ja: '南', heading: 180, pitch: 0, read: '機首がこちら（手前）を向いている → 南。翼は水平。' },
+    { id: 'east', ja: '東', heading: 90, pitch: 0, read: '機首が画面の右を向いている → 東。側面が見えるので水平飛行。' },
+    { id: 'west', ja: '西', heading: 270, pitch: 0, read: '機首が画面の左を向いている → 西。側面が見えるので水平飛行。' },
+    { id: 'up', ja: '上', heading: null, pitch: 90, read: '機首が真上。腹面（下側）が見えている → 垂直上昇。姿勢指示器はほぼ全面が空。' },
+    { id: 'down', ja: '下', heading: null, pitch: -90, read: '機首が真下。背面（上側）が見えている → 垂直降下。姿勢指示器はほぼ全面が地面。' },
+    { id: 'ne_up', ja: '北東上', heading: 45, pitch: 30, read: '機首が奥・右・上 → 北東へ上昇。' },
+    { id: 'nw_up', ja: '北西上', heading: 315, pitch: 30, read: '機首が奥・左・上 → 北西へ上昇。' },
+    { id: 'se_up', ja: '南東上', heading: 135, pitch: 30, read: '機首が手前・右・上 → 南東へ上昇。' },
+    { id: 'sw_up', ja: '南西上', heading: 225, pitch: 30, read: '機首が手前・左・上 → 南西へ上昇。' },
+    { id: 'ne_down', ja: '北東下', heading: 45, pitch: -30, read: '機首が奥・右・下 → 北東へ降下。' },
+    { id: 'nw_down', ja: '北西下', heading: 315, pitch: -30, read: '機首が奥・左・下 → 北西へ降下。' },
+    { id: 'se_down', ja: '南東下', heading: 135, pitch: -30, read: '機首が手前・右・下 → 南東へ降下。' },
+    { id: 'sw_down', ja: '南西下', heading: 225, pitch: -30, read: '機首が手前・左・下 → 南西へ降下。' }
+  ];
+
+  const DEFAULT_SETTINGS = { north: 'fixed', view: 'rear', ops: 'double', init: 'level', auto: false };
+
+  /* ---------- 出題生成 ---------- */
+  function genHeading(s) {
+    const dir = rnd(8), phi = s.north === 'random' ? rnd(360) : 0;
+    return { type: 'heading', dir, phi, theta: norm(phi + dir * 45) };
+  }
+  function pickDistractors(cands, isValid, n) {
+    const seen = new Set(); const out = [];
+    for (const c of shuffle(cands.slice())) {
+      const k = c.join(',');
+      if (isValid(c) && !seen.has(k)) { seen.add(k); out.push(c); }
+      if (out.length === n) break;
+    }
+    return out;
+  }
+  /* 種目2: 14 方向の絵 → 姿勢指示器。翼は常に水平なので、正解はバンク 0。
+     誤答はバンクを付けたもの・ピッチを反転したもの・水平にしたもの。 */
+  function genAttitude(s) {
+    const d = pick(DIR14), pitch = d.pitch, bank = 0;
+    /* 真上・真下（±90°）はバンク違いの誤答が見分けにくいので、ピッチ違いの誤答だけにする */
+    const cands = Math.abs(pitch) === 90
+      ? [[0, -pitch], [0, 30 * Math.sign(pitch)], [0, -30 * Math.sign(pitch)], [0, 0]]
+      : [[0, -pitch], [30, pitch], [-30, pitch], [30, -pitch], [-30, -pitch], [0, pitch === 0 ? 30 : 0], [0, pitch === 0 ? -30 : 90 * Math.sign(pitch)]]
+        .filter(([b, p]) => !(b === 0 && p === pitch));
+    const dis = pickDistractors(cands, () => true, 3);
+    const opts = shuffle([{ bank, pitch, ok: true }, ...dis.map(([b, p]) => ({ bank: b, pitch: p, ok: false }))]);
+    return { type: 'attitude', dir14: d, bank, pitch, opts };
+  }
+  /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。 */
+  function genCombo(s) {
+    const d = pick(DIR14.filter(x => x.heading !== null)), heading = d.heading, pitch = d.pitch, bank = 0;
+    const cands = [[heading + 180, 0, pitch], [360 - heading, 0, pitch], [heading + 90, 0, pitch], [heading - 90, 0, pitch], [heading + 45, 0, pitch], [heading - 45, 0, pitch],
+      [heading, 0, -pitch], [heading + 180, 0, -pitch], [360 - heading, 0, -pitch], [heading, 30, pitch], [heading, -30, pitch], [heading, 0, pitch === 0 ? 30 : 0]]
+      .map(([h, b, p]) => [norm(h), b, p]).filter(([h, b, p]) => !(h === heading && b === 0 && p === pitch));
+    const dis = pickDistractors(cands, () => true, 3);
+    const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);
+    return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, opts };
+  }
+  function applyOp(state, opId) {
+    const e = OP_BY_ID[opId].effect;
+    return { bank: state.bank + (e.bank || 0), pitch: state.pitch + (e.pitch || 0), yaw: state.yaw + (e.yaw || 0) };
+  }
+  function genControl(s) {
+    const first = pick(OPS).id;
+    const ops = s.ops === 'single' ? [first, first] : [first, pick(OPS).id];
+    const rand = s.init === 'random';
+    const init = { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
+    const frames = [init];
+    for (const op of ops) frames.push(applyOp(frames[frames.length - 1], op));
+    return { type: 'control', ops, frames, init, single: s.ops === 'single' };
+  }
+  function generate(mode, settings) {
+    const s = Object.assign({}, DEFAULT_SETTINGS, settings);
+    return mode === 'heading' ? genHeading(s) : mode === 'attitude' ? genAttitude(s) : mode === 'combo' ? genCombo(s) : genControl(s);
+  }
+
+  /* ---------- 採点と解説 ---------- */
+  const bankText = b => b > 0 ? `右バンク${b}°` : b < 0 ? `左バンク${-b}°` : '水平（バンクなし）';
+  const pitchText = p => p > 0 ? `機首上げ${p}°` : p < 0 ? `機首下げ${-p}°` : '水平（ピッチなし）';
+
+  function gradeHeading(q, dir) {
+    const ok = dir === q.dir;
+    const lines = [`N マークから時計回りに 45° ずつ数えます。機首は N から ${q.dir * 45}° の方向。`];
+    if (q.phi) lines.push('北が上ではないので、画面の上下ではなく N マークを基準に読み替えます。');
+    return { ok, correct: q.dir, answerText: `${DIRS[q.dir].ja}（${DIRS[q.dir].k}）`, lines };
+  }
+  function gradeOpts(q, i) {
+    const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
+    const { pitch } = q, d = q.dir14;
+    const lines = [d.read];
+    lines.push('翼が水平なのでバンクなし。水平線が傾いている選択肢は誤り。');
+    lines.push(pitch > 0 ? '機首上げ：姿勢指示器では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
+    let answerText = `${'ABCD'[ci]}（機首 ${d.ja}：${pitchText(pitch)}`;
+    if (q.type === 'combo') {
+      lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。方位指示器では ${HI_LABELS[q.heading / 30] || q.heading / 10} が上に来ます。`);
+      answerText += ` / ${DIRS[q.dir].ja}`;
+    }
+    return { ok, correct: ci, answerText: answerText + '）', lines };
+  }
+  function gradeControl(q, ops) {
+    const seg = q.ops.map((o, i) => o === ops[i]);
+    const ok = seg.every(Boolean);
+    const lines = q.ops.map((id, i) => { const o = OP_BY_ID[id]; return `${'①②③'[i]}→${'①②③'[i + 1]}：${o.view} → ${o.body} → ${o.ja}。`; });
+    if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
+    return { ok, seg, correct: q.ops, answerText: q.ops.map(id => OP_BY_ID[id].ja).join(' → '), lines };
+  }
+
+  /* ---------- 描画: 上面図 ---------- */
+  const JET_TOP = '<path d="M0,-62 L7,-34 L9,-6 L44,18 L44,26 L10,20 L9,34 L23,44 L23,50 L4,46 L0,54 L-4,46 L-23,50 L-23,44 L-9,34 L-10,20 L-44,26 L-44,18 L-9,-6 L-7,-34 Z" fill="var(--jet, #b9c2cc)" stroke="var(--jet-line, #66717d)" stroke-width="2" stroke-linejoin="round"/><ellipse cx="0" cy="-22" rx="4.5" ry="12" fill="var(--canopy, #3d7fbf)"/><path d="M0,-6 L0,34" stroke="var(--jet-line, #66717d)" stroke-width="1.5"/>';
+  /* すべての描画関数は width=100% の SVG を返す。実寸は親要素の幅（%・vw 等）で決める。 */
+  function svgTopDown(theta, phi) {
+    const ticks = [0, 45, 90, 135, 180, 225, 270, 315].map(a =>
+      `<line x1="0" y1="-150" x2="0" y2="${a % 90 == 0 ? -136 : -142}" stroke="${a == 0 ? 'var(--accent)' : 'var(--faint)'}" stroke-width="${a % 90 == 0 ? 3 : 1.5}" transform="rotate(${a})"/>`).join('');
+    return `<svg viewBox="-160 -160 320 320" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="上面図">
+<circle r="150" fill="var(--panel2)" stroke="var(--line2)"/><circle r="100" fill="none" stroke="var(--line)" stroke-dasharray="3 5"/>
+<g transform="rotate(${phi})">${ticks}<polygon points="0,-150 -9,-124 0,-131 9,-124" fill="var(--accent)"/><text y="-104" text-anchor="middle" font-family="var(--display)" font-weight="700" font-size="22" fill="var(--accent)">N</text></g>
+<g transform="rotate(${theta})">${JET_TOP}</g></svg>`;
+  }
+
+  /* ---------- 描画: 第三者視点 3D ---------- */
+  function jetModel() {
+    const w = 0.45, h = 0.38, zb = -3.4, zf = 1.8, zn = 5.2, F = '#aab4be', W = '#98a3ad', T = '#8e99a4', C = '#62a9e6';
+    const P = []; const add = (pts, c, bias) => P.push({ pts, c, bias: bias || 0 });
+    add([[-w, h, zb], [w, h, zb], [w, h, zf], [-w, h, zf]], F);
+    add([[-w, -h, zb], [w, -h, zb], [w, -h, zf], [-w, -h, zf]], F);
+    add([[w, -h, zb], [w, h, zb], [w, h, zf], [w, -h, zf]], F);
+    add([[-w, -h, zb], [-w, h, zb], [-w, h, zf], [-w, -h, zf]], F);
+    add([[-w, -h, zb], [w, -h, zb], [w, h, zb], [-w, h, zb]], '#3a424b');
+    add([[-w, h, zf], [w, h, zf], [0, 0, zn]], F);
+    add([[-w, -h, zf], [w, -h, zf], [0, 0, zn]], F);
+    add([[w, h, zf], [w, -h, zf], [0, 0, zn]], F);
+    add([[-w, h, zf], [-w, -h, zf], [0, 0, zn]], F);
+    add([[w, -0.05, 1.0], [3.6, -0.05, -1.7], [3.6, -0.05, -2.4], [w, -0.05, -2.4]], W);
+    add([[-w, -0.05, 1.0], [-3.6, -0.05, -1.7], [-3.6, -0.05, -2.4], [-w, -0.05, -2.4]], W);
+    add([[3.3, -0.05, -1.95], [3.6, -0.05, -1.7], [3.6, -0.05, -2.4], [3.3, -0.05, -2.4]], '#35e07a', -0.5);
+    add([[-3.3, -0.05, -1.95], [-3.6, -0.05, -1.7], [-3.6, -0.05, -2.4], [-3.3, -0.05, -2.4]], '#ff5252', -0.5);
+    add([[w, 0.05, -2.5], [1.7, 0.05, -3.3], [1.7, 0.05, -3.6], [w, 0.05, -3.6]], T);
+    add([[-w, 0.05, -2.5], [-1.7, 0.05, -3.3], [-1.7, 0.05, -3.6], [-w, 0.05, -3.6]], T);
+    add([[0, h, -1.6], [0, 2.2, -3.0], [0, 2.2, -3.5], [0, h, -3.5]], T);
+    const cw = 0.3, ct = h + 0.45;
+    add([[-cw, ct, 0.3], [cw, ct, 0.3], [cw, ct, 2.2], [-cw, ct, 2.2]], C);
+    add([[cw, h, 0.3], [cw, ct, 0.3], [cw, ct, 2.2], [cw, h, 3.0]], C);
+    add([[-cw, h, 0.3], [-cw, ct, 0.3], [-cw, ct, 2.2], [-cw, h, 3.0]], C);
+    add([[-cw, ct, 2.2], [cw, ct, 2.2], [cw, h, 3.0], [-cw, h, 3.0]], C);
+    add([[-cw, h, 0.3], [cw, h, 0.3], [cw, ct, 0.3], [-cw, ct, 0.3]], C);
+    return P;
+  }
+  const MODEL = jetModel();
+  const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const shade = (hex, f) => { const [r, g, b] = hexRgb(hex).map(v => Math.max(0, Math.min(255, Math.round(v * f)))); return `rgb(${r},${g},${b})`; };
+  function svg3D(bank, pitch, front) {
+    const cr = Math.cos(bank * D), sr = Math.sin(bank * D), cp = Math.cos(pitch * D), sp = Math.sin(pitch * D);
+    const yaw = front ? 180 : 0, cy = Math.cos(yaw * D), sy = Math.sin(yaw * D);
+    const az = 26 * D, el = 18 * D, ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+    const tf = ([x, y, z]) => {
+      const x1 = x * cr + y * sr, y1 = -x * sr + y * cr, z1 = z;
+      const x2 = x1, y2 = y1 * cp + z1 * sp, z2 = -y1 * sp + z1 * cp;
+      const x3 = x2 * cy + z2 * sy, y3 = y2, z3 = -x2 * sy + z2 * cy;
+      const xv = x3 * ca + z3 * sa, yv = y3, zv = -x3 * sa + z3 * ca;
+      return [xv, yv * ce + zv * se, -yv * se + zv * ce];
+    };
+    const L = [-0.35, 0.85, -0.4]; const ll = Math.hypot(...L); L[0] /= ll; L[1] /= ll; L[2] /= ll;
+    const S = 27, CX = 180, CY = 128;
+    const polys = MODEL.map(p => {
+      const v = p.pts.map(tf);
+      const a = [v[1][0] - v[0][0], v[1][1] - v[0][1], v[1][2] - v[0][2]], b = [v[2][0] - v[0][0], v[2][1] - v[0][1], v[2][2] - v[0][2]];
+      const n = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      const nl = Math.hypot(...n) || 1;
+      const dot = Math.abs((n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) / nl);
+      const depth = v.reduce((s, q) => s + q[2], 0) / v.length + p.bias;
+      const pts = v.map(q => `${(CX + q[0] * S).toFixed(1)},${(CY - q[1] * S).toFixed(1)}`).join(' ');
+      return { pts, depth, fill: shade(p.c, 0.5 + 0.5 * dot), stroke: shade(p.c, 0.35) };
+    }).sort((a, b) => b.depth - a.depth);
+    const body = polys.map(p => `<polygon points="${p.pts}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="0.8" stroke-linejoin="round"/>`).join('');
+    return `<svg viewBox="0 0 360 250" width="100%" style="aspect-ratio:360/250;display:block" role="img" aria-label="第三者視点">
+<rect width="360" height="98" fill="var(--sky)"/><rect y="98" width="360" height="152" fill="var(--earth)"/>
+<line x1="0" x2="360" y1="98" y2="98" stroke="#fff" stroke-width="1.5" opacity=".9"/>
+${[112, 132, 158, 192, 232].map((y, i) => `<line x1="0" x2="360" y1="${y}" y2="${y}" stroke="#000" opacity="${.06 + i * .02}"/>`).join('')}
+${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--line2)"/></svg>`;
+  }
+
+  /* ---------- 描画: 計器 ---------- */
+  function svgAI(bank, pitch) {
+    const id = 'ai' + (++uid), k = 2.4;
+    const ladder = [-80, -70, -60, -50, -40, -30, -20, -10, 10, 20, 30, 40, 50, 60, 70, 80].map(p => {
+      const y = -p * k, w = Math.abs(p) % 20 == 0 ? 34 : 20;
+      return `<line x1="${-w}" y1="${y}" x2="${w}" y2="${y}" stroke="#fff" stroke-width="2"/><text x="${w + 5}" y="${y + 4}" font-size="11" fill="#fff" font-family="var(--mono)">${Math.abs(p)}</text><text x="${-w - 5}" y="${y + 4}" font-size="11" fill="#fff" text-anchor="end" font-family="var(--mono)">${Math.abs(p)}</text>`;
+    }).join('');
+    const scale = [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60].map(a =>
+      `<line x1="0" y1="-90" x2="0" y2="${Math.abs(a) % 30 == 0 ? -78 : -83}" stroke="#fff" stroke-width="${a == 0 ? 3 : 2}" transform="rotate(${a})"/>`).join('');
+    return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="姿勢指示器">
+<defs><clipPath id="${id}"><circle r="90"/></clipPath></defs><circle r="97" fill="var(--bezel, #0a0d11)"/>
+<g clip-path="url(#${id})"><g transform="rotate(${-bank}) translate(0 ${(pitch * k).toFixed(1)})">
+<rect x="-400" y="-500" width="800" height="500" fill="var(--sky)"/><rect x="-400" y="0" width="800" height="500" fill="var(--earth)"/>
+<line x1="-400" x2="400" y1="0" y2="0" stroke="#fff" stroke-width="2.5"/>${ladder}</g>
+<g transform="rotate(${-bank})"><polygon points="0,-90 -7,-77 7,-77" fill="#fff"/></g>${scale}</g>
+<path d="M-44,0 H-16 L-8,8 L0,0 L8,8 L16,0 H44" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
+  }
+  function svgHI(heading) {
+    let card = '';
+    for (let i = 0; i < 36; i++) {
+      const a = i * 10, major = i % 3 == 0;
+      card += `<line x1="0" y1="-88" x2="0" y2="${major ? -74 : -80}" stroke="#fff" stroke-width="${major ? 2.5 : 1.5}" transform="rotate(${a})"/>`;
+      if (major) { const t = HI_LABELS[i / 3], cardinal = /[NESW]/.test(t); card += `<text transform="rotate(${a})" y="-56" text-anchor="middle" font-size="${cardinal ? 20 : 13}" font-weight="700" font-family="var(--display)" fill="${cardinal ? 'var(--accent)' : '#fff'}">${t}</text>`; }
+    }
+    return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="方位指示器">
+<circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><g transform="rotate(${-heading})">${card}</g>
+<path d="M0,-30 L4,-16 L4,-2 L22,8 L22,13 L4,7 L4,16 L11,21 L11,25 L0,22 L-11,25 L-11,21 L-4,16 L-4,7 L-22,13 L-22,8 L-4,-2 L-4,-16 Z" fill="var(--accent)" opacity=".9"/>
+<polygon points="0,-96 -7,-84 7,-84" fill="var(--accent)"/><circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
+  }
+
+  /* ---------- 描画: コックピット視界 ---------- */
+  const PEAKS = (() => { const h = [22, 40, 18, 55, 30, 72, 26, 48, 20, 64, 36, 28, 58, 24, 44, 30, 68, 22, 50, 34, 26, 60, 18, 42, 30, 54, 20, 46, 38, 24]; return h.map((v, i) => [-870 + i * 60, -v]); })();
+  function svgCockpit(bank, pitch, yaw) {
+    const id = 'ck' + (++uid), kp = 5, ky = 6;
+    const mtn = 'M-900,0 ' + PEAKS.map(p => `L${p[0]},${p[1]}`).join(' ') + ' L900,0 Z';
+    const ground = [10, 22, 38, 60, 90, 130, 180].map((y, i) => `<line x1="-900" x2="900" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .02}"/>`).join('');
+    return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
+<defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
+<g clip-path="url(#${id})"><g transform="translate(180 108) rotate(${-bank}) translate(0 ${(pitch * kp).toFixed(1)})">
+<rect x="-900" y="-900" width="1800" height="900" fill="var(--sky)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--earth)"/>${ground}
+<g transform="translate(${(-yaw * ky).toFixed(1)} 0)"><circle cx="110" cy="-96" r="15" fill="#ffd36b"/><path d="${mtn}" fill="#4a5c70"/>
+<path d="M-130,0 L-90,-72 L-50,0 Z" fill="#65788d"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="#e8eef4"/>
+<rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/></g>
+<line x1="-900" x2="900" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g></g>
+<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>
+<path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z" fill="none" stroke="var(--line)" stroke-width="4"/>
+<path d="M0,240 L0,190 Q180,170 360,190 L360,240 Z" fill="var(--glare, #1a2027)"/><path d="M0,192 Q180,172 360,192" fill="none" stroke="var(--line2)" stroke-width="3"/></svg>`;
+  }
+
+  /* ---------- 描画: T-4 イラスト版（上面図・後方/前方図・側面図を回転して使う） ---------- */
+  const IMG = 'img/t4-';
+  function figTopDown(theta, phi) {
+    /* 上面図の元絵は機首が左向き。theta=0（機首が上）にするには +90° 回す */
+    const ticks = [0, 90, 180, 270].map(a => `<line x1="100" y1="14" x2="100" y2="24" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('') +
+      [45, 135, 225, 315].map(a => `<line x1="100" y1="14" x2="100" y2="22" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('');
+    return `<svg viewBox="0 0 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="上面図">
+<circle cx="100" cy="100" r="96" fill="var(--bezel)"/><circle cx="100" cy="100" r="88" fill="var(--card)" stroke="var(--line2)" stroke-width="1"/>${ticks}
+<g transform="rotate(${phi} 100 100)"><polygon points="100,13 94,27 106,27" fill="var(--accent)"/><text x="100" y="42" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--accent)">N</text></g>
+<image href="${IMG}top.png" x="30" y="30" width="140" height="140" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta + 90} 100 100)"/></svg>`;
+  }
+  function figAttitude(bank, pitch, front, sideRight) {
+    /* バンク: 後方図は時計回り = 右バンク。前方図は左右が逆に見えるので符号反転。
+       ピッチ: 左側面図（機首が左）は機首上げで反時計回り。右側面図（機首が右）は時計回り。 */
+    const bankRot = front ? -bank : bank;
+    const pitchRot = sideRight ? pitch : -pitch;
+    const panel = (img, rot, label) => `<div class="attp"><svg viewBox="0 0 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="${label}">
+<rect width="200" height="100" fill="var(--sky3)"/><rect y="100" width="200" height="100" fill="var(--earth3)"/><line x1="0" x2="200" y1="100" y2="100" stroke="var(--muted)" stroke-width="1"/>
+${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .03}"/>`).join('')}
+<image href="${IMG}${img}.png" x="12" y="30" width="176" height="140" preserveAspectRatio="xMidYMid meet" transform="rotate(${rot} 100 100)"/></svg></div>`;
+    return `<div class="att">${panel(front ? 'front' : 'rear', bankRot, front ? '前方から見た図' : '後方から見た図')}${panel(sideRight ? 'right' : 'left', pitchRot, sideRight ? '右側面から見た図' : '左側面から見た図')}</div>`;
+  }
+
+  /* 14 方向の絵（南からの固定視点）と読み方の凡例 */
+  function figDir14(d) {
+    return `<div class="d14"><img src="img/bi-${d.id}.png" alt="第三者視点（南から）" style="width:100%;height:auto;display:block">
+<svg class="d14legend" viewBox="0 0 76 54" aria-hidden="true"><g stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 44V14M13 19l5-5 5 5"/><path d="M18 44h36M49 39l5 5-5 5"/><path d="M18 44l14-11M27 33l5-0 0 5"/></g>
+<g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="18" y="10" text-anchor="middle">上</text><text x="58" y="48">東</text><text x="36" y="30">北</text></g></svg></div>`;
+  }
+
+  global.AAT = { DIRS, DIR14, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, generate, applyOp,
+    gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, figTopDown, figAttitude, figDir14 };
+})(window);

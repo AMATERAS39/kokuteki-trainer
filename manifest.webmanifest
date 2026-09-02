@@ -1,0 +1,16 @@
+{
+  "name": "航空適性トレーナー",
+  "short_name": "航空適性",
+  "description": "航空学生 適性検査対策：方位・姿勢指示器・操縦操作の反復練習",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#141a22",
+  "theme_color": "#141a22",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

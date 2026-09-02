@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>T-4 14方向レンダラー</title>
+<style>body{margin:0;background:#888;font:12px monospace;color:#fff}#log{position:fixed;left:8px;top:8px;white-space:pre}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="log"></div>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+const log = m => { document.getElementById('log').textContent += m + '\n'; };
+const P = new URLSearchParams(location.search);
+const D = Math.PI / 180;
+const W = +(P.get('w') || 1200), H = +(P.get('h') || 800);
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.setClearColor(0x000000, P.has('probe') ? 1 : 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.4));
+const dl = new THREE.DirectionalLight(0xffffff, 1.8); dl.position.set(-3, -4, 6); scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0xffffff, 0.7); dl2.position.set(4, -2, -3); scene.add(dl2);
+/* 世界座標: x=東(右), y=北(奥), z=上。視点は南 (0,-d,0) から原点を見る */
+const cam = new THREE.PerspectiveCamera(+(P.get('fov') || 28), W / H, 0.1, 1000);
+cam.up.set(0, 0, 1);
+const elev = +(P.get('elev') || 0);           // 視点の仰角 [°]（0 = 真横）
+const dist = +(P.get('dist') || 36);
+cam.position.set(0, -dist * Math.cos(elev * D), dist * Math.sin(elev * D)); cam.lookAt(0, 0, 0);
+
+/* テクスチャまで含めて読み込みが終わるのを待つ */
+const manager = new THREE.LoadingManager();
+const loader = new FBXLoader(manager); loader.setResourcePath('/t4model/');
+let obj;
+try {
+  obj = await new Promise((res, rej) => { let o; manager.onLoad = () => res(o); manager.onError = u => log('missing ' + u); loader.load('/t4model/T4blue.fbx', x => { o = x; }, undefined, rej); });
+} catch (e) { log('load error: ' + e.message); throw e; }
+let meshes = 0, textured = 0;
+obj.traverse(o => { if (o.isMesh) { meshes++; const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => {
+  if (m.map) { textured++; m.color.setRGB(1, 1, 1); if (m.map.colorSpace !== undefined) m.map.colorSpace = THREE.SRGBColorSpace; }
+  if (m.emissive) m.emissive.setRGB(0, 0, 0); if (m.specular) m.specular.setRGB(.15, .15, .15); m.shininess = 20;
+  m.side = THREE.DoubleSide; m.needsUpdate = true; }); } });
+const box = new THREE.Box3().setFromObject(obj); const size = box.getSize(new THREE.Vector3()); const ctr = box.getCenter(new THREE.Vector3());
+const names = []; obj.traverse(o => { if (o.isMesh) names.push(o.name + '[' + (Array.isArray(o.material) ? o.material.map(m => m.name).join('|') : o.material.name) + ']'); });
+log(`meshes ${meshes} textured ${textured} size ${size.x.toFixed(1)} ${size.y.toFixed(1)} ${size.z.toFixed(1)}\n` + names.join('\n'));
+/* 脚など飛行中に見えない部品を非表示にする（名前で指定: ?hide=a,b,c） */
+const hide = (P.get('hide') || '').split(',').filter(Boolean);
+obj.traverse(o => { if (o.isMesh && hide.some(h => o.name.toLowerCase().includes(h.toLowerCase()))) o.visible = false; });
+const inner = new THREE.Group(); inner.add(obj); obj.position.sub(ctr);
+inner.scale.setScalar(10 / Math.max(size.x, size.y, size.z));
+/* モデル固有の軸を標準状態（機首 +y, 機体上部 +z）に合わせる回転（度）。試し描画で決める */
+inner.rotation.set(+(P.get('ax') || 0) * D, +(P.get('ay') || 0) * D, +(P.get('az') || 0) * D, P.get('order') || 'XYZ');
+const pivot = new THREE.Group(); pivot.add(inner); scene.add(pivot);
+if (P.has('probe')) { scene.add(new THREE.AxesHelper(9)); const g = new THREE.GridHelper(20, 20, 0x444444, 0x666666); g.rotation.x = Math.PI / 2; scene.add(g); }
+
+/* 方位 h（北0°時計回り）とピッチ p（機首上げ正）へ。標準状態から Rx(p) → Rz(-h) */
+function setDir(h, p) {
+  const m = new THREE.Matrix4().makeRotationZ(-h * D).multiply(new THREE.Matrix4().makeRotationX(p * D));
+  pivot.quaternion.setFromRotationMatrix(m);
+}
+/* 斜め方向のピッチ角 [°]（?dp= で指定。既定 30。方位の 45° は固定） */
+const DP = +(P.get('dp') || 30);
+const DIRS = [
+  ['north', 0, 0], ['south', 180, 0], ['east', 90, 0], ['west', 270, 0], ['up', 0, 90], ['down', 0, -90],
+  ['ne_up', 45, DP], ['nw_up', 315, DP], ['se_up', 135, DP], ['sw_up', 225, DP],
+  ['ne_down', 45, -DP], ['nw_down', 315, -DP], ['se_down', 135, -DP], ['sw_down', 225, -DP]
+];
+async function save(name) {
+  const data = canvas.toDataURL('image/png');
+  const r = await fetch('/save?name=bi-' + name, { method: 'POST', body: data });
+  log(name + ': ' + (await r.text()));
+}
+if (P.has('icon')) {
+  /* アプリアイコン: 北西向きの機体を z 軸正方向（真上）から見る。画面の上が北、右が東 */
+  cam.up.set(0, 1, 0); cam.position.set(0, 0, dist); cam.lookAt(0, 0, 0);
+  dl.position.set(-3, 4, 8); dl2.position.set(4, -3, 2);
+  setDir(315, 0); renderer.render(scene, cam); await save('icon-src'); log('icon saved');
+} else if (P.has('probe')) {
+  setDir(+(P.get('h') || 0), +(P.get('p') || 0)); renderer.render(scene, cam); log('probe rendered');
+} else if (P.has('one')) {
+  const d = DIRS.find(x => x[0] === P.get('one')); setDir(d[1], d[2]); renderer.render(scene, cam); log('rendered ' + d[0]);
+} else {
+  for (const [n, h, p] of DIRS) { setDir(h, p); renderer.render(scene, cam); await save(n); }
+  log('ALL DONE');
+}
+window.__done = true;
+</script>
+</body>
+</html>

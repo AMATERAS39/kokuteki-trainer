@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1017">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="航空適性">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/favicon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
+<title>航空適性トレーナー</title>
+<style>
+/* ===== デザイントークン（Claude Design 納品 §6）ダークファースト ===== */
+:root{
+  --bg:#0b1017;--panel:#131b25;--panel2:#1c2632;--line:#223040;--line2:#34465a;
+  --text:#e9eef4;--muted:#9fadbc;--faint:#66788a;--accent:#f0a53a;--on-accent:#0b1017;
+  --sky:#2b6cb0;--earth:#7b4a22;--sky3:#1a3b66;--earth3:#3a2513;
+  --bezel:#2b3644;--card:#0d1219;--glare:#07090c;--hud:#8ce99a;
+  --jet:#cfd8e2;--jet-line:#0b1017;--canopy:#8fd3ff;--ok:#3ed48a;--bad:#ff6b6b;
+  --display:"Zen Kaku Gothic New","Noto Sans JP",sans-serif;
+  --body:"Noto Sans JP",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#eef1f5;--panel:#fff;--panel2:#e4e9ef;--line:#d5dce4;--line2:#b7c2cf;
+  --text:#172130;--muted:#556477;--faint:#8592a1;--accent:#c4711a;--on-accent:#fff;
+  --sky:#4a8ad8;--earth:#8c5a2a;--sky3:#9cc3ea;--earth3:#b98a5a;
+  --bezel:#c9d2dc;--card:#f5f7fa;--glare:#4b5563;--hud:#1f7a45;
+  --jet:#3b4756;--jet-line:#172130;--canopy:#63b3e6;--ok:#1f8a4c;--bad:#d43d3d;color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#eef1f5;--panel:#fff;--panel2:#e4e9ef;--line:#d5dce4;--line2:#b7c2cf;
+  --text:#172130;--muted:#556477;--faint:#8592a1;--accent:#c4711a;--on-accent:#fff;
+  --sky:#4a8ad8;--earth:#8c5a2a;--sky3:#9cc3ea;--earth3:#b98a5a;
+  --bezel:#c9d2dc;--card:#f5f7fa;--glare:#4b5563;--hud:#1f7a45;
+  --jet:#3b4756;--jet-line:#172130;--canopy:#63b3e6;--ok:#1f8a4c;--bad:#d43d3d;color-scheme:light}
+
+/* ===== 基本 ===== */
+*{box-sizing:border-box;min-width:0}
+html{font-size:100%;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);line-height:1.6;
+  padding:0 0 3rem;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg{max-width:100%;height:auto}
+svg text{user-select:none}
+.ic{width:1.5rem;height:1.5rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic .f{fill:currentColor}
+.ic.s{width:1.25rem;height:1.25rem}.ic.xs{width:1rem;height:1rem}
+.mono{font-family:var(--mono)}
+.app{max-width:68rem;margin:0 auto;padding:0 1rem}
+
+/* ===== ヘッダー ===== */
+.hdr{padding:max(1rem,env(safe-area-inset-top)) 0 .75rem}
+@media (display-mode:standalone){.hdr{padding-top:max(3.5rem,env(safe-area-inset-top))}}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:1rem}
+.brand .name{font-family:var(--display);font-weight:700;font-size:1.0625rem;letter-spacing:.02em}
+.brand .pwa{font-family:var(--mono);font-size:.6875rem;color:var(--faint)}
+.sub{display:none;font-size:.75rem;color:var(--muted);margin-top:.25rem}
+@media (display-mode:standalone){.sub{display:block}}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:.375rem;margin-top:.625rem}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:.5rem;padding:.375rem .25rem;text-align:center}
+.stat .v{font-family:var(--mono);font-size:.875rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3}
+.stat .l{font-size:.5625rem;color:var(--muted)}
+.stat.streak .v{color:var(--accent)}
+.stat .v.dim{color:var(--faint)}
+
+/* ===== 種目タブ ===== */
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:.25rem}
+.tab{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.5rem .125rem .375rem;border-bottom:2px solid var(--line);color:var(--muted);border-radius:.625rem .625rem 0 0;transition:background .12s}
+.tab:hover{background:var(--panel)}
+.tab .t{font-size:.6875rem;font-weight:700;white-space:nowrap}
+.tab .d{display:none}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--accent);border-bottom-color:var(--accent)}
+.tabdesc{padding:.5rem 0 0;font-size:.75rem;color:var(--muted)}
+
+/* ===== レイアウト ===== */
+.layout{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:.75rem}
+aside{display:flex;flex-direction:column;gap:.75rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1rem}
+.card.side{padding:.875rem 1rem}
+.card h3{margin:0;font-size:.8125rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.card h3 .ic{color:var(--muted)}
+
+/* 問題カード */
+.qhead{display:flex;justify-content:space-between;align-items:center}
+.qno{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+.qno b{color:var(--text)}
+.timer{display:flex;align-items:center;gap:.375rem;font-family:var(--mono);font-size:.875rem;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.timer small{font-size:.6875rem;font-weight:500;color:var(--muted)}
+.timer.stopped{color:var(--muted)}
+.prompt{margin:.625rem 0 0;font-size:.875rem;line-height:1.6}
+.figs{margin-top:.875rem}
+.fig{margin:0 auto}
+.fig.top{width:80%;transition:width .2s}
+.answered .fig.top{width:56%}
+.fig.wide{width:100%}
+.figs.combo{display:grid;grid-template-columns:38% 1fr;gap:.625rem;align-items:center}
+.cap{font-size:.6875rem;color:var(--muted);text-align:center;margin-top:.5rem}
+.cap b{color:var(--text)}
+.att{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.combo .att{grid-template-columns:1fr}
+.attp{border-radius:.625rem;overflow:hidden;border:1px solid var(--line)}
+.d14{position:relative;border-radius:.625rem;overflow:hidden;border:1px solid var(--line);background:#e6e9ee}
+.d14legend{position:absolute;right:.375rem;top:.375rem;width:3.8rem;height:2.7rem;color:#fff;background:rgba(0,0,0,.45);border-radius:.375rem;padding:.15rem .25rem}
+.frames{display:flex;flex-direction:column;gap:.5rem}
+.frame{display:grid;grid-template-columns:1.5rem 1fr;gap:.5rem;align-items:center}
+.frame .n{font-family:var(--mono);font-size:.875rem;font-weight:700;color:var(--accent)}
+.frame .v{border-radius:.625rem;overflow:hidden;border:1px solid var(--line)}
+
+/* 回答ボタン（共通状態） */
+.ab{position:relative;min-height:3.25rem;border-radius:.75rem;border:1px solid var(--line2);background:var(--panel2);color:var(--text);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.125rem;padding:.375rem;transition:border-color .12s,background .12s}
+.ab:hover:not(:disabled){border-color:var(--muted)}
+.ab.sel{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.ab.ok{border:2px solid var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.ab.ng{border:2px solid var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.ab.dim{opacity:.45}
+.ab .mk{position:absolute;top:.2rem;right:.375rem;font-family:var(--mono);font-size:.75rem;font-weight:700}
+.ab.ok .mk{color:var(--ok)}.ab.ng .mk{color:var(--bad)}
+.ab .k{font-family:var(--mono);font-size:.625rem;color:var(--muted)}
+.dirgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:1rem}
+.dirgrid .ab .ic{width:1rem;height:1rem;color:var(--muted)}
+.dirgrid .ab .t{font-size:.9375rem;font-weight:700;line-height:1.2}
+.dirgrid .dot{display:flex;align-items:center;justify-content:center}
+.dirgrid .dot i{width:.375rem;height:.375rem;border-radius:50%;background:var(--line2)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1rem}
+.opts .ab{padding:.625rem .5rem .5rem;gap:.375rem}
+.opts .ab .inst{width:70%}
+.opts .ab .pair{display:grid;grid-template-columns:1fr 1fr;gap:.25rem;width:92%}
+.opts .ab .lab{font-family:var(--mono);font-size:.8125rem;font-weight:700;color:var(--muted)}
+.opts .ab.sel .lab{color:var(--accent)}
+.seg{margin-top:1rem}
+.seghead{display:flex;align-items:center;justify-content:space-between}
+.seghead .t{font-size:.8125rem;font-weight:700}
+.seghead .t span{font-family:var(--mono);color:var(--accent)}
+.seghead .st{font-size:.6875rem;color:var(--faint)}
+.seghead .st.on{color:var(--ok);font-weight:700}
+.ops{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.5rem}
+.ops .ab{color:var(--muted)}
+.ops .ab .t{font-size:.6875rem;font-weight:700;color:var(--text)}
+.ops .ab.sel{color:var(--accent)}
+.ops .ab .ic.on{display:none}
+.ops .ab.sel .ic.off,.ops .ab.ok .ic.off{display:none}
+.ops .ab.sel .ic.on,.ops .ab.ok .ic.on{display:block}
+.ops .ab.ok{color:var(--ok)}.ops .ab.ng{color:var(--bad)}
+.hint{font-size:.6875rem;color:var(--faint);text-align:center;margin-top:.5rem}
+.kbd{margin-top:1rem;font-size:.75rem;color:var(--faint);display:none;align-items:center;gap:.5rem}
+
+/* 主ボタン */
+.btn{width:100%;height:3.25rem;border-radius:.875rem;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:.9375rem;display:flex;align-items:center;justify-content:center;gap:.5rem;transition:filter .12s}
+.btn:hover:not(:disabled){filter:brightness(1.06)}
+.btn:disabled{opacity:.45}
+.btn.mt{margin-top:1rem}
+
+/* フィードバック */
+.fb{display:none;margin-top:1rem;border-radius:.875rem;padding:.875rem 1rem;border:1px solid}
+.fb.show{display:block}
+.fb.ok{border-color:color-mix(in srgb,var(--ok) 50%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.fb.ng{border-color:color-mix(in srgb,var(--bad) 50%,transparent);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+.fbh{display:flex;justify-content:space-between;align-items:baseline}
+.fbh .t{font-family:var(--display);font-weight:700;font-size:1.125rem}
+.fbh .s{font-family:var(--mono);font-size:.875rem;font-weight:700}
+.fb.ok .fbh{color:var(--ok)}.fb.ng .fbh{color:var(--bad)}
+.fb ul{margin:.5rem 0 0;padding-left:1.1em;font-size:.8125rem;line-height:1.6;color:var(--text)}
+.fb li{margin:.125rem 0}
+.fb .btn{margin-top:.875rem}
+
+/* 設定・メモ・記録 */
+.setting{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-top:.375rem;font-size:.8125rem;min-height:2.75rem}
+.setting:first-of-type{margin-top:.625rem}
+.setting>span{color:var(--muted)}
+.setting select{font:inherit;font-size:.8125rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.375rem .75rem;min-height:2.75rem}
+.chk{width:1.25rem;height:1.25rem;border-radius:.25rem;border:1px solid var(--line2);background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--on-accent);flex:none}
+.chk.on{background:var(--accent);border-color:var(--accent)}
+.tips{margin:.5rem 0 0;font-size:.8125rem;line-height:1.6;color:var(--muted)}
+.rec{display:grid;grid-template-columns:1fr auto;gap:.5rem .75rem;margin-top:.75rem;font-size:.8125rem}
+.rec span:nth-child(odd){color:var(--muted)}
+.rec span:nth-child(even){font-family:var(--mono);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.rec .acc{color:var(--accent)}
+.reset{font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:.375rem}
+.reset:hover{color:var(--text)}
+.h3row{display:flex;justify-content:space-between;align-items:center}
+
+/* インストール案内 */
+.install{display:none;position:fixed;left:1rem;right:1rem;bottom:max(.75rem,env(safe-area-inset-bottom));background:var(--panel2);border:1px solid var(--line2);border-radius:1rem;padding:.875rem 1rem;
+  grid-template-columns:2.5rem 1fr auto;gap:.75rem;align-items:center;box-shadow:0 1rem 2rem rgba(0,0,0,.5);z-index:10;max-width:40rem;margin:0 auto}
+.install.show{display:grid}
+.install img{width:2.5rem;height:2.5rem;border-radius:.625rem;display:block}
+.install .tx{font-size:.8125rem;line-height:1.5}
+.install .tx small{display:block;font-size:.625rem;color:var(--faint);font-family:var(--mono)}
+.install .go{min-height:2.75rem;padding:0 1rem;border-radius:.75rem;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:.8125rem}
+.install .x{width:2.75rem;height:2.75rem;color:var(--muted);font-size:1.25rem}
+
+/* ===== PC 幅 ===== */
+@media (min-width:64rem){
+  .app{padding:0 2rem}
+  .hdr{padding-top:1.5rem;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center}
+  .brand .name{font-size:1.375rem}
+  .brand .pwa{display:none}
+  .sub{display:block;font-size:.8125rem}
+  .stats{display:flex;margin-top:0;gap:.5rem}
+  .stat{display:flex;gap:.5rem;align-items:baseline;padding:.375rem .75rem}
+  .stat .l{font-size:.6875rem;order:-1}
+  .stat .v{font-size:1rem}
+  .tabs{gap:.5rem;margin-top:.25rem}
+  .tab{flex-direction:row;gap:.75rem;align-items:center;padding:.75rem 1rem;border-radius:.75rem .75rem 0 0}
+  .tab .t{font-size:.875rem;color:var(--text)}
+  .tab[aria-selected="true"] .t{color:var(--accent)}
+  .tab .d{display:block;font-size:.75rem;color:var(--muted);white-space:nowrap}
+  .tab .tx{display:flex;flex-direction:column;align-items:flex-start}
+  .tabdesc{display:none}
+  .layout{grid-template-columns:1fr 20rem;gap:1.25rem;margin-top:1.25rem;align-items:start}
+  .card{padding:1.5rem}
+  .card.side{padding:1rem 1.25rem}
+  .card h3{font-size:.875rem}
+  .qno{font-size:.8125rem}.timer{font-size:1rem}
+  .prompt{font-size:.9375rem}
+  .figs.heading{display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:center;margin-top:1.25rem}
+  .figs.heading .fig.top{width:88%}
+  .figs.heading .dirgrid{margin-top:0;gap:.625rem}
+  .figs.heading .dirgrid .ab{min-height:3.75rem}
+  .frames{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+  .frame{grid-template-columns:1fr}
+  .frame .n{order:2;text-align:center;margin-top:.375rem;font-size:.8125rem}
+  .segs{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+  .seg{margin-top:1.25rem}
+  .ops .ab{min-height:3.5rem}.ops .ab .t{font-size:.75rem}
+  .submitrow{display:flex;justify-content:flex-end}
+  .submitrow .btn{width:auto;padding:0 2.5rem}
+  .kbd{display:flex}
+  .opts{grid-template-columns:repeat(4,1fr)}
+  .att{grid-template-columns:1fr 1fr}
+  .combo .att{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<!-- RIKYU AI 納品アイコン（24px グリッド・線幅2・currentColor） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-mode-heading" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/><path class="f" d="M12 6l2.4 6H9.6z"/><path d="M12 18l-2.4-6h4.8z"/></symbol>
+<symbol id="i-mode-attitude" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M4.6 14.6l14.8-5.2"/><path d="M7 12h3M14 12h3"/><circle class="f" cx="12" cy="12" r="1.2"/></symbol>
+<symbol id="i-mode-combo" viewBox="0 0 24 24"><circle cx="7" cy="12" r="5.5"/><path d="M2.6 13.6l8.8-3.2"/><circle cx="17" cy="12" r="5.5"/><path d="M17 8v4M17 12l2.5 2.5"/><path class="f" d="M17 5.4l1 1.6h-2z"/></symbol>
+<symbol id="i-mode-control" viewBox="0 0 24 24"><path d="M12 18V7"/><circle cx="12" cy="5.5" r="2.5"/><path d="M4 20q8-6 16 0"/><path d="M4 20h16"/></symbol>
+<symbol id="i-arrow-dir" viewBox="0 0 24 24"><path d="M12 20V4M6 10l6-6 6 6"/></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V8M12 13l3.5 2M10 3h4"/></symbol>
+<symbol id="i-stick-right" viewBox="0 0 24 24"><path d="M12 18V8"/><circle cx="12" cy="6.5" r="2.2"/><path d="M4 20q8-5 16 0"/><path d="M16 3h5M19 1l2 2-2 2"/></symbol>
+<symbol id="i-stick-left" viewBox="0 0 24 24"><path d="M12 18V8"/><circle cx="12" cy="6.5" r="2.2"/><path d="M4 20q8-5 16 0"/><path d="M8 3H3M5 1L3 3l2 2"/></symbol>
+<symbol id="i-stick-forward" viewBox="0 0 24 24"><path d="M12 18V8"/><circle cx="12" cy="6.5" r="2.2"/><path d="M4 20q8-5 16 0"/><path d="M20 11V4M18 6l2-2 2 2"/></symbol>
+<symbol id="i-stick-back" viewBox="0 0 24 24"><path d="M12 18V8"/><circle cx="12" cy="6.5" r="2.2"/><path d="M4 20q8-5 16 0"/><path d="M20 4v7M18 9l2 2 2-2"/></symbol>
+<symbol id="i-rudder-right" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M8 20h8M13.5 17.5L16 20l-2.5 2.5"/></symbol>
+<symbol id="i-rudder-left" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8M10.5 17.5L8 20l2.5 2.5"/></symbol>
+<symbol id="i-stick-right-on" viewBox="0 0 24 24"><path d="M12 18V8"/><circle class="f" cx="12" cy="6.5" r="2.6"/><path d="M4 20q8-5 16 0"/><path class="f" d="M16 1l5 2-5 2z"/></symbol>
+<symbol id="i-stick-left-on" viewBox="0 0 24 24"><path d="M12 18V8"/><circle class="f" cx="12" cy="6.5" r="2.6"/><path d="M4 20q8-5 16 0"/><path class="f" d="M8 1L3 3l5 2z"/></symbol>
+<symbol id="i-stick-forward-on" viewBox="0 0 24 24"><path d="M12 18V8"/><circle class="f" cx="12" cy="6.5" r="2.6"/><path d="M4 20q8-5 16 0"/><path class="f" d="M20 3l3 5h-6z"/></symbol>
+<symbol id="i-stick-back-on" viewBox="0 0 24 24"><path d="M12 18V8"/><circle class="f" cx="12" cy="6.5" r="2.6"/><path d="M4 20q8-5 16 0"/><path class="f" d="M20 11l-3-5h6z"/></symbol>
+<symbol id="i-rudder-right-on" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect class="f" x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M8 20h8"/><path class="f" d="M13 17l4 3-4 3z"/></symbol>
+<symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
+<symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="var(--panel)"/><circle cx="15" cy="17" r="2.5" fill="var(--panel)"/></symbol>
+<symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1M10 10h1M14 10h1M7 14h10"/></symbol>
+</defs></svg>
+
+<div class="app">
+  <header class="hdr">
+    <div>
+      <div class="brand"><div class="name">航空適性トレーナー</div><div class="pwa">PWA</div></div>
+      <div class="sub">航空学生 適性検査対策：方位・姿勢指示器・操縦操作の反復練習</div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist">
+    <button class="tab" role="tab" data-mode="heading"><svg class="ic"><use href="#i-mode-heading"/></svg><span class="tx"><span class="t">1. 方位</span><span class="d">上面図から8方位を答える</span></span></button>
+    <button class="tab" role="tab" data-mode="attitude"><svg class="ic"><use href="#i-mode-attitude"/></svg><span class="tx"><span class="t">2. 姿勢指示器</span><span class="d">第三者視点から計器を選ぶ</span></span></button>
+    <button class="tab" role="tab" data-mode="combo"><svg class="ic"><use href="#i-mode-combo"/></svg><span class="tx"><span class="t">1+2. 複合</span><span class="d">方位と姿勢を同時に読む</span></span></button>
+    <button class="tab" role="tab" data-mode="control"><svg class="ic"><use href="#i-mode-control"/></svg><span class="tx"><span class="t">3. 操縦操作</span><span class="d">3枚の視界から操作を答える</span></span></button>
+  </nav>
+  <div class="tabdesc" id="tabdesc"></div>
+
+  <div class="layout">
+    <main class="card" id="qcard">
+      <div class="qhead">
+        <div class="qno">問題 <b id="qno">1</b></div>
+        <div class="timer" id="timer"><svg class="ic xs"><use href="#i-timer"/></svg><span id="tval">0.0</span><small>s</small></div>
+      </div>
+      <p class="prompt" id="prompt"></p>
+      <div id="figs"></div>
+      <div id="answers"></div>
+      <div class="fb" id="feedback">
+        <div class="fbh"><div class="t" id="fbTitle"></div><div class="s" id="fbTime"></div></div>
+        <ul id="explain"></ul>
+        <button class="btn" id="next">次の問題<svg class="ic s"><use href="#i-next"/></svg></button>
+      </div>
+      <div class="kbd" id="kbd"><svg class="ic s"><use href="#i-keyboard"/></svg><span id="kbdText"></span></div>
+    </main>
+    <aside>
+      <div class="card side" id="settings"></div>
+      <div class="card side"><h3>解き方のメモ</h3><p class="tips" id="tips"></p></div>
+      <div class="card side">
+        <div class="h3row"><h3>記録</h3><button class="reset" id="reset"><svg class="ic xs"><use href="#i-reset"/></svg>リセット</button></div>
+        <div class="rec" id="record"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="install" id="install">
+  <img src="icons/icon-192.png" alt="">
+  <div class="tx"><span id="installText"></span><small id="installOs"></small></div>
+  <button class="go" id="installBtn">インストール</button>
+  <button class="x" id="installClose" aria-label="閉じる">×</button>
+</div>
+
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+const E=window.AAT,$=s=>document.querySelector(s);
+const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aat.'+k,JSON.stringify(v))}catch(e){}}};
+const settings=Object.assign({theme:'auto'},E.DEFAULT_SETTINGS,store.get('settings',{}));
+const stats=Object.assign({heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
+let mode=store.get('mode','heading'),q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
+const DIR_KEYS={0:'8',1:'9',2:'6',3:'3',4:'2',5:'1',6:'4',7:'7'};
+const DESC={heading:'上面図から8方位を答える',attitude:'第三者視点から計器を選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を答える'};
+const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
+
+function applyTheme(){document.documentElement.dataset.theme=settings.theme==='auto'?'':settings.theme;
+  if(settings.theme==='auto')document.documentElement.removeAttribute('data-theme');
+  $('meta[name=theme-color]').setAttribute('content',getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0b1017')}
+
+function render(){
+  qcount++;answered=false;
+  $('#qno').textContent=qcount;$('#qcard').classList.remove('answered');
+  $('#feedback').className='fb';$('#timer').classList.remove('stopped');
+  const figs=$('#figs'),ans=$('#answers');
+  if(q.type==='heading'){
+    $('#prompt').textContent='上から見下ろした戦闘機が向いている方位を、8方位から答えてください。';
+    const grid=`<div class="dirgrid">${[7,0,1,6,-1,2,5,4,3].map(i=>i<0?'<div class="dot"><i></i></div>':
+      `<button class="ab" data-dir="${i}"><svg class="ic" style="transform:rotate(${i*45}deg)"><use href="#i-arrow-dir"/></svg><span class="t">${E.DIRS[i].ja}</span><span class="k">${E.DIRS[i].k}</span><span class="mk"></span></button>`).join('')}</div>`;
+    figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北${q.phi?'（北の向き: <b>ランダム</b>）':''}</div></div>${grid}</div>`;
+    ans.innerHTML='';
+    figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
+  }else if(q.type==='attitude'||q.type==='combo'){
+    const cap14='<b>南</b>からの固定視点 — 画面の奥が北、右が東';
+    if(q.type==='attitude'){
+      $('#prompt').textContent='第三者視点で見た戦闘機の姿勢に対応する姿勢指示器を選んでください。';
+      figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14)}</div><div class="cap">${cap14}</div></div>`;
+      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst">${E.svgAI(o.bank,o.pitch)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
+    }else{
+      $('#prompt').textContent='第三者視点で見た戦闘機の向きと姿勢の両方に一致する計器（姿勢指示器＋方位指示器）を選んでください。';
+      figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14)}</div><div class="cap">${cap14}</div></div>`;
+      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
+    }
+    ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
+  }else{
+    $('#prompt').textContent=q.single
+      ?'コックピットから見た外の様子が①→②→③の順に変化しました。この間に続けて行われた操作を1つ選んでください。'
+      :'コックピットから見た外の様子が①→②→③の順に変化しました。各区間で行われた操作を選んでください（操作は1区間に1つ）。';
+    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(f.bank,f.pitch,f.yaw)}</div></div>`).join('')}</div></div>`;
+    const segs=q.single?[{label:'①→②→③'}]:[{label:'①→②'},{label:'②→③'}];
+    ans.innerHTML=`<div class="segs">${segs.map((s,si)=>`<div class="seg" data-seg="${si}"><div class="seghead"><div class="t">区間 <span>${s.label}</span></div><div class="st">未選択</div></div><div class="ops">${E.OPS.map(o=>`<button class="ab" data-op="${o.id}">${ic(o.id,'off')}${ic(o.id+'-on','on')}<span class="t">${o.ja}</span><span class="mk"></span></button>`).join('')}</div></div>`).join('')}</div>
+      <div class="submitrow"><button class="btn mt" id="submit" disabled>回答する</button></div><div class="hint" id="subhint">${q.single?'操作を選ぶと押せます':'2区間とも選ぶと押せます'}</div>`;
+    ans.querySelectorAll('.seg').forEach(seg=>seg.querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{if(answered)return;
+      seg.querySelectorAll('[data-op]').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+      const st=seg.querySelector('.st');st.textContent='選択済';st.classList.add('on');
+      const all=[...ans.querySelectorAll('.seg')].every(s=>s.querySelector('.sel'));$('#submit').disabled=!all;$('#subhint').style.display=all?'none':''})));
+    $('#submit').addEventListener('click',answerControl);
+  }
+  startTimer();
+}
+function startTimer(){t0=performance.now();clearInterval(timerId);timerId=setInterval(()=>{$('#tval').textContent=((performance.now()-t0)/1000).toFixed(1)},100)}
+function stopTimer(){clearInterval(timerId);const s=(performance.now()-t0)/1000;$('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
+function finish(g){
+  answered=true;const s=stopTimer();$('#qcard').classList.add('answered');
+  const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=s;store.set('stats',stats);
+  streak=g.ok?streak+1:0;
+  $('#feedback').className='fb show '+(g.ok?'ok':'ng');
+  $('#fbTitle').textContent=g.ok?'正解 ✓':'不正解 ✗';$('#fbTime').textContent=s.toFixed(1)+' s';
+  $('#explain').innerHTML=`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
+  renderStats();
+  if(settings.auto&&g.ok)setTimeout(()=>{if(answered)next()},1200);else $('#next').focus({preventScroll:true});
+}
+function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
+  if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').textContent='✓'}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').textContent='✗'}else b.classList.add('dim')})}
+function answerHeading(i){
+  if(answered)return;const g=E.gradeHeading(q,i);
+  mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,b=>+b.dataset.dir===i);
+  finish(g);
+}
+function answerOpts(i){
+  if(answered)return;const g=E.gradeOpts(q,i);
+  mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,b=>+b.dataset.i===i);
+  finish(g);
+}
+function answerControl(){
+  if(answered)return;
+  const segs=[...document.querySelectorAll('.seg')];
+  const sels=segs.map(s=>s.querySelector('[data-op].sel'));
+  if(sels.some(x=>!x))return;
+  const ops=q.single?[sels[0].dataset.op,sels[0].dataset.op]:sels.map(x=>x.dataset.op);
+  const g=E.gradeControl(q,ops);
+  segs.forEach((seg,si)=>{const ci=q.single?0:si;mark(seg.querySelectorAll('[data-op]'),b=>b.dataset.op===q.ops[ci],b=>b===sels[si])});
+  $('#submit').disabled=true;finish(g);
+}
+function next(){q=E.generate(mode,settings);render();window.scrollTo({top:0})}
+function renderStats(){
+  const st=stats[mode],acc=st.n?Math.round(st.c/st.n*100)+'%':'—',avg=st.n?(st.t/st.n).toFixed(1):'—';
+  const chip=(l,v,cls)=>`<div class="stat ${cls||''}"><div class="v${v==='—'?' dim':''}">${v}</div><div class="l">${l}</div></div>`;
+  $('#stats').innerHTML=chip('出題',st.n)+chip('正解',st.c)+chip('正答率',acc)+chip('平均 s',avg)+chip('連続',streak,'streak');
+  $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span>${s.n}問 / ${s.n?Math.round(s.c/s.n*100)+'%':'—'} / ${s.n?(s.t/s.n).toFixed(1):'—'} s</span>`}).join('');
+}
+function renderSettings(){
+  const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${settings[key]===v?' selected':''}>${t}</option>`).join('')}</select></label>`;
+  let h=`<h3>${ic('settings','s')}設定</h3>`;
+  if(mode==='heading')h+=sel('north','北の向き',[['fixed','上に固定'],['random','ランダム（難）']]);
+  if(mode==='control'){h+=sel('ops','操作数',[['single','単一操作を継続'],['double','区間ごとに1操作']]);h+=sel('init','①の初期姿勢',[['level','水平'],['random','ランダム（難）']])}
+  h+=`<div class="setting"><span>正解したら自動で次へ</span><button class="chk${settings.auto?' on':''}" id="autoChk" role="switch" aria-checked="${settings.auto}">${settings.auto?'✓':''}</button></div>`;
+  h+=sel('theme','テーマ',[['auto','端末に合わせる'],['dark','ダーク'],['light','ライト']]);
+  $('#settings').innerHTML=h;
+  $('#settings').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{settings[s.dataset.key]=s.value;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();else next()}));
+  $('#autoChk').addEventListener('click',e=>{settings.auto=!settings.auto;store.set('settings',settings);e.currentTarget.classList.toggle('on',settings.auto);e.currentTarget.textContent=settings.auto?'✓':'';e.currentTarget.setAttribute('aria-checked',settings.auto)});
+}
+const TIPS={
+  heading:'N マークを基準に、機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東。北が上でない問題では、まず N の位置を確認する。',
+  attitude:'視点は常に南。画面の奥が北、手前が南、右が東、左が西。翼は水平なので水平線が傾いた選択肢は誤り。機首上げ → 水平線が下がり空が広がる。機首下げ → 地面が広がる。真上・真下は腹面／背面が見える。',
+  combo:'まず機首の向き（奥・手前・右・左）で方位を決め、次に上向きか下向きかでピッチを決める。方位指示器は現在の方位が上に来る（数字は 10 の位まで: 3=030°, 12=120°）。',
+  control:'操縦桿 右 → 機体が右に傾き景色は左に傾く。奥 → 機体が沈む（水平線が上がる）。手前 → 上昇（水平線が下がる）。ヨー右 → 水平のまま右を向く（景色が左へ流れる）。操作は 1 区間に 1 つ。'
+};
+const KBD={heading:'テンキー 8/9/6/3/2/1/4/7 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜6 で操作（未選択の区間から順に）、Enter で回答／次へ'};
+function setMode(m){
+  mode=m;store.set('mode',m);
+  document.querySelectorAll('#tabs .tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.mode===m?'true':'false'));
+  $('#tabdesc').textContent=DESC[m];$('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];
+  renderSettings();renderStats();next();
+}
+document.querySelectorAll('#tabs .tab').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+$('#next').addEventListener('click',next);
+$('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('stats',stats);streak=0;renderStats()});
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
+  if(e.key==='Enter'){if(answered){e.preventDefault();next()}else if(mode==='control'){e.preventDefault();answerControl()}return}
+  if(answered)return;
+  if(mode==='heading'){const map={'8':0,'9':1,'6':2,'3':3,'2':4,'1':5,'4':6,'7':7,w:0,e:1,d:2,c:3,x:4,z:5,a:6,q:7};if(e.key in map){e.preventDefault();answerHeading(map[e.key])}}
+  else if(mode==='attitude'||mode==='combo'){if(/^[1-4]$/.test(e.key)){e.preventDefault();answerOpts(+e.key-1)}}
+  else if(mode==='control'){if(/^[1-6]$/.test(e.key)){const seg=[...document.querySelectorAll('.seg')].find(s=>!s.querySelector('.sel'))||document.querySelector('.seg');const b=seg.querySelectorAll('[data-op]')[+e.key-1];if(b)b.click()}}
+});
+applyTheme();
+const urlMode=new URLSearchParams(location.search).get('mode');
+setMode(E.MODES[urlMode]?urlMode:E.MODES[mode]?mode:'heading');
+
+/* PWA: オフライン対応とホーム画面への追加 */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  /* 新しい版のサービスワーカーに切り替わったら一度だけ再読み込みして、新旧ファイルの混在を防ぐ */
+  let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(navigator.serviceWorker.controller&&!reloaded){reloaded=true;location.reload()}});
+}
+const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+let deferredPrompt=null;const dismissed=store.get('installDismissed',false);
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(!standalone&&!dismissed){$('#installText').textContent='アプリとしてインストールできます。';$('#installOs').textContent='Android';$('#installClose').style.display='none';$('#install').classList.add('show')}});
+$('#installBtn').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('#install').classList.remove('show')});
+$('#installClose').addEventListener('click',()=>{$('#install').classList.remove('show');store.set('installDismissed',true)});
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+if(isIOS&&!standalone&&!dismissed){$('#installText').textContent='Safari の共有メニューから「ホーム画面に追加」でアプリとして使えます。';$('#installOs').textContent='iOS';$('#installBtn').style.display='none';$('#install').classList.add('show')}
+})();
+</script>
+</body>
+</html>

@@ -53,7 +53,7 @@
 
   const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false };
   /* 視界・姿勢指示器のリアルタイム更新に使う係数（svgCockpit / svgAI と同じ値） */
-  const CK = { kp: 5, ky: 6, aiK: 2.4 };
+  const CK = { kp: 5, ky: 6, aiK: 2.4, grow: 0.45 };
 
   /* ---------- 出題生成 ---------- */
   /* N マークの向きと機首の向きが一致すると答えが自明になるので、機首は N と別の向きだけを出題する（dir≠0）。
@@ -264,15 +264,16 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
 
   /* ---------- 描画: コックピット視界 ---------- */
   const PEAKS = (() => { const h = [22, 40, 18, 55, 30, 72, 26, 48, 20, 64, 36, 28, 58, 24, 44, 30, 68, 22, 50, 34, 26, 60, 18, 42, 30, 54, 20, 46, 38, 24]; return h.map((v, i) => [-870 + i * 60, -v]); })();
-  function svgCockpit(bank, pitch, yaw) {
-    const id = 'ck' + (++uid), kp = 5, ky = 6;
+  /* progress: 前進の度合い 0..1。時間が進むと機体が前進し、景色（山・塔・太陽）が大きく見える */
+  function svgCockpit(bank, pitch, yaw, progress = 0) {
+    const id = 'ck' + (++uid), kp = 5, ky = 6, sc = (1 + 0.45 * progress).toFixed(3);
     const mtn = 'M-900,0 ' + PEAKS.map(p => `L${p[0]},${p[1]}`).join(' ') + ' L900,0 Z';
     const ground = [10, 22, 38, 60, 90, 130, 180].map((y, i) => `<line x1="-900" x2="900" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .02}"/>`).join('');
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
 <defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
 <g clip-path="url(#${id})"><g class="ck-att" transform="translate(180 108) rotate(${-bank}) translate(0 ${(pitch * kp).toFixed(1)})">
 <rect x="-900" y="-900" width="1800" height="900" fill="var(--sky)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--earth)"/>${ground}
-<g class="ck-yaw" transform="translate(${(-yaw * ky).toFixed(1)} 0)"><circle cx="110" cy="-96" r="15" fill="#ffd36b"/><path d="${mtn}" fill="#4a5c70"/>
+<g class="ck-yaw" transform="translate(${(-yaw * ky).toFixed(1)} 0) scale(${sc})"><circle cx="110" cy="-96" r="15" fill="#ffd36b"/><path d="${mtn}" fill="#4a5c70"/>
 <path d="M-130,0 L-90,-72 L-50,0 Z" fill="#65788d"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="#e8eef4"/>
 <rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/></g>
 <line x1="-900" x2="900" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g></g>

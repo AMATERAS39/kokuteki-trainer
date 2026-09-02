@@ -134,6 +134,16 @@ svg text{user-select:none}
 .sim .acts{display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem}
 .sim .hint{margin-top:.5rem}
 
+.gallery h2{font-family:var(--display);font-weight:700;font-size:1.125rem;margin:0}
+.gallery .sub{font-size:.8125rem;color:var(--muted);margin-top:.25rem}
+.gallery .op{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--line)}
+.gallery .op h4{margin:0 0 .5rem;font-size:.9375rem}
+.gallery .frames3{display:grid;grid-template-columns:repeat(3,1fr);gap:.375rem}
+.gallery .frames3 .v{border-radius:.5rem;overflow:hidden;border:1px solid var(--line)}
+.gallery .frames3 .n{font-family:var(--mono);font-size:.75rem;color:var(--accent);text-align:center;margin-top:.25rem}
+.gallery .op .d{font-size:.8125rem;color:var(--muted);margin-top:.375rem}
+.gallery .acts{margin-top:1rem}
+
 /* ===== レイアウト ===== */
 .layout{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:.75rem}
 aside{display:flex;flex-direction:column;gap:.75rem}
@@ -475,6 +485,7 @@ body[data-view="home"] .stats{display:none}
       <div id="chooser" class="intro" hidden></div>
       <div id="intro" class="intro" hidden></div>
       <div id="sim" class="sim" hidden></div>
+      <div id="gallery" class="gallery" hidden></div>
       <div id="summary" class="summary" hidden></div>
       <div id="quiz">
       <div class="qhead">
@@ -510,7 +521,7 @@ body[data-view="home"] .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる">×</button>
 </div>
 
-<script src="engine.js?v=21"></script>
+<script src="engine.js?v=22"></script>
 <script>
 (function(){
 'use strict';
@@ -540,7 +551,7 @@ function applyTheme(){
   $('meta[name=theme-color]').setAttribute('content',getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0b1017')}
 
 /* ===== 画面内の領域の切り替え ===== */
-function showPane(name){['chooser','intro','sim','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name})}
+function showPane(name){['chooser','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name})}
 function setPhase(p,label){phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
 
 /* ===== 出題 ===== */
@@ -573,7 +584,7 @@ function render(){
     $('#prompt').textContent=q.single
       ?'コックピットから見た外の様子が①→②→③の順に変化しました。この間に行われた操作を選んでください。'
       :'コックピットから見た外の様子が①→②→③の順に変化しました。①→②、②→③の順に行われた操作を選んでください。';
-    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(f.bank,f.pitch,f.yaw)}</div></div>`).join('')}</div></div>`;
+    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${E.svgCockpit(f.bank,f.pitch,f.yaw,i/2)}</div></div>`).join('')}</div></div>`;
     ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${'ABCD'[i]}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
@@ -651,14 +662,17 @@ function enterMode(m,sub){
   $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
   if(m==='control'&&!sub){showChooser();return}
   if(m==='control'&&sub==='practice'){startSim();return}
+  if(m==='control'&&sub==='gallery'){showGallery();return}
   if(settings.showIntro&&!hideIntro[m])showIntro();else afterIntro();
 }
 function showChooser(){
   setPhase('chooser');showPane('chooser');
   $('#chooser').innerHTML=`<h2>操縦操作</h2><ul><li>練習: 操縦桿と方向舵を自分で動かして、外の見え方の変化を確かめます。</li><li>計測: 3 枚の視界から操作を選ぶ問題に、制限時間つきで答えます。</li></ul>
-    <div class="choice"><button class="ab" id="chPractice">${ic('mode-control')}<span class="t">練習</span><span class="d">操作と見え方を確かめる</span></button><button class="ab" id="chMeasure">${ic('timer')}<span class="t">計測</span><span class="d">制限時間つきで出題</span></button></div>`;
+    <div class="choice"><button class="ab" id="chPractice">${ic('mode-control')}<span class="t">練習</span><span class="d">操作と見え方を確かめる</span></button><button class="ab" id="chMeasure">${ic('timer')}<span class="t">計測</span><span class="d">制限時間つきで出題</span></button></div>
+    <div class="acts"><button class="btn ghost" id="chGallery">全操作パターンの見え方を見る</button></div>`;
   $('#chPractice').addEventListener('click',()=>{location.hash='#train/control/practice'});
   $('#chMeasure').addEventListener('click',()=>{location.hash='#train/control/measure'});
+  $('#chGallery').addEventListener('click',()=>{location.hash='#train/control/gallery'});
   window.scrollTo({top:0});
 }
 function showIntro(){
@@ -717,7 +731,7 @@ function confirmLeave(){
 let sim=null;
 function startSim(){
   setPhase('sim','練習');showPane('sim');
-  sim={bank:0,pitch:0,yaw:0,keys:new Set(),raf:0,last:0};
+  sim={bank:0,pitch:0,yaw:0,keys:new Set(),raf:0,last:performance.now(),t0:performance.now()};
   $('#sim').innerHTML=`<div class="view" id="simView">${E.svgCockpit(0,0,0)}</div>
     <div class="row">
       <div><h4>操縦桿を倒す</h4><div class="pad">
@@ -730,7 +744,8 @@ function startSim(){
     </div>
     <div class="hint">ボタンを押している間だけ操作が続きます。操縦桿を右に倒すと機体が右に傾き、景色は左に傾きます。</div>
     <div class="acts"><button class="btn ghost" id="simReset">水平に戻す</button><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
-  const press=(b,on)=>{const k=b.dataset.k;if(on){sim.keys.add(k);b.classList.add('down')}else{sim.keys.delete(k);b.classList.remove('down')}if(on&&!sim.raf){sim.last=performance.now();sim.raf=setInterval(()=>simFrame(performance.now()),16)}};
+  const press=(b,on)=>{const k=b.dataset.k;if(on){sim.keys.add(k);b.classList.add('down')}else{sim.keys.delete(k);b.classList.remove('down')}};
+  sim.raf=setInterval(()=>simFrame(performance.now()),33);   // 前進の表現のため常に描画を更新
   $('#sim').querySelectorAll('[data-k]').forEach(b=>{
     b.addEventListener('pointerdown',e=>{e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch(_){}press(b,true)});
     ['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,()=>press(b,false)));
@@ -747,16 +762,28 @@ function simFrame(now){
   if(k.has('rr'))sim.yaw+=25*dt;if(k.has('rl'))sim.yaw-=25*dt;
   sim.bank=Math.max(-60,Math.min(60,sim.bank));sim.pitch=Math.max(-40,Math.min(40,sim.pitch));sim.yaw=Math.max(-120,Math.min(120,sim.yaw));
   simDraw();
-  if(!k.size){clearInterval(sim.raf);sim.raf=0}
 }
 function simDraw(){
   const {bank,pitch,yaw}=sim,C=E.CK;
   const v=$('#simView');v.querySelector('.ck-att').setAttribute('transform',`translate(180 108) rotate(${-bank}) translate(0 ${(pitch*C.kp).toFixed(1)})`);
-  v.querySelector('.ck-yaw').setAttribute('transform',`translate(${(-yaw*C.ky).toFixed(1)} 0)`);
+  const prog=((performance.now()-sim.t0)/1000%8)/8;   // 8 秒で景色が最大まで近づき、また遠景に戻る
+  v.querySelector('.ck-yaw').setAttribute('transform',`translate(${(-yaw*C.ky).toFixed(1)} 0) scale(${(1+C.grow*prog).toFixed(3)})`);
   const a=$('#simAI');a.querySelector('.ai-h').setAttribute('transform',`rotate(${-bank}) translate(0 ${(pitch*C.aiK).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-bank})`);
   const f=x=>`${x>0?'+':''}${Math.round(x)}°`;$('#rBank').textContent=f(bank);$('#rPitch').textContent=f(pitch);$('#rYaw').textContent=f(yaw);
 }
 function stopSim(){if(sim){clearInterval(sim.raf);sim=null}}
+
+/* ===== 操縦操作: 全操作パターンの見え方（①→②→③） ===== */
+function showGallery(){
+  setPhase('gallery','一覧');showPane('gallery');
+  const lv={bank:0,pitch:0,yaw:0};
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">水平飛行①から同じ操作を続けたときの②③。時間が進むと前進するので景色は大きくなります。</div>`+
+    E.OPS.map(o=>{const f=[lv,E.applyOp(lv,o.id)];f.push(E.applyOp(f[1],o.id));
+      return `<div class="op"><h4>${o.base}</h4><div class="frames3">${f.map((x,i)=>`<div><div class="v">${E.svgCockpit(x.bank,x.pitch,x.yaw,i/2)}</div><div class="n">${'①②③'[i]}</div></div>`).join('')}</div><div class="d">${o.view} → ${o.body}</div></div>`}).join('')+
+    `<div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
+  $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
+  window.scrollTo({top:0});
+}
 
 /* ===== 記録・設定 ===== */
 function renderStats(){

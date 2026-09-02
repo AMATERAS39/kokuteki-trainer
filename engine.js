@@ -259,13 +259,13 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
   /* ---------- 描画: T-4 イラスト版（上面図・後方/前方図・側面図を回転して使う） ---------- */
   const IMG = 'img/t4-';
   function figTopDown(theta, phi) {
-    /* 上面図の元絵は機首が左向き。theta=0（機首が上）にするには +90° 回す */
+    /* 上面図は 3D モデルを真上から描画したもの（機首が上＝北）。theta をそのまま回転に使う */
     const ticks = [0, 90, 180, 270].map(a => `<line x1="100" y1="14" x2="100" y2="24" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('') +
       [45, 135, 225, 315].map(a => `<line x1="100" y1="14" x2="100" y2="22" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('');
     return `<svg viewBox="0 0 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="上面図">
 <circle cx="100" cy="100" r="96" fill="var(--bezel)"/><circle cx="100" cy="100" r="88" fill="var(--card)" stroke="var(--line2)" stroke-width="1"/>${ticks}
 <g transform="rotate(${phi} 100 100)"><polygon points="100,13 94,27 106,27" fill="var(--accent)"/><text x="100" y="42" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--accent)">N</text></g>
-<image href="${IMG}top.png" x="30" y="30" width="140" height="140" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta + 90} 100 100)"/></svg>`;
+<image href="img/t4-top.png" x="28" y="28" width="144" height="144" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta} 100 100)"/></svg>`;
   }
   function figAttitude(bank, pitch, front, sideRight) {
     /* バンク: 後方図は時計回り = 右バンク。前方図は左右が逆に見えるので符号反転。

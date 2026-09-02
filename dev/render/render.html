@@ -22,9 +22,11 @@ renderer.setSize(W, H); renderer.setPixelRatio(1);
 renderer.setClearColor(0x000000, P.has('probe') ? 1 : 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.4));
-const dl = new THREE.DirectionalLight(0xffffff, 1.8); dl.position.set(-3, -4, 6); scene.add(dl);
-const dl2 = new THREE.DirectionalLight(0xffffff, 0.7); dl2.position.set(4, -2, -3); scene.add(dl2);
+/* 照明: 環境光を主体にして、陰影が濃く出ないようにする（?hemi= ?dir= で調整） */
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb0b8c4, +(P.get('hemi') || 2.2)));
+scene.add(new THREE.AmbientLight(0xffffff, +(P.get('amb') || 0.6)));
+const dl = new THREE.DirectionalLight(0xffffff, +(P.get('dir') || 0.9)); dl.position.set(-3, -4, 6); scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0xffffff, +(P.get('dir2') || 0.4)); dl2.position.set(4, -2, -3); scene.add(dl2);
 /* 世界座標: x=東(右), y=北(奥), z=上。視点は南 (0,-d,0) から原点を見る */
 const cam = new THREE.PerspectiveCamera(+(P.get('fov') || 28), W / H, 0.1, 1000);
 cam.up.set(0, 0, 1);
@@ -42,8 +44,8 @@ try {
 let meshes = 0, textured = 0;
 obj.traverse(o => { if (o.isMesh) { meshes++; const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => {
   if (m.map) { textured++; m.color.setRGB(1, 1, 1); if (m.map.colorSpace !== undefined) m.map.colorSpace = THREE.SRGBColorSpace; }
-  if (m.emissive) m.emissive.setRGB(0, 0, 0); if (m.specular) m.specular.setRGB(.15, .15, .15); m.shininess = 20;
-  m.side = THREE.DoubleSide; m.needsUpdate = true; }); } });
+  if (m.emissive) m.emissive.setRGB(0, 0, 0); if (m.specular) m.specular.setRGB(.05, .05, .05); m.shininess = 8;
+  m.side = P.get('side') === 'double' ? THREE.DoubleSide : THREE.FrontSide; m.needsUpdate = true; }); } });
 const box = new THREE.Box3().setFromObject(obj); const size = box.getSize(new THREE.Vector3()); const ctr = box.getCenter(new THREE.Vector3());
 const names = []; obj.traverse(o => { if (o.isMesh) names.push(o.name + '[' + (Array.isArray(o.material) ? o.material.map(m => m.name).join('|') : o.material.name) + ']'); });
 log(`meshes ${meshes} textured ${textured} size ${size.x.toFixed(1)} ${size.y.toFixed(1)} ${size.z.toFixed(1)}\n` + names.join('\n'));
@@ -74,13 +76,19 @@ async function save(name) {
   const r = await fetch('/save?name=bi-' + name, { method: 'POST', body: data });
   log(name + ': ' + (await r.text()));
 }
-if (P.has('icon')) {
+if (P.has('top')) {
+  /* 方位問題用の上面図: 機首が北（画面の上）を向いた姿を z 軸正方向から見る */
+  cam.up.set(0, 1, 0); cam.position.set(0, 0, dist); cam.lookAt(0, 0, 0);
+  dl.position.set(-3, 4, 8); dl2.position.set(4, -3, 2);
+  setDir(0, 0); renderer.render(scene, cam); await save('top'); log('top saved');
+} else if (P.has('icon')) {
   /* アプリアイコン: 北西向きの機体を z 軸正方向（真上）から見る。画面の上が北、右が東 */
   cam.up.set(0, 1, 0); cam.position.set(0, 0, dist); cam.lookAt(0, 0, 0);
   dl.position.set(-3, 4, 8); dl2.position.set(4, -3, 2);
   setDir(315, 0); renderer.render(scene, cam); await save('icon-src'); log('icon saved');
 } else if (P.has('probe')) {
-  setDir(+(P.get('h') || 0), +(P.get('p') || 0)); renderer.render(scene, cam); log('probe rendered');
+  /* 試し描き: ?hd=方位 ?p=ピッチ（h はキャンバス高さに使うので別名） */
+  setDir(+(P.get('hd') || 0), +(P.get('p') || 0)); renderer.render(scene, cam); log('probe rendered');
 } else if (P.has('one')) {
   const d = DIRS.find(x => x[0] === P.get('one')); setDir(d[1], d[2]); renderer.render(scene, cam); log('rendered ' + d[0]);
 } else {

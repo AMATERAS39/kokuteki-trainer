@@ -281,6 +281,12 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 .setting select{font:inherit;font-size:.8125rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.375rem .75rem;min-height:2.75rem}
 .chk{width:1.25rem;height:1.25rem;border-radius:.25rem;border:1px solid var(--line2);background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--on-accent);flex:none}
 .chk.on{background:var(--accent);border-color:var(--accent)}
+.chk .ic{width:.875rem;height:.875rem;stroke-width:3;display:none}
+.chk.on .ic{display:block}
+.ab .mk .ic{width:.875rem;height:.875rem;stroke-width:3}
+.fbh .t{display:flex;align-items:center;gap:.375rem}
+.fbh .t .ic{width:1.125rem;height:1.125rem;stroke-width:2.5}
+.install .x .ic{width:1.125rem;height:1.125rem}
 .tips{margin:.5rem 0 0;font-size:.8125rem;line-height:1.6;color:var(--muted)}
 .rec{display:grid;grid-template-columns:1fr auto;gap:.5rem .75rem;margin-top:.75rem;font-size:.8125rem}
 .rec span:nth-child(odd){color:var(--muted)}
@@ -482,6 +488,8 @@ body[data-view="home"] .stats{display:none}
 <symbol id="i-rudder-right-on" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect class="f" x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M8 20h8"/><path class="f" d="M13 17l4 3-4 3z"/></symbol>
 <symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+<symbol id="i-cross" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/></symbol>
 <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="var(--panel)"/><circle cx="15" cy="17" r="2.5" fill="var(--panel)"/></symbol>
 <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1M10 10h1M14 10h1M7 14h10"/></symbol>
@@ -606,7 +614,7 @@ body[data-view="home"] .stats{display:none}
   <img src="icons/icon-192.png" alt="">
   <div class="tx"><span id="installText"></span><small id="installOs"></small></div>
   <button class="go" id="installBtn">インストール</button>
-  <button class="x" id="installClose" aria-label="閉じる">×</button>
+  <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
 <script src="engine.js?v=25"></script>
@@ -719,7 +727,7 @@ function finish(g,timedOut){
   /* 解説スキップ（計測時のみ）: 正誤の印を短く見せてから次へ */
   if(!inPractice&&settings.skipExplain){setTimeout(()=>{if(answered)next()},450);return}
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
-  $('#fbTitle').textContent=timedOut?'時間切れ ✗':g.ok?'正解 ✓':'不正解 ✗';$('#fbTime').textContent=s.toFixed(1)+' s';
+  $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'check':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
   $('#explain').innerHTML=`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
   if(inPractice&&practiceLeft===0)$('#next').innerHTML=`計測を始める${ic('next','s')}`;
   else if(session&&session.ended)$('#next').textContent='結果を見る';
@@ -728,7 +736,7 @@ function finish(g,timedOut){
   if(!inPractice&&settings.auto&&g.ok&&!(session&&session.ended))setTimeout(()=>{if(answered)next()},1200);
 }
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
-  if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').textContent='✓'}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').textContent='✗'}else b.classList.add('dim')})}
+  if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').innerHTML=ic('check')}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').innerHTML=ic('cross')}else b.classList.add('dim')})}
 function answerHeading(i){
   if(answered)return;const g=E.gradeHeading(q,i);
   mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,b=>+b.dataset.dir===i);
@@ -776,10 +784,10 @@ function showIntro(){
   const lim=[];if(settings.qLimit>0)lim.push(`1 問 ${settings.qLimit} 秒`);if(settings.sLimit>0)lim.push(`全体 ${fmtSec(settings.sLimit)}`);if(settings.qCount>0)lim.push(`${settings.qCount} 問`);
   const practice=settings.showPractice&&mode!=='control';
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${settings.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
-    <label class="chkrow"><button class="chk on" id="hideChk" role="switch" aria-checked="true">✓</button>次回から表示しない</label>
+    <label class="chkrow"><button class="chk on" id="hideChk" role="switch" aria-checked="true">${ic('check')}</button>次回から表示しない</label>
     <div class="acts"><button class="btn" id="introGo">${practice?'練習を始める（3 問）':'計測を始める'}${ic('next','s')}</button></div>`;
   let hide=true;const chk=$('#hideChk');
-  chk.addEventListener('click',e=>{e.preventDefault();hide=!hide;chk.classList.toggle('on',hide);chk.textContent=hide?'✓':'';chk.setAttribute('aria-checked',hide)});
+  chk.addEventListener('click',e=>{e.preventDefault();hide=!hide;chk.classList.toggle('on',hide);chk.setAttribute('aria-checked',hide)});
   $('#introGo').addEventListener('click',()=>{hideIntro[mode]=hide;store.set('hideIntro',hideIntro);afterIntro()});
   window.scrollTo({top:0});
 }
@@ -919,7 +927,7 @@ function renderStats(){
 }
 function renderSettingsPage(){
   const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(settings[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
-  const chk=(key,label)=>`<div class="setting"><span>${label}</span><button class="chk${settings[key]?' on':''}" data-chk="${key}" role="switch" aria-checked="${!!settings[key]}">${settings[key]?'✓':''}</button></div>`;
+  const chk=(key,label)=>`<div class="setting"><span>${label}</span><button class="chk${settings[key]?' on':''}" data-chk="${key}" role="switch" aria-checked="${!!settings[key]}">${ic('check')}</button></div>`;
   $('#settingsPage').innerHTML=`<h3>${ic('settings','s')}設定</h3>
     <div class="setgroup"><h4>計測</h4>
       ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']])}
@@ -942,7 +950,7 @@ function renderSettingsPage(){
       ${sel('init','操縦操作: ①の初期姿勢',[['level','水平'],['random','ランダム（難）']])}
       ${chk('auto','（解説ありのとき）正解したら自動で次へ')}</div>`;
   $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()}));
-  $('#settingsPage').querySelectorAll('[data-chk]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.chk;settings[k]=!settings[k];store.set('settings',settings);b.classList.toggle('on',settings[k]);b.textContent=settings[k]?'✓':'';b.setAttribute('aria-checked',settings[k]);
+  $('#settingsPage').querySelectorAll('[data-chk]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.chk;settings[k]=!settings[k];store.set('settings',settings);b.classList.toggle('on',settings[k]);b.setAttribute('aria-checked',settings[k]);
     if(k==='showIntro'&&settings.showIntro){Object.keys(hideIntro).forEach(x=>delete hideIntro[x]);store.set('hideIntro',hideIntro)}}));
 }
 const TIPS={

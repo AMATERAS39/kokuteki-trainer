@@ -153,6 +153,9 @@ aside{display:flex;flex-direction:column;gap:.75rem}
 .ab .mk{position:absolute;top:.2rem;right:.375rem;font-family:var(--mono);font-size:.75rem;font-weight:700}
 .ab.ok .mk{color:var(--ok)}.ab.ng .mk{color:var(--bad)}
 .ab .k{font-family:var(--mono);font-size:.625rem;color:var(--muted)}
+.dirlist{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:1rem}
+.dirlist .ab{min-height:3.25rem}
+.dirlist .ab .t{font-size:1rem;font-weight:700}
 .dirgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:1rem}
 .dirgrid .ab .ic{width:1rem;height:1rem;color:var(--muted)}
 .dirgrid .ab .t{font-size:.9375rem;font-weight:700;line-height:1.2}
@@ -305,8 +308,8 @@ body[data-view="home"] .stats{display:none}
   .prompt{font-size:.9375rem}
   .figs.heading{display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:center;margin-top:1.25rem}
   .figs.heading .fig.top{width:88%}
-  .figs.heading .dirgrid{margin-top:0;gap:.625rem}
-  .figs.heading .dirgrid .ab{min-height:3.75rem}
+  .figs.heading .dirlist{margin-top:0;gap:.625rem;grid-template-columns:repeat(2,1fr)}
+  .figs.heading .dirlist .ab{min-height:3.75rem}
   .frames{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
   .frame{grid-template-columns:1fr}
   .frame .n{order:2;text-align:center;margin-top:.375rem;font-size:.8125rem}
@@ -514,8 +517,8 @@ function render(){
   const figs=$('#figs'),ans=$('#answers');
   if(q.type==='heading'){
     $('#prompt').textContent='上から見下ろした戦闘機が向いている方位を、8方位から答えてください。';
-    const grid=`<div class="dirgrid">${[7,0,1,6,-1,2,5,4,3].map(i=>i<0?'<div class="dot"><i></i></div>':
-      `<button class="ab" data-dir="${i}"><svg class="ic" style="transform:rotate(${i*45}deg)"><use href="#i-arrow-dir"/></svg><span class="t">${dirLabel(i)}</span><span class="k">${DIR_KEYS[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
+    /* 方位の配置に並べると図と見比べるだけで解けてしまうので、北から時計回りの固定順の文字だけの一覧にする */
+    const grid=`<div class="dirlist">${[0,1,2,3,4,5,6,7].map(i=>`<button class="ab" data-dir="${i}"><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
     figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北${q.phi?'（北の向き: <b>ランダム</b>）':''}</div></div>${grid}</div>`;
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
@@ -663,7 +666,7 @@ const TIPS={
   combo:'まず機首の向き（奥・手前・右・左）で方位を決め、次に上向きか下向きかでピッチを決める。方位指示器は現在の方位が上に来る（数字は 10 の位まで: 3=030°, 12=120°）。',
   control:'操縦桿を右に倒す → 機体が右に傾き景色は左に傾く。奥に倒す → 機首が下がり水平線が上がる。手前に引く → 上昇し水平線が下がる。右方向舵を踏む → 水平のまま右を向き景色が左へ流れる。選択肢は①→②、②→③の順。'
 };
-const KBD={heading:'テンキー 8/9/6/3/2/1/4/7 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
+const KBD={heading:'1〜8 で方位（北から時計回り）、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 
 $('#next').addEventListener('click',next);
 $('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
@@ -672,7 +675,7 @@ document.addEventListener('keydown',e=>{
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){if(answered){e.preventDefault();next()}return}
   if(answered)return;
-  if(mode==='heading'){const map={'8':0,'9':1,'6':2,'3':3,'2':4,'1':5,'4':6,'7':7,w:0,e:1,d:2,c:3,x:4,z:5,a:6,q:7};if(e.key in map){e.preventDefault();answerHeading(map[e.key])}}
+  if(mode==='heading'){if(/^[1-8]$/.test(e.key)){e.preventDefault();answerHeading(+e.key-1)}}
   else{if(/^[1-4]$/.test(e.key)){e.preventDefault();answerOpts(+e.key-1)}}
 });
 applyTheme();

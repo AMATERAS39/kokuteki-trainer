@@ -357,3 +357,10 @@ stats[mode] = { n, c, t }   // 出題数, 正解数, 合計秒
 - `img/emblem.png` は配信ファイルから外した（アイコンは新エンブレムのまま）。
 - 描画の手順（リポジトリ直下の構成に合わせて修正済み）: `python dev/tools/render_server.py`（dev/ を 8766 で配信、保存先は img/ と model/）→ ヘッドレス Chrome（`--use-angle=swiftshader --enable-unsafe-swiftshader`）で `render.html?banks=30,60&…`、`?top=1&…`、`?export=1&maxtex=1024&…` を開く → `python dev/tools/postprocess_bank.py`（一覧は dev/package、AAT_PKG で変更可）→ 上面図は `bi-top.png` を `t4-top.webp` に。
 - ホーム画面のヒーロー画像 `img/hero.webp` も新テクスチャで描き直した。描画条件は `render.html?probe=1&hd=117&p=2&bk=-5&elev=46&dist=22&save=hero-src&ax=90&hide=landing,front_gear,blake_op&paint=main/main/006ab0&w=1800&h=1125`（元の条件は不明だったので試し描きで近い角度を選んだ）。煙は `dev/tools/make_hero.py` の処理（入力 hero-src.png、出力 img/hero.webp。パスは kokuteki-private/package と img/ に読み替える）。
+
+## RIKYU 納品のアイコンと色（2026-09-03）
+
+- 納品（Iconify、RIKYU で選定）: ホーム `mdi:house-outline`、更新 `ri:refresh-line`（symbol は `#i-update`。記録の「リセット」で使う `#i-reset` は別物なので残す）、戻る `mingcute:arrow-left-fill`（名前に反して線画・線幅 3）。
+- `<use>` の影の木には外側の CSS 選択子が効かないので、塗りと線は各 `path` の `style` 属性に書く（`.ic` の `fill:none; stroke:currentColor` より優先される）。ホームと更新は塗り、戻るは線幅 3 の線画。
+- ヘッダーのボタン（ホーム／戻る・更新・メニュー）の色は、これまでホーム画面表示中だけに使っていたオレンジ `var(--accent)` に統一（利用者の指定）。ホバーは背景だけ変える。
+- ホーム画面の立体文字 TENRYU は白（利用者の指定）。オレンジの差し色はやめ、白〜淡いグレーの縦グラデーションにした。

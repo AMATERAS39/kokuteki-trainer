@@ -66,22 +66,19 @@ svg text{user-select:none}
 @media (display-mode:standalone){.hdr{padding-top:max(3.5rem,env(safe-area-inset-top))}}
 .brand{display:flex;align-items:center;gap:.5rem}
 .brand .name{flex:1;min-width:0;text-align:center;font-family:var(--display);font-weight:700;font-size:.9375rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.homebtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--muted);flex:none}
-.homebtn:hover{background:var(--panel);color:var(--text)}
-body[data-view="home"] .homebtn{color:var(--accent)}
+.homebtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent);flex:none}
+@media (hover:hover){.homebtn:hover{background:var(--panel)}}
 .brand .name{padding-left:3.25rem}   /* 右側にボタンが 2 つ（更新・メニュー）あるぶん、左に空きを取って中央を保つ */
 /* 更新ボタン: 新しい版が待機していると赤い点（.has）。押すと確認中は矢印が回る（.busy） */
-.updbtn{position:relative;width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--muted);flex:none}
-@media (hover:hover){.updbtn:hover{background:var(--panel);color:var(--text)}}
-.updbtn .ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.updbtn.has{color:var(--text)}
+.updbtn{position:relative;width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent);flex:none}
+@media (hover:hover){.updbtn:hover{background:var(--panel)}}
 .updbtn.has::after{content:"";position:absolute;top:.5rem;right:.5rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);box-shadow:0 0 0 .125rem var(--bg)}
 .updbtn.busy .ic{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .toast{position:fixed;left:50%;bottom:max(1.25rem,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:.75rem;padding:.625rem 1rem;font-size:.8125rem;font-weight:700;box-shadow:0 .5rem 1.5rem rgba(0,0,0,.4);z-index:40;white-space:nowrap}
 .menu{position:relative;flex:none}
-.menubtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--muted)}
-.menubtn:hover{background:var(--panel);color:var(--text)}
+.menubtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent)}
+@media (hover:hover){.menubtn:hover{background:var(--panel)}}
 .menubtn .ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .menulist{position:absolute;right:0;top:3rem;min-width:11rem;background:var(--panel2);border:1px solid var(--line2);border-radius:.75rem;padding:.375rem;box-shadow:0 1rem 2rem rgba(0,0,0,.5);z-index:20;display:flex;flex-direction:column}
 .menulist button{text-align:left;padding:.75rem .875rem;border-radius:.5rem;font-size:.875rem;font-weight:700}
@@ -376,7 +373,7 @@ body:not([data-view="train"]) .stats{display:none}
 /* 立体文字 TENRYU（暫定: CSS の押し出し文字。RIKYU の納品（透明 PNG）が届いたら <img> に差し替える） */
 .hero-word{position:relative;align-self:flex-end;margin:.5rem .5rem 0 0;font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,7.5vw,2.4rem);letter-spacing:.14em;line-height:1;color:#f6f8fb;user-select:none;
   text-shadow:0 .03em 0 #cfd8e2,0 .06em 0 #b3bfcc,0 .09em 0 #8f9cab,0 .12em 0 #6c7886,0 .15em 0 #4e5967,0 .22em .35em rgba(0,0,0,.6);transform:perspective(18rem) rotateX(16deg) skewX(-5deg)}
-.hero-word span{background:linear-gradient(180deg,#ffffff 0%,#dfe7ef 55%,#f2a93b 56%,#f6d89a 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-word span{background:linear-gradient(180deg,#ffffff 0%,#f2f6fa 50%,#dbe3ec 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
 .mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
 @media (hover:hover){.mode:hover{border-color:var(--muted)}}
@@ -577,8 +574,9 @@ body:not([data-view="train"]) .stats{display:none}
 <symbol id="i-rudder-right-on" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect class="f" x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M8 20h8"/><path class="f" d="M13 17l4 3-4 3z"/></symbol>
 <symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
-<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
-<symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11.5L12 4.5l8.5 7"/><path d="M6 10v9.5h12V10"/><path d="M10 19.5v-5h4v5"/></symbol>
+<symbol id="i-update" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M5.463 4.433A9.96 9.96 0 0 1 12 2c5.523 0 10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228zm13.074 15.134A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772z"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="m12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81zM12 3L2 12h3v8h6v-6h2v6h6v-8h3"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
 <symbol id="i-cross" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/></symbol>
@@ -592,7 +590,7 @@ body:not([data-view="train"]) .stats{display:none}
       <div class="brand">
         <button class="homebtn" id="backHome" aria-label="ホーム"><svg class="ic"><use href="#i-home"/></svg></button>
         <div class="name">TENRYU</div>
-        <button class="updbtn" id="updBtn" aria-label="更新"><svg class="ic"><use href="#i-reset"/></svg></button>
+        <button class="updbtn" id="updBtn" aria-label="更新"><svg class="ic"><use href="#i-update"/></svg></button>
         <div class="menu">
           <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="menulist" id="menuList" hidden>

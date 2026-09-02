@@ -244,3 +244,10 @@ stats[mode] = { n, c, t }   // 出題数, 正解数, 合計秒
 - 本番: https://kokuteki.amaterasu-vocab.com/ — このアプリ専用の Cloudflare Worker（静的アセット）。リポジトリ直下の `wrangler.jsonc` と `.assetsignore` が設定。Cloudflare の Git 連携（Workers Builds）で main への push ごとに `npx wrangler deploy` が走る。
 - 動作確認用: https://kokuteki-trainer.ama-sunrise.workers.dev/（`workers_dev: true`）。予備: https://amateras39.github.io/kokuteki-trainer/（GitHub Pages）。
 - 注意: vocab-srs の Worker に `*.amaterasu-vocab.com/*` のワイルドカードルートがあり、サブドメインを横取りする。こちらは `kokuteki.amaterasu-vocab.com/*` の明示ルート（ホスト名が具体的なほうが優先）で受けている。vocab-srs のリポジトリ・Worker には触らない。
+
+## 版（体験版／全機能版）と Google Play
+
+- `index.html` の `DEMO_ON`（既定 false）。false のあいだは全員が全機能。有償配信の開始時に true にすると、Web 版は体験版（`DEMO.modes` = 方位のみ、`DEMO.qCount` = 10 問）になり、ほかの種目カードは「Play 版」の施錠表示、押すと `#buy`（全機能版の案内画面、`PLAY_URL`）へ。
+- 全機能版の判定: 起動 URL の `?key=` の SHA-256 が `FULL_HASH` と一致すると `aat.edition = full` を端末に記憶する。Play 版（TWA）は常にキー付き URL で起動する。キーはリポジトリに置かない（Claude Code のメモリにのみ保存）。
+- Play 用の資料: `docs/play/`（ストア掲載文、配信手順、feature_graphic.png、screenshots/ 1080×1920）。`privacy.html` がプライバシーポリシー、`.well-known/assetlinks.json` が Digital Asset Links（PWABuilder の鍵のフィンガープリントを入れる）。
+- 利用者の方針（2026-09-02）: 有償配信が始まるまで Web 版の制限はかけない。制限をかけるなら App Store 版も同時に必要。

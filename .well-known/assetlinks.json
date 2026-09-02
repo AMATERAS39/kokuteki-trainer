@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.amaterasuvocab.kokuteki",
+    "sha256_cert_fingerprints": ["ここに PWABuilder が生成した署名鍵の SHA-256 フィンガープリントを入れる（AA:BB:… の形式）"]
+  }
+}]

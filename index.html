@@ -362,6 +362,14 @@ body[data-view="home"] .stats{display:none}
 .mode .d{font-size:.8125rem;color:var(--muted);margin-top:.125rem}
 .mode .r{font-family:var(--mono);font-size:.6875rem;color:var(--faint);margin-top:.25rem}
 .mode .go{color:var(--accent)}
+.mode.locked{opacity:.7}
+.mode .lk{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:.125rem .4rem;white-space:nowrap}
+.demo{margin-top:.75rem;background:var(--panel);border:1px dashed var(--line2);border-radius:1rem;padding:.75rem 1rem;font-size:.8125rem;color:var(--muted);line-height:1.6}
+.demo b{color:var(--accent)}
+.demo .btn{margin-top:.5rem;height:2.75rem;font-size:.875rem}
+#buyPage ul{margin:.5rem 0 0;padding-left:1.2em;font-size:.875rem;line-height:1.7;color:var(--muted)}
+#buyPage .acts{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
+#buyPage a.btn{text-decoration:none}
 .homeactions{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
 .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
 .about{display:flex;flex-direction:column;gap:.75rem;margin-top:.75rem}
@@ -531,6 +539,7 @@ body[data-view="home"] .stats{display:none}
             <button data-go="home">ホーム</button>
             <button data-go="settings">設定</button>
             <button data-go="about">アプリの説明</button>
+            <button data-go="buy">全機能版について</button>
           </div>
         </div>
       </div>
@@ -552,6 +561,7 @@ body[data-view="home"] .stats{display:none}
         <h3>アプリの説明</h3>
         <ul>
           <li>航空学生の適性検査（方位・姿勢指示器・操縦操作）の反復練習。</li>
+          <li id="edLine"></li>
           <li>回答ごとに正誤と解説を表示。解答時間と正答率は端末内に記録。</li>
           <li>ホーム画面に追加するとアプリとして起動。オフラインでも動作。</li>
         </ul>
@@ -589,6 +599,10 @@ body[data-view="home"] .stats{display:none}
         <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
       </div>
     </div>
+  </section>
+
+  <section id="view-buy" hidden>
+    <div class="about"><div class="card" id="buyPage"></div></div>
   </section>
 
   <section id="view-settings" hidden>
@@ -655,6 +669,23 @@ const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',qLimit:5,sLimit
 const saved=store.get('settings',{});
 const settings=saved.version===SETTINGS_VERSION?Object.assign({},DEFAULTS,saved):Object.assign({},DEFAULTS);
 const hideIntro=store.get('hideIntro',{});   // 種目ごとの「次回から表示しない」
+/* 版: demo（Web 体験版: 方位のみ・10 問まで）/ full（Google Play 版）。
+   full は起動 URL の ?key= の SHA-256 が FULL_HASH と一致したときに端末へ記憶する（Play 版のアプリは常にこの URL で起動する） */
+const FULL_HASH='c9bb76ecad45a99039353b7f2b9195f95f19fdda5fa8bd816da7cc06609ae060';
+const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki';
+const DEMO={modes:['heading'],qCount:10};
+/* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
+const DEMO_ON=false;
+let edition=DEMO_ON?store.get('edition','demo'):'full';
+const isFull=()=>edition==='full';
+const qMax=()=>isFull()?settings.qCount:(settings.qCount>0?Math.min(settings.qCount,DEMO.qCount):DEMO.qCount);   // 体験版は 10 問まで
+async function checkKey(){
+  const k=new URLSearchParams(location.search).get('key');if(!k)return;
+  if(!DEMO_ON){history.replaceState(null,'',location.pathname+location.hash);return}
+  try{const h=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(k)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    if(h===FULL_HASH){edition='full';store.set('edition','full')}}catch(e){}
+  history.replaceState(null,'',location.pathname+location.hash);
+}
 const stats=Object.assign({heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
 let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
 let session=null,sessTimerId=null;   // 計測セッション {n,c,t,start,ended}
@@ -687,7 +718,7 @@ function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#pha
 function render(){
   qcount++;answered=false;applyScene();
   const inPractice=phase==='practice';
-  $('#qno').textContent=inPractice?`練習 ${PRACTICE_N-practiceLeft+1} / ${PRACTICE_N}`:(settings.qCount>0?`${qcount} / ${settings.qCount}`:qcount);
+  $('#qno').textContent=inPractice?`練習 ${PRACTICE_N-practiceLeft+1} / ${PRACTICE_N}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount);
   $('#qcard').classList.remove('answered');
   $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
   const figs=$('#figs'),ans=$('#answers');
@@ -747,7 +778,7 @@ function finish(g,timedOut){
     if(session){session.n++;if(g.ok)session.c++;session.t+=s}
     streak=g.ok?streak+1:0;
     renderStats();
-    if(session&&settings.qCount>0&&session.n>=settings.qCount)session.ended=true;
+    if(session&&qMax()>0&&session.n>=qMax())session.ended=true;
   }else if(practiceLeft>0)practiceLeft--;
   /* 解説スキップ（計測時のみ）: 正誤の印を短く見せてから次へ */
   if(!inPractice&&settings.skipExplain){setTimeout(()=>{if(answered)next()},450);return}
@@ -786,6 +817,7 @@ const INTRO={
   control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を A〜D の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。']
 };
 function enterMode(m,sub){
+  if(!isFull()&&!DEMO.modes.includes(m)){location.hash='#buy';return}
   mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);clearInterval(sessTimerId);
   $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
   $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
@@ -806,7 +838,7 @@ function showChooser(){
 }
 function showIntro(){
   setPhase('intro','説明');showPane('intro');
-  const lim=[];if(settings.qLimit>0)lim.push(`1 問 ${settings.qLimit} 秒`);if(settings.sLimit>0)lim.push(`全体 ${fmtSec(settings.sLimit)}`);if(settings.qCount>0)lim.push(`${settings.qCount} 問`);
+  const lim=[];if(settings.qLimit>0)lim.push(`1 問 ${settings.qLimit} 秒`);if(settings.sLimit>0)lim.push(`全体 ${fmtSec(settings.sLimit)}`);if(qMax()>0)lim.push(`${qMax()} 問`);
   const practice=settings.showPractice&&mode!=='control';
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${settings.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
     <label class="chkrow"><button class="chk on" id="hideChk" role="switch" aria-checked="true">${ic('check')}</button>次回から表示しない</label>
@@ -844,7 +876,7 @@ function showSummary(){
   clearInterval(timerId);clearInterval(sessTimerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
   const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
-  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${settings.qCount>0&&s.n>=settings.qCount?`${settings.qCount} 問を終えました`:'制限時間に達しました'}</div>
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'制限時間に達しました'}</div>
     <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());
@@ -1015,8 +1047,11 @@ document.addEventListener('contextmenu',e=>{if(!e.target.closest('select,input,t
 
 /* ===== 画面の切り替え（ホーム / 訓練 / 設定 / 説明）: URL のハッシュで管理 ===== */
 function renderHome(){
-  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="n">${E.MODES[m]}</span><span class="go">${ic('next','s')}</span></button>`).join('');
-  $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
+  const lock=m=>!isFull()&&!DEMO.modes.includes(m);
+  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode${lock(m)?' locked':''}" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="n">${E.MODES[m]}</span>${lock(m)?'<span class="lk">Play 版</span>':`<span class="go">${ic('next','s')}</span>`}</button>`).join('')
+    +(isFull()?'':`<div class="demo"><b>体験版</b>: 方位のみ・1 回 ${DEMO.qCount} 問まで。姿勢指示器・方位×姿勢指示器・操縦操作（練習・見え方を含む）は Google Play 版で使えます。<button class="btn" data-go2="buy">全機能版について</button></div>`);
+  $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash=lock(b.dataset.mode)?'#buy':'#train/'+b.dataset.mode}));
+  $('#modeCards').querySelectorAll('[data-go2]').forEach(b=>b.addEventListener('click',()=>{location.hash='#'+b.dataset.go2}));
 }
 const menuBtn=$('#menuBtn'),menuList=$('#menuList');
 function closeMenu(){menuList.hidden=true;menuBtn.setAttribute('aria-expanded','false')}
@@ -1038,7 +1073,7 @@ async function initAbout(){
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
-const VIEWS=['home','train','settings','about'];
+const VIEWS=['home','train','settings','about','buy'];
 function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});window.scrollTo({top:0})}
 let currentHash='';
 function route(){
@@ -1056,11 +1091,20 @@ function route(){
   if(v==='home')renderHome();
   else if(v==='train')enterMode(E.MODES[arg]?arg:'heading',sub);
   else if(v==='settings')renderSettingsPage();
-  else initAbout();
+  else if(v==='buy')renderBuy();
+  else{$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':`この Web 版は体験版です（方位のみ・1 回 ${DEMO.qCount} 問まで）。全機能は Google Play 版で使えます。`;initAbout()}
+  menuList.querySelector('[data-go="buy"]').hidden=isFull();
 }
 $('#backHome').addEventListener('click',()=>{if(!confirmLeave())return;leaveSession();location.hash='#home'});
+function renderBuy(){
+  $('#buyPage').innerHTML=`<h3>全機能版（Google Play）</h3>
+    <ul><li>方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目すべて。</li><li>操縦操作の 3D 練習シミュレーター（一人称／三人称）と、全操作パターンの見え方。</li><li>出題数・制限時間の制限なし（設定で自由に変更）。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
+    <div class="acts"><a class="btn" href="${PLAY_URL}" target="_blank" rel="noopener">Google Play で見る${ic('next','s')}</a><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
+    <div class="sethelp">すでに購入済みの方は、ホーム画面に追加した Google Play 版のアプリから起動してください。この Web 版は体験版のままです。</div>`;
+  $('#buyBack').addEventListener('click',()=>{location.hash='#home'});
+}
 window.addEventListener('hashchange',route);
-route();
+checkKey().finally(route);
 
 /* PWA */
 if('serviceWorker' in navigator){

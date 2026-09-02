@@ -221,10 +221,10 @@ body[data-view="home"] .stats{display:none}
 .hero2{position:relative;margin-top:.5rem;border-radius:1rem;border:1px solid var(--line);padding:1.25rem 1rem .875rem;display:flex;flex-direction:column;align-items:center;overflow:hidden;
   background:radial-gradient(70% 60% at 50% 42%,#1b2d48 0%,#111a27 55%,var(--panel) 100%)}
 .hero2::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 2.4rem,rgba(255,255,255,.035) 2.4rem calc(2.4rem + 1px)),repeating-linear-gradient(90deg,transparent 0 2.4rem,rgba(255,255,255,.035) 2.4rem calc(2.4rem + 1px));mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%);-webkit-mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%)}
-.hero-jet{position:relative;width:92%;max-width:30rem;height:auto;filter:drop-shadow(0 1.25rem 1.5rem rgba(0,0,0,.55))}
-.logos{position:relative;display:flex;gap:1.25rem;margin-top:.5rem}
-.logos span{width:2.75rem;height:2.75rem;border-radius:50%;border:1px solid var(--line2);background:color-mix(in srgb,var(--panel2) 80%,transparent);display:flex;align-items:center;justify-content:center;color:var(--accent)}
-.logos .ic{width:1.5rem;height:1.5rem}
+/* 画像は機体が中央になるよう左右対称の余白付き。枠より広く表示してスモークは左端で切れる */
+.hero-jet{position:relative;width:150%;max-width:none;height:auto;margin:0 -25%;filter:drop-shadow(0 1.25rem 1.5rem rgba(0,0,0,.55))}
+/* ロゴは機体と重ならないよう、画像の下の独立した行に右寄せで置く */
+.hero-logo{position:relative;align-self:flex-end;width:22%;max-width:6.5rem;height:auto;margin-top:.5rem;margin-right:.25rem;filter:drop-shadow(0 .25rem .5rem rgba(0,0,0,.6))}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
 .mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
 .mode:hover{border-color:var(--muted)}
@@ -298,10 +298,8 @@ body[data-view="home"] .stats{display:none}
   .att{grid-template-columns:1fr 1fr}
   .combo .att{grid-template-columns:1fr 1fr}
   .hero2{margin-top:1.25rem;padding:1.5rem 2rem 1.25rem}
-  .hero-jet{max-width:34rem}
-  .logos{gap:1.75rem;margin-top:.75rem}
-  .logos span{width:3.25rem;height:3.25rem}
-  .logos .ic{width:1.75rem;height:1.75rem}
+  .hero-jet{width:110%;max-width:56rem;margin:0 auto}
+  .hero-logo{max-width:8rem;margin-right:1rem}
   .modes{grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem}
   .homeactions{flex-direction:row;justify-content:center}
   .homeactions .btn{width:auto;padding:0 2rem}
@@ -358,13 +356,8 @@ body[data-view="home"] .stats{display:none}
 
   <section id="view-home" hidden>
     <div class="hero2">
-      <img class="hero-jet" src="img/hero.webp" alt="T-4 ブルーインパルス" width="1600" height="1000">
-      <div class="logos" aria-hidden="true">
-        <span><svg class="ic"><use href="#i-mode-heading"/></svg></span>
-        <span><svg class="ic"><use href="#i-mode-attitude"/></svg></span>
-        <span><svg class="ic"><use href="#i-mode-combo"/></svg></span>
-        <span><svg class="ic"><use href="#i-mode-control"/></svg></span>
-      </div>
+      <img class="hero-jet" src="img/hero.webp" alt="T-4 ブルーインパルス" width="1709" height="678">
+      <img class="hero-logo" src="img/bi-logo.png" alt="Blue Impulse" width="202" height="197">
     </div>
     <div class="modes" id="modeCards"></div>
   </section>

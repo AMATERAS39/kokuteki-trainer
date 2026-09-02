@@ -18,7 +18,7 @@ Web アプリ（PWA）を Android アプリとして包む TWA（Trusted Web Act
 2. 「Package For Stores」→ Android → 「Generate Package」。
 3. オプションを次のように設定する:
    - Package ID: `com.amaterasuvocab.kokuteki`
-   - App name: パイロット適性検査トレーニング　／　Short name: 適性検査
+   - App name: TENRYU　／　Short name: TENRYU
    - Start URL: `/?key=＜秘密キー＞`（ここが全機能版の要。キーは Claude Code から受け取ったもの）
    - Display mode: standalone　／　Status bar color・Splash: 既定のまま（#141a22）
    - Signing key: 「Create new」（PWABuilder が新しい鍵を作る）。生成後に表示される鍵のパスワードと alias を必ず控える

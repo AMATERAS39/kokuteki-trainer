@@ -1,6 +1,6 @@
 {
-  "name": "パイロット適性検査トレーニング",
-  "short_name": "適性検査",
+  "name": "TENRYU",
+  "short_name": "TENRYU",
   "description": "航空学生 適性検査対策：方位・姿勢指示器・操縦操作の反復練習",
   "lang": "ja",
   "start_url": "./",

@@ -199,6 +199,8 @@ aside{display:flex;flex-direction:column;gap:.75rem}
 .attp{border-radius:.625rem;overflow:hidden;border:1px solid var(--line)}
 .d14{position:relative;border-radius:.625rem;overflow:hidden;border:1px solid var(--line);background:var(--d14bg,#cdd3da)}
 /* 背景の昼／夜（設定 scene: auto/day/night。auto は回答時の時刻で決める）。機体画像の背景と、操縦操作の視界に適用 */
+body[data-scene="dawn"]{--d14bg:#e7d3c5;--ck-sky-top:#4a5c9e;--ck-sky-hz:#f8b26c;--ck-earth:#6b4727;--ck-sun:#ffc25f;--ck-mtn:#55607f;--ck-mtn2:#6f7995;--ck-snow:#f7e3d7}
+body[data-scene="dusk"]{--d14bg:#d9b9aa;--ck-sky-top:#33305f;--ck-sky-hz:#f2704a;--ck-earth:#4e3321;--ck-sun:#ff9a4a;--ck-mtn:#3b3652;--ck-mtn2:#524b6b;--ck-snow:#edc5b5}
 body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--ck-sun:#e7ecf3;--ck-mtn:#1e2a3a;--ck-mtn2:#2a394c;--ck-snow:#b7c3d0;--ck-star:#e3eaf5}
 .d14legend{position:absolute;right:.375rem;top:.375rem;width:3.8rem;height:2.7rem;color:#fff;background:rgba(0,0,0,.45);border-radius:.375rem;padding:.15rem .25rem}
 .frames{display:flex;flex-direction:column;gap:.5rem}
@@ -551,7 +553,7 @@ body[data-view="home"] .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる">×</button>
 </div>
 
-<script src="engine.js?v=24"></script>
+<script src="engine.js?v=25"></script>
 <script>
 (function(){
 'use strict';
@@ -580,8 +582,10 @@ function applyTheme(){
   if(settings.theme==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=settings.theme;
   $('meta[name=theme-color]').setAttribute('content',getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0b1017')}
 
-/* 背景の昼／夜: auto は 6 時〜18 時を昼、それ以外を夜とする。出題・練習・シミュレーター・見え方の表示時に判定し直す */
-function applyScene(){const h=new Date().getHours();document.body.dataset.scene=settings.scene==='day'||settings.scene==='night'?settings.scene:(h>=6&&h<18?'day':'night')}
+/* 背景の昼／夜: auto は 5〜7 時を日の出、7〜17 時を昼、17〜19 時を夕焼け、それ以外を夜とする。出題・練習・シミュレーター・見え方の表示時に判定し直す */
+function applyScene(){
+  const d=new Date(),t=d.getHours()+d.getMinutes()/60;
+  document.body.dataset.scene=settings.scene==='day'||settings.scene==='night'?settings.scene:(t<5?'night':t<7?'dawn':t<17?'day':t<19?'dusk':'night')}
 
 /* ===== 画面内の領域の切り替え ===== */
 function showPane(name){['chooser','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name})}
@@ -873,7 +877,7 @@ function renderSettingsPage(){
       ${sel('dirLabel','方位の表記',[['alpha','アルファベット（N・NE …）'],['kanji','漢字（北・北東 …）']])}
       ${sel('theme','テーマ',[['auto','端末に合わせる'],['dark','ダーク'],['light','ライト']])}
       ${sel('scene','背景（昼／夜）',[['auto','自動（回答時の時刻）'],['day','昼'],['night','夜']])}
-      <div class="sethelp">姿勢指示器・方位×姿勢指示器の機体画像の背景と、操縦操作の視界（練習・見え方を含む）に適用。自動では 6 時〜18 時が昼、それ以外が夜。</div></div>
+      <div class="sethelp">姿勢指示器・方位×姿勢指示器の機体画像の背景と、操縦操作の視界（練習・見え方を含む）に適用。自動では時刻で切り替わり、5〜7 時は日の出、7〜17 時は昼、17〜19 時は夕焼け、それ以外は夜。</div></div>
     <div class="setgroup"><h4>出題</h4>
       ${sel('north','方位: N マークの向き',[['random','ランダム（標準）'],['fixed','上に固定（易）']])}
       ${sel('ops','操縦操作: 操作数',[['single','単一操作'],['double','2 操作（順に）']])}

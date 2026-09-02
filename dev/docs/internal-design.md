@@ -219,6 +219,6 @@ stats[mode] = { n, c, t }   // 出題数, 正解数, 合計秒
 
 ## 背景の昼／夜（設定 `scene`）
 
-- 設定 `scene: 'auto' | 'day' | 'night'`（既定 `auto`）。`applyScene()` が `body[data-scene]` を付け、`auto` は判定時刻の 6 時〜18 時を昼、それ以外を夜とする。出題の `render()`、シミュレーター開始、見え方の表示、設定変更時に判定し直す。
+- 設定 `scene: 'auto' | 'day' | 'night'`（既定 `auto`）。`applyScene()` が `body[data-scene]` を付け、`auto` は判定時刻で 5〜7 時を日の出 `dawn`、7〜17 時を昼 `day`、17〜19 時を夕焼け `dusk`、それ以外を夜 `night` とする（手動は昼／夜のみ）。出題の `render()`、シミュレーター開始、見え方の表示、設定変更時に判定し直す。
 - 適用範囲: 姿勢指示器・方位×姿勢指示器の機体画像の背景（`.d14` の `--d14bg`）と、操縦操作の視界 `svgCockpit`（出題・練習・シミュレーター・見え方すべて）。姿勢指示器の計器そのものや方位の上面図は変えない。
-- `svgCockpit` の色は CSS 変数 `--ck-sky / --ck-earth / --ck-sun / --ck-mtn / --ck-mtn2 / --ck-snow / --ck-star` で差し替える（昼は既定色、夜は `body[data-scene="night"]` で定義）。星は固定座標 70 個を常に描き、昼は `--ck-star: none` で見えない。太陽は夜には月色になる。
+- `svgCockpit` の色は CSS 変数 `--ck-sky / --ck-earth / --ck-sun / --ck-mtn / --ck-mtn2 / --ck-snow / --ck-star` で差し替える（昼は既定色、夜は `body[data-scene="night"]` で定義）。空は `--ck-sky-top`（上）から `--ck-sky-hz`（水平線）への縦グラデーション（回転する群の中なので水平線に沿う）で、日の出は上が藍・水平線が橙、夕焼けは上が紫・水平線が赤橙、昼と夜は単色。星は固定座標 70 個を常に描き、昼は `--ck-star: none` で見えない。太陽は夜には月色になる。

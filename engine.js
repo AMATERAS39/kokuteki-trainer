@@ -267,6 +267,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
   /* 星: 夜間だけ描く（昼は fill none）。位置は固定で、ヨーやバンクに合わせて景色と一緒に動く */
   const STARS = (() => { let x = 7; const r = () => (x = (x * 48271) % 2147483647) / 2147483647; let out = ''; for (let i = 0; i < 70; i++) out += `<circle cx="${(-600 + r() * 1200).toFixed(0)}" cy="${(-40 - r() * 300).toFixed(0)}" r="${(0.8 + r() * 1.4).toFixed(1)}"/>`; return out; })();
   /* progress: 前進の度合い 0..1。時間が進むと機体が前進し、景色（山・塔・太陽）が大きく見える */
+  /* 空は上（--ck-sky-top）から水平線（--ck-sky-hz）への縦グラデーション。日の出・夕焼けで水平線付近だけ色づく。未定義なら --ck-sky → --sky */
   /* marks: true で目印を描く（雪山の頂と塔の先端にオレンジの輪、①の水平線の位置に破線）。見え方の確認画面用 */
   function svgCockpit(bank, pitch, yaw, progress = 0, marks = false) {
     const id = 'ck' + (++uid), kp = 5, ky = 6, sc = (1 + 0.45 * progress).toFixed(3);
@@ -275,9 +276,9 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     const mtn = 'M-900,0 ' + PEAKS.map(p => `L${p[0]},${p[1]}`).join(' ') + ' L900,0 Z';
     const ground = [10, 22, 38, 60, 90, 130, 180].map((y, i) => `<line x1="-900" x2="900" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .02}"/>`).join('');
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
-<defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
+<defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--ck-sky-top, var(--ck-sky, var(--sky)))"/><stop offset="1" style="stop-color:var(--ck-sky-hz, var(--ck-sky, var(--sky)))"/></linearGradient></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
 <g clip-path="url(#${id})"><g class="ck-att" transform="translate(180 108) rotate(${-bank}) translate(0 ${(pitch * kp).toFixed(1)})">
-<rect x="-900" y="-900" width="1800" height="900" fill="var(--ck-sky, var(--sky))"/><rect x="-900" y="0" width="1800" height="900" fill="var(--ck-earth, var(--earth))"/>${ground}
+<rect x="-900" y="-900" width="1800" height="900" fill="url(#${id}s)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--ck-earth, var(--earth))"/>${ground}
 <g class="ck-yaw" transform="translate(${(-yaw * ky).toFixed(1)} 0) scale(${sc})"><g fill="var(--ck-star, none)">${STARS}</g><circle cx="110" cy="-96" r="15" fill="var(--ck-sun, #ffd36b)"/><path d="${mtn}" fill="var(--ck-mtn, #4a5c70)"/>
 <path d="M-130,0 L-90,-72 L-50,0 Z" fill="var(--ck-mtn2, #65788d)"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="var(--ck-snow, #e8eef4)"/>
 <rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/>${mk}</g>

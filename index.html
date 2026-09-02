@@ -108,6 +108,32 @@ svg text{user-select:none}
 .setgroup h4{margin:0 0 .25rem;font-size:.75rem;letter-spacing:.08em;color:var(--accent);font-family:var(--display)}
 .sethelp{font-size:.75rem;color:var(--faint);margin-top:.5rem}
 
+/* ===== 説明・選択・練習・シミュレータ ===== */
+.phase{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:0 .375rem;vertical-align:.1rem}
+.intro h2{font-family:var(--display);font-weight:700;font-size:1.125rem;margin:0}
+.intro ul{margin:.75rem 0 0;padding-left:1.2em;font-size:.875rem;line-height:1.7}
+.intro li{margin:.125rem 0}
+.intro .chkrow{display:flex;align-items:center;gap:.625rem;margin-top:1rem;font-size:.8125rem;color:var(--muted);cursor:pointer}
+.intro .acts{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
+.intro .choice{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1rem}
+.intro .choice .ab{min-height:5rem;gap:.375rem}
+.intro .choice .ab .t{font-size:1rem;font-weight:700}
+.intro .choice .ab .d{font-size:.75rem;color:var(--muted)}
+.sim .view{border-radius:.625rem;overflow:hidden;border:1px solid var(--line)}
+.sim .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem;align-items:start}
+.sim .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:.375rem}
+.sim .pad .ab,.sim .pedals .ab{min-height:3.25rem;font-size:.75rem;font-weight:700;user-select:none;touch-action:none}
+.sim .pad .ab:active,.sim .pedals .ab:active,.sim .ab.down{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.sim .pad .c{display:flex;align-items:center;justify-content:center}
+.sim .pad .c i{width:.5rem;height:.5rem;border-radius:50%;background:var(--line2)}
+.sim .pedals{display:grid;grid-template-columns:1fr 1fr;gap:.375rem;margin-top:.375rem}
+.sim h4{margin:0 0 .375rem;font-size:.75rem;letter-spacing:.08em;color:var(--muted);font-family:var(--display);text-align:center}
+.sim .read{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.375rem;margin-top:.75rem;font-family:var(--mono);font-size:.75rem;text-align:center;color:var(--muted)}
+.sim .read b{display:block;font-size:1rem;color:var(--text);font-variant-numeric:tabular-nums}
+.sim .ai{width:60%;max-width:11rem;margin:0 auto}
+.sim .acts{display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem}
+.sim .hint{margin-top:.5rem}
+
 /* ===== レイアウト ===== */
 .layout{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:.75rem}
 aside{display:flex;flex-direction:column;gap:.75rem}
@@ -431,13 +457,6 @@ body[data-view="home"] .stats{display:none}
         <div class="dirbtns" id="dirBtns"></div>
         <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
       </div>
-      <div class="card">
-        <h3>クレジット</h3>
-        <ul>
-          <li>機体: T-4 ブルーインパルス（3D モデルは利用者提供）</li>
-          <li>画面デザイン: Claude Design ／ アイコン: RIKYU AI ／ 3D 表示: three.js</li>
-        </ul>
-      </div>
     </div>
   </section>
 
@@ -447,12 +466,15 @@ body[data-view="home"] .stats{display:none}
 
   <div id="view-train" hidden>
   <div class="modebar">
-    <div class="mb-l"><svg class="ic" id="modeIcon"><use href="#i-mode-heading"/></svg><div><div class="mb-n" id="modeName"></div><div class="mb-d" id="tabdesc"></div></div></div>
+    <div class="mb-l"><svg class="ic" id="modeIcon"><use href="#i-mode-heading"/></svg><div><div class="mb-n"><span id="modeName"></span> <span class="phase" id="phaseTag" hidden></span></div><div class="mb-d" id="tabdesc"></div></div></div>
     <div class="sess" id="sessTimer" hidden><svg class="ic xs"><use href="#i-timer"/></svg><span id="sessVal"></span></div>
   </div>
 
   <div class="layout">
     <main class="card" id="qcard">
+      <div id="chooser" class="intro" hidden></div>
+      <div id="intro" class="intro" hidden></div>
+      <div id="sim" class="sim" hidden></div>
       <div id="summary" class="summary" hidden></div>
       <div id="quiz">
       <div class="qhead">
@@ -488,36 +510,49 @@ body[data-view="home"] .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる">×</button>
 </div>
 
-<script src="engine.js?v=20"></script>
+<script src="engine.js?v=21"></script>
 <script>
 (function(){
 'use strict';
 const E=window.AAT,$=s=>document.querySelector(s);
 const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aat.'+k,JSON.stringify(v))}catch(e){}}};
-/* 設定: qLimit=1問の制限秒(0=なし) sLimit=全体の制限秒(0=なし) dirLabel=方位の表記(kanji|alpha) */
-const settings=Object.assign({theme:'auto',qLimit:15,sLimit:0,dirLabel:'kanji'},E.DEFAULT_SETTINGS,store.get('settings',{}));
+/* 設定の既定値（本番はスピード勝負: アルファベット表記・20 問・1 問 5 秒・全体 5 分・解説スキップ）。
+   version が変わったら保存済みの設定を捨てて既定値に戻す */
+const SETTINGS_VERSION=2;
+const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',qLimit:5,sLimit:300,qCount:20,dirLabel:'alpha',skipExplain:true,showIntro:true,showPractice:true,version:SETTINGS_VERSION});
+const saved=store.get('settings',{});
+const settings=saved.version===SETTINGS_VERSION?Object.assign({},DEFAULTS,saved):Object.assign({},DEFAULTS);
+const hideIntro=store.get('hideIntro',{});   // 種目ごとの「次回から表示しない」
 const stats=Object.assign({heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
 let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
-let session=null,sessTimerId=null;   // 進行中のセッション {n,c,t,start,ended}
-const DIR_KEYS={0:'8',1:'9',2:'6',3:'3',4:'2',5:'1',6:'4',7:'7'};
+let session=null,sessTimerId=null;   // 計測セッション {n,c,t,start,ended}
+let phase='';                         // chooser | intro | practice | session | sim | summary
+let practiceLeft=0;
+const PRACTICE_N=3;
 const DESC={heading:'上面図から8方位を答える',attitude:'南から見た姿勢を計器で選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を選ぶ'};
 const MODE_ICON={heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
 const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
 const dirLabel=i=>settings.dirLabel==='alpha'?E.DIRS[i].k:E.DIRS[i].ja;
+const fmtSec=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
 function applyTheme(){
   if(settings.theme==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=settings.theme;
   $('meta[name=theme-color]').setAttribute('content',getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0b1017')}
 
+/* ===== 画面内の領域の切り替え ===== */
+function showPane(name){['chooser','intro','sim','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name})}
+function setPhase(p,label){phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
+
 /* ===== 出題 ===== */
 function render(){
   qcount++;answered=false;
-  $('#qno').textContent=qcount;$('#qcard').classList.remove('answered');
+  const inPractice=phase==='practice';
+  $('#qno').textContent=inPractice?`練習 ${PRACTICE_N-practiceLeft+1} / ${PRACTICE_N}`:(settings.qCount>0?`${qcount} / ${settings.qCount}`:qcount);
+  $('#qcard').classList.remove('answered');
   $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
   const figs=$('#figs'),ans=$('#answers');
   if(q.type==='heading'){
     $('#prompt').textContent='上から見下ろした戦闘機が向いている方位を、8方位から答えてください。';
-    /* 方位の配置に並べると図と見比べるだけで解けてしまうので、北から時計回りの固定順の文字だけの一覧にする */
     const grid=`<div class="dirlist">${[0,1,2,3,4,5,6,7].map(i=>`<button class="ab" data-dir="${i}"><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
     figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北</div></div>${grid}</div>`;
     ans.innerHTML='';
@@ -545,18 +580,18 @@ function render(){
   startTimer();
 }
 
-/* ===== 1問のタイマー（制限時間つき） ===== */
+/* ===== 1問のタイマー（練習では制限なし） ===== */
+const qLimit=()=>phase==='practice'?0:settings.qLimit;
 function startTimer(){
   t0=performance.now();clearInterval(timerId);
-  $('#tunit').textContent='s';
   const tick=()=>{
-    const el=(performance.now()-t0)/1000;
-    if(settings.qLimit>0){const rem=Math.max(0,settings.qLimit-el);$('#tval').textContent=rem.toFixed(1);$('#timer').classList.toggle('warn',rem<=3);if(rem<=0){timeoutQuestion();return}}
+    const el=(performance.now()-t0)/1000,lim=qLimit();
+    if(lim>0){const rem=Math.max(0,lim-el);$('#tval').textContent=rem.toFixed(1);$('#timer').classList.toggle('warn',rem<=3);if(rem<=0){timeoutQuestion();return}}
     else $('#tval').textContent=el.toFixed(1);
   };
   tick();timerId=setInterval(tick,100);
 }
-function stopTimer(){clearInterval(timerId);const s=Math.min((performance.now()-t0)/1000,settings.qLimit>0?settings.qLimit:1e9);$('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
+function stopTimer(){clearInterval(timerId);const lim=qLimit();const s=Math.min((performance.now()-t0)/1000,lim>0?lim:1e9);$('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
 function timeoutQuestion(){
   if(answered)return;
   const g=q.type==='heading'?E.gradeHeading(q,-1):q.type==='control'?E.gradeControl(q,-1):E.gradeOpts(q,-1);
@@ -566,17 +601,24 @@ function timeoutQuestion(){
 }
 function finish(g,timedOut){
   answered=true;const s=stopTimer();
-  const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=s;store.set('stats',stats);
-  if(session){session.n++;if(g.ok)session.c++;session.t+=s}
-  streak=g.ok?streak+1:0;
+  const inPractice=phase==='practice';
+  if(!inPractice){
+    const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=s;store.set('stats',stats);
+    if(session){session.n++;if(g.ok)session.c++;session.t+=s}
+    streak=g.ok?streak+1:0;
+    renderStats();
+    if(session&&settings.qCount>0&&session.n>=settings.qCount)session.ended=true;
+  }else if(practiceLeft>0)practiceLeft--;
+  /* 解説スキップ（計測時のみ）: 正誤の印を短く見せてから次へ */
+  if(!inPractice&&settings.skipExplain){setTimeout(()=>{if(answered)next()},450);return}
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').textContent=timedOut?'時間切れ ✗':g.ok?'正解 ✓':'不正解 ✗';$('#fbTime').textContent=s.toFixed(1)+' s';
   $('#explain').innerHTML=`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
-  $('#feedback').classList.add('show');
-  renderStats();
-  if(session&&session.ended){$('#next').textContent='結果を見る';$('#next').focus({preventScroll:true});return}
-  $('#next').innerHTML=`次の問題${ic('next','s')}`;
-  if(settings.auto&&g.ok)setTimeout(()=>{if(answered)next()},1200);else $('#next').focus({preventScroll:true});
+  if(inPractice&&practiceLeft===0)$('#next').innerHTML=`計測を始める${ic('next','s')}`;
+  else if(session&&session.ended)$('#next').textContent='結果を見る';
+  else $('#next').innerHTML=`次の問題${ic('next','s')}`;
+  $('#next').focus({preventScroll:true});
+  if(!inPractice&&settings.auto&&g.ok&&!(session&&session.ended))setTimeout(()=>{if(answered)next()},1200);
 }
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
   if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').textContent='✓'}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').textContent='✗'}else b.classList.add('dim')})}
@@ -591,51 +633,134 @@ function answerOpts(i){
   finish(g);
 }
 function next(){
+  if(phase==='practice'&&practiceLeft===0){startMeasured();return}
   if(session&&session.ended){showSummary();return}
   q=E.generate(mode,settings);render();window.scrollTo({top:0});
 }
 
-/* ===== セッション（種目ごと・途中で切り替えない） ===== */
-function startSession(m){
-  mode=m;store.set('mode',m);qcount=0;streak=0;
-  session={n:0,c:0,t:0,start:performance.now(),ended:false};
+/* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 説明 → 練習 3 問 → 計測 ===== */
+const INTRO={
+  heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークは毎回向きが変わります。まず N を確認してから機首を読みます。'],
+  attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を A〜D から選びます。','翼は水平です。機首が上向きなら空が広がり、下向きなら地面が広がります。'],
+  combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と上下の向きの両方に合う「姿勢指示器＋方位指示器」の組を A〜D から選びます。','方位指示器は現在の方位が上に来ます。'],
+  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を A〜D の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。']
+};
+function enterMode(m,sub){
+  mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);clearInterval(sessTimerId);
   $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
-  $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];
-  $('#summary').hidden=true;$('#quiz').hidden=false;
+  $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
+  if(m==='control'&&!sub){showChooser();return}
+  if(m==='control'&&sub==='practice'){startSim();return}
+  if(settings.showIntro&&!hideIntro[m])showIntro();else afterIntro();
+}
+function showChooser(){
+  setPhase('chooser');showPane('chooser');
+  $('#chooser').innerHTML=`<h2>操縦操作</h2><ul><li>練習: 操縦桿と方向舵を自分で動かして、外の見え方の変化を確かめます。</li><li>計測: 3 枚の視界から操作を選ぶ問題に、制限時間つきで答えます。</li></ul>
+    <div class="choice"><button class="ab" id="chPractice">${ic('mode-control')}<span class="t">練習</span><span class="d">操作と見え方を確かめる</span></button><button class="ab" id="chMeasure">${ic('timer')}<span class="t">計測</span><span class="d">制限時間つきで出題</span></button></div>`;
+  $('#chPractice').addEventListener('click',()=>{location.hash='#train/control/practice'});
+  $('#chMeasure').addEventListener('click',()=>{location.hash='#train/control/measure'});
+  window.scrollTo({top:0});
+}
+function showIntro(){
+  setPhase('intro','説明');showPane('intro');
+  const lim=[];if(settings.qLimit>0)lim.push(`1 問 ${settings.qLimit} 秒`);if(settings.sLimit>0)lim.push(`全体 ${fmtSec(settings.sLimit)}`);if(settings.qCount>0)lim.push(`${settings.qCount} 問`);
+  const practice=settings.showPractice&&mode!=='control';
+  $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${settings.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
+    <label class="chkrow"><button class="chk on" id="hideChk" role="switch" aria-checked="true">✓</button>次回から表示しない</label>
+    <div class="acts"><button class="btn" id="introGo">${practice?'練習を始める（3 問）':'計測を始める'}${ic('next','s')}</button></div>`;
+  let hide=true;const chk=$('#hideChk');
+  chk.addEventListener('click',e=>{e.preventDefault();hide=!hide;chk.classList.toggle('on',hide);chk.textContent=hide?'✓':'';chk.setAttribute('aria-checked',hide)});
+  $('#introGo').addEventListener('click',()=>{hideIntro[mode]=hide;store.set('hideIntro',hideIntro);afterIntro()});
+  window.scrollTo({top:0});
+}
+function afterIntro(){
+  if(settings.showPractice&&mode!=='control')startPractice();else startMeasured();
+}
+function startPractice(){
+  setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessTimer').hidden=true;
+  q=E.generate(mode,settings);render();window.scrollTo({top:0});
+}
+function startMeasured(){
+  setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
+  session={n:0,c:0,t:0,start:performance.now(),ended:false};
   clearInterval(sessTimerId);
   const st=$('#sessTimer');
   if(settings.sLimit>0){st.hidden=false;const tick=()=>{const rem=Math.max(0,settings.sLimit-(performance.now()-session.start)/1000);
-      $('#sessVal').textContent=`${Math.floor(rem/60)}:${String(Math.floor(rem%60)).padStart(2,'0')}`;st.classList.toggle('warn',rem<=30);
-      if(rem<=0)endSession()};tick();sessTimerId=setInterval(tick,500)}
+      $('#sessVal').textContent=fmtSec(rem);st.classList.toggle('warn',rem<=30);if(rem<=0)endSession()};tick();sessTimerId=setInterval(tick,500)}
   else st.hidden=true;
   renderStats();next();
 }
 function endSession(){
   if(!session||session.ended)return;
   session.ended=true;clearInterval(sessTimerId);$('#sessVal').textContent='0:00';
-  if(!answered){clearInterval(timerId);showSummary()}   // 回答中なら即終了。回答済みなら「結果を見る」で表示
-  else{$('#next').textContent='結果を見る'}
+  if(!answered){clearInterval(timerId);showSummary()}
+  else if(!settings.skipExplain){$('#next').textContent='結果を見る'}
 }
-function leaveSession(){clearInterval(timerId);clearInterval(sessTimerId);session=null}
+function leaveSession(){clearInterval(timerId);clearInterval(sessTimerId);session=null;stopSim()}
 function showSummary(){
-  clearInterval(timerId);const s=session;const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
-  $('#quiz').hidden=true;const sm=$('#summary');sm.hidden=false;
-  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${settings.sLimit>0?'制限時間に達しました':'お疲れさまでした'}</div>
+  clearInterval(timerId);clearInterval(sessTimerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
+  const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
+  showPane('summary');const sm=$('#summary');
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${settings.qCount>0&&s.n>=settings.qCount?`${settings.qCount} 問を終えました`:'制限時間に達しました'}</div>
     <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
-  $('#again').addEventListener('click',()=>startSession(mode));
+  $('#again').addEventListener('click',()=>startMeasured());
   $('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});
   window.scrollTo({top:0});
 }
-/* 訓練中に他の画面へ移るときは確認する */
 function confirmLeave(){
-  if(document.body.dataset.view!=='train'||!session||session.ended)return true;
-  return confirm('訓練を中断してこの種目を終了しますか？');
+  if(document.body.dataset.view!=='train'||phase!=='session'||!session||session.ended)return true;
+  return confirm('計測を中断してこの種目を終了しますか？');
 }
+
+/* ===== 操縦操作の練習: 操縦桿と方向舵を動かして視界の変化を見る ===== */
+let sim=null;
+function startSim(){
+  setPhase('sim','練習');showPane('sim');
+  sim={bank:0,pitch:0,yaw:0,keys:new Set(),raf:0,last:0};
+  $('#sim').innerHTML=`<div class="view" id="simView">${E.svgCockpit(0,0,0)}</div>
+    <div class="row">
+      <div><h4>操縦桿を倒す</h4><div class="pad">
+        <div class="c"></div><button class="ab" data-k="fwd">奥</button><div class="c"></div>
+        <button class="ab" data-k="left">左</button><div class="c"><i></i></div><button class="ab" data-k="right">右</button>
+        <div class="c"></div><button class="ab" data-k="back">手前</button><div class="c"></div></div>
+        <h4 style="margin-top:.75rem">方向舵を踏む</h4><div class="pedals"><button class="ab" data-k="rl">左</button><button class="ab" data-k="rr">右</button></div></div>
+      <div><h4>姿勢指示器</h4><div class="ai" id="simAI">${E.svgAI(0,0)}</div>
+        <div class="read"><div>バンク<b id="rBank">0°</b></div><div>ピッチ<b id="rPitch">0°</b></div><div>ヨー<b id="rYaw">0°</b></div></div></div>
+    </div>
+    <div class="hint">ボタンを押している間だけ操作が続きます。操縦桿を右に倒すと機体が右に傾き、景色は左に傾きます。</div>
+    <div class="acts"><button class="btn ghost" id="simReset">水平に戻す</button><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
+  const press=(b,on)=>{const k=b.dataset.k;if(on){sim.keys.add(k);b.classList.add('down')}else{sim.keys.delete(k);b.classList.remove('down')}if(on&&!sim.raf){sim.last=performance.now();sim.raf=setInterval(()=>simFrame(performance.now()),16)}};
+  $('#sim').querySelectorAll('[data-k]').forEach(b=>{
+    b.addEventListener('pointerdown',e=>{e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch(_){}press(b,true)});
+    ['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,()=>press(b,false)));
+  });
+  $('#simReset').addEventListener('click',()=>{sim.bank=0;sim.pitch=0;sim.yaw=0;simDraw()});
+  $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
+  window.scrollTo({top:0});
+}
+function simFrame(now){
+  if(!sim)return;
+  const dt=Math.min(0.05,(now-sim.last)/1000);sim.last=now;const k=sim.keys;
+  if(k.has('right'))sim.bank+=45*dt;if(k.has('left'))sim.bank-=45*dt;
+  if(k.has('fwd'))sim.pitch-=18*dt;if(k.has('back'))sim.pitch+=18*dt;
+  if(k.has('rr'))sim.yaw+=25*dt;if(k.has('rl'))sim.yaw-=25*dt;
+  sim.bank=Math.max(-60,Math.min(60,sim.bank));sim.pitch=Math.max(-40,Math.min(40,sim.pitch));sim.yaw=Math.max(-120,Math.min(120,sim.yaw));
+  simDraw();
+  if(!k.size){clearInterval(sim.raf);sim.raf=0}
+}
+function simDraw(){
+  const {bank,pitch,yaw}=sim,C=E.CK;
+  const v=$('#simView');v.querySelector('.ck-att').setAttribute('transform',`translate(180 108) rotate(${-bank}) translate(0 ${(pitch*C.kp).toFixed(1)})`);
+  v.querySelector('.ck-yaw').setAttribute('transform',`translate(${(-yaw*C.ky).toFixed(1)} 0)`);
+  const a=$('#simAI');a.querySelector('.ai-h').setAttribute('transform',`rotate(${-bank}) translate(0 ${(pitch*C.aiK).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-bank})`);
+  const f=x=>`${x>0?'+':''}${Math.round(x)}°`;$('#rBank').textContent=f(bank);$('#rPitch').textContent=f(pitch);$('#rYaw').textContent=f(yaw);
+}
+function stopSim(){if(sim){clearInterval(sim.raf);sim=null}}
 
 /* ===== 記録・設定 ===== */
 function renderStats(){
-  const st=stats[mode],acc=st.n?Math.round(st.c/st.n*100)+'%':'—',avg=st.n?(st.t/st.n).toFixed(1):'—';
+  const st=stats[mode];
   const chip=(l,v,cls)=>`<div class="stat ${cls||''}"><div class="v${v==='—'?' dim':''}">${v}</div><div class="l">${l}</div></div>`;
   const sn=session?session.n:0,sc=session?session.c:0;
   $('#stats').innerHTML=chip('出題',sn)+chip('正解',sc)+chip('正答率',sn?Math.round(sc/sn*100)+'%':'—')+chip('平均 s',session&&sn?(session.t/sn).toFixed(1):'—')+chip('連続',streak,'streak');
@@ -645,20 +770,27 @@ function renderSettingsPage(){
   const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(settings[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
   const chk=(key,label)=>`<div class="setting"><span>${label}</span><button class="chk${settings[key]?' on':''}" data-chk="${key}" role="switch" aria-checked="${!!settings[key]}">${settings[key]?'✓':''}</button></div>`;
   $('#settingsPage').innerHTML=`<h3>${ic('settings','s')}設定</h3>
-    <div class="setgroup"><h4>制限時間</h4>
-      ${sel('qLimit','1問あたり',[[0,'なし'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒'],[60,'60 秒']])}
-      ${sel('sLimit','種目全体',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[600,'10 分'],[900,'15 分']])}
-      <div class="sethelp">1問の時間が切れると不正解として次へ進みます。全体の時間が切れるとその種目を終了し、成績を表示します。</div></div>
+    <div class="setgroup"><h4>計測</h4>
+      ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']])}
+      ${sel('qLimit','1問あたりの制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
+      ${sel('sLimit','種目全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[600,'10 分'],[900,'15 分']])}
+      ${chk('skipExplain','解説をスキップ')}
+      <div class="sethelp">1 問の時間が切れると不正解として次へ進みます。出題数か全体の時間に達すると種目を終了し、成績を表示します。解説をスキップすると正誤だけ短く表示して次の問題に移ります。</div></div>
+    <div class="setgroup"><h4>開始時</h4>
+      ${chk('showIntro','開始時の説明を表示')}
+      ${chk('showPractice','計測の前に練習問題（3 問）')}
+      <div class="sethelp">説明画面の「次回から表示しない」で消した種目は、ここをオフ→オンにすると再び表示されます。</div></div>
     <div class="setgroup"><h4>表記</h4>
-      ${sel('dirLabel','方位の表記',[['kanji','漢字（北・北東 …）'],['alpha','アルファベット（N・NE …）']])}
+      ${sel('dirLabel','方位の表記',[['alpha','アルファベット（N・NE …）'],['kanji','漢字（北・北東 …）']])}
       ${sel('theme','テーマ',[['auto','端末に合わせる'],['dark','ダーク'],['light','ライト']])}</div>
     <div class="setgroup"><h4>出題</h4>
       ${sel('north','方位: N マークの向き',[['random','ランダム（標準）'],['fixed','上に固定（易）']])}
       ${sel('ops','操縦操作: 操作数',[['single','単一操作'],['double','2 操作（順に）']])}
       ${sel('init','操縦操作: ①の初期姿勢',[['level','水平'],['random','ランダム（難）']])}
-      ${chk('auto','正解したら自動で次へ')}</div>`;
+      ${chk('auto','（解説ありのとき）正解したら自動で次へ')}</div>`;
   $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme()}));
-  $('#settingsPage').querySelectorAll('[data-chk]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.chk;settings[k]=!settings[k];store.set('settings',settings);b.classList.toggle('on',settings[k]);b.textContent=settings[k]?'✓':'';b.setAttribute('aria-checked',settings[k])}));
+  $('#settingsPage').querySelectorAll('[data-chk]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.chk;settings[k]=!settings[k];store.set('settings',settings);b.classList.toggle('on',settings[k]);b.textContent=settings[k]?'✓':'';b.setAttribute('aria-checked',settings[k]);
+    if(k==='showIntro'&&settings.showIntro){Object.keys(hideIntro).forEach(x=>delete hideIntro[x]);store.set('hideIntro',hideIntro)}}));
 }
 const TIPS={
   heading:'まず N マークの向きを確認し、そこから機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東、180°=南。機首は N と同じ向きにはならない。',
@@ -671,7 +803,7 @@ const KBD={heading:'1〜8 で方位（北から時計回り）、Enter で次へ
 $('#next').addEventListener('click',next);
 $('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
 document.addEventListener('keydown',e=>{
-  if(document.body.dataset.view!=='train'||!session||$('#quiz').hidden)return;
+  if(document.body.dataset.view!=='train'||$('#quiz').hidden)return;
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){if(answered){e.preventDefault();next()}return}
   if(answered)return;
@@ -685,7 +817,6 @@ function renderHome(){
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="n">${E.MODES[m]}</span><span class="go">${ic('next','s')}</span></button>`).join('');
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
 }
-/* 右上メニュー */
 const menuBtn=$('#menuBtn'),menuList=$('#menuList');
 function closeMenu(){menuList.hidden=true;menuBtn.setAttribute('aria-expanded','false')}
 menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuList.hidden;menuBtn.setAttribute('aria-expanded',String(!menuList.hidden))});
@@ -707,27 +838,22 @@ async function initAbout(){
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
 const VIEWS=['home','train','settings','about'];
-function show(v){
-  document.body.dataset.view=v;
-  VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});
-  window.scrollTo({top:0});
-}
+function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});window.scrollTo({top:0})}
 let currentHash='';
 function route(){
-  const h=location.hash.replace(/^#/,'');let [v,arg]=h.split('/');
+  const h=location.hash.replace(/^#/,'');let [v,arg,sub]=h.split('/');
   const urlMode=new URLSearchParams(location.search).get('mode');
   if(!v&&E.MODES[urlMode]){v='train';arg=urlMode}
   if(!VIEWS.includes(v))v='home';
-  /* ブラウザの戻るなどで訓練から離れる場合も確認する */
-  if(document.body.dataset.view==='train'&&v!=='train'&&session&&!session.ended){
-    if(!confirm('訓練を中断してこの種目を終了しますか？')){history.replaceState(null,'',currentHash||'#train/'+mode);return}
+  if(document.body.dataset.view==='train'&&phase==='session'&&session&&!session.ended&&!(v==='train'&&arg===mode&&sub)){
+    if(!confirm('計測を中断してこの種目を終了しますか？')){history.replaceState(null,'',currentHash||'#train/'+mode);return}
   }
-  if(v!=='train')leaveSession();
+  leaveSession();
   if(v!=='about'&&viewer)viewer.pause();
   currentHash='#'+h;
   show(v);
   if(v==='home')renderHome();
-  else if(v==='train')startSession(E.MODES[arg]?arg:'heading');
+  else if(v==='train')enterMode(E.MODES[arg]?arg:'heading',sub);
   else if(v==='settings')renderSettingsPage();
   else initAbout();
 }
@@ -735,7 +861,7 @@ $('#backHome').addEventListener('click',()=>{if(!confirmLeave())return;leaveSess
 window.addEventListener('hashchange',route);
 route();
 
-/* PWA: オフライン対応とホーム画面への追加 */
+/* PWA */
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(navigator.serviceWorker.controller&&!reloaded){reloaded=true;location.reload()}});

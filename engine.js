@@ -52,6 +52,8 @@
   ];
 
   const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false };
+  /* 視界・姿勢指示器のリアルタイム更新に使う係数（svgCockpit / svgAI と同じ値） */
+  const CK = { kp: 5, ky: 6, aiK: 2.4 };
 
   /* ---------- 出題生成 ---------- */
   /* N マークの向きと機首の向きが一致すると答えが自明になるので、機首は N と別の向きだけを出題する（dir≠0）。
@@ -240,10 +242,10 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
       `<line x1="0" y1="-90" x2="0" y2="${Math.abs(a) % 30 == 0 ? -78 : -83}" stroke="#fff" stroke-width="${a == 0 ? 3 : 2}" transform="rotate(${a})"/>`).join('');
     return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="姿勢指示器">
 <defs><clipPath id="${id}"><circle r="90"/></clipPath></defs><circle r="97" fill="var(--bezel, #0a0d11)"/>
-<g clip-path="url(#${id})"><g transform="rotate(${-bank}) translate(0 ${(pitch * k).toFixed(1)})">
+<g clip-path="url(#${id})"><g class="ai-h" transform="rotate(${-bank}) translate(0 ${(pitch * k).toFixed(1)})">
 <rect x="-400" y="-500" width="800" height="500" fill="var(--sky)"/><rect x="-400" y="0" width="800" height="500" fill="var(--earth)"/>
 <line x1="-400" x2="400" y1="0" y2="0" stroke="#fff" stroke-width="2.5"/>${ladder}</g>
-<g transform="rotate(${-bank})"><polygon points="0,-90 -7,-77 7,-77" fill="#fff"/></g>${scale}</g>
+<g class="ai-p" transform="rotate(${-bank})"><polygon points="0,-90 -7,-77 7,-77" fill="#fff"/></g>${scale}</g>
 <path d="M-44,0 H-16 L-8,8 L0,0 L8,8 L16,0 H44" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 <circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
   }
@@ -268,9 +270,9 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     const ground = [10, 22, 38, 60, 90, 130, 180].map((y, i) => `<line x1="-900" x2="900" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .02}"/>`).join('');
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
 <defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
-<g clip-path="url(#${id})"><g transform="translate(180 108) rotate(${-bank}) translate(0 ${(pitch * kp).toFixed(1)})">
+<g clip-path="url(#${id})"><g class="ck-att" transform="translate(180 108) rotate(${-bank}) translate(0 ${(pitch * kp).toFixed(1)})">
 <rect x="-900" y="-900" width="1800" height="900" fill="var(--sky)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--earth)"/>${ground}
-<g transform="translate(${(-yaw * ky).toFixed(1)} 0)"><circle cx="110" cy="-96" r="15" fill="#ffd36b"/><path d="${mtn}" fill="#4a5c70"/>
+<g class="ck-yaw" transform="translate(${(-yaw * ky).toFixed(1)} 0)"><circle cx="110" cy="-96" r="15" fill="#ffd36b"/><path d="${mtn}" fill="#4a5c70"/>
 <path d="M-130,0 L-90,-72 L-50,0 Z" fill="#65788d"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="#e8eef4"/>
 <rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/></g>
 <line x1="-900" x2="900" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g></g>
@@ -309,6 +311,6 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="18" y="10" text-anchor="middle">上</text><text x="58" y="48">東</text><text x="36" y="30">北</text></g></svg></div>`;
   }
 
-  global.AAT = { DIRS, DIR14, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, generate, applyOp, opsText,
+  global.AAT = { DIRS, DIR14, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,
     gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, figTopDown, figAttitude, figDir14 };
 })(window);

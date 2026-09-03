@@ -903,7 +903,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.31';
+const APP_VER='v03.32';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1172,7 +1172,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=43').then(mod=>{
+  import('./sim3d.js?v=44').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1327,7 +1327,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=43').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=44').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1685,7 +1685,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=3');
+    const mod=await import('./viewer.js?v=4');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');

@@ -12,7 +12,7 @@ export const DIRS = [
   { id: 'ne_down', ja: '北東下', h: 45, p: -30 }, { id: 'nw_down', ja: '北西下', h: 315, p: -30 }, { id: 'se_down', ja: '南東下', h: 135, p: -30 }, { id: 'sw_down', ja: '南西下', h: 225, p: -30 }
 ];
 
-export async function mount(container, { modelUrl = 'model/t4.glb', onProgress } = {}) {
+export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress } = {}) {
   const W = () => container.clientWidth, H = () => Math.round(container.clientWidth * 3 / 4);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -62,7 +62,8 @@ export async function mount(container, { modelUrl = 'model/t4.glb', onProgress }
   const pivot = new THREE.Group(); scene.add(pivot);
   const loader = new GLTFLoader();
   const gltf = await new Promise((res, rej) => loader.load(modelUrl, res, e => { if (onProgress && e.total) onProgress(e.loaded / e.total); }, rej));
-  gltf.scene.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
+  gltf.scene.traverse(o => { if (o.isMesh) { if (/landing|front_gear/i.test(o.name)) o.visible = false;   // 脚は飛行中の姿なので隠す
+    const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
   pivot.add(gltf.scene);
 
   /* 向きの切り替え（短いアニメーション付き） */

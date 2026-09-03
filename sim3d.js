@@ -310,7 +310,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const smokeCol = new THREE.Color(), emitPos = new THREE.Vector3();
   let smokeBoost = false;                          // 濃い煙（ローパス）。3 粒を少し散らして、大きめに出す
   function emit(pos, colorHex) {
-    smokeCol.set(colorHex);
+    smokeCol.set(smokeBoost ? '#ffffff' : colorHex);   // ローパスの煙は白
     const n = smokeBoost ? 3 : 1;
     for (let k = 0; k < n; k++) {
       const i = sHead % SMOKE_N; sHead++;
@@ -327,45 +327,111 @@ export function mount(container, { onState, view = 'first' } = {}) {
     return offs.map((o, i) => !!o && !offs.some((q, j) => q && j !== i && Math.abs(q[0] - o[0]) < 6 && q[1] < o[1] - 2 && Math.abs(q[2] - o[2]) < 4));
   }
 
-  /* 着陸の脚（3 本）とライト（機首の着陸灯、翼端の航法灯）。ローパスのときだけ出す */
-  const gearSets = [], lightSets = [];
-  function addGear(grp) {
-    const g = new THREE.Group(); g.visible = false;   // 脚
-    const L = new THREE.Group(); L.visible = false;   // ライト
-    const strut = new THREE.MeshLambertMaterial({ color: 0xb9bec6 }), tire = new THREE.MeshLambertMaterial({ color: 0x1b1d20 });
-    const legGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), whGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.18, 14);
-    for (const [x, y] of [[0, 3.6], [-1.5, -0.6], [1.5, -0.6]]) {
-      const leg = new THREE.Mesh(legGeo, strut); leg.rotation.x = Math.PI / 2; leg.position.set(x, y, -1.15); g.add(leg);
-      const wh = new THREE.Mesh(whGeo, tire); wh.rotation.z = Math.PI / 2; wh.position.set(x, y, -1.72); g.add(wh);
+  /* タイヤ（脚）はモデルに入っているもの（landing = 主脚、front_gear = 前脚）を出し入れする。
+     ライトは 主脚の支柱の前に 1 つずつ（着陸灯）と、翼端に控えめな赤・緑（航法灯）。
+     蜃気楼: 着陸灯の前の空気が揺らいで見えるのを、細かなモザイクの板で表す（ローパスのときだけ） */
+  const gearSets = [], lightSets = [], shimmerSets = [];
+  const GEAR_RE = /landing|front_gear/i;
+  const vtx = new THREE.Vector3();
+  /* 機体の部品の頂点を機体座標で集める（frame = 機体の入れ物） */
+  function vertsOf(mesh, frame) {
+    const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert(), out = [];
+    mesh.updateWorldMatrix(true, false);
+    const pos = mesh.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) { vtx.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld).applyMatrix4(inv); out.push([vtx.x, vtx.y, vtx.z]); }
+    return out;
+  }
+  const mean = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+  let lampSpots = null, tipSpots = null;   // 着陸灯の位置（主脚 左右）と 翼端の位置。先頭機で測って全機に使う
+  /* 名前が合う部品（Mesh か、Mesh をまとめた Group）を集める。親が合えば子は数えない */
+  function gearParts(root) {
+    const hit = [];
+    root.traverse(o => { if (o !== root && GEAR_RE.test(o.name)) hit.push(o); });
+    return hit.filter(o => { let q = o.parent; while (q && q !== root) { if (hit.includes(q)) return false; q = q.parent; } return true; });
+  }
+  const underGear = o => { let q = o; while (q) { if (GEAR_RE.test(q.name)) return true; q = q.parent; } return false; };
+  function measureSpots(root, frame) {
+    const allV = [], landV = [];
+    root.traverse(o => { if (!o.isMesh || !o.geometry) return;
+      let q = o, isLand = false; while (q && q !== root) { if (/landing/i.test(q.name)) isLand = true; q = q.parent; }
+      const dst = isLand ? landV : (underGear(o) ? null : allV);
+      if (dst) { const vs = vertsOf(o, frame); for (let i = 0; i < vs.length; i++) dst.push(vs[i]); } });
+    if (landV.length) {
+      /* 主脚だけを見る（前脚は中心線の近くにあるので、左右 0.6 m 以内は外す） */
+      const v = landV, L = v.filter(q => q[0] < -0.6), Rr = v.filter(q => q[0] > 0.6);
+      /* 頂点は何万もあるので、展開して Math.max に渡すと呼び出しの上限を超える → ループで求める */
+      const spot = side => {
+        if (!side.length) return null;
+        let sx = 0, maxY = -1e9, minZ = 1e9, maxZ = -1e9;
+        for (const q of side) { sx += q[0]; if (q[1] > maxY) maxY = q[1]; if (q[2] < minZ) minZ = q[2]; if (q[2] > maxZ) maxZ = q[2]; }
+        return [sx / side.length, maxY + 0.25, (minZ + maxZ) / 2 + 0.1];
+      };
+      lampSpots = [spot(L), spot(Rr)].filter(Boolean);
     }
-    /* ライト: 加算合成の丸い光。遠くからも見えるよう大きめ */
-    const glow = (col, size, x, y, z) => {
-      const c = document.createElement('canvas'); c.width = c.height = 64; const g2 = c.getContext('2d');
-      const gr = g2.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
-      g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
-      const tex = new THREE.CanvasTexture(c);
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-      sp.scale.set(size, size, 1); sp.position.set(x, y, z); L.add(sp);
-    };
-    glow('rgba(255,250,220,0.95)', 3.2, 0, 4.0, -1.3);      // 着陸灯（機首の脚）
-    glow('rgba(255,60,60,0.9)', 1.6, -5.2, -0.8, 0.2);      // 左翼端: 赤
-    glow('rgba(60,255,90,0.9)', 1.6, 5.2, -0.8, 0.2);       // 右翼端: 緑
-    grp.add(g); grp.add(L); gearSets.push(g); lightSets.push(L); return g;
+    if (allV.length) {
+      let lo = allV[0], hi = allV[0];
+      for (const q of allV) { if (q[0] < lo[0]) lo = q; if (q[0] > hi[0]) hi = q; }
+      tipSpots = [lo, hi];
+    }
+  }
+  function glowTex(col) {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g2 = c.getContext('2d');
+    const gr = g2.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  }
+  const texLamp = glowTex('rgba(255,250,220,0.95)'), texRed = glowTex('rgba(255,70,70,0.9)'), texGreen = glowTex('rgba(70,255,110,0.9)');
+  /* 蜃気楼のモザイク（全機で 1 枚を共用し、ローパス中に描き替える） */
+  const shimCv = document.createElement('canvas'); shimCv.width = shimCv.height = 16;
+  const shimTex = new THREE.CanvasTexture(shimCv); shimTex.magFilter = THREE.NearestFilter;
+  function drawShimmer() {
+    const g2 = shimCv.getContext('2d'); g2.clearRect(0, 0, 16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.hypot(x - 7.5, y - 7.5) / 8; if (d > 1) continue;
+      const v = 150 + Math.floor(Math.random() * 105), a = (1 - d) * (0.18 + Math.random() * 0.22);
+      g2.fillStyle = `rgba(${v},${v},${v},${a.toFixed(2)})`; g2.fillRect(x, y, 1, 1);
+    }
+    shimTex.needsUpdate = true;
+  }
+  drawShimmer();
+  function addGear(grp, root) {
+    const g = new THREE.Group(); g.visible = false;   // 脚（モデルの部品を移す。無ければ何もしない）
+    const L = new THREE.Group(); L.visible = false;   // ライト
+    const Sh = new THREE.Group(); Sh.visible = false; // 蜃気楼
+    const parts = gearParts(root);
+    parts.forEach(o => { o.traverse(x => { x.visible = true; }); });   // 入れ物の表示で出し入れするので、部品そのものは表示にしておく
+    parts.forEach(o => { const par = o.parent; par.remove(o); g.add(o); o.applyMatrix4(par.matrixWorld.clone().premultiply(new THREE.Matrix4().copy(grp.matrixWorld).invert())); });
+    const sprite = (tex, size, x, y, z, op) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: op }));
+      sp.scale.set(size, size, 1); sp.position.set(x, y, z); return sp; };
+    (lampSpots || [[-1.5, 0.2, -1.0], [1.5, 0.2, -1.0]]).forEach(q => {
+      L.add(sprite(texLamp, 2.4, q[0], q[1], q[2], 1));
+      const sh = new THREE.Sprite(new THREE.SpriteMaterial({ map: shimTex, depthWrite: false, transparent: true, opacity: 0.55 }));
+      sh.scale.set(2.6, 2.6, 1); sh.position.set(q[0], q[1] + 2.4, q[2] - 0.2); Sh.add(sh);
+    });
+    (tipSpots || [[-4.9, -1.2, -0.2], [4.9, -1.2, -0.2]]).forEach((q, i) => { L.add(sprite(i === 0 ? texRed : texGreen, 0.7, q[0], q[1], q[2], 0.55)); });
+    grp.add(g); grp.add(L); grp.add(Sh); gearSets.push(g); lightSets.push(L); shimmerSets.push(Sh);
+    return g;
   }
   /* 脚とライトは別々に出し入れできる。昼以外はライトを自動で点けておく（手で消せる）。
      ローパスのあいだは両方出し、終わったら手で決めていた状態に戻す */
-  let gearOn = false, lightsOn = scene !== 'day', treeMode = false;   // ライトは昼以外（夕・夜明け・夜）で自動点灯
-  function applyGear() { gearSets.forEach(g => { g.visible = gearOn || treeMode; }); lightSets.forEach(L => { L.visible = lightsOn || treeMode; }); }
+  let gearOn = false, lightsOn = scene !== 'day', treeMode = false;
+  function applyGear() {
+    gearSets.forEach(g => { g.visible = gearOn || treeMode; });
+    lightSets.forEach(L => { L.visible = lightsOn || treeMode; });
+    shimmerSets.forEach(S => { S.visible = treeMode; });
+  }
   function setTreeMode(on) {
     treeMode = !!on;
     smokeBoost = treeMode; spdWant = treeMode ? 0.6 : 1;
     applyGear();
   }
-  new GLTFLoader().load('model/t4.glb', g => {
+  new GLTFLoader().load('model/t4.glb?v=2', g => {
     g.scene.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
     const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), k = 13 / Math.max(size.y, 1e-3);   // 全長 13 m
     g.scene.scale.setScalar(k); const c = box.getCenter(new THREE.Vector3()).multiplyScalar(k); g.scene.position.set(-c.x, -c.y, -c.z);
-    plane.add(g.scene); addGear(plane); applyGear();
+    plane.add(g.scene); plane.updateWorldMatrix(true, true); measureSpots(g.scene, plane);
+    const clones = []; for (let n = 2; n <= 6; n++) clones.push(g.scene.clone(true));   // 脚を移す前に複製しておく
+    addGear(plane, g.scene); applyGear();
     cockpit.position.copy(g.scene.position); eyeOff.copy(g.scene.position);   // 操縦席の部品と目の位置はモデル座標（×k）で書いてあるので、同じ平行移動を掛ける
     g.scene.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) seatMeshes.push(o); });   // 自分が座る前席（一人称では隠す）
     seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
@@ -375,9 +441,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
     finRect = measureFin(g.scene, plane);
     for (let n = 2; n <= 6; n++) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
-      holder.add(g.scene.clone(true));                                   // 複製は元と同じ平行移動を持っている
+      holder.add(clones[n - 2]);                                          // 複製は元と同じ平行移動を持っている
       addPlates(holder, n);                                              // 実測した位置は機体の座標そのままなので、入れ物に直接置く
-      addGear(holder); applyGear();
+      holder.updateWorldMatrix(true, true); addGear(holder, holder.children[0]); applyGear();
       holder.userData.cur = new THREE.Vector3(ENTRY[n - 2][0], ENTRY[n - 2][1], ENTRY[n - 2][2]);   // いまの位置（先頭機から見て）
       holder.userData.want = new THREE.Vector3();
       mates.push(holder);
@@ -1087,9 +1153,10 @@ export function mount(container, { onState, view = 'first' } = {}) {
     smokeMat.uniforms.uTime.value = clock;
   }
 
-  let lastDt = 0.016;
+  let lastDt = 0.016, shimN = 0;
   function place(dt) {
     if (dt) lastDt = dt;
+    if (treeMode && (++shimN % 3) === 0) drawShimmer();
     rotation();
     walls.forEach(w => { w.visible = !auto; });   // 技の途中は壁の枠を出さない
     /* 自動追従: 地上から見るとき、飛んでいる機体の真ん中へ ゆっくり首を回す。

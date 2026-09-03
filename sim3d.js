@@ -534,6 +534,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
   const gdir = new THREE.Vector3(), gright = new THREE.Vector3(), focus = new THREE.Vector3(), bup2 = new THREE.Vector3();   // 地上視点の向きを作るのに使う
   const seatQ = new THREE.Quaternion(), seatR = new THREE.Matrix4();   // 乗っている機体の姿勢
+  const panelPt = new THREE.Vector3();   // 計器盤の上端を画面へ写すのに使う
   const gEye = new THREE.Vector3(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z + EYE_H);   // 地上の立ち位置（目の高さ）
   let gYaw = 0, gPitch = 0.06;                                     // 地上視点の向き（自分で決めた方向）
   let follow = false;                                              // 機体を目で追うか（切ってあれば向けた方向のまま）
@@ -1524,6 +1525,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
     setGear(on) { gearOn = !!on; applyGear(); }, gearState() { return gearOn; },
+    /* 一人称のとき、機内の計器盤の上端が画面のどこに来るか（0〜1 の割合）。
+       端末の縦横比や画角に関係なく計器を計器盤の上へ置けるようにするための値 */
+    panelSpot() {
+      if (curView !== 'first') return null;
+      cockpit.updateWorldMatrix(true, false);
+      panelPt.set(0, 3.32, -0.29).applyMatrix4(cockpit.matrixWorld).project(cam);
+      if (panelPt.z > 1) return null;                       // カメラの後ろ
+      return { x: (panelPt.x + 1) / 2, y: (1 - panelPt.y) / 2 };
+    },
     /* 演目の最中か（通しの自動操縦か、ひとつだけの技） */
     showing() { return auto || oneShot; },
     /* 一時停止（演目を止めて眺める）。止めていても見回し・拡大・視点の切り替えはできる */

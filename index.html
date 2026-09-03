@@ -262,11 +262,12 @@ svg text{user-select:none}
   body[data-view="train"][data-phase="sim"] .sim .instrow .inst.ai{left:50%;top:calc(env(safe-area-inset-top,0px) + .4rem);transform:translateX(-50%)}
   body[data-view="train"][data-phase="sim"] .sim .instrow .inst.hi{right:calc(env(safe-area-inset-right,0px) + .5rem);top:calc(env(safe-area-inset-top,0px) + .4rem)}
   /* 一人称のときは、機内の計器盤の上の空いているところに計器を置く（機体の中に付いているように見せる） */
-  /* 計器盤が画面のどのあたりに来るかは画角で決まる（＝画面の高さに対する割合が一定）。
-     rem で置くと、背の低い横画面（スマホ）で空の方へはみ出すので dvh で置く */
-  body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst{width:clamp(2rem,11dvh,3.6rem);height:clamp(2rem,11dvh,3.6rem)}
-  body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst.ai{left:50%;top:auto;bottom:19dvh;transform:translateX(-112%)}
-  body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst.hi{left:50%;right:auto;top:auto;bottom:19dvh;transform:translateX(12%)}
+  /* 計器盤の上端がどこに来るかは 3D 側が知っている（--ix / --iy に毎フレーム入る）。
+     端末の縦横比や画角が変わっても、計器が計器盤の上に乗る */
+  body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst{width:clamp(2rem,11dvh,3.6rem);height:clamp(2rem,11dvh,3.6rem);
+    top:var(--iy,78%);bottom:auto;right:auto}
+  body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst.ai{left:var(--ix,50%);transform:translate(-112%,-100%)}
+  body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst.hi{left:var(--ix,50%);transform:translate(12%,-100%)}
   /* 戻るは左上。端末の時計などと重ならないよう、上の安全余白ぶん下げる */
   /* 操作を出しているときは、並んだアイコンの上に置く（重ならないように） */
   body[data-view="train"][data-phase="sim"] .sim:not(.uihide) .showui{bottom:8.4rem}
@@ -970,7 +971,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.44';
+const APP_VER='v03.45';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1440,6 +1441,9 @@ function runSim(opt){applyScene();
     const tk=$('#simTakeoff');
     if(tk){const show=s.mode==='stand';if(tk.hidden===show)tk.hidden=!show}
     if(s.mode&&s.mode!=='fly'&&!sim.h.autoState()){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
+    /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く */
+    if(sim.h&&sim.h.panelSpot){const sp=sim.viewName==='first'?sim.h.panelSpot():null;
+      if(sp){const el=$('#sim');el.style.setProperty('--ix',(sp.x*100).toFixed(2)+'%');el.style.setProperty('--iy',(sp.y*100).toFixed(2)+'%')}}
     /* 一時停止の表示。演目が終わったら止めるのをやめる */
     if(sim.h){const pz=sim.h.pausedState();
       if(pz&&!sim.h.showing())sim.h.setPaused(false);
@@ -1596,7 +1600,7 @@ function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('
 /* ===== 操縦操作: 操作パターンの見え方（操作を選ぶと①→②③を縦に表示。操縦桿と方向舵は同時に選べる）
    3 枚の下に「動きで見る」を置く。その操作をしたときの見え方を、一人称（風防ごしの景色）と
    三人称（外から見た機体）で動かして見せる。操作はできない（見え方を確かめるだけ） ===== */
-const gal={sel:[],init:'level',view:'first',play:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点
+const gal={sel:[],init:'level',view:'first',play:false,seq:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う
 /* 初期状態（①の姿勢）。出題の「初期状態: ランダム」と同じ幅にそろえる */
 const GAL_INIT={level:{ja:'水平飛行',b:'水平',s:{bank:0,pitch:0,yaw:0}},rbank:{ja:'右バンク',b:'右バンク',s:{bank:30,pitch:0,yaw:0}},lbank:{ja:'左バンク',b:'左バンク',s:{bank:-30,pitch:0,yaw:0}},
   up:{ja:'機首上げ',b:'機首上げ',s:{bank:0,pitch:10,yaw:0}},down:{ja:'機首下げ',b:'機首下げ',s:{bank:0,pitch:-10,yaw:0}}};
@@ -1604,9 +1608,10 @@ function showGallery(){applyScene();
   setPhase('gallery','見え方');showPane('gallery');
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、①からの②③を表示します。操縦桿と方向舵を両方選ぶと、同時に行ったときの見え方になります。</div>
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、①からの②③を表示します。操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。</div>
     <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab" data-init="${k}">${v.b}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2)}
+    <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
     <div class="gsim">
       <h4 class="gsimh">動きで見る</h4>
@@ -1624,16 +1629,24 @@ function showGallery(){applyScene();
     if(gal.sel.includes(id))gal.sel=gal.sel.filter(x=>x!==id);else{gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group!==grp);gal.sel.push(id)}
     galDraw()}));
   $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.addEventListener('click',()=>{gal.init=b.dataset.init;galDraw()}));
+  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw();galApply(gal.play?null:0)}));
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{if(gal.view===b.dataset.gv)return;gal.view=b.dataset.gv;galMove()}));
   $('#gPlay').addEventListener('click',galPlay);
   $('#gStop').addEventListener('click',galStop);
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
   galDraw();galMove();window.scrollTo({top:0});
 }
-/* いまの選択から ①②③ の姿勢と見出しを作る（複数操作は同時に行う） */
+/* いまの選択から ①②③ の姿勢と見出しを作る。
+   2 つ選んだときは「同時に行う」か「操縦桿 → 方向舵 の順に行う」（方向舵が先になる出題はない） */
 function galFrames(){
   const lv=Object.assign({},GAL_INIT[gal.init].s);
   if(!gal.sel.length)return {f:[lv,lv,lv],text:'操作なし'};
+  const two=gal.sel.length>=2;
+  if(two&&gal.seq){
+    const ordered=gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1));
+    const f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));
+    return {f,text:E.opsText(ordered)};
+  }
   const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);
   const f=[lv,step(lv)];f.push(step(f[1]));
   return {f,text:gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')};
@@ -1642,10 +1655,12 @@ function galDraw(){
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
   $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.classList.toggle('sel',b.dataset.init===gal.init));
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
+  $('#gseqRow').classList.toggle('off',gal.sel.length<2);
+  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
   const fr=galFrames(),f=fr.f;
   const initTx=gal.init==='level'?'':GAL_INIT[gal.init].ja+'から　';
   const desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと入れ替わります';
-  $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?'（同時に）':''}</h4><div class="sub gdesc">${desc}</div>
+  $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4><div class="sub gdesc">${desc}</div>
     <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true))}</div></div>`).join('')}</div>
     <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;
   galApply(gal.play?null:0);

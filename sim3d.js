@@ -189,11 +189,42 @@ export function mount(container, { onState, view = 'first' } = {}) {
      モデルには座席と風防しかないので、計器盤・グレアシールド・操縦桿・方向舵ペダルを自作する。目は前席の後ろ寄り・背もたれの少し上 */
   const EYE = new THREE.Vector3(0, 2.55, 0.30), eyeOff = new THREE.Vector3(), seatMeshes = [];   // 高さは背もたれ（ヘッドレスト）の上端あたり
   const cockpit = new THREE.Group(); plane.add(cockpit);
-  const dark = new THREE.MeshLambertMaterial({ color: 0x1b2027 }), mid = new THREE.MeshLambertMaterial({ color: 0x2e3640 }), grip = new THREE.MeshLambertMaterial({ color: 0x14171b }), metal = new THREE.MeshLambertMaterial({ color: 0x8a939e });
+  const dark = new THREE.MeshLambertMaterial({ color: 0x1b2027 }), mid = new THREE.MeshLambertMaterial({ color: 0x2e3640 }), grip_m = new THREE.MeshLambertMaterial({ color: 0x14171b }), metal = new THREE.MeshLambertMaterial({ color: 0x8a939e });
+  const red_m = new THREE.MeshLambertMaterial({ color: 0xc0392b });
   /* 操縦席は GLB のモデルに本物（計器盤・風防・操縦桿）が入っているので、自作の部品は置かない。
      近くにある機体内部の部品（操縦桿など）が目の前に大きく映るため、一人称ではカメラの手前の面を 1.1 で切る（setView）。
      画面の入力は下に置いた操縦桿の絵とペダルのボタンで示す */
   const lamp = new THREE.PointLight(0xffe2b8, 0.9, 2.5); lamp.position.set(0, 2.9, 0.3); cockpit.add(lamp);   // 操縦席の灯り（夜でも部品が見える）
+  /* 操縦桿。モデルには操縦桿の部品がないので自分で作り、画面の下のスティックに合わせて傾ける
+     （一人称のときだけ見える。cockpit は setView で出し入れしている）。
+     位置と大きさは、一人称の見え方を見ながら決めた値 */
+  /* 一人称のカメラは手前 1.1 m を切っている（目の前の機体内部が画面を塞ぐのを防ぐため）。
+     操縦桿は目から 0.7 m ほどの近さなので、そのままでは映らない。
+     そこで操縦桿だけ別の場面に置き、近くまで写るカメラで本編の上に重ねて描く */
+  const overlay = new THREE.Scene();
+  overlay.add(new THREE.HemisphereLight(0xffffff, 0x5a6675, 2.2));
+  const oDir = new THREE.DirectionalLight(0xffffff, 1.0); oDir.position.set(-0.4, 1, 0.9); overlay.add(oDir);
+  const oCam = new THREE.PerspectiveCamera(68, 1, 0.03, 6);
+  const stickHolder = new THREE.Group(); stickHolder.matrixAutoUpdate = false; overlay.add(stickHolder);
+  const stickPivot = new THREE.Group();
+  stickPivot.position.set(0, 2.92, -0.44);   // 目から少し前・下（画面の下の方に握りが来る）
+  stickHolder.add(stickPivot);
+  const oLamp = new THREE.PointLight(0xffe2b8, 1.1, 2.5); oLamp.position.set(0.2, 2.75, 0.1); stickHolder.add(oLamp);
+  {
+    const sMat = new THREE.MeshLambertMaterial({ color: 0x3a444f }), gMat = new THREE.MeshLambertMaterial({ color: 0x252c35 });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.020, 0.26, 12), sMat);
+    shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.13;            // 円柱は既定で y 方向なので立てる
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.050, 0.11), gMat);
+    grip.position.z = 0.31;
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.027, 12, 8), gMat);
+    top.position.z = 0.37;
+    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.010, 0.016), red_m);
+    btn.position.set(-0.012, -0.027, 0.33);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.050, 0.062, 0.04, 14), dark);
+    base.rotation.x = Math.PI / 2; base.position.z = 0.02;
+    stickPivot.add(shaft, grip, top, btn, base);
+  }
+  const stickAim = { x: 0, y: 0 };        // 表示用になました入力（急に動かすと機械らしくない）
   /* 編隊の 2〜6 番機。先頭機の少し前の状態をたどって並ぶ（旋回でも隊形が崩れない） */
   const mates = [];                       // 2〜6 番機（入れ物）。join に合流の進み具合（0〜1）を持つ
   const hist = [];                        // 先頭機の軌跡 { t, p:Vector3, q:Quaternion }
@@ -1339,6 +1370,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
     walls.forEach(w => { w.visible = !auto; });   // 技の途中は壁の枠を出さない
     marker.visible = markOn && curView === 'ground' && !follow;   // 進入の目印は、地上から自分で向きを決めているときだけ
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
+    /* 操縦桿を入力に合わせて傾ける（自動操縦のときは入力が 0 なので中立のまま） */
+    const sk = dt ? 1 - Math.exp(-dt / 0.09) : 1;
+    stickAim.x += (input.x - stickAim.x) * sk;
+    stickAim.y += (input.y - stickAim.y) * sk;
+    stickPivot.rotation.set(-stickAim.y * 0.22, stickAim.x * 0.24, 0);   // 引くと視界から外れないよう、傾きは控えめ
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
   }
 
@@ -1402,7 +1438,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
     if (paused) dt = 0;                       // 一時停止: 時間を進めない（見回しと描き直しは続ける）
     try {
       clock += dt; smokeT += dt;
-      step(dt); place(dt); if (dt) recordHistory(dt); placeMates(dt); aimCamera(dt); renderer.render(world, cam);
+      step(dt); place(dt); if (dt) recordHistory(dt); placeMates(dt); aimCamera(dt);
+      renderer.render(world, cam);
+      drawStick();
       st.err = 0;
     } catch (e) {
       st.err = (st.err || 0) + 1;
@@ -1413,6 +1451,18 @@ export function mount(container, { onState, view = 'first' } = {}) {
     raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
+
+  /* 操縦桿を本編の上に重ねて描く（一人称のときだけ） */
+  function drawStick() {
+    if (curView !== 'first') return;
+    cockpit.updateWorldMatrix(true, false);
+    stickHolder.matrix.copy(cockpit.matrixWorld);
+    oCam.fov = cam.fov; oCam.aspect = cam.aspect; oCam.updateProjectionMatrix();
+    oCam.position.copy(cam.position); oCam.quaternion.copy(cam.quaternion);
+    renderer.autoClear = false; renderer.clearDepth();
+    renderer.render(overlay, oCam);
+    renderer.autoClear = true;
+  }
 
   /* 一人称はカメラの手前の面を 1.1 で切る（目のすぐ前にある機体内部の部品が画面を塞ぐのを防ぐ）。三人称は 0.5 */
   function setView(v) {

@@ -128,3 +128,10 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 決めておくこと
 - iPad に対応させるか（対応するなら iPad のスクリーンショットも上げる。しないなら iPhone 専用にする）
 - 有料アプリケーション契約と税務情報（マイナンバー）の登録。これが済むまで価格を設定できない
+
+## 8. アイコンと起動画面の素材（差し替え方）
+
+- `mobile/assets/icon.png`（1024×1024・不透明）は **Web 版と同じ紋章のアイコン**（`icons/icon-512.png` を 2 倍にしたもの）。
+  Web 側のアイコンを作り直したら、ここも作り直す（`icons/icon-512.png` → Lanczos で 1024 + 軽いシャープ）。
+- `mobile/assets/splash.png` / `splash-dark.png`（2732×2732）は、背景 `#0b1017` に白い円盤つきの紋章（`kokuteki-private/emblem_full.png`）を中央 30% の大きさで置いたもの。
+- どちらも `npx capacitor-assets generate --ios` が各サイズへ展開する。**素材を替えたらビルドし直しが必要**（アプリに焼き込まれる）。

@@ -118,8 +118,11 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
    | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID | しなくてよい |
    | `APP_STORE_CONNECT_KEY_IDENTIFIER` | Key ID | しなくてよい |
    | `APP_STORE_CONNECT_PRIVATE_KEY` | `.p8` の中身を全部（`-----BEGIN` の行から `-----END` の行まで） | **する** |
+   | `CERTIFICATE_PRIVATE_KEY` | 配布証明書を作るための RSA 秘密鍵（`kokuteki-private/appstore/certificate-private-key.pem` の中身） | **する** |
    この名前のままにすると `app-store-connect` コマンドと TestFlight への配信が自動で読む
 6. ビルドを実行 → TestFlight に上がる → iPhone で確認
+   - `Cannot save Signing Certificates without certificate private key` で落ちたら `CERTIFICATE_PRIVATE_KEY` が入っていない
+   - `"App" requires a provisioning profile` で落ちたら、バンドル ID の食い違い（`patch-ios.js` が直す）
 7. 掲載文・スクリーンショット・価格（800 円）・「App のプライバシー（収集なし）」を入れて審査へ提出
 
 決めておくこと

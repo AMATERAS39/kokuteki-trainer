@@ -3,6 +3,8 @@
 #   APP_STORE_CONNECT_ISSUER_ID      … Issuer ID
 #   APP_STORE_CONNECT_KEY_IDENTIFIER … Key ID
 #   APP_STORE_CONNECT_PRIVATE_KEY    … .p8 の中身をそのまま（Secure にする）
+#   CERTIFICATE_PRIVATE_KEY          … 配布証明書を作るための RSA 秘密鍵（Secure にする）
+#                                      これが無いと「Cannot save Signing Certificates without certificate private key」で落ちる
 # 控えは kokuteki-private/appstore/api-key-info.txt。この名前のままにすると、
 # app-store-connect コマンドと publishing が自動で読む（Integrations の画面を触らなくてよい）
 workflows:
@@ -49,7 +51,8 @@ workflows:
         script: |
           set -e
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          # --certificate-key を渡すと、配布証明書をこの鍵で作る（次回以降は同じ証明書を使い回せる）
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create --certificate-key @env:CERTIFICATE_PRIVATE_KEY
           keychain add-certificates
           # 割り当て先を明示する（既定の探索だと App に当たらないことがある）
           xcode-project use-profiles --project "mobile/ios/App/App.xcodeproj"

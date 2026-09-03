@@ -11,6 +11,7 @@ export const CEIL = 3000;                        // 天井（m）。宙返りが
 export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
+const GROUND_EYE = { x: 90, y: -120, z: 3 };     // 地上から見るときの立ち位置（滑走路の東側）
 
 /* 編隊。ブルーインパルスの隊形にならう（名前と並びの出典: wporep.com のブルーインパルス編隊飛行の一覧）。
    offs は先頭機（操作する機体）から見た 2 番機以降の位置 [右, 前後, 上]（m）。前後が負なら後ろ。
@@ -275,6 +276,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
+  const gdir = new THREE.Vector3(), gright = new THREE.Vector3();   // 地上視点の向きを作るのに使う
   function readAttitude() {
     fwd.copy(AY).applyQuaternion(att); bup.copy(AZ).applyQuaternion(att); bright.copy(AX).applyQuaternion(att);
     st.h = ((Math.atan2(fwd.x, fwd.y) / D) % 360 + 360) % 360;
@@ -353,7 +355,19 @@ export function mount(container, { onState, view = 'first' } = {}) {
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
-    if (curView === 'third' || curView === 'front') {
+    if (curView === 'ground') {
+      /* 地上から見る。立ち位置は動かさず、機体の方を向く（見回しのぶんだけ向きをずらす）。
+         遠いほど狭く映して、編隊とスモークが見えるようにする（望遠のように） */
+      cam.position.set(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z); cam.up.set(0, 0, 1);
+      tmp.copy(plane.position).sub(cam.position);
+      const dist = Math.max(20, tmp.length());
+      gdir.copy(tmp).normalize();
+      gright.copy(gdir).cross(WUP).normalize();
+      gdir.applyAxisAngle(WUP, look.y).applyAxisAngle(gright, look.p);
+      cam.lookAt(tmp.copy(gdir).multiplyScalar(dist).add(cam.position));
+      const fov = clamp(2 * Math.atan(60 / dist) / D, 8, 50);   // 編隊がほどよい大きさに映るまで寄る
+      if (Math.abs(cam.fov - fov) > 0.2) { cam.fov += (fov - cam.fov) * 0.15; cam.updateProjectionMatrix(); }
+    } else if (curView === 'third' || curView === 'front') {
       /* 三人称は機体の後ろ上（前方視点は機首の前）から。ドラッグで機体のまわりを回れる */
       const back = curView === 'front' ? 36 : -32, up = curView === 'front' ? 5 : 10;
       tmp.set(0, back, up);
@@ -385,7 +399,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     curView = v; look.y = 0; look.p = 0; const out = v !== 'first';
     seatMeshes.forEach(m => { m.visible = out; });
     cockpit.visible = !out;
-    cam.fov = out ? 55 : 68; cam.near = out ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0);
+    cam.fov = v === 'ground' ? 30 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0);
   }
   setView(view);
 

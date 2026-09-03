@@ -159,7 +159,8 @@ svg text{user-select:none}
 .sim .views{position:absolute;right:.5rem;top:.5rem;display:flex;gap:.25rem;z-index:2}
 .sim .vb{font-size:.6875rem;font-weight:700;padding:.3rem .5rem;border-radius:.375rem;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .sim .vb.sel{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.sim .cross{position:absolute;left:50%;top:50%;width:7rem;transform:translate(-50%,-50%);pointer-events:none;z-index:1}
+.sim .cross{display:none;position:absolute;left:50%;top:50%;width:7rem;transform:translate(-50%,-50%);pointer-events:none;z-index:1}
+.sim .view.fp .cross{display:block}   /* 照準は一人称のときだけ */
 .sim .view.fp .cross{top:29%}   /* 一人称は視線を 16° 下げているので、水平時の水平線の位置に合わせる */
 .sim .inst svg{height:100%;width:100%;display:block}
 .sim .wallmsg{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:rgba(200,60,60,.85);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:2}
@@ -837,7 +838,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.03';
+const APP_VER='v03.04';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1105,11 +1106,11 @@ function confirmLeave(){
 let sim=null;
 function startSim(){applyScene();
   stopSim();setPhase('sim','練習');showPane('sim');
-  const view=['third','front'].includes(store.get('simView'))?store.get('simView'):'first';   // 一人称 / 三人称（後方・前方）
+  const view=['third','front','ground'].includes(store.get('simView'))?store.get('simView'):'first';   // 一人称 / 三人称（後方・前方）/ 地上
   const inst=`<div class="inst ai">${E.svgAI(0,0)}</div><div class="inst hi">${E.svgHI(0)}</div>`;
   $('#sim').innerHTML=`<div class="view${view==='first'?' fp':''}" id="simView">
       <div class="hud"><div class="ro"><span>高度</span><b id="rAlt">80</b><span>m</span></div><div class="ro"><span>方位</span><b id="rHdg">000</b></div><div class="ro"><span>バンク</span><b id="rBank">0°</b></div><div class="ro"><span>ピッチ</span><b id="rPitch">0°</b></div></div>
-      <div class="views">${[['first','一人称'],['third','後方'],['front','前方']].map(([v,t])=>`<button class="vb${v===view?' sel':''}" data-view="${v}">${t}</button>`).join('')}</div>
+      <div class="views">${[['first','一人称'],['third','後方'],['front','前方'],['ground','地上']].map(([v,t])=>`<button class="vb${v===view?' sel':''}" data-view="${v}">${t}</button>`).join('')}</div>
       <svg class="cross" viewBox="0 0 140 40" aria-hidden="true"><g stroke="var(--hud,#8ce99a)" stroke-width="2" fill="none"><line x1="70" y1="10" x2="70" y2="30"/><line x1="60" y1="20" x2="80" y2="20"/><path d="M8,20 h32 v8 M132,20 h-32 v8"/></g></svg>
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="vload" id="simLoad">3D を読み込み中…</div>
@@ -1186,7 +1187,7 @@ function startSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=18').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=19').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* 編隊とスモーク（色・入り切り）。選んだ内容は端末に覚える */
       const fSel=$('#simForm'),cSel=$('#simColor'),sBtn=$('#simSmoke');

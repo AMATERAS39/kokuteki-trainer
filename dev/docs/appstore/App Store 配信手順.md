@@ -69,7 +69,8 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 4. 「App のプライバシー」
    - データを収集しない（No, we do not collect data）を選ぶ。設定と記録は端末内の localStorage だけで、外部に送らない
 5. 「バージョン情報」: 掲載文は `dev/docs/appstore/ストア掲載文.md` から貼る
-6. スクリーンショット: **用意済み**。`dev/docs/appstore/screenshots/iphone-6.7/`（1290×2796・6 枚）と `ipad-12.9/`（2732×2048・4 枚、横向き）をそのまま上げる。
+6. スクリーンショット: **用意済み**。`dev/docs/appstore/screenshots/iphone-6.9/`（縦 1320×2868 が 7 枚 ＋ 横 2868×1320 が 2 枚）と `ipad-13/`（横 2752×2064・4 枚）をそのまま上げる。
+   この 2 サイズだけでよい（ほかの画面サイズには Apple がこれを縮小して使う）。1 サイズにつき 1〜10 枚、縦横は混ぜてよい。
    iPad に対応させない場合は `patch-ios.js` に `TARGETED_DEVICE_FAMILY=1` を足して iPhone 専用にし、iPad のぶんは上げない
 
 ## 4. 提出
@@ -104,7 +105,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 - Apple Developer Program の登録（2026-09-04 承認）
 - Mac なしのビルド一式（`mobile/`。Capacitor + Codemagic）。`copy-web.js` は three.js と 3D モデルを同梱し、外の CDN を指していたら止める
 - アイコン（1024）と起動画面（2732）の素材、Info.plist の手当て（向き・輸出コンプライアンス・表示名）
-- スクリーンショット（iPhone 6.7 インチ 6 枚、iPad 12.9 インチ 横 4 枚）
+- スクリーンショット（iPhone 6.9 インチ 9 枚、iPad 13 インチ 横 4 枚。Apple の現行仕様の寸法）
 - 掲載文（`ストア掲載文.md`）とプライバシーポリシー
 
 利用者の作業（この順）

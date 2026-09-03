@@ -1,6 +1,6 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v03.16';
-const ASSETS = ['./', './index.html', './engine.js?v=37', './viewer.js?v=3', './feedback.js?v=1', './sim3d.js?v=29', './manifest.webmanifest', './privacy.html', './news.json',
+const CACHE = 'aat-v03.17';
+const ASSETS = ['./', './index.html', './engine.js?v=37', './viewer.js?v=3', './feedback.js?v=1', './sim3d.js?v=30', './manifest.webmanifest', './privacy.html', './news.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp', './img/hero.webp',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),
   /* バンク付き（真上・真下を除く 12 方向 × 左右 × 30/60） */

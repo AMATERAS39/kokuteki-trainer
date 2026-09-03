@@ -454,8 +454,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* ---- 状態と入力 ---- */
   /* 姿勢はクォータニオンで持つ。オイラー角（方位・ピッチ・バンク）だと宙返りの真上・真下で破綻するため。
      h / p / b は表示と計器のために毎フレーム取り出す。機体の軸: 機首 +y、右翼 +x、機体上 +z */
-  const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false, show: '', cue: '', desc: '', gh: 0 };
+  const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false, show: '', cue: '', desc: '', gh: 0, mode: 'fly' };
   let spdK = 1, spdWant = 1;                        // 速さの係数（1 がふつう。ローパスでは 0.6 まで落とす）
+  /* 地上の様子。fly=飛行中、land=着陸して減速中、taxi=滑走路へ戻る、stand=待機、takeoff=加速中 */
+  let gmode = 'fly', gv = 0;
+  const RWY = { x: 0, y: -480, h: 0 };              // 滑走路の南寄り（機首は北）
   const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
@@ -499,14 +502,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* form: その課目で使う隊形（いまの機数によらず、その数だけ集まる）。
      front: 見ている前方で行う（旋回だけは前方に限らない）。alt: 入る高さ（m） */
   const PROGRAM = [
-    { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200,
       desc: '縦隊で入り、旋回しながら隊形を組み替えます。傘が開くように見えます。' },
     { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130, entry: 'front',
       desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
     { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front',
       desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'cupid', ja: 'キューピッド', form: 'diamond', alt: 260, entry: 'front', fig: 'cupid',
       desc: '3 機。2 機がハートを描き、描き終えたところへ、もう 1 機が矢になって飛び込みます。地上から見て貫いて見えるよう、ハートの内側ではスモークを切ります。' },
     { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200,
@@ -515,26 +518,26 @@ export function mount(container, { onState, view = 'first' } = {}) {
       desc: '隊形のまま、正面を低く通り抜けます。' },
     { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 240,
       desc: '間隔を広げて入り、宙返りの中でデルタ隊形に詰めます。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200,
       desc: '4 機で、空に数字の 8 を描きます。' },
     { id: 'byover', ja: '頭上通過', form: 'delta', alt: 120, entry: 'front',
       desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
     { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190, entry: 'front',
       desc: '垂直に上昇しながら横転します。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'star', ja: 'スタークロス', form: 'delta', alt: 260, entry: 'front', fig: 'star',
       desc: '5 機。デルタ隊形で入って大きく開き、一斉に反転降下して星を描きます。' },
     { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300,
       desc: 'ゆっくり背面に入り、そのまま飛んでから戻します。' },
     { id: 'bloom', ja: '上向き空中開花（サンライズ）', form: 'delta', alt: 190, entry: 'front',
       desc: '5 機が上を向いたまま大きく開き、花が咲くように見せます。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260, entry: 'front',
       desc: '開花のあと、雨が降るように機体が降りてきます。' },
-    { id: 'tree', ja: 'クリスマスツリー・ローパス', form: 'tree', alt: 110, entry: 'front',
+    { id: 'tree', ja: 'クリスマスツリー・ローパス', form: 'tree', alt: 110, entry: 'front', set: { smoke: true, gear: true, lights: true },
       desc: '6 機が木の形に組み、列ごとに少し低く並びます。速度を落とし、脚を出してライトを点け、濃いスモークを引きながら頭の上を通り抜けます。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'cork', ja: 'コーク・スクリュー', form: 'pair', alt: 200, entry: 'front',
       desc: '2 機。1 機がまっすぐ進み、その周りをもう 1 機が背中を内側に向けて回ります。実際の演技では、直進する 5 番機が背面で飛びます。' },
     { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240,
@@ -631,12 +634,21 @@ export function mount(container, { onState, view = 'first' } = {}) {
     manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h;
   }
   /* 課目を始める。使う隊形をそろえてから（いまの機数によらず集まる）、進入に入る */
+  /* その技で使う装備を自動で入れる（入れるだけ。外すのは手で） */
+  function applyPreset(m) {
+    const set = m.set || { smoke: true };
+    if (set.smoke) smokeOn = true;
+    if (set.gear) gearOn = true;
+    if (set.lights) lightsOn = true;
+    applyGear();
+  }
   function beginManeuver(i) {
     endCork(); endFigure(); if (treeMode) setTreeMode(false);
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1;
     const m = PROGRAM[i];
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
+    applyPreset(m);
     GATE.z = m.alt || SHOW.ALT_IN;
     if (m.front !== false && (curView === 'ground' || !oneShot)) { planEntry(m); manPhase = 'in'; }
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
@@ -824,7 +836,38 @@ export function mount(container, { onState, view = 'first' } = {}) {
     return autoIn;
   }
 
+  /* 地上にいるあいだの動き。翼は水平、方向舵で向きを変える。高さは滑走路の上 */
+  function groundStep(dt) {
+    const turnRate = 26 * Math.min(1, gv / 12);                       // 止まりかけでは曲がらない
+    if (gmode === 'land') {
+      gv = Math.max(0, gv - 8 * dt);                                  // 減速
+      st.h = (st.h + input.r * turnRate * dt + 360) % 360;
+      if (gv <= 0.5) { gv = 0; gmode = 'taxi'; }
+    } else if (gmode === 'taxi') {
+      const dx = RWY.x - st.x, dy = RWY.y - st.y, d = Math.hypot(dx, dy);
+      const want = d > 12 ? ((Math.atan2(dx, dy) / D) % 360 + 360) % 360 : RWY.h;
+      const e = wrap180(want - st.h);
+      st.h = (st.h + clamp(e, -20 * dt, 20 * dt) + 360) % 360;        // ゆっくり向き直る
+      gv = d > 12 ? Math.min(d > 120 ? 26 : 10, gv + 6 * dt) : Math.max(0, gv - 6 * dt);   // 遠いうちは速めに戻る
+      if (d <= 12 && gv === 0 && Math.abs(e) < 3) { gmode = 'stand'; st.cue = ''; }
+    } else if (gmode === 'takeoff') {
+      gv = Math.min(SPEED, gv + 6 * dt);
+      st.h = (st.h + input.r * turnRate * 0.5 * dt + 360) % 360;
+      if (gv >= SPEED * 0.9) {                                        // 浮く
+        gmode = 'fly'; spdK = gv / SPEED; spdWant = 1;
+        att.setFromAxisAngle(AZ, -st.h * D); att.multiply(dq.setFromAxisAngle(AX, 9 * D)); readAttitude();
+        st.z = 4; return;
+      }
+    } else { gv = 0; }
+    att.setFromAxisAngle(AZ, -st.h * D); readAttitude();              // 地上では翼は水平
+    st.x += Math.sin(st.h * D) * gv * dt; st.y += Math.cos(st.h * D) * gv * dt;
+    st.z = 3;
+    const W = LIMIT - 30; st.x = clamp(st.x, -W, W); st.y = clamp(st.y, -W, W);
+    st.cue = gmode === 'land' ? '着陸しました' : gmode === 'taxi' ? '滑走路へ戻ります' : gmode === 'stand' ? '「加速」で離陸できます' : '加速中';
+  }
   function step(dt) {
+    st.mode = gmode;
+    if (gmode !== 'fly') { groundStep(dt); return; }
     /* 自動操縦の舵は、目標へ 0.55 秒の時定数で寄せる。
        実機は舵をいきなり一杯には切らないので、そのぶんの緩みを入れる */
     let inp = input;
@@ -855,7 +898,12 @@ export function mount(container, { onState, view = 'first' } = {}) {
     st.wall = !auto && (Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL);
     st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, C);
     if (auto && st.z < 45) { st.z = 45; levelAttitude(); }          // 自動操縦では墜落させない（最後の砦）
-    if (st.z < 3) st.z = 3;                                         // 地面より下へは行かないが、止めない（そのまま飛び続ける）
+    if (!auto && st.z <= 3.2) {                                     // 接地: 着陸とみなして減速に入る
+      st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
+      gearOn = true; applyGear();                                   // 着陸なのでタイヤは出ている
+      att.setFromAxisAngle(AZ, -st.h * D); readAttitude();
+    }
+    if (st.z < 3) st.z = 3;
     if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
       Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
       levelAttitude(); hist.length = 0; auto = false; oneShot = false; formScale = 1;
@@ -1021,6 +1069,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     return exSt;
   }
   function placeMates(dt) {
+    if (gmode !== 'fly') { mates.forEach(h => { h.visible = false; h.userData.shown = false; }); return; }
     if (retT >= 0) { retT += dt; if (retT >= retDur) { retT = -1; mates.forEach(h => { h.userData.ret = null; }); } }
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     /* 演目の合間（進入・高度取り・水平に戻す）は煙を切る。旋回は演目の一部なので出す */
@@ -1261,6 +1310,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     setAuto(on) {
       auto = !!on; oneShot = false;
       if (auto) {
+        gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1;
         userForm = formation;
         Object.assign(st, { x: GROUND_EYE.x - 380, y: GROUND_EYE.y - 620, z: SHOW.ALT, h: 25, ground: false, wall: false });
         levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
@@ -1270,6 +1320,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
     setGear(on) { gearOn = !!on; applyGear(); }, gearState() { return gearOn; },
+    /* 待機中に押すと加速して離陸する。飛行中は何もしない */
+    throttle() { if (gmode === 'stand') { gmode = 'takeoff'; return true; } return false; },
+    groundMode() { return gmode; },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },
     followState() { return follow; },
@@ -1280,6 +1333,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja, desc: m.desc || '' })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
     runManeuver(i) {
       if (!PROGRAM[i]) return false;
+      if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 120); spdK = 1; spdWant = 1; levelAttitude(); }
       if (!auto) { userForm = formation; oneShot = true; }   // 自分で操縦しているときは、その技だけ行って操縦を返す
       auto = true; beginManeuver(i); return true;
     },
@@ -1289,8 +1343,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
     setSmoke(on) { smokeOn = !!on; },
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },
-    level() { levelAttitude(); st.ground = false; },
-    home() { Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },
+    level() { levelAttitude(); st.ground = false; if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 60); spdK = 1; } },
+    home() { gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1; Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },
     dispose() { running = false; cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); cv.remove(); }
   };
 }

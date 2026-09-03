@@ -262,6 +262,7 @@ svg text{user-select:none}
   .sim .hud{font-size:.6875rem}
 }
 /* 縦画面のときだけ出す案内 */
+.takeoff{position:absolute;left:50%;transform:translateX(-50%);bottom:4.6rem;z-index:6;height:2.6rem;padding:0 1.25rem;font-size:.875rem}
 .trickdesc{position:absolute;left:50%;transform:translateX(-50%);bottom:4.6rem;max-width:min(30rem,88%);
   background:rgba(0,0,0,.6);color:#fff;font-size:.75rem;line-height:1.55;padding:.35rem .7rem;border-radius:.5rem;z-index:3}
 /* 方位計の真ん中: ふだんは機体、地上から見ているときは「見ている人」 */
@@ -694,6 +695,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-trick" viewBox="0 0 24 24"><path d="M3 19c5 0 6-14 11-14 3 0 4 3 4 6s-1 6-4 6-4-3-4-6"/></symbol>
 <symbol id="i-auto" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3.2-6.4"/><path d="M20 4v5h-5"/><circle cx="12" cy="12" r="2.2" style="fill:currentColor;stroke:none"/></symbol>
 <symbol id="i-follow" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></symbol>
+<symbol id="i-sky" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></symbol>
 <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" style="stroke-width:3"/><circle cx="12" cy="12" r="2.5"/><path d="M12 6v3.5M12 14.5V18M6 12h3.5M14.5 12H18"/></symbol>
 <symbol id="i-light" viewBox="0 0 24 24"><circle cx="9" cy="12" r="4"/><path d="M13 9l8-3M13 12h8M13 15l8 3"/></symbol>
 <symbol id="i-smoke" viewBox="0 0 24 24"><path d="M4 17c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/><path d="M4 11c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/></symbol>
@@ -903,7 +905,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.33';
+const APP_VER='v03.34';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1172,7 +1174,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=45').then(mod=>{
+  import('./sim3d.js?v=46').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1199,12 +1201,14 @@ function runSim(opt){applyScene();
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="showname" id="showName" hidden></div>
       <div class="trickdesc" id="trickDesc" hidden></div>
+      <button class="btn takeoff" id="simTakeoff" hidden>加速して離陸</button>
       <button class="zoomlbl" id="zoomLbl" hidden>×1.0</button>
       <div class="vload" id="simLoad">3D を読み込み中…</div>
     </div>
     <div class="simbar">
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simSmoke" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
+      <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
       <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（夜は自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
       <button class="iconbtn landscape" id="simFollow" aria-label="機体を目で追う" aria-pressed="false" title="機体を目で追う（地上から見るとき）"><svg class="ic"><use href="#i-follow"/></svg></button>
@@ -1324,10 +1328,16 @@ function runSim(opt){applyScene();
     /* 方位計は、地上から見ているときは「自分が見ている方位」、それ以外は機体の方位 */
     const hdg=(sim.viewName==='ground'&&typeof s.gh==='number')?s.gh:s.h;
     his.forEach(h=>h.querySelector('.hi-c').setAttribute('transform',`rotate(${-hdg})`));
+    /* 着陸・地上走行・待機の案内と、離陸ボタン */
+    const tk=$('#simTakeoff');
+    if(tk){const show=s.mode==='stand';if(tk.hidden===show)tk.hidden=!show}
+    if(s.mode&&s.mode!=='fly'&&!sim.h.autoState()){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
+    /* 技の初期設定で入った装備を、ボタンの見た目に映す */
+    if(sim.h&&sim.paintGL)sim.paintGL();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=45').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=46').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1357,15 +1367,34 @@ function runSim(opt){applyScene();
       setForm(store.get('simForm','solo'));
       /* タイヤとライト: 手で出し入れする。昼以外はライトが自動で点いている */
       const gBtn=$('#simGear'),lBtn=$('#simLight');
-      const paintGL=()=>{const g=sim.h.gearState(),l=sim.h.lightState();
-        gBtn.classList.toggle('on',g);gBtn.setAttribute('aria-pressed',String(g));lBtn.classList.toggle('on',l);lBtn.setAttribute('aria-pressed',String(l))};
+      const paintGL=()=>{const g=sim.h.gearState(),l=sim.h.lightState(),k=sim.h.smokeState();
+        gBtn.classList.toggle('on',g);gBtn.setAttribute('aria-pressed',String(g));lBtn.classList.toggle('on',l);lBtn.setAttribute('aria-pressed',String(l));
+        if(sim.smoke!==k){sim.smoke=k;store.set('simSmoke',k);sBtn.classList.toggle('on',k);sBtn.setAttribute('aria-pressed',String(k))}};
+      sim.paintGL=paintGL;
+      /* 空の切り替え: 設定が「自動」のときだけ。3D は組み立て時の空で作るので、作り直して同じ状態に戻す */
+      const skyBtn=$('#simSky');
+      if(settings.scene!=='auto')skyBtn.hidden=true;
+      else skyBtn.addEventListener('click',()=>{
+        const order=['day','dusk','night'],cur=document.body.dataset.scene;
+        const next=order[(Math.max(0,order.indexOf(cur==='dawn'?'dusk':cur))+1)%order.length];
+        const keep={scene:next,view:sim.viewName,smoke:sim.h.smokeState(),color:store.get('simColor','white'),
+          form:sim.h.formation(),gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState(),auto:sim.h.autoState()};
+        toast(next==='day'?'昼の空にしました':next==='dusk'?'夕方の空にしました':'夜の空にしました');
+        runSim(keep);
+      });
+      $('#simTakeoff').addEventListener('click',()=>{if(sim.h.throttle())toast('加速します')});
       gBtn.addEventListener('click',()=>{const on=!sim.h.gearState();sim.h.setGear(on);paintGL();toast(on?'タイヤを出しました':'タイヤをしまいました')});
       lBtn.addEventListener('click',()=>{const on=!sim.h.lightState();sim.h.setLights(on);paintGL();toast(on?'ライトを点けました':'ライトを消しました')});
       paintGL();
       /* 視点の自動追従: 地上から見るとき、機体を目で追うかどうか */
       const foBtn=$('#simFollow');
       const paintFollow=()=>{const on=sim.h.followState();foBtn.classList.toggle('on',on);foBtn.setAttribute('aria-pressed',String(on))};
-      sim.h.setFollow(store.get('simFollow',false));paintFollow();
+      sim.h.setFollow(opt.follow!==undefined?opt.follow:store.get('simFollow',false));paintFollow();
+      if(opt.gear)sim.h.setGear(true);
+      if(opt.lights!==undefined)sim.h.setLights(opt.lights);
+      if(opt.form)setForm(opt.form);
+      if(opt.smoke){sim.smoke=true;sim.h.setSmoke(true);paint()}
+      paintGL();
       foBtn.addEventListener('click',()=>{const on=!sim.h.followState();sim.h.setFollow(on);store.set('simFollow',on);paintFollow();
         toast(on?'機体を目で追います':'向けた方向のままにします')});
       /* 自動操縦: 入れると編隊が演技をする（地上からの視点で見るためのもの）。操縦桿の操作は効かない */
@@ -1380,23 +1409,31 @@ function runSim(opt){applyScene();
       sim.paintAuto=paintAuto;
       aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();
         /* 夜に通しの演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
-        if(on&&document.body.dataset.scene==='night'){toast('演目は昼の空で行います');runSim({scene:'day',autoStart:true});return}
+        if(on&&document.body.dataset.scene!=='day'){toast('演目は昼の空で行います');
+          runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
+            gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState()});return}
         sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
         if(on){toast('自動操縦。2 回叩くとその場所に立てます');const g=$('#sim').querySelector('[data-view="ground"]');if(g&&!g.classList.contains('sel'))g.click()}
         else toast('自動操縦を止めました')});
       paintAuto();
-      if(opt.autoStart)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
+      if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
+      if(opt.trick!==undefined)setTimeout(()=>{if(sim&&sim.h&&sim.h.runManeuver(opt.trick))showLabel(opt.trickName||'')},60);
       /* 技: 自分で操縦しているときでも、選んだ技をひとつだけ自動で行う（終わると操縦が戻る） */
       const tBtn=$('#simTrickBtn'),tMenu=$('#simTrickMenu');
-      /* 夜は クリスマスツリー・ローパスだけ（夜の背景のまま行える）。ほかの技は昼の空で */
-      const night=document.body.dataset.scene==='night';
-      tMenu.innerHTML=sim.h.maneuvers().map(m=>`<button data-m="${m.i}"${night&&m.id!=='tree'?' class="off"':''}><span>${m.ja}</span></button>`).join('');
+      /* 技は空を選ばない。昼以外で選んだときは昼の空で作り直す（クリスマスツリー・ローパスだけそのまま） */
+      tMenu.innerHTML=sim.h.maneuvers().map(m=>`<button data-m="${m.i}" data-id="${m.id}"><span>${m.ja}</span></button>`).join('');
       const nameEl=$('#showName');
       const showLabel=txt=>{if(!nameEl)return;nameEl.textContent=txt||'';nameEl.hidden=!txt};
       tMenu.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{tMenu.hidden=true;
-        if(b.classList.contains('off')){toast('夜に行えるのはクリスマスツリー・ローパスだけです');return}
-        const nm=b.textContent.trim();
-        if(sim.h.runManeuver(+b.dataset.m)){toast(nm);showLabel(nm)}else toast('飛んでいるときに使えます')}));
+        const nm=b.textContent.trim(),id=b.dataset.id,idx=+b.dataset.m;
+        /* クリスマスツリー・ローパス以外は昼の空で見せる（設定が自動でも、技のあいだは昼） */
+        if(id!=='tree'&&document.body.dataset.scene!=='day'){
+          toast('昼の空で行います');
+          runSim({scene:'day',view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
+            gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState(),trick:idx,trickName:nm});
+          return;
+        }
+        if(sim.h.runManeuver(idx)){toast(nm);showLabel(nm)}else toast('飛んでいるときに使えます')}));
       tBtn.addEventListener('click',e=>{e.stopPropagation();tMenu.hidden=!tMenu.hidden;fMenu.hidden=true});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());

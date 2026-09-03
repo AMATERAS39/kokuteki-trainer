@@ -152,7 +152,7 @@ svg text{user-select:none}
 .intro .choice .ab{min-height:5rem;gap:.375rem}
 .intro .choice .ab .t{font-size:1rem;font-weight:700}
 .intro .choice .ab .d{font-size:.75rem;color:var(--muted)}
-.sim .view{position:relative;overflow:hidden;border-radius:.625rem;border:1px solid var(--line);background:#0b1017;height:24rem}
+.sim .view{position:relative;overflow:hidden;border-radius:.625rem;border:1px solid var(--line);background:#0b1017;height:24rem;min-height:15rem}
 .sim .view canvas{position:absolute;inset:0}
 .sim .hud{position:absolute;left:.5rem;top:.5rem;display:grid;grid-template-columns:auto auto;gap:.125rem .75rem;font-family:var(--mono);font-size:.625rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8);pointer-events:none;z-index:2}
 .sim .hud b{font-size:.8125rem;margin:0 .125rem;font-variant-numeric:tabular-nums}
@@ -206,13 +206,20 @@ svg text{user-select:none}
   .sim .stick{width:clamp(6rem,30dvh,8.5rem);margin:0;background:radial-gradient(ellipse at 50% 70%,rgba(42,50,60,.85) 0,rgba(28,38,50,.7) 60%);backdrop-filter:blur(2px)}
   .sim .rud .pedals{grid-template-columns:1fr 1fr;gap:.5rem;width:clamp(8rem,34dvh,11rem)}
   .sim .rud .pedals .ab{min-height:clamp(3rem,14dvh,4rem);background:rgba(28,38,50,.7);backdrop-filter:blur(2px)}
-  body[data-phase="sim"] .sim .acts.row3{position:absolute;right:.5rem;top:.5rem;flex-direction:column;align-items:stretch;width:auto;margin:0;gap:.375rem;z-index:5}
-  body[data-phase="sim"] .sim .acts.row3 .btn{flex:none;height:2.25rem;font-size:.6875rem;padding:0 .625rem;background:rgba(28,38,50,.75)}
+  body[data-view="train"][data-phase="sim"] .sim .acts.row3{position:absolute;right:.5rem;top:2.5rem;flex-direction:column;align-items:stretch;width:8.5rem;margin:0;gap:.25rem;z-index:5}
+  body[data-view="train"][data-phase="sim"] .sim .acts.row3 .btn{flex:none;height:1.9rem;font-size:.6875rem;padding:0 .5rem;background:rgba(28,38,50,.8)}
+  body[data-view="train"][data-phase="sim"] .sim .views{top:.4rem;right:.5rem;bottom:auto}
+  body[data-view="train"][data-phase="sim"] .sim .vb{padding:.2rem .4rem;font-size:.625rem}
+  /* 計器は左下のスティックの右、煙や機体の邪魔にならない位置 */
+  body[data-view="train"][data-phase="sim"] .sim .instrow{left:auto;right:9.5rem;bottom:.5rem;transform:none}
+  body[data-view="train"][data-phase="sim"] .sim .instrow .inst{height:clamp(2.75rem,13dvh,3.75rem)}
   body[data-phase="sim"] .install{display:none}
-  body[data-view="train"][data-phase="sim"] .simbar{position:absolute;left:.5rem;top:.5rem;flex-direction:column;align-items:flex-start;gap:.25rem;margin:0;z-index:5}
+  /* 右側に操作をまとめ、左はスティックだけにする（重ならないよう縦に積む） */
+  body[data-view="train"][data-phase="sim"] .simbar{position:absolute;right:.5rem;top:9.2rem;flex-direction:column;align-items:stretch;gap:.25rem;margin:0;width:8.5rem;z-index:5}
+  body[data-view="train"][data-phase="sim"] .simbar .sf{display:block}
   body[data-view="train"][data-phase="sim"] .simbar .sf span{display:none}
-  body[data-view="train"][data-phase="sim"] .simbar select,body[data-view="train"][data-phase="sim"] .simbar .btn.sm{min-height:2rem;height:2rem;font-size:.6875rem;background:rgba(28,38,50,.75)}
-  body[data-view="train"][data-phase="sim"] .sim .hud{left:auto;right:.5rem;top:2.75rem;text-align:right}
+  body[data-view="train"][data-phase="sim"] .simbar select{width:100%}
+  body[data-view="train"][data-phase="sim"] .simbar select,body[data-view="train"][data-phase="sim"] .simbar .btn.sm{min-height:1.9rem;height:1.9rem;font-size:.6875rem;background:rgba(28,38,50,.8)}
   .sim .views{top:auto;bottom:.5rem;right:.5rem}
   .sim .hud{font-size:.6875rem}
 }
@@ -830,7 +837,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03';
+const APP_VER='v03.03';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1110,6 +1117,7 @@ function startSim(){applyScene();
     <div class="simbar">
       <label class="sf"><span>編隊</span><select id="simForm"></select></label>
       <label class="sf"><span>スモーク</span><select id="simColor"></select></label>
+      <label class="sf"><span>地上物</span><select id="simProps"><option value="1">あり</option><option value="0">なし</option></select></label>
       <button class="btn ghost sm" id="simSmoke" aria-pressed="false">スモーク</button>
     </div>
     <div class="instrow" id="instRow">${inst}</div>
@@ -1145,9 +1153,20 @@ function startSim(){applyScene();
     if(k===' '){e.preventDefault();if(sim.toggleSmoke)sim.toggleSmoke();return}   // スペースでスモークの入り切り
     if(/^Arrow|^[wsadop]$/.test(k)){e.preventDefault();sim.keys.add(k);applyInput()}};
   /* マウス: 視界の上で左クリック = 左方向舵、右クリック = 右方向舵（押している間）。ホイール奥 = 操縦桿 奥、手前 = 手前（短い入力） */
+  /* 視界: ドラッグで視点を動かす（指でもマウスでも）。マウスは動かさずに押しただけなら従来どおり方向舵。2 回叩くと視点を戻す */
   const vw=$('#simView');
-  vw.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse'||e.target.closest('button'))return;e.preventDefault();sim.rud.set('mouse',e.button===2?1:-1);applyInput()});
-  ['pointerup','pointercancel','pointerleave'].forEach(ev=>vw.addEventListener(ev,e=>{if(e.pointerType==='mouse'&&sim.rud.has('mouse')){sim.rud.delete('mouse');applyInput()}}));
+  sim.look=null;
+  vw.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;e.preventDefault();
+    sim.look={id:e.pointerId,x:e.clientX,y:e.clientY,moved:0};
+    if(e.pointerType==='mouse'){sim.rud.set('mouse',e.button===2?1:-1);applyInput()}});
+  vw.addEventListener('pointermove',e=>{const L=sim&&sim.look;if(!L||L.id!==e.pointerId)return;
+    const dx=e.clientX-L.x,dy=e.clientY-L.y;L.x=e.clientX;L.y=e.clientY;L.moved+=Math.abs(dx)+Math.abs(dy);
+    if(L.moved>6&&sim.rud.has('mouse')){sim.rud.delete('mouse');applyInput()}   // 動かしたら方向舵はやめて視点を動かす
+    if(sim.h)sim.h.addLook(-dx*0.28,-dy*0.28)});
+  const endLook=e=>{if(sim&&sim.look&&sim.look.id===e.pointerId)sim.look=null;
+    if(e.pointerType==='mouse'&&sim.rud.has('mouse')){sim.rud.delete('mouse');applyInput()}};
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>vw.addEventListener(ev,endLook));
+  vw.addEventListener('dblclick',()=>{if(sim.h)sim.h.resetLook()});
   vw.addEventListener('wheel',e=>{e.preventDefault();sim.wheelDir=e.deltaY<0?1:-1;sim.wheelUntil=performance.now()+220;applyInput();clearTimeout(sim.wheelT);sim.wheelT=setTimeout(()=>{if(sim){sim.wheelDir=0;applyInput()}},230)},{passive:false});
   sim.ku=e=>{if(!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(sim.keys.delete(k))applyInput()};
   window.addEventListener('keydown',sim.kd);window.addEventListener('keyup',sim.ku);
@@ -1167,16 +1186,19 @@ function startSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=15').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=18').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* 編隊とスモーク（色・入り切り）。選んだ内容は端末に覚える */
       const fSel=$('#simForm'),cSel=$('#simColor'),sBtn=$('#simSmoke');
       const form=store.get('simForm','solo'),col=store.get('simColor','white'),on=store.get('simSmoke',false);
-      fSel.innerHTML=Object.entries(mod.FORMATIONS).map(([k,v])=>`<option value="${k}"${k===form?' selected':''}>${v.ja}</option>`).join('');
+      fSel.innerHTML=Object.entries(mod.FORMATIONS).map(([k,v])=>`<option value="${k}"${k===form?' selected':''}>${v.ja}${v.n>1?`（${v.n} 機）`:''}</option>`).join('');
       cSel.innerHTML=Object.entries(mod.SMOKE_COLORS).map(([k,v])=>`<option value="${k}"${k===col?' selected':''}>${v.ja}</option>`).join('');
       const paint=()=>{sBtn.classList.toggle('on',sim.smoke);sBtn.setAttribute('aria-pressed',String(sim.smoke))};
       sim.smoke=!!on;
       sim.h.setFormation(form);sim.h.setSmokeColor(col);sim.h.setSmoke(sim.smoke);paint();
+      const pSel=$('#simProps'),props=store.get('simProps',true);
+      pSel.value=props?'1':'0';sim.h.setProps(props);
+      pSel.addEventListener('change',()=>{const on=pSel.value==='1';store.set('simProps',on);sim.h.setProps(on)});
       fSel.addEventListener('change',()=>{store.set('simForm',fSel.value);sim.h.setFormation(fSel.value)});
       cSel.addEventListener('change',()=>{store.set('simColor',cSel.value);sim.h.setSmokeColor(cSel.value)});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};

@@ -12,14 +12,23 @@ export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
 
-/* 編隊。offs は先頭機（操作する機体）から見た 2〜6 番機の位置 [右, 前後, 上]（m）。
-   前後が負なら後ろ。同じ左右の位置に後続がいる機体はスモークを出さない（後ろの機体が煙の中を飛ぶため） */
+/* 編隊。ブルーインパルスの隊形にならう（名前と並びの出典: wporep.com のブルーインパルス編隊飛行の一覧）。
+   offs は先頭機（操作する機体）から見た 2 番機以降の位置 [右, 前後, 上]（m）。前後が負なら後ろ。
+   要素の数が機数 −1。少ない隊形では余った機体を隠す。
+   同じ左右の位置に後続がいる機体はスモークを出さない（後ろの機体が煙の中を飛ぶため） */
 export const FORMATIONS = {
-  solo:  { ja: '単機', offs: [] },
-  delta: { ja: '三角形', offs: [[-14, -14, 0], [14, -14, 0], [-28, -28, 0], [28, -28, 0], [0, -34, 0]] },
-  inv:   { ja: '逆三角形', offs: [[-28, -10, 0], [28, -10, 0], [-14, -22, 0], [14, -22, 0], [0, -34, 0]] },
-  box:   { ja: '四角形', offs: [[-16, -12, 0], [16, -12, 0], [-16, -30, 0], [16, -30, 0], [0, -42, 0]] },
-  line:  { ja: '一列縦隊', offs: [[0, -14, -4], [0, -28, -8], [0, -42, -12], [0, -56, -16], [0, -70, -20]] }
+  solo:    { ja: '単機', n: 1, offs: [] },
+  delta:   { ja: 'デルタ', n: 6, offs: [[-14, -14, 0], [14, -14, 0], [-28, -28, 0], [28, -28, 0], [0, -34, 0]] },
+  pyramid: { ja: 'ピラミッド', n: 6, offs: [[-13, -12, -7], [13, -12, -7], [-26, -24, -14], [0, -24, -14], [26, -24, -14]] },
+  phoenix: { ja: 'フェニックス', n: 6, offs: [[-16, -10, 0], [16, -10, 0], [0, -36, 0], [-30, -22, 0], [30, -22, 0]] },
+  cross:   { ja: 'グランドクロス', n: 6, offs: [[-24, -16, 0], [24, -16, 0], [0, -16, 14], [0, -16, -14], [0, -32, 0]] },
+  dline:   { ja: 'ダブルライン', n: 6, offs: [[16, 0, 0], [0, -16, 0], [16, -16, 0], [0, -32, 0], [16, -32, 0]] },
+  leaders: { ja: 'リーダーズ・ベネフィット', n: 6, offs: [[-36, -20, 0], [-18, -20, 0], [0, -20, 0], [18, -20, 0], [36, -20, 0]] },
+  umbrella:{ ja: '傘型', n: 5, offs: [[-11, -8, -3], [11, -8, -3], [-22, -16, -9], [22, -16, -9]] },
+  cassiop: { ja: 'カシオペア', n: 5, offs: [[-28, -16, 0], [-14, -16, -12], [14, -16, -12], [28, -16, 0]] },
+  diamond: { ja: 'ダイヤモンド', n: 4, offs: [[-16, -16, 0], [16, -16, 0], [0, -32, 0]] },
+  arrow:   { ja: 'アローヘッド', n: 4, offs: [[0, -12, 0], [-20, -24, 0], [20, -24, 0]] },
+  finger:  { ja: 'フィンガーチップ', n: 4, offs: [[14, -12, 0], [-14, -12, 0], [28, -24, 0]] }
 };
 /* スモークの色。1 色なら全機同じ、6 色なら 1〜6 番機に順に割り当てる */
 export const SMOKE_COLORS = {
@@ -31,8 +40,8 @@ export const SMOKE_COLORS = {
   rainbow:{ ja: 'カラフル', c: ['#ffffff', '#ff7fb6', '#6ee7a0', '#ffd84d', '#6ec1ff', '#c79bff'] }
 };
 export const SMOKE_LIFE = 29;                    // 煙が消えるまで（秒）。宙返り 2 周ぶん（25°/s で 1 周 14.4 秒）
-const SMOKE_MAX = 620;                           // 1 機あたりの粒の数（0.05 秒ごとに 1 つ）
-const SMOKE_DT = 0.05;
+const SMOKE_MAX = 780;                           // 1 機あたりの粒の数（0.04 秒ごとに 1 つ）
+const SMOKE_DT = 0.04;
 
 /* CSS 変数（昼／夜の配色）を色として読む。最初に見つかった変数を使う */
 function cssColor(names, fallback) {
@@ -113,12 +122,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
     world.add(w); walls.push(w);
   });
 
+  /* 地上の目印（山・民家・木・塔）。まとめて消せるように 1 つの入れ物に入れる（設定で切り替え） */
+  const props = new THREE.Group(); world.add(props);
   /* 山: 見え方を学ぶのが目的なので、空間の中の近くに置く。出題の絵と同じく、開始位置の正面やや左に雪山、やや右に塔。
      さらに空間の中に中くらいの山を散らし、壁の外にも遠景の環を置く */
   const mtnMat = new THREE.MeshLambertMaterial({ color: col.mtn }), snowMat = new THREE.MeshLambertMaterial({ color: col.snow });
   const mountain = (x, y, hgt, rad, snow) => {
-    const m = new THREE.Mesh(new THREE.ConeGeometry(rad, hgt, 8), mtnMat); m.rotation.x = Math.PI / 2; m.position.set(x, y, hgt / 2); world.add(m);
-    if (snow) { const s = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.28, hgt * 0.28, 8), snowMat); s.rotation.x = Math.PI / 2; s.position.set(x, y, hgt - hgt * 0.14); world.add(s); }
+    const m = new THREE.Mesh(new THREE.ConeGeometry(rad, hgt, 8), mtnMat); m.rotation.x = Math.PI / 2; m.position.set(x, y, hgt / 2); props.add(m);
+    if (snow) { const s = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.28, hgt * 0.28, 8), snowMat); s.rotation.x = Math.PI / 2; s.position.set(x, y, hgt - hgt * 0.14); props.add(s); }
   };
   mountain(-260, 320, 420, 260, true);                     // 正面左の雪山（開始位置から約 800 m）
   mountain(-520, 700, 300, 220, false); mountain(120, 900, 340, 240, true); mountain(560, 520, 260, 200, false);
@@ -143,7 +154,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     m4.compose(v3.set(x, y, h / 2), q, s3.set(w, d, h)); houses.setMatrixAt(i, m4); houses.setColorAt(i, c3.setHex(wallCols[i % wallCols.length]));
     m4.compose(v3.set(x, y, h + 1.6), q, s3.set(w * 0.62, d * 0.62, 3.2)); roofs.setMatrixAt(i, m4); roofs.setColorAt(i, c3.setHex(roofCols[(i * 7) % roofCols.length]));
   }
-  world.add(houses, roofs);
+  props.add(houses, roofs);
   const NT = 320, treeGeo = new THREE.ConeGeometry(1, 1, 6); treeGeo.rotateX(Math.PI / 2);
   const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshLambertMaterial(), NT), trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 5).rotateX(Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x5a4030 }), NT);
   const treeCols = [0x3f7a3a, 0x4f8a44, 0x2f6b3c, 0x5d8f3f];
@@ -153,11 +164,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
     m4.compose(v3.set(x, y, 2 + h / 2), q, s3.set(r, r, h)); trees.setMatrixAt(i, m4); trees.setColorAt(i, c3.setHex(treeCols[i % treeCols.length]));
     m4.compose(v3.set(x, y, 1), q, s3.set(1.4, 1.4, 2.2)); trunks.setMatrixAt(i, m4);
   }
-  world.add(trees, trunks);
+  props.add(trees, trunks);
   for (let i = 0; i < 6; i++) {   // 塔（先端は赤）。最初の 1 本は正面右の目印
     const [x, y] = i === 0 ? [230, 260] : pick(), h = i === 0 ? 120 : 60 + rnd() * 70;
-    const t = new THREE.Mesh(new THREE.BoxGeometry(4, 4, h), new THREE.MeshLambertMaterial({ color: 0x8a949e })); t.position.set(x, y, h / 2); world.add(t);
-    const tip = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 6), new THREE.MeshBasicMaterial({ color: 0xff5a4a })); tip.position.set(x, y, h + 3); world.add(tip);
+    const t = new THREE.Mesh(new THREE.BoxGeometry(4, 4, h), new THREE.MeshLambertMaterial({ color: 0x8a949e })); t.position.set(x, y, h / 2); props.add(t);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 6), new THREE.MeshBasicMaterial({ color: 0xff5a4a })); tip.position.set(x, y, h + 3); props.add(tip);
   }
 
   /* 機体（三人称のときだけ表示）と、高度の手がかり（地面の影と垂線） */
@@ -214,11 +225,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
       varying vec3 vC; varying float vA;
       void main(){ float age = (uTime - birth) / uLife; vA = clamp(1.0 - age, 0.0, 1.0); vA *= vA;
         vC = acolor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = (2.5 + 15.0 * clamp(age, 0.0, 1.0)) * (240.0 / max(1.0, -mv.z));
+        gl_PointSize = (5.0 + 55.0 * pow(clamp(age, 0.0, 1.0), 0.6)) * (240.0 / max(1.0, -mv.z));
         gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `varying vec3 vC; varying float vA;
       void main(){ float d = length(gl_PointCoord - vec2(0.5)); if (d > 0.5) discard;
-        float a = vA * smoothstep(0.5, 0.1, d) * 0.42; if (a <= 0.01) discard;
+        float a = vA * smoothstep(0.5, 0.06, d) * 0.5; if (a <= 0.01) discard;
         gl_FragColor = vec4(vC, a); }`
   });
   const smoke = new THREE.Points(smokeGeo, smokeMat); smoke.frustumCulled = false; world.add(smoke);
@@ -234,7 +245,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* 同じ左右の位置に後続がいる機体は煙を出さない（後ろの機体が煙の中を飛ぶため）。単機なら先頭機が出す */
   function smokers() {
     const offs = [[0, 0, 0], ...FORMATIONS[formation].offs];
-    return offs.map((o, i) => !offs.some((q, j) => j !== i && Math.abs(q[0] - o[0]) < 6 && q[1] < o[1] - 2));
+    return offs.map((o, i) => !!o && !offs.some((q, j) => q && j !== i && Math.abs(q[0] - o[0]) < 6 && q[1] < o[1] - 2));
   }
 
   new GLTFLoader().load('model/t4.glb', g => {
@@ -274,6 +285,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
   readAttitude();
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
   let curView = view;
+  /* 見回し（ドラッグ量）。一人称は首の向き、三人称は機体のまわりの位置。視点を変えると中央に戻す */
+  const look = { y: 0, p: 0 };
+  const LOOK_MAX_P = 75 * D;
   const cam = new THREE.PerspectiveCamera(70, 1, 0.08, 9000);
   const camPos = new THREE.Vector3(), tmp = new THREE.Vector3(), R = new THREE.Matrix4(), Rh = new THREE.Matrix4(), RX90 = new THREE.Matrix4().makeRotationX(Math.PI / 2), TILT = new THREE.Matrix4().makeRotationX(-16 * D), qc = new THREE.Quaternion();
   function rotation() { return R.makeRotationFromQuaternion(att); }
@@ -340,14 +354,17 @@ export function mount(container, { onState, view = 'first' } = {}) {
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
     if (curView === 'third' || curView === 'front') {
-      /* 三人称は機体の後ろ上（前方視点は機首の前）から。宙返りでも見失わないよう、機体の姿勢に沿って取る */
+      /* 三人称は機体の後ろ上（前方視点は機首の前）から。ドラッグで機体のまわりを回れる */
       const back = curView === 'front' ? 36 : -32, up = curView === 'front' ? 5 : 10;
-      tmp.set(0, back, up).applyQuaternion(att).add(plane.position);
-      if (camPos.lengthSq() === 0) camPos.copy(tmp); else camPos.lerp(tmp, 0.12);
+      tmp.set(0, back, up);
+      tmp.applyAxisAngle(AX, look.p).applyAxisAngle(AZ, -look.y).applyQuaternion(att).add(plane.position);
+      if (camPos.lengthSq() === 0) camPos.copy(tmp); else camPos.lerp(tmp, 0.18);
       cam.position.copy(camPos); cam.up.copy(bup); cam.lookAt(plane.position);
     } else {
       cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(R).add(plane.position));
-      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(R, RX90).multiply(TILT));   // 一人称は少し下向き（計器盤と操縦桿が視界に入る）
+      /* 一人称は少し下向き（計器盤と操縦桿が視界に入る）。そこからドラッグで首を振る */
+      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(R, RX90).multiply(TILT));
+      cam.quaternion.multiply(qc.setFromAxisAngle(AY, look.y)).multiply(qc.setFromAxisAngle(AX, look.p));
     }
     sky.position.copy(cam.position);
   }
@@ -365,7 +382,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   /* 一人称はカメラの手前の面を 1.1 で切る（目のすぐ前にある機体内部の部品が画面を塞ぐのを防ぐ）。三人称は 0.5 */
   function setView(v) {
-    curView = v; const out = v !== 'first';
+    curView = v; look.y = 0; look.p = 0; const out = v !== 'first';
     seatMeshes.forEach(m => { m.visible = out; });
     cockpit.visible = !out;
     cam.fov = out ? 55 : 68; cam.near = out ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0);
@@ -374,6 +391,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   return {
     input, state: st, setView,
+    /* 画面のドラッグで視点を動かす（度）。一人称は首、三人称は機体のまわり */
+    addLook(dy, dp) { look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+      look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },
+    resetLook() { look.y = 0; look.p = 0; },
+    setProps(on) { props.visible = !!on; },   // 地上の目印（山・民家・木・塔）の出し入れ
     setFormation(f) { if (FORMATIONS[f]) { formation = f; clearSmoke(); } },
     setSmoke(on) { smokeOn = !!on; },
     smokeState() { return smokeOn; },

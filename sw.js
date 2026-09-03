@@ -1,6 +1,11 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v03.36';
-const ASSETS = ['./', './index.html', './engine.js?v=38', './viewer.js?v=4', './feedback.js?v=1', './sim3d.js?v=48', './manifest.webmanifest', './privacy.html', './news.json',
+const CACHE = 'aat-v03.37';
+/* 大きくて変わらないもの（3D モデル）は、版を上げても消さない入れ物に置く。
+   ここを消してしまうと、更新のたびに 5.6 MB を取り直すことになり、オフラインで 3D が動かなくなる */
+const BIG = 'aat-big-v1';
+const BIG_RE = /\/model\/|\.glb($|\?)/;
+const ASSETS = ['./', './index.html', './engine.js?v=38', './viewer.js?v=5', './feedback.js?v=1', './sim3d.js?v=49',
+  './vendor/three/three.module.js', './vendor/three/addons/loaders/GLTFLoader.js', './vendor/three/addons/controls/OrbitControls.js', './vendor/three/addons/utils/BufferGeometryUtils.js', './manifest.webmanifest', './privacy.html', './news.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp', './img/hero.webp',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),
   /* バンク付き（真上・真下を除く 12 方向 × 左右 × 30/60） */
@@ -15,7 +20,7 @@ self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== BIG).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
@@ -25,11 +30,12 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(e.request).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; }).catch(() => caches.match(e.request)));
     return;
   }
+  const box = sameOrigin && BIG_RE.test(url.pathname) ? BIG : CACHE;   // 3D モデルは消さない入れ物へ
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      /* 同一オリジン（3D モデル含む）、Google Fonts、three.js の CDN は取得後にキャッシュしてオフラインでも使えるようにする */
-      if (res.ok && (sameOrigin || e.request.url.startsWith('https://fonts.') || e.request.url.startsWith('https://cdn.jsdelivr.net/'))) {
-        const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy));
+      /* 同一オリジン（3D モデル含む）と Google Fonts は、取得したらしまっておく（オフラインでも使える） */
+      if (res.ok && (sameOrigin || e.request.url.startsWith('https://fonts.'))) {
+        const copy = res.clone(); caches.open(box).then(c => c.put(e.request, copy));
       }
       return res;
     }).catch(() => e.request.mode === 'navigate' ? caches.match('./index.html') : undefined))

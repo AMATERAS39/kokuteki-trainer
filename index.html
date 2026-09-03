@@ -13,7 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
 <title>TENRYU</title>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<!-- three.js はこのアプリの中に置く（外の CDN だと、更新のたびに取り直しになり オフラインで 3D が動かない） -->
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
 <style>
 /* ===== デザイントークン（Claude Design 納品 §6）ダークファースト ===== */
 :root{
@@ -173,6 +174,7 @@ svg text{user-select:none}
 .sim .view.fp .cross{display:block}   /* 照準は一人称のときだけ */
 .sim .view.fp .cross{top:29%}   /* 一人称は視線を 16° 下げているので、水平時の水平線の位置に合わせる */
 .sim .inst svg{height:100%;width:100%;display:block}
+.sim .pausemsg{position:absolute;left:50%;top:.5rem;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:6}
 .sim .showname{position:absolute;left:50%;bottom:2.6rem;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:.75rem;font-weight:700;padding:.2rem .7rem;border-radius:.375rem;white-space:nowrap;z-index:3}
 .sim .wallmsg{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:rgba(200,60,60,.85);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:2}
 .sim .vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:var(--muted);background:var(--panel2);z-index:3}
@@ -300,6 +302,18 @@ svg text{user-select:none}
 .gallery h4{margin:1rem 0 .5rem;font-size:.9375rem}
 .gallery .frames{max-width:26rem;margin:0 auto}
 .gallery .gexp{margin:.75rem 0 0;padding-left:1.2em;font-size:.8125rem;line-height:1.6;color:var(--muted)}
+.gallery .gp5{grid-template-columns:repeat(5,1fr)}
+.gallery .gp5 .ab{font-size:.75rem;padding:.125rem;white-space:nowrap}
+@media (max-width:30rem){.gallery .gp5 .ab{font-size:.6875rem;letter-spacing:-.02em}}
+/* 動きで見る: 3 枚の下。下にスクロールすると出てくる */
+.gallery .gsim{margin-top:1.25rem;padding-top:.875rem;border-top:1px solid var(--line)}
+.gallery .gsimh{margin:0}
+.gallery .gsimbar{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem}
+.gallery .gsimbar .btn{height:2.75rem;font-size:.875rem}
+.gallery .gmove{margin-top:.5rem}
+.gallery .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%}
+.gallery .gtp{margin-top:0}
+.gallery .gstep{text-align:center;margin-top:.375rem;font-variant-numeric:tabular-nums}
 .gallery .gexp b{color:var(--text)}
 .gallery .gsel.off{opacity:.35;pointer-events:none}
 /* 見え方画面は 1 画面に収める: 記録チップを隠し、フレームは画面の高さから逆算 */
@@ -319,12 +333,23 @@ body[data-phase="gallery"] .card{padding:.75rem 1rem}
 .gallery .frames{gap:.3rem;margin-top:.375rem;max-width:none}
 .gallery .frame{grid-template-columns:1.25rem 1fr;gap:.3rem}
 .gallery .frame .n{font-size:.8125rem}
-.gallery .frame .v{height:calc((100vh - 31.5rem)/3);height:calc((100dvh - 31.5rem)/3);min-height:3.25rem;max-height:11rem;display:flex;justify-content:center;border:0;background:transparent}
+.gallery .frame .v{height:calc((100vh - 30rem)/3);height:calc((100dvh - 30rem)/3);min-height:3.25rem;max-height:11rem;display:flex;justify-content:center;border:0;background:transparent}
 .gallery .frame .v svg{height:100%;width:auto;max-width:100%;border-radius:.5rem;border:1px solid var(--line)}
 .gallery .glegend{text-align:center;margin-top:.25rem}
+.gallery .gfp svg{max-height:52vh;max-height:52dvh;min-height:7rem;width:auto;margin:0 auto}
+.gallery .gtp{aspect-ratio:auto;height:52vh;height:52dvh;min-height:7rem}
+.gallery .gsim{margin-top:.875rem;padding-top:.625rem}
+.gallery .gsimbar .btn{height:2.25rem;font-size:.8125rem}
 .gallery .acts{margin-top:.5rem}
 .gallery .acts .btn{height:2.5rem;font-size:.8125rem}
 .gallery .acts{margin-top:1rem}
+/* スマホでは訓練画面を「1 画面の縦 flex」にしているが、見え方は 3 枚の下に「動きで見る」が続くので、
+   ここだけ普通に縦へ伸ばしてスクロールさせる（伸ばさないと、下の中身が枠からはみ出す） */
+@media (max-width:63.99rem){
+  body[data-view="train"][data-phase="gallery"]{height:auto;display:block}
+  body[data-view="train"][data-phase="gallery"] .app,body[data-view="train"][data-phase="gallery"] #view-train,
+  body[data-view="train"][data-phase="gallery"] .layout,body[data-view="train"][data-phase="gallery"] .layout>.card{flex:none;display:block;min-height:0;height:auto}
+}
 
 /* ===== レイアウト ===== */
 .layout{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:.75rem}
@@ -699,6 +724,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-sky" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></symbol>
 <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" style="stroke-width:3"/><circle cx="12" cy="12" r="2.5"/><path d="M12 6v3.5M12 14.5V18M6 12h3.5M14.5 12H18"/></symbol>
 <symbol id="i-light" viewBox="0 0 24 24"><circle cx="9" cy="12" r="4"/><path d="M13 9l8-3M13 12h8M13 15l8 3"/></symbol>
+<symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5h3.5L8 6h8l1.5 2.5H21v11H3z"/><circle cx="12" cy="13.5" r="3.6"/></symbol>
 <symbol id="i-smoke" viewBox="0 0 24 24"><path d="M4 17c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/><path d="M4 11c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="m12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81zM12 3L2 12h3v8h6v-6h2v6h6v-8h3"/></symbol>
@@ -906,7 +932,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.36';
+const APP_VER='v03.37';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -943,7 +969,8 @@ function applyScene(){
 const ckCompact=svg=>svg.replace('viewBox="0 0 360 240"','viewBox="0 0 360 188"').replace('aspect-ratio:360/240','aspect-ratio:360/188');
 
 /* ===== 画面内の領域の切り替え ===== */
-function showPane(name){['chooser','setup','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name});if(name!=='quiz')$('#feedback').className='fb'}
+function showPane(name){['chooser','setup','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name});if(name!=='quiz')$('#feedback').className='fb';
+  if(name!=='gallery'&&typeof galDispose==='function')galDispose()}
 function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
 
 /* ===== 出題 ===== */
@@ -1175,7 +1202,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=48').then(mod=>{
+  import('./sim3d.js?v=49').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1201,6 +1228,7 @@ function runSim(opt){applyScene();
       <svg class="cross" viewBox="0 0 140 40" aria-hidden="true"><g stroke="var(--hud,#8ce99a)" stroke-width="2" fill="none"><line x1="70" y1="10" x2="70" y2="30"/><line x1="60" y1="20" x2="80" y2="20"/><path d="M8,20 h32 v8 M132,20 h-32 v8"/></g></svg>
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="showname" id="showName" hidden></div>
+      <div class="pausemsg" id="pauseMsg" hidden>一時停止中（画面を 2 回叩くと再開）</div>
       <div class="trickdesc" id="trickDesc" hidden></div>
       <button class="btn takeoff" id="simTakeoff" hidden>加速して離陸</button>
       <button class="zoomlbl" id="zoomLbl" hidden>×1.0</button>
@@ -1209,6 +1237,7 @@ function runSim(opt){applyScene();
     <div class="simbar">
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simSmoke" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
+      <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"><b>1</b></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
@@ -1280,7 +1309,10 @@ function runSim(opt){applyScene();
     if(sim.look&&sim.look.id===e.pointerId)sim.look=null;
     if(e.pointerType==='mouse'&&sim.rud.has('mouse')){sim.rud.delete('mouse');applyInput()}};
   ['pointerup','pointercancel','pointerleave'].forEach(ev=>vw.addEventListener(ev,endLook));
-  const tapAt=e=>{if(!sim||!sim.h)return;const rc=vw.getBoundingClientRect();
+  const tapAt=e=>{if(!sim||!sim.h)return;
+    /* 演目の最中は 2 回叩くと一時停止（もう一度で再開）。止めていても見回し・拡大・視点の切り替えはできる */
+    if(sim.h.showing()){const p=sim.h.togglePause();const m=$('#pauseMsg');if(m)m.hidden=!p;toast(p?'一時停止しました':'再開しました');return}
+    const rc=vw.getBoundingClientRect();
     const nx=((e.clientX-rc.left)/rc.width)*2-1,ny=-(((e.clientY-rc.top)/rc.height)*2-1);
     if(sim.viewName==='ground'){if(!sim.h.groundMoveTo(nx,ny))toast('その場所には立てません')}
     else sim.h.resetLook()};
@@ -1334,12 +1366,16 @@ function runSim(opt){applyScene();
     const tk=$('#simTakeoff');
     if(tk){const show=s.mode==='stand';if(tk.hidden===show)tk.hidden=!show}
     if(s.mode&&s.mode!=='fly'&&!sim.h.autoState()){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
+    /* 一時停止の表示。演目が終わったら止めるのをやめる */
+    if(sim.h){const pz=sim.h.pausedState();
+      if(pz&&!sim.h.showing())sim.h.setPaused(false);
+      const m=$('#pauseMsg');if(m&&m.hidden===sim.h.pausedState())m.hidden=!sim.h.pausedState()}
     /* 技の初期設定で入った装備を、ボタンの見た目に映す */
     if(sim.h&&sim.paintGL)sim.paintGL();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=48').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=49').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1389,6 +1425,16 @@ function runSim(opt){applyScene();
         runSim(keep);
       });
       $('#simTakeoff').addEventListener('click',()=>{if(sim.h.throttle())toast('加速します')});
+      /* 写真: 3D の景色だけを絵にして保存する（操作ボタンや計器は 3D の外にあるので写らない） */
+      $('#simShot').addEventListener('click',()=>{
+        try{
+          const url=sim.h.snapshot();
+          const d=new Date(),z=n=>String(n).padStart(2,'0');
+          const name=`TENRYU-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`;
+          const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+          toast('写真を保存しました');
+        }catch(e){toast('写真を保存できませんでした')}
+      });
       gBtn.addEventListener('click',()=>{const on=!sim.h.gearState();sim.h.setGear(on);paintGL();toast(on?'タイヤを出しました':'タイヤをしまいました')});
       lBtn.addEventListener('click',()=>{const on=!sim.h.lightState();sim.h.setLights(on);paintGL();toast(on?'ライトを点けました':'ライトを消しました')});
       paintGL();
@@ -1419,7 +1465,7 @@ function runSim(opt){applyScene();
           runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
             gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState()});return}
         sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
-        if(on){toast('自動操縦。2 回叩くとその場所に立てます');const g=$('#sim').querySelector('[data-view="ground"]');if(g&&!g.classList.contains('sel'))g.click()}
+        if(on){toast('自動操縦。2 回叩くと一時停止（立ち位置はスティックで動かせます）');const g=$('#sim').querySelector('[data-view="ground"]');if(g&&!g.classList.contains('sel'))g.click()}
         else toast('自動操縦を止めました')});
       paintAuto();
       if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
@@ -1439,6 +1485,7 @@ function runSim(opt){applyScene();
             gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState(),trick:idx,trickName:nm});
           return;
         }
+        sim.h.setPaused(false);
         if(sim.h.runManeuver(idx)){toast(nm);showLabel(nm)}else toast('飛んでいるときに使えます')}));
       tBtn.addEventListener('click',e=>{e.stopPropagation();tMenu.hidden=!tMenu.hidden;fMenu.hidden=true});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
@@ -1449,45 +1496,126 @@ function runSim(opt){applyScene();
 }
 function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('keydown',sim.kd);window.removeEventListener('keyup',sim.ku);sim=null}}
 
-/* ===== 操縦操作: 操作パターンの見え方（操作を選んで①→②→③を縦に表示。複数選択で複合パターン） ===== */
-const gal={sel:[],seq:false,first:'stick'};   // sel: 選択中の操作 id、seq: true=順番に行う / false=同時に行う、first: 順番に行うとき先に行う側
+/* ===== 操縦操作: 操作パターンの見え方（操作を選ぶと①→②③を縦に表示。操縦桿と方向舵は同時に選べる）
+   3 枚の下に「動きで見る」を置く。その操作をしたときの見え方を、一人称（風防ごしの景色）と
+   三人称（外から見た機体）で動かして見せる。操作はできない（見え方を確かめるだけ） ===== */
+const gal={sel:[],init:'level',view:'first',play:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点
+/* 初期状態（①の姿勢）。出題の「初期状態: ランダム」と同じ幅にそろえる */
+const GAL_INIT={level:{ja:'水平飛行',b:'水平',s:{bank:0,pitch:0,yaw:0}},rbank:{ja:'右バンク',b:'右バンク',s:{bank:30,pitch:0,yaw:0}},lbank:{ja:'左バンク',b:'左バンク',s:{bank:-30,pitch:0,yaw:0}},
+  up:{ja:'機首上げ',b:'機首上げ',s:{bank:0,pitch:10,yaw:0}},down:{ja:'機首下げ',b:'機首下げ',s:{bank:0,pitch:-10,yaw:0}}};
 function showGallery(){applyScene();
   setPhase('gallery','見え方');showPane('gallery');
-  /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。操縦桿＋方向舵の組み合わせだけが複合パターン */
+  /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、水平飛行①からの②③を表示します。操縦桿と方向舵を両方選ぶと複合パターンになります。</div>
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、①からの②③を表示します。操縦桿と方向舵を両方選ぶと、同時に行ったときの見え方になります。</div>
+    <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab" data-init="${k}">${v.b}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2)}
-    <div class="gsel" id="gseqRow"><div class="gl">複数操作</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">順番に行う</button></div></div>
-    <div class="gsel" id="gorderRow"><div class="gl">順番</div><div class="gp"><button class="ab" data-first="stick">操縦桿 → 方向舵</button><button class="ab" data-first="rudder">方向舵 → 操縦桿</button></div></div>
     <div id="gout"></div>
+    <div class="gsim">
+      <h4 class="gsimh">動きで見る</h4>
+      <div class="sub">同じ操作を動かして確かめます（ここでは操縦できません）。</div>
+      <div class="gsimbar">
+        <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
+        <div class="gp" style="grid-template-columns:1fr 1fr"><button class="btn" id="gPlay">スタート</button><button class="btn ghost" id="gStop">ストップ</button></div>
+      </div>
+      <div class="gmove" id="gmove"></div>
+      <div class="sub gstep" id="gstep">スタートを押すと、①→②→③の見え方が動きで分かります</div>
+    </div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
     const id=b.dataset.op,grp=b.dataset.grp;
     if(gal.sel.includes(id))gal.sel=gal.sel.filter(x=>x!==id);else{gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group!==grp);gal.sel.push(id)}
     galDraw()}));
-  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw()}));
-  $('#gallery').querySelectorAll('[data-first]').forEach(b=>b.addEventListener('click',()=>{gal.first=b.dataset.first;galDraw()}));
+  $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.addEventListener('click',()=>{gal.init=b.dataset.init;galDraw()}));
+  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{if(gal.view===b.dataset.gv)return;gal.view=b.dataset.gv;galMove()}));
+  $('#gPlay').addEventListener('click',galPlay);
+  $('#gStop').addEventListener('click',galStop);
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
-  galDraw();window.scrollTo({top:0});
+  galDraw();galMove();window.scrollTo({top:0});
+}
+/* いまの選択から ①②③ の姿勢と見出しを作る（複数操作は同時に行う） */
+function galFrames(){
+  const lv=Object.assign({},GAL_INIT[gal.init].s);
+  if(!gal.sel.length)return {f:[lv,lv,lv],text:'操作なし'};
+  const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);
+  const f=[lv,step(lv)];f.push(step(f[1]));
+  return {f,text:gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')};
 }
 function galDraw(){
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
-  $('#gseqRow').classList.toggle('off',gal.sel.length<2);
-  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
-  $('#gorderRow').classList.toggle('off',!(gal.seq&&gal.sel.length>=2));
-  $('#gallery').querySelectorAll('[data-first]').forEach(b=>b.classList.toggle('sel',b.dataset.first===gal.first));
-  const out=$('#gout');
-  const lv={bank:0,pitch:0,yaw:0};let f,text;
-  /* 順番に行う: 選んだ「順番」に従い、①→②で 1 つ目、②→③で 2 つ目 */
-  const ordered=gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group===gal.first?0:1)-(E.OP_BY_ID[b].group===gal.first?0:1));
-  if(!gal.sel.length){f=[lv,lv,lv];text='操作なし（水平飛行）'}
-  else if(gal.seq&&gal.sel.length>=2){f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));text=E.opsText(ordered)}
-  else{const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);f=[lv,step(lv)];f.push(step(f[1]));text=gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')}
-  const desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと 3 枚が入れ替わります';
-  out.innerHTML=`<h4>${text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4><div class="sub gdesc">${desc}</div>
+  $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.classList.toggle('sel',b.dataset.init===gal.init));
+  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
+  const fr=galFrames(),f=fr.f;
+  const initTx=gal.init==='level'?'':GAL_INIT[gal.init].ja+'から　';
+  const desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと入れ替わります';
+  $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?'（同時に）':''}</h4><div class="sub gdesc">${desc}</div>
     <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true))}</div></div>`).join('')}</div>
     <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;
+  galApply(gal.play?null:0);
 }
+/* 動きで見るところを作り直す（視点を切り替えたとき） */
+function galMove(){
+  const box=$('#gmove');if(!box)return;
+  const wasPlaying=gal.play;galStop();
+  const f=galFrames().f;
+  if(galViewer){galViewer.dispose();galViewer=null}
+  box.innerHTML=gal.view==='first'
+    ?`<div class="gfp">${E.svgCockpit(f[0].bank,f[0].pitch,f[0].yaw,0,false)}</div>`
+    :`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">3D モデルを読み込み中…</div></div>`;
+  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
+  if(gal.view==='third')galMountViewer();
+  galApply(0);
+  if(wasPlaying)galPlay();
+}
+/* 三人称の 3D。見え方の画面を離れるまで持っておく（作り直すと読み込みが長いため） */
+let galViewer=null,galViewerLoading=false,galRaf=0,galT0=0;
+function galMountViewer(){
+  const host=$('#gviewer');if(!host||galViewerLoading)return;
+  galViewerLoading=true;
+  import('./viewer.js?v=5').then(mod=>mod.mount(host,{onProgress:pr=>{const l=$('#gvload');if(l)l.textContent=`3D モデルを読み込み中… ${Math.round(pr*100)}%`}}))
+    .then(v=>{galViewerLoading=false;
+      if(!document.body.contains(host)){v.dispose();return}   // 画面が変わっていたら捨てる
+      galViewer=v;const l=$('#gvload');if(l)l.remove();galApply(gal.play?null:0);})
+    .catch(()=>{galViewerLoading=false;const l=$('#gvload');if(l)l.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）'});
+}
+function galDispose(){galStop();if(galViewer){galViewer.dispose();galViewer=null}}
+/* 動きの筋書き: ①で少し待つ → ②へ → 少し待つ → ③へ → 待って繰り返す（秒） */
+const GAL_SEQ=[{hold:0.8},{move:2.0},{hold:0.5},{move:2.0},{hold:1.4}];
+const GAL_DUR=GAL_SEQ.reduce((a,s)=>a+(s.hold||s.move),0);
+/* 経過時間 t（秒）の姿勢にする。t が null なら、いまの時刻から求める */
+function galApply(t){
+  if(t===null)t=gal.play?((performance.now()-galT0)/1000)%GAL_DUR:0;
+  const f=galFrames().f;
+  let u=0,seg=0,rest=t,done=false;
+  for(const s of GAL_SEQ){const d=s.hold||s.move;
+    if(rest<=d){const k=rest/d;u=s.move?seg+k*k*(3-2*k):seg;done=true;break}
+    rest-=d;if(s.move)seg++;}
+  if(!done)u=2;
+  const i=Math.min(1,Math.floor(u)),k=u-i;
+  const A=f[i],B=f[Math.min(2,i+1)];
+  const st={bank:A.bank+(B.bank-A.bank)*k,pitch:A.pitch+(B.pitch-A.pitch)*k,yaw:A.yaw+(B.yaw-A.yaw)*k};
+  const prog=Math.min(1,t/GAL_DUR);
+  if(gal.view==='first'){
+    const box=$('#gmove'),sv=box&&box.querySelector('svg');if(!sv)return;
+    const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw');
+    if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
+    if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0) scale(${(1+E.CK.grow*prog).toFixed(3)})`);
+  }else if(galViewer){
+    galViewer.setAttitude(st.yaw,st.pitch,st.bank);   // 方位はヨーのぶんだけ振れる
+  }
+  const se=$('#gstep');
+  if(se)se.textContent=gal.play?`${'①②③'[Math.round(u)]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`
+    :'スタートを押すと、①→②→③の見え方が動きで分かります';
+}
+function galPlay(){
+  gal.play=true;galT0=performance.now();
+  cancelAnimationFrame(galRaf);
+  const step=now=>{if(!gal.play)return;
+    galApply(((now-galT0)/1000)%GAL_DUR);
+    galRaf=requestAnimationFrame(step)};
+  galRaf=requestAnimationFrame(step);
+}
+function galStop(){if(!gal.play&&!galRaf)return;gal.play=false;cancelAnimationFrame(galRaf);galRaf=0;galApply(0)}
 
 /* ===== 記録・設定 ===== */
 function renderStats(){
@@ -1728,7 +1856,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=4');
+    const mod=await import('./viewer.js?v=5');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');
@@ -1815,6 +1943,11 @@ if('serviceWorker' in navigator&&!NATIVE&&/^https?:$/.test(location.protocol)){
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{})});
     setInterval(()=>reg.update().catch(()=>{}),30*60*1000);
   }).catch(()=>{}));
+  /* 3D モデル（5.6 MB）を、手が空いたときに先に取っておく。オフラインでもシミュレーターと 3D ビューアが動く。
+     取ったものは版を上げても消えない入れ物（sw.js の BIG）に入る。通信を節約する設定のときは取らない */
+  const prefetch3D=()=>{const c=navigator.connection;if(c&&(c.saveData||/^(slow-)?2g$/.test(c.effectiveType||'')))return;
+    fetch('./model/t4.glb?v=2',{cache:'force-cache'}).catch(()=>{})};
+  if(window.requestIdleCallback)requestIdleCallback(prefetch3D,{timeout:8000});else setTimeout(prefetch3D,5000);
   /* 新しい版が有効になった: 出題中でなければすぐ読み込み直し、出題中なら赤い点を出して更新ボタンを待つ */
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
     if(!navigator.serviceWorker.controller)return;

@@ -62,18 +62,25 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   const pivot = new THREE.Group(); scene.add(pivot);
   const loader = new GLTFLoader();
   const gltf = await new Promise((res, rej) => loader.load(modelUrl, res, e => { if (onProgress && e.total) onProgress(e.loaded / e.total); }, rej));
-  gltf.scene.traverse(o => { if (o.isMesh) { if (/landing|front_gear/i.test(o.name)) o.visible = false;   // 脚は飛行中の姿なので隠す
+  /* 脚は飛行中の姿なので隠す。脚は材質ごとに分かれた入れ物（Group）なので、名前は親までたどって見る */
+  const underGear = o => { let q = o; while (q) { if (/landing|front_gear/i.test(q.name)) return true; q = q.parent; } return false; };
+  gltf.scene.traverse(o => { if (o.isMesh) { if (underGear(o)) o.visible = false;
     const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
   pivot.add(gltf.scene);
 
-  /* 向きの切り替え（短いアニメーション付き） */
+  /* 向きの切り替え（短いアニメーション付き）。バンク b は機首の軸まわり: R = Rz(−h)·Rx(p)·Ry(b) */
   let qFrom = new THREE.Quaternion(), qTo = new THREE.Quaternion(), t0 = 0, animating = false;
-  function targetQuat(h, p) { return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeRotationZ(-h * D).multiply(new THREE.Matrix4().makeRotationX(p * D))); }
+  function targetQuat(h, p, b = 0) {
+    return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeRotationZ(-h * D)
+      .multiply(new THREE.Matrix4().makeRotationX(p * D)).multiply(new THREE.Matrix4().makeRotationY(b * D)));
+  }
   function setDir(h, p, animate = true) {
     qFrom.copy(pivot.quaternion); qTo = targetQuat(h, p);
     if (!animate) { pivot.quaternion.copy(qTo); return; }
     t0 = performance.now(); animating = true;
   }
+  /* 姿勢をそのまま入れる（動かして見せるとき。毎コマ呼ぶ） */
+  function setAttitude(h, p, b) { animating = false; pivot.quaternion.copy(targetQuat(h, p, b)); }
   function resetCamera() { cam.position.copy(HOME); controls.target.set(0, 0, 0); controls.update(); }
 
   let running = true, raf = 0;
@@ -88,7 +95,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   window.addEventListener('resize', onResize);
 
   return {
-    setDir, resetCamera,
+    setDir, setAttitude, resetCamera,
     pause() { running = false; cancelAnimationFrame(raf); },
     resume() { if (!running) { running = true; raf = requestAnimationFrame(frame); } },
     dispose() { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); controls.dispose(); renderer.dispose(); renderer.domElement.remove(); }

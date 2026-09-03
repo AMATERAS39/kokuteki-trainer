@@ -200,36 +200,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
   let histT = 0;
   let formation = 'solo', smokeOn = false, smokeColor = 'white', formScale = 1;   // formScale: 隊形の広がり（課目で変える）
 
-  /* 垂直尾翼の番号。モデルの「1」の上に貼る小さな板（左右 2 枚） */
-  /* 尾翼の番号は、板を貼るのではなく「機体の絵柄（テクスチャ）の 1 を塗り替える」。
-     板だと機体から浮いて見えるうえ、尾翼の形に沿わない。
-
-     やり方: 尾翼の面の三角形から「機体座標 (前後 y, 上下 z) → 絵柄の座標 (u, v)」の
-     写像を作り、その写像で「1」の場所を機体の青で塗りつぶし、同じ書体で別の数字を描く。
-     絵柄は機ごとに複製する（元の絵柄は 1 番機のまま） */
-  /* 尾翼の青を、機体の絵柄から拾う（番号を塗り替えるときの下地）。白や灰は数えない */
-  function finColor(root) {
-    let img = null;
-    root.traverse(o => { if (!img && o.isMesh && o.material && o.material.map && o.material.map.image) img = o.material.map.image; });
-    if (!img || !img.width) return '#0a6ab4';
-    try {
-      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
-      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
-      const d = g.getImageData(0, 0, c.width, c.height).data, bins = new Map();
-      for (let i = 0; i < d.length; i += 4 * 37) {
-        const r = d[i], gg = d[i + 1], b = d[i + 2];
-        if (d[i + 3] < 200 || b < 80 || b - r < 40) continue;
-        const key = (r >> 3) + ',' + (gg >> 3) + ',' + (b >> 3);
-        const e = bins.get(key) || { n: 0, r: 0, g: 0, b: 0 };
-        e.n++; e.r += r; e.g += gg; e.b += b; bins.set(key, e);
-      }
-      let best = null;
-      bins.forEach(e => { if (!best || e.n > best.n) best = e; });
-      if (!best) return '#0a6ab4';
-      const hex = v => Math.round(v / best.n).toString(16).padStart(2, '0');
-      return '#' + hex(best.r) + hex(best.g) + hex(best.b);
-    } catch (e) { return '#0a6ab4'; }
-  }
+  /* 垂直尾翼の番号。
+     尾翼の「1」は機体とは別の白い部品（let1）で、左右の面にそれぞれ貼られている。
+     編隊機ではその部品を隠し、同じ場所・同じ大きさの板を左右に 1 枚ずつ置いて数字を描く。
+     絵柄（テクスチャ）を塗り替える方法は使えない: 尾翼の左右の面は同じ絵柄を左右反転して使っているので、
+     片側を正しく描くと反対側が鏡文字になる（利用者「左翼側から見た時に反転している」）。 */
   /* 尾翼の箱を機体の頂点から測る。全体の箱も機体の座標に直してから比べ、脚は外す */
   function measureFin(root, frame) {
     const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert();
@@ -250,64 +225,31 @@ export function mount(container, { onState, view = 'first' } = {}) {
     });
     return hit > 20 ? fin : null;
   }
-  let finRect = null, finBlue = '#0a6ab4';           // 尾翼の箱と、機体の青（読み込み時に測る）
-  const NUM_Y = [0.68, 1.02], NUM_Z = [0.13, 0.65];   // 尾翼の箱に対する「1」の範囲（実測）
-  /* 点 (y, z) を含む三角形を、尾翼の指定した側から探して、写像に必要な情報を返す */
-  function finTriAt(root, frame, y, z, side) {
-    const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert();
-    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-    let inside = null, near = null, nearD = 1e9;
-    root.traverse(o => {
-      if (inside || !o.isMesh || !o.geometry || underGear(o)) return;
-      const g = o.geometry, pos = g.attributes.position, uv = g.attributes.uv, idx = g.index;
-      if (!uv) return;
-      o.updateWorldMatrix(true, false);
-      const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
-      const cnt = idx ? idx.count : pos.count;
-      for (let t = 0; t < cnt; t += 3) {
-        const i0 = idx ? idx.getX(t) : t, i1 = idx ? idx.getX(t + 1) : t + 1, i2 = idx ? idx.getX(t + 2) : t + 2;
-        a.fromBufferAttribute(pos, i0).applyMatrix4(m);
-        if (Math.abs(a.x) > 1 || a.z < finRect.min.z - 0.1 || a.z > finRect.max.z + 0.1) continue;
-        b.fromBufferAttribute(pos, i1).applyMatrix4(m);
-        c.fromBufferAttribute(pos, i2).applyMatrix4(m);
-        /* 左右は「面の向き」で分ける（尾翼は薄いので、頂点の位置だけでは分けられない） */
-        const nx = (b.y - a.y) * (c.z - a.z) - (b.z - a.z) * (c.y - a.y);
-        if (nx * side <= 0) continue;
-        const hit = { mesh: o, p: [[a.y, a.z], [b.y, b.z], [c.y, c.z]],
-                      t: [[uv.getX(i0), uv.getY(i0)], [uv.getX(i1), uv.getY(i1)], [uv.getX(i2), uv.getY(i2)]] };
-        /* 点を含むか。含む三角形があればそれを使う */
-        const d1 = (y - b.y) * (a.z - b.z) - (a.y - b.y) * (z - b.z);
-        const d2 = (y - c.y) * (b.z - c.z) - (b.y - c.y) * (z - c.z);
-        const d3 = (y - a.y) * (c.z - a.z) - (c.y - a.y) * (z - a.z);
-        if (!(((d1 < 0) || (d2 < 0) || (d3 < 0)) && ((d1 > 0) || (d2 > 0) || (d3 > 0)))) { inside = hit; return; }
-        /* 含まないときのために、いちばん近い三角形を覚えておく（面が平らなので写像を延ばして使える） */
-        const gy = (a.y + b.y + c.y) / 3, gz = (a.z + b.z + c.z) / 3;
-        const dd = (gy - y) * (gy - y) + (gz - z) * (gz - z);
-        if (dd < nearD) { nearD = dd; near = hit; }
-      }
-    });
-    return inside || (nearD < 4 ? near : null);
-  }
-  /* 機体座標 (y, z) → 絵柄の画素 (px, py) の写像（2×3 の行列）を作る */
-  function uvMap(hit, W, H, flipY) {
-    const [p0, p1, p2] = hit.p, [t0, t1, t2] = hit.t;
-    const e = [[p1[0] - p0[0], p2[0] - p0[0]], [p1[1] - p0[1], p2[1] - p0[1]]];
-    const det = e[0][0] * e[1][1] - e[0][1] * e[1][0];
-    if (Math.abs(det) < 1e-12) return null;
-    const inv = [[e[1][1] / det, -e[0][1] / det], [-e[1][0] / det, e[0][0] / det]];
-    const f = [[t1[0] - t0[0], t2[0] - t0[0]], [t1[1] - t0[1], t2[1] - t0[1]]];
-    const M = [[f[0][0] * inv[0][0] + f[0][1] * inv[1][0], f[0][0] * inv[0][1] + f[0][1] * inv[1][1]],
-               [f[1][0] * inv[0][0] + f[1][1] * inv[1][0], f[1][0] * inv[0][1] + f[1][1] * inv[1][1]]];
-    /* px = W·u。py は絵柄の上下の向きで決まる（glTF は flipY=false なので py = H·v） */
-    const fy = flipY ? -1 : 1, off = flipY ? H : 0;
-    return { a: W * M[0][0], c: W * M[0][1], e: W * (t0[0] - M[0][0] * p0[0] - M[0][1] * p0[1]),
-             b: fy * H * M[1][0], d: fy * H * M[1][1], f: off + fy * H * (t0[1] - M[1][0] * p0[0] - M[1][1] * p0[1]) };
-  }
-  const paintedTex = new Map();      // 「元の絵柄＋番号」→ 塗り替えた絵柄
-  let finTexInfo = null;             // 尾翼に使われている絵柄と、その中の「1」の場所（1 度だけ調べる）
+  let finRect = null;                     // 尾翼の箱（読み込み時に測る）
+  const numTex = new Map();               // 番号 → 数字の絵（全機で使い回す）
+  const NUM_FILL = 0.8;                   // 板の高さに対する数字の高さ
 
-  /* 尾翼に貼られた「1」は、機体とは別の小さな部品（貼り紙）でできている。
-     編隊機ではその部品を隠し、尾翼の絵柄に数字を描く */
+  /* 数字の絵（白・斜体、背景は透明）。数字の高さが板の NUM_FILL 倍になるように合わせる */
+  function numberTex(n) {
+    const key = String(n);
+    if (numTex.has(key)) return numTex.get(key);
+    const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const g2 = cv.getContext('2d');
+    g2.fillStyle = '#ffffff';
+    g2.font = 'italic bold 200px "Zen Kaku Gothic New", system-ui, sans-serif';
+    g2.textAlign = 'center'; g2.textBaseline = 'alphabetic';
+    const m = g2.measureText(key);
+    const asc = m.actualBoundingBoxAscent || 145, desc = m.actualBoundingBoxDescent || 0;
+    const k = S * NUM_FILL / Math.max(asc + desc, 1);
+    g2.setTransform(k, 0, 0, k, S / 2, S / 2 + (asc - desc) / 2 * k);
+    g2.fillText(key, 0, 0);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    numTex.set(key, tex);
+    return tex;
+  }
+
+  /* 尾翼に貼られた番号の部品を探す（尾翼の箱の中にある、数字くらいの大きさのもの） */
   function findDecals(root, frame) {
     if (!finRect) return [];
     const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert(), bx = new THREE.Box3(), out = [];
@@ -319,63 +261,50 @@ export function mount(container, { onState, view = 'first' } = {}) {
       if (bx.min.y < finRect.min.y - 0.05 || bx.max.y > finRect.max.y + 0.05) return;
       if (bx.min.z < finRect.min.z - 0.05 || bx.max.z > finRect.max.z + 0.05) return;
       if (sy > 0.8 || sz > 1.2 || sz < 0.2 || sx > 0.6) return;      // 数字くらいの大きさ
-      out.push({ mesh: o, y0: bx.min.y, y1: bx.max.y, z0: bx.min.z, z1: bx.max.z });
+      out.push(o);
     });
     return out;
   }
 
-  /* 1 機ぶん、尾翼の番号を n にする。貼り紙を隠し、尾翼の絵柄に同じ場所へ数字を描く */
-  function paintFinNumber(root, frame, n) {
-    if (!finRect) return 0;
-    const decals = findDecals(root, frame);
-    decals.forEach(d => { d.mesh.visible = false; });               // 元の「1」を隠す
-    const box = decals.length
-      ? { y0: Math.min(...decals.map(d => d.y0)), y1: Math.max(...decals.map(d => d.y1)),
-          z0: Math.min(...decals.map(d => d.z0)), z1: Math.max(...decals.map(d => d.z1)) }
-      : null;
-    if (!box) return 0;
-    const cy = (box.y0 + box.y1) / 2, cz = (box.z0 + box.z1) / 2;
-    let done = 0;
-    const byTex = new Map();
-    for (const side of [1, -1]) {
-      const hit = finTriAt(root, frame, cy, cz, side);
-      if (!hit || !hit.mesh.material || !hit.mesh.material.map || !hit.mesh.material.map.image) continue;
-      const t = hit.mesh.material.map;
-      if (!byTex.has(t)) byTex.set(t, []);
-      byTex.get(t).push(hit);
-    }
-    byTex.forEach((hits, texOld) => {
-      const img = texOld.image, W = img.width || 1024, H = img.height || 1024;
-      const key = texOld.uuid + '#' + n;
-      let tex = paintedTex.get(key);
-      if (!tex) {
-        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-        const g2 = cv.getContext('2d'); g2.drawImage(img, 0, 0);
-        hits.forEach(hit => {
-          const map = uvMap(hit, W, H, texOld.flipY);
-          if (!map) return;
-          g2.save();
-          g2.setTransform(map.a, map.b, map.c, map.d, map.e, map.f);   // ここから先は機体の座標（m）
-          g2.translate(cy, cz);
-          const h2 = (box.z1 - box.z0) * 1.06;
-          g2.scale(h2, -h2);                                           // 数字の上下を機体に合わせる
-          g2.fillStyle = '#ffffff';
-          g2.font = 'italic bold 1px "Zen Kaku Gothic New", system-ui, sans-serif';
-          g2.textAlign = 'center'; g2.textBaseline = 'middle';
-          g2.fillText(String(n), 0, 0);
-          g2.restore();
-        });
-        tex = new THREE.CanvasTexture(cv);
-        tex.flipY = texOld.flipY; tex.colorSpace = texOld.colorSpace; tex.wrapS = texOld.wrapS; tex.wrapT = texOld.wrapT;
-        paintedTex.set(key, tex);
+  /* 見つけた部品の頂点から、左右それぞれの「1」の箱を測る（1 つの部品に左右両面が入っている） */
+  function decalBoxes(meshes, frame) {
+    const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert(), v = new THREE.Vector3();
+    const out = { 1: new THREE.Box3().makeEmpty(), '-1': new THREE.Box3().makeEmpty() };
+    meshes.forEach(o => {
+      const pos = o.geometry.attributes.position;
+      const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(m);
+        out[v.x >= 0 ? 1 : '-1'].expandByPoint(v);
       }
-      root.traverse(o => {
-        if (!o.isMesh || !o.material || o.material.map !== texOld) return;
-        const m2 = o.material.clone(); m2.map = tex; m2.needsUpdate = true; o.material = m2;
-      });
-      done++;
     });
-    return done;
+    return out;
+  }
+
+  /* 1 機ぶん、尾翼の番号を n にする。元の「1」を隠し、同じ場所に数字の板を左右 1 枚ずつ置く */
+  function setFinNumber(holder, n) {
+    const decals = findDecals(holder, holder);
+    if (!decals.length) return 0;
+    const boxes = decalBoxes(decals, holder);
+    decals.forEach(o => { o.visible = false; });
+    let made = 0;
+    for (const side of [1, -1]) {
+      const b = boxes[side];
+      if (b.isEmpty()) continue;
+      const size = (b.max.z - b.min.z) / NUM_FILL;                    // 板の大きさ（数字の高さは元の「1」と同じ）
+      const cy = (b.min.y + b.max.y) / 2, cz = (b.min.z + b.max.z) / 2;
+      const x = (side > 0 ? b.max.x : b.min.x) + side * 0.006;        // 尾翼の面のすぐ外側
+      const mat = new THREE.MeshStandardMaterial({ map: numberTex(n), transparent: true, alphaTest: 0.25,
+        roughness: 0.85, metalness: 0, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+      m.position.set(x, cy, cz);
+      /* 板の向き: 右の面からは機首（+y）が右に、左の面からは機首が左に見える（鏡文字にならないように） */
+      m.setRotationFromMatrix(new THREE.Matrix4().makeBasis(
+        new THREE.Vector3(0, side, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(side, 0, 0)));
+      holder.add(m);
+      made++;
+    }
+    return made;
   }
 
   /* スモーク: 粒の集まり。位置・色・生まれた時刻を持ち、時間が経つと薄れて広がる。
@@ -537,7 +466,6 @@ export function mount(container, { onState, view = 'first' } = {}) {
     seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
     /* 2〜6 番機はモデルを複製して、尾翼に番号の板を貼る。板の位置は実測した尾翼の箱から決める */
     plane.updateWorldMatrix(true, true);
-    finBlue = finColor(g.scene);
     finRect = measureFin(g.scene, plane);
     for (let n = 2; n <= 6; n++) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
@@ -545,7 +473,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       holder.userData.seats = [];
       holder.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) holder.userData.seats.push(o); });
       holder.updateWorldMatrix(true, true);
-      paintFinNumber(holder, holder, n);                                 // 尾翼の「1」を n に塗り替える
+      setFinNumber(holder, n);                                           // 尾翼の「1」を隠して n の板を置く
       holder.updateWorldMatrix(true, true); addGear(holder, holder.children[0]); applyGear();
       holder.userData.cur = new THREE.Vector3(ENTRY[n - 2][0], ENTRY[n - 2][1], ENTRY[n - 2][2]);   // いまの位置（先頭機から見て）
       holder.userData.want = new THREE.Vector3();
@@ -586,6 +514,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   readAttitude();
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
   let curView = view, seat = 0;   // seat: 0=1 番機、1〜5=2〜6 番機（視点だけ移る）
+  let paused = false;             // 演目の一時停止（画面を 2 回叩く）
   /* 見回し（ドラッグ量）。一人称は首の向き、三人称は機体のまわりの位置。視点を変えると中央に戻す */
   const look = { y: 0, p: 0 };
   const LOOK_MAX_P = 75 * D;
@@ -1018,6 +947,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3(), cq = new THREE.Quaternion(), fwant = new THREE.Vector3();
   const qFlat = new THREE.Quaternion(), qa = new THREE.Quaternion();
   const fwd2 = new THREE.Vector3(), moFlat = new THREE.Vector3();
+  const basePos = new THREE.Vector3(), offNow = new THREE.Vector3();   // 追従機は「1 番機から見たずれ」で置く
   /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
   function startJoin(u) {
     if (!u.from) { u.from = new THREE.Vector3(); u.bow = new THREE.Vector3(); }
@@ -1158,11 +1088,22 @@ export function mount(container, { onState, view = 'first' } = {}) {
     while (hist.length > 2 && hist[0].t < histT - 20) hist.shift();   // 後ろの遠く（合流位置）まで届く長さ
   }
   const exFwd = new THREE.Vector3(), exPos = new THREE.Vector3(), exSt = { p: exPos, q: null };
+  const atSt = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
   /* lag 秒前の 1 番機の状態。記録より前を求められたら、いちばん古い点から後ろへ まっすぐ延ばす。
-     （その場に留めると、機体が空中で止まって待っているように見える） */
+     （その場に留めると、機体が空中で止まって待っているように見える）。
+     記録は 1 コマごとなので、前後 2 点の間を割って返す。いちばん近い点をそのまま返すと、
+     1 コマぶん（60 m/s なら 1 m）位置が飛び、その機体に乗った一人称視点がガタつく */
   function stateAt(lag) {
     const want = histT - lag;
-    for (let i = hist.length - 1; i >= 0; i--) if (hist[i].t <= want) return hist[i];
+    for (let i = hist.length - 1; i >= 0; i--) {
+      if (hist[i].t > want) continue;
+      const b = hist[i + 1];
+      if (!b) return hist[i];
+      const k = clamp((want - hist[i].t) / Math.max(1e-6, b.t - hist[i].t), 0, 1);
+      atSt.p.lerpVectors(hist[i].p, b.p, k);
+      atSt.q.copy(hist[i].q).slerp(b.q, k);
+      return atSt;
+    }
     const h0 = hist[0];
     if (!h0) return { p: plane.position, q: att };
     const extra = h0.t - want;
@@ -1287,15 +1228,21 @@ export function mount(container, { onState, view = 'first' } = {}) {
         mo.lerp(moFlat, far);
         if (far > 0.5) mq.copy(qFlat);        // 遠くの機体は水平に飛んでいるように見せる
       }
+      basePos.copy(mp);                  // 遅らせた 1 番機の位置（ここからのずれで置く）
       mp.add(mo);
       if (retT >= 0 && u.ret) {          // 図の終わりの位置から、隊形の位置へ なめらかに戻す
         const k2 = retT / retDur, e2 = k2 * k2 * (3 - 2 * k2);
         holder.position.lerpVectors(u.ret.p, mp, e2);
         holder.quaternion.copy(u.ret.q).slerp(mq, e2);
       } else if (u.shown) {
-        /* 位置をなます。離れているほど強く。編隊を組んでいるあいだ（近いとき）はほぼそのまま。
-           先頭機の向きの変化が、離れた機体では大きな動きに化けるので、ここで丸める */
-        holder.position.lerp(mp, 1 - Math.exp(-dt / (0.06 + far * 0.8)));
+        /* なますのは「世界の中での位置」ではなく「1 番機から見たずれ」。
+           位置そのものをなますと、編隊ごと 60 m/s で進むぶんまで毎コマ引きずられ、
+           コマの長さのばらつきがそのまま速さのばらつきになる（その機体に乗るとガタつく）。
+           ずれをなませば、進むぶんは遅らせた 1 番機の位置がそのまま持つのでなめらか。
+           離れているほど強くなます（先頭機の向きの変化が、離れた機体では大きな動きに化けるため） */
+        offNow.copy(holder.position).sub(basePos);
+        offNow.lerp(mo, 1 - Math.exp(-dt / (0.06 + far * 0.8)));
+        holder.position.copy(basePos).add(offNow);
         holder.quaternion.copy(mq);
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
       u.shown = true;
@@ -1362,10 +1309,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
      続けて失敗するときは自動操縦を切って水平に戻す */
   function frame(now) {
     if (!running) return;
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    let dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (paused) dt = 0;                       // 一時停止: 時間を進めない（見回しと描き直しは続ける）
     try {
       clock += dt; smokeT += dt;
-      step(dt); place(dt); recordHistory(dt); placeMates(dt); renderer.render(world, cam);
+      step(dt); place(dt); if (dt) recordHistory(dt); placeMates(dt); renderer.render(world, cam);
       st.err = 0;
     } catch (e) {
       st.err = (st.err || 0) + 1;
@@ -1431,6 +1379,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
     setGear(on) { gearOn = !!on; applyGear(); }, gearState() { return gearOn; },
+    /* 演目の最中か（通しの自動操縦か、ひとつだけの技） */
+    showing() { return auto || oneShot; },
+    /* 一時停止（演目を止めて眺める）。止めていても見回し・拡大・視点の切り替えはできる */
+    setPaused(on) { paused = !!on; last = performance.now(); return paused; },
+    togglePause() { paused = !paused; last = performance.now(); return paused; },
+    pausedState() { return paused; },
+    /* いまの景色を絵にする（操作ボタンは 3D の外にあるので写らない）。
+       描いた直後に読み出す（そうしないと空の絵になる） */
+    snapshot() { renderer.render(world, cam); return renderer.domElement.toDataURL('image/png'); },
     /* 乗り換え: 押すたびに 1 番機 → 2 番機 → … → 出ている機体の中で順に回る */
     nextSeat() {
       for (let k = 1; k <= mates.length + 1; k++) {

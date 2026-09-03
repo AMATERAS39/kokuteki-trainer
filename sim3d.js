@@ -244,7 +244,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
     return out;
   }
 
-  /* スモーク: 粒の集まり。位置・色・生まれた時刻を持ち、時間が経つと薄れて広がる */
+  /* スモーク: 粒の集まり。位置・色・生まれた時刻を持ち、時間が経つと薄れて広がる。
+     出る場所は機体の後ろの端（全長 13 m の機体で、中心から後ろへ 6.9 m。少し下） */
   const SMOKE_N = SMOKE_MAX * 6;
   const smokeGeo = new THREE.BufferGeometry();
   const sPos = new Float32Array(SMOKE_N * 3), sCol = new Float32Array(SMOKE_N * 3), sBirth = new Float32Array(SMOKE_N);
@@ -622,7 +623,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     const emitting = smokeOn && smokeT >= SMOKE_DT;
     if (emitting) smokeT = 0;
-    if (on[0] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
+    if (on[0] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
       /* どの編隊の変更でも、いまの位置から新しい位置へなめらかに移る。
@@ -636,7 +637,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       mq.copy(st2.q); mp.copy(st2.p);
       mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq);
       holder.position.copy(mp).add(mo); holder.quaternion.copy(mq);
-      if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+      if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;

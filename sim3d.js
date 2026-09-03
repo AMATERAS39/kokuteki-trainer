@@ -50,7 +50,7 @@ const SMOKE_DT = 0.04;
 const ENTRY = [[-130, -300, 30], [130, -300, 30], [-190, -420, -25], [190, -420, -25], [0, -520, 45]];
 const JOIN_TAU = 1.4;                            // 隊形を変えるときの寄り方（秒、時定数。約 4 秒でほぼ所定の位置）
 /* 自動操縦（地上から見るための演技）。観覧位置のまわりを回り、正面を通過し、宙返りをする */
-const SHOW = { R: 430, ALT: 170, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 520, SIDE: 400, ALT_IN: 260 };
+const SHOW = { R: 330, ALT: 150, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 300, SIDE: 220, ALT_IN: 220 };
 const DIRJA = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
 
 /* CSS 変数（昼／夜の配色）を色として読む。最初に見つかった変数を使う */
@@ -336,6 +336,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const look = { y: 0, p: 0 };
   const LOOK_MAX_P = 75 * D;
   const cam = new THREE.PerspectiveCamera(70, 1, 0.08, 9000);
+  let zoom = 1, baseFov = 70;                      // 画面の拡大（望遠）。画角 = 元の画角 ÷ 倍率
+  const applyFov = () => { cam.fov = clamp(baseFov / zoom, 7, 100); cam.updateProjectionMatrix(); };
   const camPos = new THREE.Vector3(), tmp = new THREE.Vector3(), R = new THREE.Matrix4(), Rh = new THREE.Matrix4(), RX90 = new THREE.Matrix4().makeRotationX(Math.PI / 2), TILT = new THREE.Matrix4().makeRotationX(-16 * D), qc = new THREE.Quaternion();
   function rotation() { return R.makeRotationFromQuaternion(att); }
 
@@ -351,24 +353,24 @@ export function mount(container, { onState, view = 'first' } = {}) {
      front: 見ている前方で行う（旋回だけは前方に限らない）。alt: 入る高さ（m） */
   const PROGRAM = [
     { id: 'orbit', ja: '旋回', t: 8, front: false },
-    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 240 },
+    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200 },
+    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130 },
+    { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240 },
+    { id: 'orbit', ja: '旋回', t: 6, front: false },
+    { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200 },
     { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190 },
-    { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 320 },
+    { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 240 },
     { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 280 },
-    { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190 },
-    { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 320 },
+    { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200 },
+    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 120 },
+    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190 },
     { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 260 },
-    { id: 'pass', ja: '正面通過', t: 10, form: 'delta', alt: 190 },
-    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 240 },
+    { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300 },
+    { id: 'bloom', ja: '上向き空中開花', form: 'delta', alt: 190 },
     { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 380 },
-    { id: 'bloom', ja: '上向き空中開花', form: 'delta', alt: 240 },
-    { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 340 },
-    { id: 'cork', ja: 'コークスクリュー', form: 'pair', alt: 260 },
-    { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 320 }
+    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260 },
+    { id: 'cork', ja: 'コークスクリュー', form: 'pair', alt: 200 },
+    { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240 }
   ];
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
   let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
@@ -445,12 +447,12 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function safety() {
     if (st.z > 1500 && st.p > -10) { autoIn.y = 0.8; return; }        // 高すぎるときは下げる
     const ahead = st.z + fwd.z * SPEED * 6;                           // このまま 6 秒進んだときの高さ
-    if (Math.abs(st.b) > 60 && st.z < 220 && fwd.z < 0.15) {          // 低くて背面気味: まず翼を水平に戻す
+    if (Math.abs(st.b) > 60 && st.z < 180 && fwd.z < 0.15) {          // 低くて背面気味: まず翼を水平に戻す
       autoIn.x = clamp(-wrap180(st.b) / 25, -1, 1); autoIn.y = clamp(st.p / 25, -0.2, 0.2); return;
     }
-    if (ahead < 120 || st.z < 80) {                                   // 地面に着きそう: 水平にして引き起こす
+    if (ahead < 90 || st.z < 70) {                                    // 地面に着きそう: 水平にして引き起こす
       autoIn.x = clamp(-st.b / 20, -1, 1);
-      autoIn.y = -clamp(0.4 + (120 - Math.min(ahead, st.z)) / 120, 0, 1);
+      autoIn.y = -clamp(0.4 + (90 - Math.min(ahead, st.z)) / 90, 0, 1);
     }
   }
   function autoInputs(dt) {
@@ -489,7 +491,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const away = (d, z) => steerTo(ox - rx / r * d, oy - ry / r * d, z);   // 観覧位置の向こうへ抜ける
     switch (m.id) {
       case 'orbit': {                            // 観覧位置のまわりを回る（次の課目への移動）
-        const a = Math.atan2(ry, rx) + 0.45;
+        const a = Math.atan2(ry, rx) + 0.55;
         steerTo(ox + Math.cos(a) * SHOW.R, oy + Math.sin(a) * SHOW.R, SHOW.ALT);
         if (manT > m.t) nextManeuver();
         break;
@@ -512,7 +514,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         if (loopSum > 360 || manT > 20) nextManeuver();
         break;
       case 'eight':                              // レター・エイト: 右へ 1 周、左へ 1 周で 8 の字
-        holdBank((hdgSum < 360 ? 44 : -44) * turnSign); holdPitch(0);
+        holdBank((hdgSum < 360 ? 56 : -56) * turnSign); holdPitch(0);
         if (hdgSum > 720 || manT > 60) nextManeuver();
         break;
       case 'vert':                               // バーティカル・クライム・ロール: 垂直に上げながら横転
@@ -541,17 +543,24 @@ export function mount(container, { onState, view = 'first' } = {}) {
         if (st.p < -50) { formation = 'pyramid'; formScale = lerp(1, 2.6, (loopSum - 200) / 90); }
         if (loopSum > 360 || manT > 22) nextManeuver();
         break;
+      case 'byover': {                           // 頭上通過: 見ている人の真上を低く通り抜ける
+        const e3 = eyeDir();
+        steerTo(e3.ex - e3.dx * 600, e3.ey - e3.dy * 600, m.alt || 130);
+        const past = (st.x - e3.ex) * e3.dx + (st.y - e3.ey) * e3.dy;   // 観覧位置を越えたか
+        if (past > 300 || manT > 30) nextManeuver();
+        break;
+      }
       case 'cork':                               // コークスクリュー: らせんを描いて上がる
         autoIn.x = 0.7 * turnSign; holdPitch(22);
         if (manT > 12 || st.z > 900) nextManeuver();
         break;
       case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
         if (manT < 4) { formation = 'trail'; away(600, SHOW.ALT); }
-        else { formation = userForm === 'solo' ? 'delta' : userForm; formScale = lerp(1.9, 1, (manT - 4) / 8); holdBank(45 * turnSign); holdPitch(2); }
+        else { formation = userForm === 'solo' ? 'delta' : userForm; formScale = lerp(1.9, 1, (manT - 4) / 8); holdBank(52 * turnSign); holdPitch(2); }
         if (hdgSum > 300 || manT > 20) nextManeuver();
         break;
       case 'turnloop':                           // 360 度ターン & ループ: 1 周旋回してから宙返り
-        if (hdgSum < 350) { holdBank(46 * turnSign); holdPitch(0); }
+        if (hdgSum < 350) { holdBank(54 * turnSign); holdPitch(0); }
         else { loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; }
         autoIn.r = 0;
         if (loopSum > 360 || manT > 40) nextManeuver();
@@ -678,7 +687,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     curView = v; look.y = 0; look.p = 0; const out = v !== 'first';
     seatMeshes.forEach(m => { m.visible = out; });
     cockpit.visible = !out;
-    cam.fov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0);
+    baseFov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; applyFov(); camPos.set(0, 0, 0);
     if (v === 'ground') gAim();   // 入ったときだけ機体の方を向く。以後は自分で向ける
   }
   setView(view);
@@ -711,9 +720,12 @@ export function mount(container, { onState, view = 'first' } = {}) {
       } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; }
     },
     autoState() { return auto; },
+    setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
+    zoomVal() { return zoom; },
     /* 技の一覧（移動のための旋回と正面通過を除く）と、1 つだけ行わせる呼び出し。
        自分で操縦しているときに技を選ぶと、その技の間だけ自動で飛び、終わると操縦が戻る */
-    maneuvers() { return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja })).filter(m => m.id !== 'orbit' && m.id !== 'pass'); },
+    maneuvers() { const seen = new Set();   // 同じ技が演技の中に何度も出るので、一覧では 1 つにまとめる
+      return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
     runManeuver(i) {
       if (!PROGRAM[i] || st.ground) return false;
       if (!auto) { userForm = formation; oneShot = true; }   // 自分で操縦しているときは、その技だけ行って操縦を返す

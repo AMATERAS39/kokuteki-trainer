@@ -213,12 +213,12 @@ svg text{user-select:none}
 .trickmenu button{font-size:.625rem;padding:.375rem .25rem;background:var(--panel);color:var(--text)}
 .formmenu button.sel{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text)}
 @media (orientation:portrait){.formwrap.landscape{display:none}}
-@media (orientation:landscape) and (max-height:34rem){.simbar .portrait{display:none}}
+@media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse){.simbar .portrait{display:none}}
 /* 縦画面は試験対策のシミュレーターとして簡素に。編隊のスモークなど遊びの操作は横画面だけ */
 @media (orientation:portrait){.simbar #simSmoke,.simbar #simColor{display:none}
   .sim .views [data-view="front"],.sim .views [data-view="ground"]{display:none}}
 /* ===== 横画面のシミュレーター: 操作に集中できるよう、視界を画面いっぱいにして操縦桿とペダルを重ねる ===== */
-@media (orientation:landscape) and (max-height:34rem){
+@media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse){
   body[data-view="train"][data-phase="sim"]{height:100dvh;padding:0;overflow:hidden}
   body[data-phase="sim"] .hdr,body[data-phase="sim"] .modebar,body[data-phase="sim"] .foot,
   body[data-phase="sim"] .sim .pchint,body[data-phase="sim"] .sim h4,body[data-phase="sim"] .stick .lb{display:none}
@@ -258,6 +258,8 @@ svg text{user-select:none}
   .sim .hud{font-size:.6875rem}
 }
 /* 縦画面のときだけ出す案内 */
+.zoomlbl{position:absolute;right:.5rem;top:4.8rem;z-index:6;padding:.2rem .5rem;border-radius:.5rem;
+  background:rgba(0,0,0,.55);color:var(--text);font-family:var(--mono);font-size:.6875rem}
 .sim .rotate{display:none;align-items:center;gap:.5rem;justify-content:center;margin-top:.5rem;font-size:.75rem;color:var(--faint)}
 @media (orientation:portrait){.sim .rotate{display:flex}}
 .sim .acts.row3{flex-direction:row;gap:.375rem}
@@ -885,7 +887,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.18';
+const APP_VER='v03.19';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1154,7 +1156,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=30').then(mod=>{
+  import('./sim3d.js?v=31').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1178,6 +1180,7 @@ function runSim(){applyScene();
       <svg class="cross" viewBox="0 0 140 40" aria-hidden="true"><g stroke="var(--hud,#8ce99a)" stroke-width="2" fill="none"><line x1="70" y1="10" x2="70" y2="30"/><line x1="60" y1="20" x2="80" y2="20"/><path d="M8,20 h32 v8 M132,20 h-32 v8"/></g></svg>
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="showname" id="showName" hidden></div>
+      <button class="zoomlbl" id="zoomLbl" hidden>×1.0</button>
       <div class="vload" id="simLoad">3D を読み込み中…</div>
     </div>
     <div class="simbar">
@@ -1226,14 +1229,26 @@ function runSim(){applyScene();
   /* 視界: ドラッグで視点を動かす（指でもマウスでも）。マウスは動かさずに押しただけなら従来どおり方向舵。2 回叩くと視点を戻す */
   const vw=$('#simView');
   sim.look=null;
+  sim.pts=new Map();sim.pinch=null;
+  const zLbl=$('#zoomLbl');
+  const setZoom=z=>{if(!sim||!sim.h)return;const v=sim.h.setZoom(z);zLbl.textContent='×'+v.toFixed(1);zLbl.hidden=v<1.02};
+  sim.setZoom=setZoom;
+  zLbl.addEventListener('click',e=>{e.stopPropagation();setZoom(1)});
+  const pinchDist=()=>{const[a,b]=[...sim.pts.values()];return Math.hypot(a.x-b.x,a.y-b.y)};
   vw.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;e.preventDefault();
+    sim.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(sim.pts.size>=2){sim.look=null;sim.pinch={d:pinchDist(),z:sim.h?sim.h.zoomVal():1};return}
     sim.look={id:e.pointerId,x:e.clientX,y:e.clientY,moved:0};
     if(e.pointerType==='mouse'){sim.rud.set('mouse',e.button===2?1:-1);applyInput()}});
-  vw.addEventListener('pointermove',e=>{const L=sim&&sim.look;if(!L||L.id!==e.pointerId)return;
+  vw.addEventListener('pointermove',e=>{
+    if(sim&&sim.pts.has(e.pointerId)){sim.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(sim.pinch&&sim.pts.size>=2){setZoom(sim.pinch.z*pinchDist()/Math.max(1,sim.pinch.d));return}}
+    const L=sim&&sim.look;if(!L||L.id!==e.pointerId)return;
     const dx=e.clientX-L.x,dy=e.clientY-L.y;L.x=e.clientX;L.y=e.clientY;L.moved+=Math.abs(dx)+Math.abs(dy);
     if(L.moved>6&&sim.rud.has('mouse')){sim.rud.delete('mouse');applyInput()}   // 動かしたら方向舵はやめて視点を動かす
     if(sim.h)sim.h.addLook(-dx*0.28,-dy*0.28)});
-  const endLook=e=>{if(sim&&sim.look&&sim.look.id===e.pointerId)sim.look=null;
+  const endLook=e=>{if(!sim)return;sim.pts.delete(e.pointerId);if(sim.pts.size<2)sim.pinch=null;
+    if(sim.look&&sim.look.id===e.pointerId)sim.look=null;
     if(e.pointerType==='mouse'&&sim.rud.has('mouse')){sim.rud.delete('mouse');applyInput()}};
   ['pointerup','pointercancel','pointerleave'].forEach(ev=>vw.addEventListener(ev,endLook));
   const tapAt=e=>{if(!sim||!sim.h)return;const rc=vw.getBoundingClientRect();
@@ -1244,18 +1259,21 @@ function runSim(){applyScene();
   /* 指でも 2 回叩いたら視点を戻す。横画面で左上（ホームボタンのあたり）を叩いたら戻り方を案内する */
   vw.addEventListener('pointerup',e=>{
     if(!sim)return;const now=performance.now();
-    const land=matchMedia('(orientation:landscape) and (max-height:34rem)').matches;
+    const land=matchMedia('(orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse)').matches;
     const rc=vw.getBoundingClientRect();
     if(land&&e.clientX-rc.left<64&&e.clientY-rc.top<56){toast('戻るには縦画面にしてください');sim.tap=0;return}
     if(sim.tap&&now-sim.tap<320)tapAt(e);
     sim.tap=now});
-  vw.addEventListener('wheel',e=>{e.preventDefault();sim.wheelDir=e.deltaY<0?1:-1;sim.wheelUntil=performance.now()+220;applyInput();clearTimeout(sim.wheelT);sim.wheelT=setTimeout(()=>{if(sim){sim.wheelDir=0;applyInput()}},230)},{passive:false});
+  vw.addEventListener('wheel',e=>{e.preventDefault();
+    if(e.ctrlKey||e.metaKey){setZoom((sim.h?sim.h.zoomVal():1)*(e.deltaY<0?1.12:1/1.12));return}
+    sim.wheelDir=e.deltaY<0?1:-1;sim.wheelUntil=performance.now()+220;applyInput();clearTimeout(sim.wheelT);sim.wheelT=setTimeout(()=>{if(sim){sim.wheelDir=0;applyInput()}},230)},{passive:false});
   sim.ku=e=>{if(!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(sim.keys.delete(k))applyInput()};
   window.addEventListener('keydown',sim.kd);window.addEventListener('keyup',sim.ku);
   /* 視点 */
   sim.viewName=view;
   $('#sim').querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;store.set('simView',v);sim.viewName=v;
-    $('#sim').querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('sel',x===b));$('#simView').classList.toggle('fp',v==='first');if(sim.h)sim.h.setView(v)}));
+    $('#sim').querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('sel',x===b));$('#simView').classList.toggle('fp',v==='first');
+    if(sim.h){sim.h.setView(v);if(sim.setZoom)sim.setZoom(1)}}));
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
   $('#simHome').addEventListener('click',()=>{if(sim.h)sim.h.home()});
   $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
@@ -1276,7 +1294,7 @@ function runSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=30').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=31').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');

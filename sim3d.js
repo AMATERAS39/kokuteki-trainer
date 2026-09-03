@@ -203,14 +203,42 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function numberPlate(n) {
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const g2 = c.getContext('2d');
-    g2.fillStyle = '#0a6ab4'; g2.fillRect(0, 0, 128, 128);
-    g2.fillStyle = '#fff'; g2.font = 'bold 104px "Zen Kaku Gothic New", system-ui, sans-serif';
-    g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText(String(n), 64, 68);
-    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    return new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+    const c2 = document.createElement('canvas'); c2.width = 96; c2.height = 128;   // 縦長（塗装の「1」が縦に長い）
+    const g3 = c2.getContext('2d');
+    g3.fillStyle = finBlue; g3.fillRect(0, 0, 96, 128);                            // 機体から拾った青で塗りつぶす
+    /* 数字は本物と同じく、右に傾いた太字 */
+    g3.fillStyle = '#fff'; g3.font = 'italic bold 112px "Zen Kaku Gothic New", system-ui, sans-serif';
+    g3.textAlign = 'center'; g3.textBaseline = 'middle'; g3.fillText(String(n), 48, 66);
+    const tex = new THREE.CanvasTexture(c2); tex.colorSpace = THREE.SRGBColorSpace;
+    /* 機体と同じ陰の付き方にする（発光したように浮かないように） */
+    return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
   }
   /* 垂直尾翼の場所をモデルから実測する（機体の内側の座標）。
      尾翼は「後ろ寄り・高い・左右に薄い」ので、その条件に合う頂点を集めて囲む箱を作る */
+  /* 尾翼の青を、機体の絵柄（テクスチャ）から拾う。番号板をこの色で塗れば、
+     板だけ色が浮くことがなくなる。白い文字の部分は外して、いちばん多い色を採る */
+  function finColor(root) {
+    let img = null;
+    root.traverse(o => { if (!img && o.isMesh && o.material && o.material.map && o.material.map.image) img = o.material.map.image; });
+    if (!img || !img.width) return '#0a6ab4';
+    try {
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data, bins = new Map();
+      for (let i = 0; i < d.length; i += 4 * 37) {                       // 間引いて数える
+        const r = d[i], gg = d[i + 1], b = d[i + 2];
+        if (d[i + 3] < 200 || b < 80 || b - r < 40) continue;            // 白・灰・赤は数えない（青だけ）
+        const key = (r >> 3) + ',' + (gg >> 3) + ',' + (b >> 3);
+        const e = bins.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        e.n++; e.r += r; e.g += gg; e.b += b; bins.set(key, e);
+      }
+      let best = null;
+      bins.forEach(e => { if (!best || e.n > best.n) best = e; });
+      if (!best) return '#0a6ab4';
+      const hex = v => Math.round(v / best.n).toString(16).padStart(2, '0');
+      return '#' + hex(best.r) + hex(best.g) + hex(best.b);
+    } catch (e) { return '#0a6ab4'; }
+  }
   function measureFin(root, frame) {
     const all = new THREE.Box3().setFromObject(root);
     const hz = all.max.z - all.min.z, ly = all.max.y - all.min.y;
@@ -227,14 +255,16 @@ export function mount(container, { onState, view = 'first' } = {}) {
     });
     return hit > 20 ? fin : null;
   }
-  let finRect = null;
+  let finRect = null, finBlue = '#0a6ab4';
   function addPlates(grp, n) {
     if (!finRect) return [];
     const ly = finRect.max.y - finRect.min.y, lz = finRect.max.z - finRect.min.z;
-    const h = Math.min(lz, ly) * 0.42;                                  // 尾翼からはみ出さない大きさ
-    const cy = finRect.min.y + ly * 0.85, cz = finRect.min.z + lz * 0.40;   // モデルの「1」が書かれているあたり（実物で合わせた値）
+    /* 塗装の「1」は 尾翼の箱の 前後 0.71〜0.99・上下 0.19〜0.59 のところにある（実測）。
+       それを覆う大きさ・位置にする。横長にすると尾翼からはみ出すので、縦長の板にする */
+    const w = Math.min(lz, ly) * 0.42, h = Math.min(lz, ly) * 0.56;
+    const cy = finRect.min.y + ly * 0.85, cz = finRect.min.z + lz * 0.385;
     const gap = (finRect.max.x - finRect.min.x) / 2 + 0.015;
-    const geo = new THREE.PlaneGeometry(h, h), mat = numberPlate(n), out = [];
+    const geo = new THREE.PlaneGeometry(w, h), mat = numberPlate(n), out = [];
     for (const sx of [1, -1]) {
       const m = new THREE.Mesh(geo, mat);
       m.position.set(gap * sx, cy, cz);
@@ -296,6 +326,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
     /* 2〜6 番機はモデルを複製して、尾翼に番号の板を貼る。板の位置は実測した尾翼の箱から決める */
     plane.updateWorldMatrix(true, true);
+    finBlue = finColor(g.scene);
     finRect = measureFin(g.scene, plane);
     for (let n = 2; n <= 6; n++) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
@@ -307,8 +338,6 @@ export function mount(container, { onState, view = 'first' } = {}) {
     }
   }, undefined, () => {});
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false })); shadow.position.z = 0.8; world.add(shadow);
-  const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 1)]);
-  const drop = new THREE.Line(dropGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })); world.add(drop);
 
   /* ---- 状態と入力 ---- */
   /* 姿勢はクォータニオンで持つ。オイラー角（方位・ピッチ・バンク）だと宙返りの真上・真下で破綻するため。
@@ -366,7 +395,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'cupid', ja: 'キューピッド', form: 'diamond', alt: 260, entry: 'front', fig: 'cupid',
-      desc: '3 機。2 機がハートを描き、もう 1 機が矢のように貫きます。実際の演技では、矢の機体がスモークを一度切って、貫いて見せます。' },
+      desc: '3 機。2 機がハートを描き、描き終えたところへ、もう 1 機が矢になって飛び込みます。地上から見て貫いて見えるよう、ハートの内側ではスモークを切ります。' },
     { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200,
       desc: '6 機がデルタ隊形のまま横転します。' },
     { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190,
@@ -398,7 +427,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
   let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
   const GATE = { x: 0, y: 0, z: SHOW.ALT_IN };
-  const autoIn = { x: 0, y: 0, r: 0 };
+  const autoIn = { x: 0, y: 0, r: 0 }, smIn = { x: 0, y: 0, r: 0 };   // smIn: なめらかにしたあとの舵
   /* どこから機体が来るかの目印。門の位置に立てる細い柱（自動操縦で進入しているあいだだけ出す） */
   const marker = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 320, 8, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }));
@@ -450,16 +479,19 @@ export function mount(container, { onState, view = 'first' } = {}) {
     marker.position.set(GATE.x, GATE.y, 160); markOn = true;
   }
   /* 図を終える。機体は散らばった位置にいるので、そこからの相対位置を覚えて、隊形へ寄り直させる */
+  const RET_T = 12;                                // 図のあと、隊形へ戻すのにかける時間（秒）
+  let retT = -1;
   function endFigure() {
     if (!fig) return;
     const inv = att.clone().invert();
     mates.forEach(h => {
-      if (!h.visible) return;
+      if (!h.visible) { h.userData.ret = null; return; }
       mo.copy(h.position).sub(plane.position).applyQuaternion(inv);
-      h.userData.cur.set(mo.x, Math.min(-20, mo.y), mo.z);
+      h.userData.cur.set(mo.x, Math.min(-40, mo.y), mo.z);
       startJoin(h.userData);                                   // 図の位置から隊形へ、ゆっくり戻る
+      h.userData.ret = { p: h.position.clone(), q: h.quaternion.clone() };
     });
-    fig = null;
+    retT = 0; fig = null;
   }
   function endEntry() {
     manPhase = 'do'; st.cue = ''; markOn = false;
@@ -649,7 +681,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   function step(dt) {
     if (st.ground) return;   // 着地したら止まったまま。「水平に戻す」か「初期位置」で再開する
-    const inp = auto ? autoInputs(dt) : input;
+    /* 自動操縦の舵は、目標へ 0.55 秒の時定数で寄せる。
+       実機は舵をいきなり一杯には切らないので、そのぶんの緩みを入れる */
+    let inp = input;
+    if (auto) {
+      const want = autoInputs(dt), kk = 1 - Math.exp(-dt / 0.55);
+      smIn.x += (want.x - smIn.x) * kk; smIn.y += (want.y - smIn.y) * kk; smIn.r += (want.r - smIn.r) * kk;
+      inp = smIn;
+    }
     const roll = RATE.roll * inp.x * dt * D;        // 機首軸(+y): 右に倒すと右バンク
     const pitch = -RATE.pitch * inp.y * dt * D;     // 翼軸(+x): 手前に引くと機首上げ
     const yaw = RATE.yaw * inp.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
@@ -679,17 +718,22 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   /* 先頭機の軌跡を残し、そこから編隊機の位置を決める */
   const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3(), cq = new THREE.Quaternion(), fwant = new THREE.Vector3();
+  const qFlat = new THREE.Quaternion(), qa = new THREE.Quaternion();
+  const fwd2 = new THREE.Vector3(), moFlat = new THREE.Vector3();
   /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
   function startJoin(u) {
     if (!u.from) { u.from = new THREE.Vector3(); u.bow = new THREE.Vector3(); }
     u.from.copy(u.cur); u.k = 0;
-    const amt = Math.min(90, u.from.distanceTo(u.want) * 0.28);
+    const d = u.from.distanceTo(u.want);
+    u.dur = clamp(d / 18, 8, 34);                    // 近寄る速さが 30 m/s を超えないだけの時間をかける
+    const amt = Math.min(90, d * 0.28);
     u.bow.set((u.from.x >= 0 ? 1 : -1) * amt, 0, amt * 0.3);
   }
   let corkT = -1;                                  // 0 以上ならコークスクリューの最中（2 番機が周りを回る）
   /* 描き物の課目（キューピッド・スタークロス）。編隊では描けない形なので、機体を式で置く。
      1 番機（操作する機体）は隠して、2 番機以降で描く。図は観覧位置の正面の空に立てた面の上に描く */
-  const FIGS = { cupid: { dur: 26, n: 3, s: 15, d: 780, z: 500 }, star: { dur: 20, n: 5, s: 17, d: 820, z: 430 } };
+  const FIGS = { cupid: { dur: 36, n: 3, s: 15, d: 780, z: 500 }, star: { dur: 24, n: 5, s: 17, d: 820, z: 430 } };
+  const HEART_END = 0.62, HEART_LEAD = 0.30;       // ここまででハートを描き終え、そのあと矢が飛ぶ／中央を上がる区間
   let fig = null;                                  // {id, t, dur, n, s}
   const figO = new THREE.Vector3(), figR = new THREE.Vector3(), figU = new THREE.Vector3(0, 0, 1), figF = new THREE.Vector3();
   const fp = new THREE.Vector3(), fp2 = new THREE.Vector3(), fUp = new THREE.Vector3(), fRt = new THREE.Vector3(), fFw = new THREE.Vector3();
@@ -706,16 +750,31 @@ export function mount(container, { onState, view = 'first' } = {}) {
     fig = { id, t: 0, dur: f.dur, n: f.n, s: f.s };
   }
   /* 図の中の位置（a: 右、b: 上、単位）。u は 0〜1 の進み具合、i は何番目の機体か */
+  /* ハートの形（p: 0〜1）。前半は中央を上がり、後半で左右の葉を回って下の尖りで合わさる */
+  function heartPt(k, p) {
+    if (p < HEART_LEAD) { const v = p / HEART_LEAD; return { a: k * 1.2 * (1 - v), b: -24 + 29 * v }; }
+    const t = Math.PI * (p - HEART_LEAD) / (1 - HEART_LEAD);
+    return { a: k * 16 * Math.pow(Math.sin(t), 3),
+             b: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) };
+  }
   function figXY(id, i, u) {
     if (id === 'cupid') {
-      if (i < 2) {                                 // ハートを描く 2 機（左右に分かれて回り込む）
+      if (i < 2) {                                 // ハートを描く 2 機
         const k = i === 0 ? 1 : -1;
-        if (u < 0.22) { const v = u / 0.22; return { a: k * 1.2 * (1 - v), b: -24 + 29 * v }; }
-        const t = Math.PI * (u - 0.22) / 0.78;
-        return { a: k * 16 * Math.pow(Math.sin(t), 3),
-                 b: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) };
+        if (u <= HEART_END) return heartPt(k, u / HEART_END);
+        /* 描き終えたら、下の尖りから 下向きのまま出て、4 分の 1 の弧で水平に戻りながら
+           左右に分かれて抜ける（地面に向かって行かないよう、下がる量を抑える） */
+        const g = (u - HEART_END) / (1 - HEART_END), a2 = g * Math.PI / 2;
+        return { a: -k * 30 * (1 - Math.cos(a2)), b: -17 - 8 * Math.sin(a2) };
       }
-      return { a: -40 + 80 * u, b: -26 + 52 * u };   // 矢（左下から右上へ貫く）
+      /* 矢: ハートを描いているあいだは、その左でひと回りして待つ（止まらず、遠くへも行かない）。
+         回り終わりが ちょうど射る向きになるように輪を置いてある */
+      if (u < 0.55) {
+        const th = (-56.5 * D) + (u / 0.55 - 1) * Math.PI * 2, r2 = 14;
+        return { a: -37.7 + r2 * Math.cos(th), b: -8.4 + r2 * Math.sin(th) };
+      }
+      const v = (u - 0.55) / 0.45;
+      return { a: -30 + 60 * v, b: -20 + 40 * v };
     }
     const RS = 18, ang = (90 + i * 72) * D;         // スタークロス: 開いてから、1 つ飛ばしの頂点へ渡る
     const ax = Math.cos(ang) * RS, ay = Math.sin(ang) * RS;
@@ -723,9 +782,24 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const a2 = (90 + (i + 2) * 72) * D, v = (u - 0.4) / 0.6;
     return { a: ax + (Math.cos(a2) * RS - ax) * v, b: ay + (Math.sin(a2) * RS - ay) * v };
   }
-  function figPoint(out, id, i, u, sc) {
-    const q = figXY(id, i, clamp(u, 0, 1));
-    return out.copy(figO).addScaledVector(figR, q.a * sc).addScaledVector(figU, q.b * sc);
+  function figPoint(out, xy, sc) {
+    return out.copy(figO).addScaledVector(figR, xy.a * sc).addScaledVector(figU, xy.b * sc);
+  }
+  /* ハートの輪郭の内側か。地上から見た形そのままなので、内側ではスモークを切ると
+     矢がハートの向こう側を通って貫いているように見える */
+  let heartPoly = null;
+  function inHeart(a, b) {
+    if (!heartPoly) {
+      heartPoly = [];
+      for (let i = 0; i <= 40; i++) { const q = heartPt(1, HEART_LEAD + (1 - HEART_LEAD) * i / 40); heartPoly.push([q.a, q.b]); }
+      for (let i = 40; i >= 0; i--) { const q = heartPt(-1, HEART_LEAD + (1 - HEART_LEAD) * i / 40); heartPoly.push([q.a, q.b]); }
+    }
+    let inside = false;
+    for (let i = 0, j = heartPoly.length - 1; i < heartPoly.length; j = i++) {
+      const yi = heartPoly[i][1], yj = heartPoly[j][1];
+      if ((yi > b) !== (yj > b) && a < (heartPoly[j][0] - heartPoly[i][0]) * (b - yi) / (yj - yi) + heartPoly[i][0]) inside = !inside;
+    }
+    return inside;
   }
   const CORK_R = 26, CORK_T = 3.6, CORK_LAG = 0.15;   // 回る半径（m）・1 周の時間（秒）・少し後ろ（秒）
   function recordHistory(dt) {
@@ -749,6 +823,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     return exSt;
   }
   function placeMates(dt) {
+    if (retT >= 0) { retT += dt; if (retT >= RET_T) { retT = -1; mates.forEach(h => { h.userData.ret = null; }); } }
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     const emitting = smokeOn && smokeT >= SMOKE_DT;
     if (emitting) smokeT = 0;
@@ -757,28 +832,36 @@ export function mount(container, { onState, view = 'first' } = {}) {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
       /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
       if (fig) {
-        if (i >= fig.n) { holder.visible = false; return; }
+        if (i >= fig.n) { holder.visible = false; u.shown = false; return; }
         const pu = clamp(fig.t / fig.dur, 0, 1);
-        figPoint(fp, fig.id, i, pu, fig.s);
-        figPoint(fp2, fig.id, i, pu + 0.004, fig.s);
+        const xy = figXY(fig.id, i, pu), xy2 = figXY(fig.id, i, Math.min(1, pu + 0.004));
+        figPoint(fp, xy, fig.s);
+        figPoint(fp2, xy2, fig.s);
         fFw.copy(fp2).sub(fp); if (fFw.lengthSq() < 1e-9) fFw.copy(figF); fFw.normalize();
         fUp.copy(figO).sub(fp);                                  // 図の中心の側を機体の上に向ける
         fUp.addScaledVector(fFw, -fUp.dot(fFw));
         if (fUp.lengthSq() < 1e-6) fUp.copy(figU);
         fUp.normalize(); fRt.crossVectors(fFw, fUp);
         fq.setFromRotationMatrix(fmat.makeBasis(fRt, fFw, fUp));
-        if (fig.t < 6) {
+        if (fig.t < 8) {
           /* 隊形の位置から図の道へ寄せる。寄せ元は「編隊で飛び続けていたらいる位置」なので、
              止まって待っているようには見えない */
           const s3 = stateAt(Math.max(0, -u.cur.y / SPEED));
           mq.copy(s3.q); mp.copy(s3.p);
           mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq); mp.add(mo);
-          const k = fig.t / 6, e2 = k * k * (3 - 2 * k);
+          const k = fig.t / 8, e2 = k * k * (3 - 2 * k);
           holder.position.lerpVectors(mp, fp, e2);
           holder.quaternion.copy(mq).slerp(fq, e2);
         } else { holder.position.copy(fp); holder.quaternion.copy(fq); }
         holder.visible = true;
-        if (emitting && fig.t > 1.2) { emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+        /* スモーク: 矢はハートの内側で切る。色は「カラフル」を選んでいるときだけ図に合わせる */
+        let ok = fig.t > 1.2;
+        if (fig.id === 'cupid' && i === 2) ok = ok && !inHeart(xy.a, xy.b);
+        if (emitting && ok) {
+          let fc = cols[(i + 1) % cols.length];
+          if (smokeColor === 'rainbow') fc = fig.id === 'star' ? '#ffd84d' : (i < 2 ? '#ff7fb6' : '#ffffff');
+          emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, fc);
+        }
         return;
       }
       /* コークスクリューの 2 番機: 1 番機のまわりを回る。背中（機体の上）を輪の中心へ向ける。
@@ -797,22 +880,41 @@ export function mount(container, { onState, view = 'first' } = {}) {
       fwant.set(target ? target[0] * formScale : e[0], target ? target[1] * formScale : e[1], target ? target[2] * formScale : e[2]);
       if (!u.from || u.want.distanceTo(fwant) > 6) { u.want.copy(fwant); startJoin(u); }   // 行き先が変わったら道を引き直す
       else u.want.copy(fwant);
-      const py = u.cur.y;
-      u.k = Math.min(1, (u.k || 0) + dt / JOIN_TIME);
+      u.k = Math.min(1, (u.k || 0) + dt / (u.dur || JOIN_TIME));
       const ek = u.k * u.k * (3 - 2 * u.k);                    // ゆっくり出て ゆっくり入る
       u.cur.lerpVectors(u.from, u.want, ek).addScaledVector(u.bow, Math.sin(Math.PI * u.k));
-      /* 前後のずれが 1 秒に 30 m を超えると、下がる速さと飛ぶ速さが釣り合って、
-         機体が空中で止まっているように見える。前後だけ速さに上限をかける */
-      const lim = 30 * dt;
-      u.cur.y = clamp(u.cur.y, py - lim, py + lim);
-      const settled = u.k > 0.97 && Math.abs(u.cur.y - u.want.y) < 20;
+      const settled = u.k > 0.97;
       /* 離れていく機体は、十分に離れて小さくなってから消す */
-      if (!target && (settled || u.cur.length() > 520)) { holder.visible = false; return; }
+      if (!target && (settled || u.cur.length() > 520)) { holder.visible = false; u.shown = false; return; }
       holder.visible = true;
       const st2 = stateAt(Math.max(0, -u.cur.y / SPEED));
       mq.copy(st2.q); mp.copy(st2.p);
+      /* 離れている機体は、先頭機の傾きに巻き込まない。巻き込むと、横転のたびに
+         「腕の長さ × 回る速さ」で振り回され、あり得ない速さで飛んでしまう。
+         近いうちは編隊どおり、離れるほど「機首の向きだけ・翼は水平」の置き方に混ぜる。
+         角度ではなく位置そのものを混ぜるので、背面のときも飛びはしない */
+      const far = clamp((u.cur.length() - 70) / 130, 0, 1);
       mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq);
-      holder.position.copy(mp).add(mo); holder.quaternion.copy(mq);
+      if (far > 0.001) {
+        fwd2.set(0, 1, 0).applyQuaternion(st2.q);
+        qFlat.setFromAxisAngle(AZ, -Math.atan2(fwd2.x, fwd2.y))
+             .multiply(qa.setFromAxisAngle(AX, Math.asin(clamp(fwd2.z, -1, 1))));
+        moFlat.set(u.cur.x, 0, u.cur.z).applyQuaternion(qFlat);
+        mo.lerp(moFlat, far);
+        if (far > 0.5) mq.copy(qFlat);        // 遠くの機体は水平に飛んでいるように見せる
+      }
+      mp.add(mo);
+      if (retT >= 0 && u.ret) {          // 図の終わりの位置から、隊形の位置へ なめらかに戻す
+        const k2 = retT / RET_T, e2 = k2 * k2 * (3 - 2 * k2);
+        holder.position.lerpVectors(u.ret.p, mp, e2);
+        holder.quaternion.copy(u.ret.q).slerp(mq, e2);
+      } else if (u.shown) {
+        /* 位置をなます。離れているほど強く。編隊を組んでいるあいだ（近いとき）はほぼそのまま。
+           先頭機の向きの変化が、離れた機体では大きな動きに化けるので、ここで丸める */
+        holder.position.lerp(mp, 1 - Math.exp(-dt / (0.06 + far * 0.8)));
+        holder.quaternion.copy(mq);
+      } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
+      u.shown = true;
       if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; }
@@ -839,7 +941,6 @@ export function mount(container, { onState, view = 'first' } = {}) {
     marker.visible = markOn && curView === 'ground' && !follow;   // 進入の目印は、地上から自分で向きを決めているときだけ
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
-    drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
     if (curView === 'ground') {
       /* 地上から見る。機体は追いかけない（自分で向けた方向のまま）。
          向きは 見回し（ドラッグ）だけで変わり、立ち位置は 2 回叩いた場所へ移る */

@@ -34,15 +34,18 @@ workflows:
         script: |
           cd mobile
           npx cap add ios || true
+      - name: 設定を直す（向き・輸出コンプライアンス・表示名・バンドル ID・対応 iOS 15.0）
+        script: |
+          cd mobile
+          node patch-ios.js          # Podfile は pod install より前に直す必要がある
+      - name: 部品を入れて同期する
+        script: |
+          cd mobile
           npx cap sync ios
       - name: アイコンと起動画面を作る
         script: |
           cd mobile
           npx capacitor-assets generate --ios --assetPath assets
-      - name: Info.plist を直す（向き・輸出コンプライアンス・表示名）
-        script: |
-          cd mobile
-          node patch-ios.js
       - name: ビルド番号を入れる（Codemagic の通し番号を使う）
         script: |
           cd mobile/ios/App

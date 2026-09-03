@@ -45,3 +45,22 @@ if (fs.existsSync(PBX)) {
   console.error('project.pbxproj がありません');
   process.exit(1);
 }
+
+/* 対応 iOS を 15.0 以上にする。
+   Capacitor の既定は 14.0 で、アップロード時に警告 90068 が出る
+   （2027 年春から 15.0 未満は受け付けられなくなる）。
+   Podfile は pod install より前に直す必要があるので、このスクリプトは cap sync の前に走らせる */
+const TARGET = '15.0';
+const PODFILE = path.join(__dirname, 'ios', 'App', 'Podfile');
+if (fs.existsSync(PODFILE)) {
+  let pf = fs.readFileSync(PODFILE, 'utf8');
+  const before = pf;
+  pf = pf.replace(/platform :ios, '[\d.]+'/, "platform :ios, '" + TARGET + "'");
+  if (pf !== before) { fs.writeFileSync(PODFILE, pf); console.log('Podfile の対応 iOS を', TARGET, 'にしました'); }
+}
+if (fs.existsSync(PBX)) {
+  let x = fs.readFileSync(PBX, 'utf8');
+  const before = x;
+  x = x.replace(/IPHONEOS_DEPLOYMENT_TARGET = [\d.]+;/g, 'IPHONEOS_DEPLOYMENT_TARGET = ' + TARGET + ';');
+  if (x !== before) { fs.writeFileSync(PBX, x); console.log('プロジェクトの対応 iOS を', TARGET, 'にしました'); }
+}

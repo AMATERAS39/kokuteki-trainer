@@ -44,7 +44,7 @@ workflows:
       - name: ビルド番号を入れる（Codemagic の通し番号を使う）
         script: |
           cd mobile/ios/App
-          agvtool new-version -all "${BUILD_NUMBER:-1}"
+          agvtool new-version -all "${BUILD_NUMBER:-1}" || echo "agvtool で入れられませんでした（既定の番号のまま進みます）"
       - name: 署名の設定
         script: |
           keychain initialize

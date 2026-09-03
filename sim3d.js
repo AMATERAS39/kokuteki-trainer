@@ -203,12 +203,36 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     return new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
   }
-  const FIN = { y: -4.25, z: 2.15, size: 1.05, x: 0.07 };
+  /* 垂直尾翼の場所をモデルから実測する（機体の内側の座標）。
+     尾翼は「後ろ寄り・高い・左右に薄い」ので、その条件に合う頂点を集めて囲む箱を作る */
+  function measureFin(root, frame) {
+    const all = new THREE.Box3().setFromObject(root);
+    const hz = all.max.z - all.min.z, ly = all.max.y - all.min.y;
+    const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert();
+    const v = new THREE.Vector3(), fin = new THREE.Box3(); let hit = 0;
+    root.updateWorldMatrix(true, true);
+    root.traverse(o => {
+      if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
+        if (v.z > all.min.z + hz * 0.62 && v.y < all.min.y + ly * 0.42 && Math.abs(v.x) < ly * 0.06) { fin.expandByPoint(v); hit++; }
+      }
+    });
+    return hit > 20 ? fin : null;
+  }
+  let finRect = null;
   function addPlates(grp, n) {
-    const geo = new THREE.PlaneGeometry(FIN.size, FIN.size), mat = numberPlate(n), out = [];
+    if (!finRect) return [];
+    const ly = finRect.max.y - finRect.min.y, lz = finRect.max.z - finRect.min.z;
+    const h = Math.min(lz, ly) * 0.42;                                  // 尾翼からはみ出さない大きさ
+    const cy = finRect.min.y + ly * 0.85, cz = finRect.min.z + lz * 0.40;   // モデルの「1」が書かれているあたり（実物で合わせた値）
+    const gap = (finRect.max.x - finRect.min.x) / 2 + 0.015;
+    const geo = new THREE.PlaneGeometry(h, h), mat = numberPlate(n), out = [];
     for (const sx of [1, -1]) {
       const m = new THREE.Mesh(geo, mat);
-      m.position.set(FIN.x * sx, FIN.y, FIN.z); m.rotation.set(Math.PI / 2, 0, sx > 0 ? Math.PI / 2 : -Math.PI / 2);
+      m.position.set(gap * sx, cy, cz);
+      m.up.set(0, 0, 1); m.lookAt(m.position.x + sx, m.position.y, m.position.z);   // 板の面を左右の外側に向ける（数字は上向き）
       grp.add(m); out.push(m);
     }
     return out;
@@ -260,12 +284,13 @@ export function mount(container, { onState, view = 'first' } = {}) {
     cockpit.position.copy(g.scene.position); eyeOff.copy(g.scene.position);   // 操縦席の部品と目の位置はモデル座標（×k）で書いてあるので、同じ平行移動を掛ける
     g.scene.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) seatMeshes.push(o); });   // 自分が座る前席（一人称では隠す）
     seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
-    /* 2〜6 番機はモデルを複製して、尾翼に番号の板を貼る */
+    /* 2〜6 番機はモデルを複製して、尾翼に番号の板を貼る。板の位置は実測した尾翼の箱から決める */
+    plane.updateWorldMatrix(true, true);
+    finRect = measureFin(g.scene, plane);
     for (let n = 2; n <= 6; n++) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
       holder.add(g.scene.clone(true));                                   // 複製は元と同じ平行移動を持っている
-      const plates = new THREE.Group(); plates.position.copy(g.scene.position); holder.add(plates);   // 板も同じ平行移動の中に置く
-      addPlates(plates, n);
+      addPlates(holder, n);                                              // 実測した位置は機体の座標そのままなので、入れ物に直接置く
       holder.userData.join = 0; holder.userData.last = new THREE.Vector3();
       mates.push(holder);
     }

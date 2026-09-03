@@ -489,6 +489,10 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const L = LIMIT - 4; st.wall = Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL;
     st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, CEIL);
     if (st.z <= 3) { st.z = 3; st.ground = true; }   // 地面に着いたら、その時の姿勢のまま止める（動きを固定）
+    if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
+      Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
+      levelAttitude(); hist.length = 0; auto = false; oneShot = false; formScale = 1;
+    }
   }
   /* 先頭機の軌跡を残し、そこから編隊機の位置を決める */
   const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3();
@@ -555,11 +559,20 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
 
   let running = true, raf = 0, last = performance.now();
+  /* 1 フレームの中で何かに失敗しても、次のフレームを必ず要求する（要求をやめると画面が固まって見える）。
+     続けて失敗するときは自動操縦を切って水平に戻す */
   function frame(now) {
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    clock += dt; smokeT += dt;
-    step(dt); place(); recordHistory(dt); placeMates(dt); renderer.render(world, cam);
+    try {
+      clock += dt; smokeT += dt;
+      step(dt); place(); recordHistory(dt); placeMates(dt); renderer.render(world, cam);
+      st.err = 0;
+    } catch (e) {
+      st.err = (st.err || 0) + 1;
+      if (st.err <= 2) console.error('sim frame error', e);
+      if (st.err === 3) { auto = false; oneShot = false; formation = userForm; formScale = 1; levelAttitude(); }
+    }
     if (onState) onState(st);
     raf = requestAnimationFrame(frame);
   }
@@ -607,8 +620,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
     maneuvers() { return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja })).filter(m => m.id !== 'orbit' && m.id !== 'pass'); },
     runManeuver(i) {
       if (!PROGRAM[i] || st.ground) return false;
-      userForm = formation; step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h;
-      st.show = PROGRAM[i].ja; auto = true; oneShot = true; return true;
+      if (!auto) { userForm = formation; oneShot = true; }   // 自分で操縦しているときは、その技だけ行って操縦を返す
+      formScale = 1; step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h;
+      st.show = PROGRAM[i].ja; auto = true; return true;
     },
     setProps(on) { props.visible = !!on; },   // オブジェクト（山・民家・木・塔）の出し入れ
     setFormation(f) { if (FORMATIONS[f]) { formation = f; userForm = f; } },   // 飛びながら変えられる。合流は placeMates がなめらかにする

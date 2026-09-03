@@ -140,6 +140,11 @@ svg text{user-select:none}
 .pccode{font-family:var(--mono);font-size:.8125rem;background:var(--panel2);border:1px solid var(--line2);border-radius:.375rem;padding:.25rem .5rem;user-select:all;-webkit-user-select:all}
 .setgroup h4{margin:0 0 .25rem;font-size:.75rem;letter-spacing:.08em;color:var(--accent);font-family:var(--display)}
 .sethelp{font-size:.75rem;color:var(--faint);margin-top:.5rem}
+.fld{display:block;margin-top:.75rem;font-size:.8125rem;color:var(--muted)}
+.fld span{display:block;margin-bottom:.25rem}
+.fld textarea,.fld input[type="text"]{width:100%;font:inherit;font-size:.875rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.5rem .625rem}
+.fld textarea{resize:vertical;min-height:6rem;line-height:1.6}
+.fld input[type="file"]{width:100%;font-size:.75rem;color:var(--muted)}
 
 /* ===== 説明・選択・練習・シミュレータ ===== */
 .phase{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:0 .375rem;vertical-align:.1rem}
@@ -689,6 +694,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
           <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="menulist" id="menuList" hidden>
             <button data-go="news">お知らせ<span class="dot" id="newsDot" hidden></span></button>
+            <button data-go="contact">ご要望・お問い合わせ</button>
             <button data-go="settings">設定</button>
             <button data-go="about">アプリの説明</button>
             <button data-act="restore">購入を復元</button>
@@ -767,6 +773,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <div class="prow"><button class="btn ghost" id="abSim">シミュレーターを開く</button><button class="btn ghost" id="abGallery">全操作パターンの見え方</button></div>
       </div>
     </div>
+  </section>
+
+  <section id="view-contact" hidden>
+    <div class="about"><div class="card" id="contactPage"></div></div>
   </section>
 
   <section id="view-news" hidden>
@@ -865,7 +875,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.14';
+const APP_VER='v03.15';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1134,7 +1144,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=28').then(mod=>{
+  import('./sim3d.js?v=29').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1256,7 +1266,7 @@ function runSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=28').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=29').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1425,6 +1435,42 @@ async function renderNews(){
       +`<div class="t">${i.title||''}</div><div class="b">${i.body||''}</div></div>`}).join('')}</div>`
     :'<div class="sub2">お知らせはまだありません。</div>');
 }
+/* ご要望・お問い合わせ。いまは送信をメールで行い、送った控えを端末に残す。
+   返信はメールで届く（アプリの中で受け取る仕組みは、送信の置き場所（Supabase など）を用意してから足す）。
+   利用者が書いた文字は、画面に出すときに必ず escape する */
+const CONTACT_MAIL='voyages_worsted_0a@icloud.com';
+const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ATTACH_OK=/^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/;   // 添付として扱える形式
+const MAX_ATTACH=2*1024*1024;                                          // 1 ファイル 2MB まで
+function renderContact(){
+  const sent=store.get('inquiries',[]);
+  $('#contactPage').innerHTML=`<h3>ご要望・お問い合わせ</h3>
+    <div class="sub2">気づいたこと、直してほしいところ、ほしい機能を送ってください。返信はメールで届きます。</div>
+    <label class="fld"><span>本文</span><textarea id="cMsg" rows="6" maxlength="2000" placeholder="例: 方位のむずかしいで、N マークが見づらいです"></textarea></label>
+    <label class="fld"><span>お名前・ニックネーム（任意）</span><input id="cName" type="text" maxlength="20" autocomplete="off"></label>
+    <label class="fld"><span>画像や PDF を添える（任意・1 つ 2MB まで）</span><input id="cFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"></label>
+    <div class="sethelp" id="cNote">送信するとメールの下書きが開きます。添付はメールの画面で付けてください。</div>
+    <div class="acts"><button class="btn" id="cSend">メールで送る${ic('next','s')}</button></div>
+    <h4 class="codeh">送った控え</h4>
+    <div class="news" id="cList">${sent.length?sent.map(x=>`<div class="it"><div class="hd"><span class="tag">送信</span><span class="dt">${esc(x.date)}</span>${x.name?`<span class="dt">${esc(x.name)}</span>`:''}</div><div class="b">${esc(x.msg).replace(/\n/g,'<br>')}</div>${x.file?`<div class="dt">添付: ${esc(x.file)}</div>`:''}</div>`).join(''):'<div class="sub2">まだありません。</div>'}</div>`;
+  const fileEl=$('#cFile');
+  fileEl.addEventListener('change',()=>{const f=fileEl.files&&fileEl.files[0];if(!f)return;
+    if(f.size>MAX_ATTACH){fileEl.value='';$('#cNote').textContent='ファイルが大きすぎます（2MB まで）。小さくしてから選び直してください。';return}
+    if(!ATTACH_OK.test(f.type)){fileEl.value='';$('#cNote').textContent='この形式は添えられません（画像か PDF を選んでください）。';return}
+    $('#cNote').textContent=`「${f.name}」を選びました。送信するとメールの下書きが開くので、そこでこのファイルを添付してください。`});
+  $('#cSend').addEventListener('click',()=>{
+    const msg=$('#cMsg').value.trim(),name=$('#cName').value.trim();
+    if(!msg){toast('本文を書いてください');$('#cMsg').focus();return}
+    const f=fileEl.files&&fileEl.files[0];
+    const body=[msg,'','---',`お名前: ${name||'（未記入）'}`,`版: ${APP_VER}`,`画面: ${navigator.userAgent}`,f?`添付予定: ${f.name}`:''].filter(Boolean).join('\n');
+    const list=[{date:new Date().toLocaleString('ja-JP'),msg,name,file:f?f.name:''},...store.get('inquiries',[])].slice(0,20);
+    store.set('inquiries',list);
+    location.href=`mailto:${CONTACT_MAIL}?subject=${encodeURIComponent('TENRYU ご要望・お問い合わせ')}&body=${encodeURIComponent(body)}`;
+    $('#cMsg').value='';fileEl.value='';toast('メールの下書きを開きました');
+    setTimeout(renderContact,400);
+  });
+}
+
 /* 購入の復元: 端末に残っているコードで全機能版を有効にし直す */
 async function restorePurchase(){
   const k=store.get('key');
@@ -1464,7 +1510,7 @@ async function initAbout(){
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
-const VIEWS=['home','train','settings','about','news','buy'];
+const VIEWS=['home','train','settings','about','news','contact','buy'];
 function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});window.scrollTo({top:0})}
 let currentHash='';
 function route(){
@@ -1485,6 +1531,7 @@ function route(){
   else if(v==='settings')renderSettingsPage();
   else if(v==='buy')renderBuy();
   else if(v==='news')renderNews();
+  else if(v==='contact')renderContact();
   else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':`この Web 版は体験版です（方位のみ・1 回 ${DEMO.qCount} 問まで）。全機能は Google Play 版で使えます。`;initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();

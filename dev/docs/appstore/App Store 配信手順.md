@@ -108,9 +108,14 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 1. App Store Connect で **App Store Connect API キー**を作る（ユーザとアクセス → 統合 → キーを生成。権限は App Manager。`.p8` は 1 回だけダウンロードできる）
 2. **バンドル ID を登録**（Certificates, Identifiers & Profiles → Identifiers → `com.amaterasuvocab.kokuteki`）
 3. App Store Connect で **アプリを作る**（名前 TENRYU、SKU `tenryu-001`）
-4. Codemagic に GitHub でログインし、`AMATERAS39/kokuteki-trainer` を追加。
-   Teams → Integrations → **App Store Connect** に 1 のキーを登録する。**名前は `TENRYU`**（`codemagic.yaml` の `integrations` と一致させる）
-5. Codemagic のアプリ画面で「codemagic.yaml」を使う設定にする（直下の `codemagic.yaml` を自動で読む）。変数グループは要らない
+4. Codemagic に GitHub でログインし、`AMATERAS39/kokuteki-trainer` を追加
+5. そのアプリの **Environment variables** で、グループ `appstore` に 3 つ入れる（Integrations の画面は触らなくてよい）
+   | 変数名 | 値 | Secure |
+   |---|---|---|
+   | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID | しなくてよい |
+   | `APP_STORE_CONNECT_KEY_IDENTIFIER` | Key ID | しなくてよい |
+   | `APP_STORE_CONNECT_PRIVATE_KEY` | `.p8` の中身を全部（`-----BEGIN` の行から `-----END` の行まで） | **する** |
+   この名前のままにすると `app-store-connect` コマンドと TestFlight への配信が自動で読む
 6. ビルドを実行 → TestFlight に上がる → iPhone で確認
 7. 掲載文・スクリーンショット・価格（800 円）・「App のプライバシー（収集なし）」を入れて審査へ提出
 

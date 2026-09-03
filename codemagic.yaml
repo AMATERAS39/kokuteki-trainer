@@ -1,17 +1,18 @@
 # Codemagic（クラウドの macOS）でのビルド設定。Codemagic はリポジトリ直下の codemagic.yaml を読む。
-# 前提: Codemagic の Teams → Integrations → App Store Connect に、名前 "TENRYU" でキーを登録してあること
-#       （Key ID / Issuer ID / .p8 は kokuteki-private/appstore/ に控え）
+# 前提: Codemagic のアプリ設定 → Environment variables で、グループ "appstore" に次の 3 つを入れてあること
+#   APP_STORE_CONNECT_ISSUER_ID      … Issuer ID
+#   APP_STORE_CONNECT_KEY_IDENTIFIER … Key ID
+#   APP_STORE_CONNECT_PRIVATE_KEY    … .p8 の中身をそのまま（Secure にする）
+# 控えは kokuteki-private/appstore/api-key-info.txt。この名前のままにすると、
+# app-store-connect コマンドと publishing が自動で読む（Integrations の画面を触らなくてよい）
 workflows:
   ios-appstore:
     name: TENRYU iOS（App Store）
     instance_type: mac_mini_m2
     max_build_duration: 60
-    integrations:
-      app_store_connect: TENRYU        # ← Codemagic で付けた連携の名前と一致させる
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.amaterasuvocab.kokuteki
+      groups:
+        - appstore
       vars:
         BUNDLE_ID: "com.amaterasuvocab.kokuteki"
         XCODE_SCHEME: "App"
@@ -59,6 +60,8 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
-        auth: integration
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         submit_to_app_store: false     # 動作確認が済んだら true にする

@@ -313,7 +313,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* ---- 状態と入力 ---- */
   /* 姿勢はクォータニオンで持つ。オイラー角（方位・ピッチ・バンク）だと宙返りの真上・真下で破綻するため。
      h / p / b は表示と計器のために毎フレーム取り出す。機体の軸: 機首 +y、右翼 +x、機体上 +z */
-  const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false, show: '', cue: '', desc: '' };
+  const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false, show: '', cue: '', desc: '', gh: 0 };
   const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
@@ -321,7 +321,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const gEye = new THREE.Vector3(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z + EYE_H);   // 地上の立ち位置（目の高さ）
   let gYaw = 0, gPitch = 0.06;                                     // 地上視点の向き（自分で決めた方向）
   let follow = false;                                              // 機体を目で追うか（切ってあれば向けた方向のまま）
-  const gRay = new THREE.Raycaster();
+  const gRay = new THREE.Raycaster(), down = new THREE.Vector3(0, 0, -1);
   function gAim() {   // いまの立ち位置から機体の方へ向ける
     tmp.copy(plane.position).sub(gEye);
     gYaw = Math.atan2(tmp.x, tmp.y); gPitch = Math.asin(clamp(tmp.z / Math.max(1, tmp.length()), -1, 1));
@@ -427,12 +427,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function planEntry(m) {
     const e = eyeDir(), W = LIMIT - 220;
     const cx = clamp(e.ex + e.dx * SHOW.GATE, -W, W), cy = clamp(e.ey + e.dy * SHOW.GATE, -W, W);
-    if (m.entry === 'front') {          // 正面の遠くから、まっすぐ向かってきて頭の上へ抜ける
-      GATE.x = clamp(e.ex + e.dx * (SHOW.GATE + 760), -W, W);
-      GATE.y = clamp(e.ey + e.dy * (SHOW.GATE + 760), -W, W);
+    const sx = e.dy, sy = -e.dx;                                          // 正面から見て右向き
+    const side = ((st.x - cx) * sx + (st.y - cy) * sy) >= 0 ? 1 : -1;     // 機体に近いほうの横から
+    if (m.entry === 'front') {
+      /* 正面の遠くから向かってくる課目。門は正面の線から少し横に置く。
+         そこから正面の線に乗り直してくるので、まっすぐ向かってくる形になる
+         （線の上に門を置くと、門で 180 度 向き直すことになり、正面から外れる） */
+      GATE.x = clamp(e.ex + e.dx * (SHOW.GATE + 900) + sx * side * 420, -W, W);
+      GATE.y = clamp(e.ey + e.dy * (SHOW.GATE + 900) + sy * side * 420, -W, W);
     } else {                            // 近いほうの横から入って、正面を横切る
-      const sx = e.dy, sy = -e.dx;
-      const side = ((st.x - cx) * sx + (st.y - cy) * sy) >= 0 ? 1 : -1;
       GATE.x = clamp(cx + sx * side * SHOW.SIDE, -W, W);
       GATE.y = clamp(cy + sy * side * SHOW.SIDE, -W, W);
     }
@@ -453,7 +456,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     mates.forEach(h => {
       if (!h.visible) return;
       mo.copy(h.position).sub(plane.position).applyQuaternion(inv);
-      h.userData.cur.set(mo.x, Math.min(-20, mo.y), mo.z); h.userData.figFrom = null;
+      h.userData.cur.set(mo.x, Math.min(-20, mo.y), mo.z);
       startJoin(h.userData);                                   // 図の位置から隊形へ、ゆっくり戻る
     });
     fig = null;
@@ -522,8 +525,17 @@ export function mount(container, { onState, view = 'first' } = {}) {
       } else {
         steerTo(aimX, aimY, GATE.z);
         const wantH = ((Math.atan2(aimX - st.x, aimY - st.y) / D) % 360 + 360) % 360;
-        const near = Math.hypot(st.x - aimX, st.y - aimY) < 280 && Math.abs(st.z - GATE.z) < 80;
-        if ((near && Math.abs(wrap180(wantH - st.h)) < 50) || phaseT > 18) endEntry();
+        if (m.entry === 'front') {
+          /* 正面から入る課目は、観覧位置の正面の線に乗ってから始める（横にずれたまま始めると、
+             まっすぐ進む課目が正面から外れる）。まだ 780 m 手前のうちに始めて、見ごたえを取る */
+          const e5 = eyeDir();
+          const along = (st.x - e5.ex) * e5.dx + (st.y - e5.ey) * e5.dy;
+          const side = Math.abs((st.x - e5.ex) * e5.dy - (st.y - e5.ey) * e5.dx);
+          if ((along < 780 && side < 90 && Math.abs(wrap180(wantH - st.h)) < 10 && Math.abs(st.z - GATE.z) < 90) || phaseT > 26) endEntry();
+        } else {
+          const near = Math.hypot(st.x - aimX, st.y - aimY) < 280 && Math.abs(st.z - GATE.z) < 80;
+          if ((near && Math.abs(wrap180(wantH - st.h)) < 50) || phaseT > 22) endEntry();
+        }
       }
       safety();
       return autoIn;
@@ -604,7 +616,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       case 'cork': {                             // コークスクリュー: 1 番機はまっすぐ、2 番機がその周りを回る
         const e4 = eyeDir();
         steerTo(e4.ex - e4.dx * 700, e4.ey - e4.dy * 700, m.alt || 200);
-        holdBank(0);                             // 1 番機は翼を水平のまままっすぐ進む
+        holdBank(clamp(st.b + autoIn.x * 22, -16, 16));   // 1 番機はほぼ水平のまま、向きだけ少し直す
         corkT = corkT < 0 ? 0 : corkT + dt;
         const past4 = (st.x - e4.ex) * e4.dx + (st.y - e4.ey) * e4.dy;   // 正なら手前、負なら越えた先
         if (past4 < -320 || manT > 34) nextManeuver();
@@ -709,10 +721,20 @@ export function mount(container, { onState, view = 'first' } = {}) {
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
     while (hist.length > 2 && hist[0].t < histT - 20) hist.shift();   // 後ろの遠く（合流位置）まで届く長さ
   }
+  const exFwd = new THREE.Vector3(), exPos = new THREE.Vector3(), exSt = { p: exPos, q: null };
+  /* lag 秒前の 1 番機の状態。記録より前を求められたら、いちばん古い点から後ろへ まっすぐ延ばす。
+     （その場に留めると、機体が空中で止まって待っているように見える） */
   function stateAt(lag) {
     const want = histT - lag;
     for (let i = hist.length - 1; i >= 0; i--) if (hist[i].t <= want) return hist[i];
-    return hist[0] || { p: plane.position, q: att };
+    const h0 = hist[0];
+    if (!h0) return { p: plane.position, q: att };
+    const extra = h0.t - want;
+    if (extra <= 0.02) return h0;
+    exFwd.set(0, 1, 0).applyQuaternion(h0.q);
+    exPos.copy(h0.p).addScaledVector(exFwd, -extra * SPEED);
+    exSt.q = h0.q;
+    return exSt;
   }
   function placeMates(dt) {
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
@@ -733,12 +755,16 @@ export function mount(container, { onState, view = 'first' } = {}) {
         if (fUp.lengthSq() < 1e-6) fUp.copy(figU);
         fUp.normalize(); fRt.crossVectors(fFw, fUp);
         fq.setFromRotationMatrix(fmat.makeBasis(fRt, fFw, fUp));
-        if (fig.t < 6) {                                         // 隊形の位置から図の始点へ寄せる
-          if (!u.figFrom) { u.figFrom = holder.position.clone(); u.figQ = holder.quaternion.clone(); }
+        if (fig.t < 6) {
+          /* 隊形の位置から図の道へ寄せる。寄せ元は「編隊で飛び続けていたらいる位置」なので、
+             止まって待っているようには見えない */
+          const s3 = stateAt(Math.max(0, -u.cur.y / SPEED));
+          mq.copy(s3.q); mp.copy(s3.p);
+          mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq); mp.add(mo);
           const k = fig.t / 6, e2 = k * k * (3 - 2 * k);
-          holder.position.lerpVectors(u.figFrom, fp, e2);
-          holder.quaternion.copy(u.figQ).slerp(fq, e2);
-        } else { holder.position.copy(fp); holder.quaternion.copy(fq); u.figFrom = null; }
+          holder.position.lerpVectors(mp, fp, e2);
+          holder.quaternion.copy(mq).slerp(fq, e2);
+        } else { holder.position.copy(fp); holder.quaternion.copy(fq); }
         holder.visible = true;
         if (emitting && fig.t > 1.2) { emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
         return;
@@ -759,12 +785,17 @@ export function mount(container, { onState, view = 'first' } = {}) {
       fwant.set(target ? target[0] * formScale : e[0], target ? target[1] * formScale : e[1], target ? target[2] * formScale : e[2]);
       if (!u.from || u.want.distanceTo(fwant) > 6) { u.want.copy(fwant); startJoin(u); }   // 行き先が変わったら道を引き直す
       else u.want.copy(fwant);
+      const py = u.cur.y;
       u.k = Math.min(1, (u.k || 0) + dt / JOIN_TIME);
       const ek = u.k * u.k * (3 - 2 * u.k);                    // ゆっくり出て ゆっくり入る
       u.cur.lerpVectors(u.from, u.want, ek).addScaledVector(u.bow, Math.sin(Math.PI * u.k));
-      const settled = u.k > 0.97;
-      /* 離れていく機体は、後ろの遠く（ENTRY）まで下がりきってから消す（十分小さくなっている） */
-      if (!target && settled) { holder.visible = false; return; }
+      /* 前後のずれが 1 秒に 30 m を超えると、下がる速さと飛ぶ速さが釣り合って、
+         機体が空中で止まっているように見える。前後だけ速さに上限をかける */
+      const lim = 30 * dt;
+      u.cur.y = clamp(u.cur.y, py - lim, py + lim);
+      const settled = u.k > 0.97 && Math.abs(u.cur.y - u.want.y) < 20;
+      /* 離れていく機体は、十分に離れて小さくなってから消す */
+      if (!target && (settled || u.cur.length() > 520)) { holder.visible = false; return; }
       holder.visible = true;
       const st2 = stateAt(Math.max(0, -u.cur.y / SPEED));
       mq.copy(st2.q); mp.copy(st2.p);
@@ -776,7 +807,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
     smokeMat.uniforms.uTime.value = clock;
   }
 
+  let lastDt = 0.016;
   function place(dt) {
+    if (dt) lastDt = dt;
     rotation();
     plane.visible = shadow.visible = drop.visible = !fig;   // 描き物の最中は 1 番機を隠す
     /* 自動追従: 地上から見るとき、機体の方へ ゆっくり首を回す（急に動くと見づらいので少しずつ） */
@@ -796,6 +829,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
          向きは 見回し（ドラッグ）だけで変わり、立ち位置は 2 回叩いた場所へ移る */
       cam.position.copy(gEye); cam.up.set(0, 0, 1);
       const yaw = gYaw - look.y, pit = clamp(gPitch + look.p, -1.35, 1.35);
+      st.gh = ((yaw / D) % 360 + 360) % 360;   // 地上で見ている方位（右上の方位計に出す）
       gdir.set(Math.sin(yaw) * Math.cos(pit), Math.cos(yaw) * Math.cos(pit), Math.sin(pit));
       cam.lookAt(tmp.copy(gdir).multiplyScalar(200).add(cam.position));
     } else if (curView === 'third' || curView === 'front') {
@@ -859,6 +893,19 @@ export function mount(container, { onState, view = 'first' } = {}) {
       if (!hit) return false;
       gEye.set(hit.point.x, hit.point.y, hit.point.z + EYE_H);
       gAim();
+      return true;
+    },
+    /* 地上視点で立ち位置を歩かせる（自動操縦のときのスティック）。
+       見ている向きを前として、前後左右に動く。地面・滑走路・オブジェクトの上に立つ */
+    groundWalk(dx, dy) {
+      if (curView !== 'ground') return false;
+      const a = gYaw - look.y, v = 34 * lastDt, W = LIMIT - 30;
+      const fx = Math.sin(a), fy = Math.cos(a);
+      const nx = clamp(gEye.x + (fx * dy + Math.cos(a) * dx) * v, -W, W);
+      const ny = clamp(gEye.y + (fy * dy - Math.sin(a) * dx) * v, -W, W);
+      gRay.set(tmp.set(nx, ny, 900), down);
+      const hit = gRay.intersectObjects([ground, runway], true)[0];   // 歩くのは地面と滑走路の上（山や家には登らない）
+      gEye.set(nx, ny, (hit ? hit.point.z : 0) + EYE_H);
       return true;
     },
     /* 自動操縦の入り切り。入れたときは観覧位置の南の空から演技を始める */

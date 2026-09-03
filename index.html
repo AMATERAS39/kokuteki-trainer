@@ -202,6 +202,9 @@ svg text{user-select:none}
 .iconbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .ic.fmi{fill:currentColor;stroke:none}
 /* 自動操縦のとき、操縦桿とペダルは薄くして触っても効かないことを示す */
+.grip .plain{display:none}
+.sim.autoon .grip .col{display:none}
+.sim.autoon .grip .plain{display:block}
 .sim.autoon .rud{display:none}   /* 自動操縦のときは方向舵を出さない（操縦桿は視点を動かすのに使う） */
 @media (orientation:portrait){.iconbtn.landscape{display:none}}
 .formwrap{position:relative;display:inline-flex}
@@ -893,7 +896,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.22';
+const APP_VER='v03.23';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1162,7 +1165,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=34').then(mod=>{
+  import('./sim3d.js?v=35').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1203,7 +1206,7 @@ function runSim(){applyScene();
     <div class="instrow" id="instRow">${inst}</div>
     <div class="ctl">
       <div class="stkwrap"><h4>操縦桿</h4><div class="stick" id="stick"><span class="lb t">奥</span><span class="lb b">手前</span><span class="lb l">左</span><span class="lb r">右</span>
-        <svg class="grip" id="knob" viewBox="-40 -60 80 120" aria-hidden="true"><ellipse cx="0" cy="44" rx="22" ry="8" fill="#0d1116" opacity=".7"/><rect x="-5" y="-4" width="10" height="46" rx="4" fill="#8a939e"/><path d="M-14,-50 h28 a10,10 0 0 1 10,10 v34 a10,10 0 0 1 -10,10 h-28 a10,10 0 0 1 -10,-10 v-34 a10,10 0 0 1 10,-10z" fill="#14171b" stroke="#3a424c" stroke-width="2"/><rect x="-10" y="-42" width="8" height="8" rx="2" fill="#c0392b"/><rect x="2" y="-42" width="8" height="8" rx="2" fill="#5b6570"/><rect x="-9" y="-26" width="18" height="4" rx="2" fill="#3a424c"/><rect x="-9" y="-16" width="18" height="4" rx="2" fill="#3a424c"/></svg></div></div>
+        <svg class="grip" id="knob" viewBox="-40 -60 80 120" aria-hidden="true"><circle class="plain" cx="0" cy="0" r="26" fill="#8a939e" stroke="#3a424c" stroke-width="3"/><g class="col"><ellipse cx="0" cy="44" rx="22" ry="8" fill="#0d1116" opacity=".7"/><rect x="-5" y="-4" width="10" height="46" rx="4" fill="#8a939e"/><path d="M-14,-50 h28 a10,10 0 0 1 10,10 v34 a10,10 0 0 1 -10,10 h-28 a10,10 0 0 1 -10,-10 v-34 a10,10 0 0 1 10,-10z" fill="#14171b" stroke="#3a424c" stroke-width="2"/><rect x="-10" y="-42" width="8" height="8" rx="2" fill="#c0392b"/><rect x="2" y="-42" width="8" height="8" rx="2" fill="#5b6570"/><rect x="-9" y="-26" width="18" height="4" rx="2" fill="#3a424c"/><rect x="-9" y="-16" width="18" height="4" rx="2" fill="#3a424c"/></g></svg></div></div>
       <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1"><span class="pl">左</span></button><button class="ab pedal" data-r="1"><span class="pl">右</span></button></div></div>
     </div>
     <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
@@ -1224,7 +1227,8 @@ function runSim(){applyScene();
     if(sim.h){if(sim.h.autoState()){sim.h.input.x=0;sim.h.input.y=0}else{sim.h.input.x=dx;sim.h.input.y=-dy}}knob.style.transform=`translate(${(dx*22).toFixed(1)}%,${(dy*22).toFixed(1)}%) rotate(${(dx*18).toFixed(1)}deg)`};
   stick.addEventListener('pointerdown',e=>{if(sim.ptr!==null)return;sim.ptr=e.pointerId;try{stick.setPointerCapture(e.pointerId)}catch(_){}setStick(e);e.preventDefault()});
   stick.addEventListener('pointermove',e=>{if(e.pointerId===sim.ptr)setStick(e)});
-  ['pointerup','pointercancel'].forEach(ev=>stick.addEventListener(ev,e=>{if(e.pointerId!==sim.ptr)return;sim.ptr=null;if(sim.h){sim.h.input.x=0;sim.h.input.y=0}knob.style.transform='';applyInput()}));
+  ['pointerup','pointercancel'].forEach(ev=>stick.addEventListener(ev,e=>{if(e.pointerId!==sim.ptr)return;sim.ptr=null;
+    sim.stickVec={x:0,y:0};if(sim.h){sim.h.input.x=0;sim.h.input.y=0}knob.style.transform='';applyInput()}));
   /* 方向舵（右）: 押している間だけ。両手で同時に操作できる */
   $('#sim').querySelectorAll('[data-r]').forEach(b=>{
     b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();try{b.setPointerCapture(e.pointerId)}catch(_){}sim.rud.set(e.pointerId,+b.dataset.r);applyInput()});
@@ -1281,7 +1285,7 @@ function runSim(){applyScene();
   sim.viewName=view;
   $('#sim').querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;store.set('simView',v);sim.viewName=v;
     $('#sim').querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('sel',x===b));$('#simView').classList.toggle('fp',v==='first');
-    if(sim.h){sim.h.setView(v);if(sim.setZoom)sim.setZoom(1)}}));
+    if(sim.h){sim.h.setView(v);if(sim.setZoom)sim.setZoom(1);if(sim.paintAuto)sim.paintAuto()}}));
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
   $('#simHome').addEventListener('click',()=>{if(sim.h)sim.h.home()});
   $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
@@ -1292,7 +1296,8 @@ function runSim(){applyScene();
     if(sim.wheelDir&&sim.wheelUntil<=performance.now()){sim.wheelDir=0;applyInput()}
     /* 自動操縦のときは、操縦桿の傾けぐあいで視点を動かす（機体は自動で飛ぶ） */
     if(sim.h&&sim.h.autoState()){
-      const v=sim.stickVec;if(v&&(v.x||v.y))sim.h.addLook(-v.x*1.6,v.y*1.6);
+      const v=sim.stickVec;
+      if(v&&(v.x||v.y)){if(sim.viewName==='ground')sim.h.groundWalk(v.x,v.y);else sim.h.addLook(-v.x*1.6,v.y*1.6)}
       const nm=$('#showName');if(nm){const t=s.show?(s.cue?`${s.show}｜${s.cue}`:s.show):'';nm.textContent=t;nm.hidden=!t}
       /* 課目が変わったら、その技の説明をしばらく出す */
       if(s.show!==sim.lastShow){sim.lastShow=s.show;const de=$('#trickDesc');
@@ -1303,11 +1308,13 @@ function runSim(){applyScene();
       const de=$('#trickDesc');if(de&&!de.hidden)de.hidden=true;sim.lastShow='';
       if($('#sim').classList.contains('autoon')&&!(sim.h&&sim.h.autoState())&&!$('#simAuto').classList.contains('on'))$('#sim').classList.remove('autoon')}
     ais.forEach(a=>{a.querySelector('.ai-h').setAttribute('transform',`rotate(${-s.b}) translate(0 ${(s.p*K).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-s.b})`)});
-    his.forEach(h=>h.querySelector('.hi-c').setAttribute('transform',`rotate(${-s.h})`));
+    /* 方位計は、地上から見ているときは「自分が見ている方位」、それ以外は機体の方位 */
+    const hdg=(sim.viewName==='ground'&&typeof s.gh==='number')?s.gh:s.h;
+    his.forEach(h=>h.querySelector('.hi-c').setAttribute('transform',`rotate(${-hdg})`));
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=34').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=35').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1343,8 +1350,14 @@ function runSim(){applyScene();
         toast(on?'機体を目で追います':'向けた方向のままにします')});
       /* 自動操縦: 入れると編隊が演技をする（地上からの視点で見るためのもの）。操縦桿の操作は効かない */
       const aBtn=$('#simAuto');
+      const stkH=$('#sim').querySelector('.stkwrap h4');
       const paintAuto=()=>{const on=sim.h.autoState();aBtn.classList.toggle('on',on);aBtn.setAttribute('aria-pressed',String(on));
-        $('#sim').classList.toggle('autoon',on)};
+        $('#sim').classList.toggle('autoon',on);
+        const g=on&&sim.viewName==='ground';
+        stkH.textContent=on?(g?'視点の移動':'視点'):'操縦桿';
+        const lb={t:on?(g?'前':'上'):'奥',b:on?(g?'後ろ':'下'):'手前',l:'左',r:'右'};
+        Object.entries(lb).forEach(([k,v])=>{const e=$('#sim').querySelector('.stick .lb.'+k);if(e)e.textContent=v})};
+      sim.paintAuto=paintAuto;
       aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
         if(on){toast('自動操縦。2 回叩くとその場所に立てます');const g=$('#sim').querySelector('[data-view="ground"]');if(g&&!g.classList.contains('sel'))g.click()}
         else toast('自動操縦を止めました')});

@@ -240,11 +240,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
     } catch (e) { return '#0a6ab4'; }
   }
   function measureFin(root, frame) {
-    const all = new THREE.Box3().setFromObject(root);
-    const hz = all.max.z - all.min.z, ly = all.max.y - all.min.y;
     const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert();
+    /* 全体の箱も機体の座標に直してから比べる（世界座標のままだと、
+       機体が原点から離れているときに条件が成り立たず、尾翼が見つからない） */
+    const all = new THREE.Box3().setFromObject(root).applyMatrix4(inv);
+    const hz = all.max.z - all.min.z, ly = all.max.y - all.min.y;
     const v = new THREE.Vector3(), fin = new THREE.Box3(); let hit = 0;
     root.updateWorldMatrix(true, true);
+    fin.makeEmpty();
     root.traverse(o => {
       if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
       const pos = o.geometry.attributes.position;
@@ -479,10 +482,24 @@ export function mount(container, { onState, view = 'first' } = {}) {
     marker.position.set(GATE.x, GATE.y, 160); markOn = true;
   }
   /* 図を終える。機体は散らばった位置にいるので、そこからの相対位置を覚えて、隊形へ寄り直させる */
-  const RET_T = 12;                                // 図のあと、隊形へ戻すのにかける時間（秒）
-  let retT = -1;
+  let retT = -1, retDur = 12;                      // 図のあと、隊形へ戻すのにかける時間（距離で決める）
+  /* コークスクリューを終えるとき、2 番機を その場から隊形へ戻す */
+  function endCork() {
+    if (corkT < 0) return;
+    corkT = -1;
+    const h = mates[0];
+    if (h && h.visible) {
+      const inv = att.clone().invert();
+      mo.copy(h.position).sub(plane.position).applyQuaternion(inv);
+      h.userData.cur.set(mo.x, Math.min(-20, mo.y), mo.z);
+      startJoin(h.userData);
+      h.userData.ret = { p: h.position.clone(), q: h.quaternion.clone() };
+      retDur = 10; retT = 0;
+    }
+  }
   function endFigure() {
     if (!fig) return;
+    retDur = 10;
     const inv = att.clone().invert();
     mates.forEach(h => {
       if (!h.visible) { h.userData.ret = null; return; }
@@ -490,6 +507,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       h.userData.cur.set(mo.x, Math.min(-40, mo.y), mo.z);
       startJoin(h.userData);                                   // 図の位置から隊形へ、ゆっくり戻る
       h.userData.ret = { p: h.position.clone(), q: h.quaternion.clone() };
+      retDur = Math.max(retDur, clamp(h.position.distanceTo(plane.position) / 22, 10, 30));
     });
     retT = 0; fig = null;
   }
@@ -501,7 +519,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   /* 課目を始める。使う隊形をそろえてから（いまの機数によらず集まる）、進入に入る */
   function beginManeuver(i) {
-    corkT = -1; endFigure();
+    endCork(); endFigure();
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1;
     const m = PROGRAM[i];
     formation = m.form || userForm;
@@ -514,7 +532,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function nextManeuver() {
     formScale = 1;
     if (oneShot) {   // 1 つだけの技なら、水平に戻してから操縦を返す
-      manPhase = 'out'; phaseT = 0; st.cue = '水平に戻します'; markOn = false; corkT = -1; endFigure(); return;
+      manPhase = 'out'; phaseT = 0; st.cue = '水平に戻します'; markOn = false; endCork(); endFigure(); return;
     }
     beginManeuver((step_i + 1) % PROGRAM.length);
   }
@@ -655,10 +673,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
         break;
       }
       case 'cork': {                             // コークスクリュー: 1 番機はまっすぐ、2 番機がその周りを回る
+        if (corkT < 0 && !matesReady() && manT < 20) { holdBank(0); holdPitch(0); break; }   // 2 番機が付くまで待つ
         const e4 = eyeDir();
         steerTo(e4.ex - e4.dx * 700, e4.ey - e4.dy * 700, m.alt || 200);
         holdBank(clamp(st.b + autoIn.x * 22, -16, 16));   // 1 番機はほぼ水平のまま、向きだけ少し直す
-        corkT = corkT < 0 ? 0 : corkT + dt;
+        if (corkT < 0) {                         // 輪に乗るまでの時間は、いまの離れぐあいで決める
+          corkT = 0;
+          const h2 = mates[0];
+          corkBlend = h2 && h2.visible ? clamp(h2.position.distanceTo(plane.position) / 30, 3, 12) : 3;
+        } else corkT += dt;
         const past4 = (st.x - e4.ex) * e4.dx + (st.y - e4.ey) * e4.dy;   // 正なら手前、負なら越えた先
         if (past4 < -320 || manT > 34) nextManeuver();
         break;
@@ -732,8 +755,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
   let corkT = -1;                                  // 0 以上ならコークスクリューの最中（2 番機が周りを回る）
   /* 描き物の課目（キューピッド・スタークロス）。編隊では描けない形なので、機体を式で置く。
      1 番機（操作する機体）は隠して、2 番機以降で描く。図は観覧位置の正面の空に立てた面の上に描く */
-  const FIGS = { cupid: { dur: 36, n: 3, s: 15, d: 780, z: 500 }, star: { dur: 24, n: 5, s: 17, d: 820, z: 430 } };
-  const HEART_END = 0.62, HEART_LEAD = 0.30;       // ここまででハートを描き終え、そのあと矢が飛ぶ／中央を上がる区間
+  const FIGS = { cupid: { dur: 28, n: 3, s: 15, d: 640, z: 500 }, star: { dur: 12, n: 5, s: 15, d: 520, z: 560 } };
+  const HEART_END = 0.62;                          // ハートを描く 2 機は、ここまでで道すじを飛び終える
+  const STAR_IN = 0.20, STAR_OUT = 0.85, STAR_R = 16;   // スタークロス: 線を引く区間と、星の大きさ（単位）
   let fig = null;                                  // {id, t, dur, n, s}
   const figO = new THREE.Vector3(), figR = new THREE.Vector3(), figU = new THREE.Vector3(0, 0, 1), figF = new THREE.Vector3();
   const fp = new THREE.Vector3(), fp2 = new THREE.Vector3(), fUp = new THREE.Vector3(), fRt = new THREE.Vector3(), fFw = new THREE.Vector3();
@@ -748,39 +772,82 @@ export function mount(container, { onState, view = 'first' } = {}) {
     figO.set(e.ex + e.dx * f.d, e.ey + e.dy * f.d, f.z);
     figR.set(e.dy, -e.dx, 0); figF.set(e.dx, e.dy, 0);
     fig = { id, t: 0, dur: f.dur, n: f.n, s: f.s };
+    /* 図の始点までの遠さで、寄せる時間を決める（速く飛びすぎないように） */
+    mates.forEach((h, i) => {
+      if (i >= f.n) return;
+      figPoint(fp, figXY(id, i, 0), f.s);
+      h.userData.blend = clamp(h.position.distanceTo(fp) / 45, 4, 14);
+    });
   }
   /* 図の中の位置（a: 右、b: 上、単位）。u は 0〜1 の進み具合、i は何番目の機体か */
-  /* ハートの形（p: 0〜1）。前半は中央を上がり、後半で左右の葉を回って下の尖りで合わさる */
-  function heartPt(k, p) {
-    if (p < HEART_LEAD) { const v = p / HEART_LEAD; return { a: k * 1.2 * (1 - v), b: -24 + 29 * v }; }
-    const t = Math.PI * (p - HEART_LEAD) / (1 - HEART_LEAD);
+  /* ハートの輪郭そのもの（t: 0=上のくぼみ 〜 π=下の尖り） */
+  function heartCurve(k, t) {
     return { a: k * 16 * Math.pow(Math.sin(t), 3),
              b: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) };
+  }
+  /* 1 機が飛ぶ道すじの点を作る。
+     ハートの輪郭は 上のくぼみと下の尖りが「尖って」いて、そのままなぞると
+     曲がりきれない（実機はそこを通らず、2 機の煙が交わって尖りを作る）。
+     そこで両端を落とし、入りと出はまっすぐな線でつなぐ。
+     下から上がってきて → 外側の葉を回り → 上のくぼみへ降りて 相手と交わる */
+  const T1 = Math.PI - 0.38, T2 = 0.38;
+  function heartPath(k) {
+    const pts = [], A = heartCurve(k, T1), A2 = heartCurve(k, T1 - 0.05);
+    let dx = A.a - A2.a, dy = A.b - A2.b, dl = Math.hypot(dx, dy);
+    for (let i = 20; i >= 1; i--) pts.push({ a: A.a + dx / dl * 12 * i / 20, b: A.b + dy / dl * 12 * i / 20 });
+    for (let i = 0; i <= 140; i++) pts.push(heartCurve(k, T1 + (T2 - T1) * i / 140));
+    const B = heartCurve(k, T2), B2 = heartCurve(k, T2 + 0.05);
+    dx = B.a - B2.a; dy = B.b - B2.b; dl = Math.hypot(dx, dy);
+    for (let i = 1; i <= 20; i++) pts.push({ a: B.a + dx / dl * 15 * i / 20, b: B.b + dy / dl * 15 * i / 20 });
+    return pts;
+  }
+  /* 道の長さで測り直す（式のままだと、尖りのところで速さが落ちて 止まって見える）。
+     0〜1 を「道のりの割合」として返すので、進む速さが一定になる */
+  let heartTab = null;
+  function heartPt(k, p) {
+    if (!heartTab) {
+      const pts = heartPath(1), N = pts.length - 1, cum = [0];
+      for (let i = 1; i <= N; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].a - pts[i - 1].a, pts[i].b - pts[i - 1].b));
+      heartTab = { pts, cum, total: cum[N], N };
+    }
+    const t = heartTab, want = clamp(p, 0, 1) * t.total;
+    let lo = 0, hi = t.N;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (t.cum[mid] < want) lo = mid + 1; else hi = mid; }
+    const i2 = Math.max(1, lo), seg = t.cum[i2] - t.cum[i2 - 1];
+    const f = seg > 1e-6 ? (want - t.cum[i2 - 1]) / seg : 0;
+    const A = t.pts[i2 - 1], B = t.pts[i2];
+    return { a: k * (A.a + (B.a - A.a) * f), b: A.b + (B.b - A.b) * f };
   }
   function figXY(id, i, u) {
     if (id === 'cupid') {
       if (i < 2) {                                 // ハートを描く 2 機
         const k = i === 0 ? 1 : -1;
         if (u <= HEART_END) return heartPt(k, u / HEART_END);
-        /* 描き終えたら、下の尖りから 下向きのまま出て、4 分の 1 の弧で水平に戻りながら
-           左右に分かれて抜ける（地面に向かって行かないよう、下がる量を抑える） */
-        const g = (u - HEART_END) / (1 - HEART_END), a2 = g * Math.PI / 2;
-        return { a: -k * 30 * (1 - Math.cos(a2)), b: -17 - 8 * Math.sin(a2) };
+        /* 抜けたあとは、降りる分をだんだん緩めながら まっすぐ離れていく（地面に向かわない） */
+        const e1 = heartPt(k, 1), e0 = heartPt(k, 0.985);
+        const dx = e1.a - e0.a, dy = e1.b - e0.b, dl = Math.max(1e-4, Math.hypot(dx, dy));
+        const g2 = (u - HEART_END) / (1 - HEART_END);
+        return { a: e1.a + dx / dl * 30 * g2, b: e1.b + dy / dl * 30 * g2 * (1 - 0.6 * g2) };
       }
       /* 矢: ハートを描いているあいだは、その左でひと回りして待つ（止まらず、遠くへも行かない）。
-         回り終わりが ちょうど射る向きになるように輪を置いてある */
-      if (u < 0.55) {
-        const th = (-56.5 * D) + (u / 0.55 - 1) * Math.PI * 2, r2 = 14;
-        return { a: -37.7 + r2 * Math.cos(th), b: -8.4 + r2 * Math.sin(th) };
-      }
-      const v = (u - 0.55) / 0.45;
-      return { a: -30 + 60 * v, b: -20 + 40 * v };
+         回り終わりが ちょうど射る向きになるように輪を置いてあり、
+         輪から直線へは 少しの区間をかけて混ぜる（折れ曲がらないように） */
+      const circ = w => { const th = (-56.5 * D) + (w / 0.55 - 1) * Math.PI * 2;
+        return { a: -37.7 + 14 * Math.cos(th), b: -8.4 + 14 * Math.sin(th) }; };
+      const line = w => { const v = (w - 0.55) / 0.45; return { a: -30 + 60 * v, b: -20 + 40 * v }; };
+      if (u < 0.46) return circ(u);
+      if (u > 0.64) return line(u);
+      const w2 = (u - 0.46) / 0.18, e3 = w2 * w2 * (3 - 2 * w2), A = circ(u), B = line(u);
+      return { a: A.a + (B.a - A.a) * e3, b: A.b + (B.b - A.b) * e3 };
     }
-    const RS = 18, ang = (90 + i * 72) * D;         // スタークロス: 開いてから、1 つ飛ばしの頂点へ渡る
-    const ax = Math.cos(ang) * RS, ay = Math.sin(ang) * RS;
-    if (u < 0.4) { const v = u / 0.4; return { a: ax * v, b: ay * v }; }
-    const a2 = (90 + (i + 2) * 72) * D, v = (u - 0.4) / 0.6;
-    return { a: ax + (Math.cos(a2) * RS - ax) * v, b: ay + (Math.sin(a2) * RS - ay) * v };
+    /* スタークロス: 5 機がそれぞれ「1 つ飛ばしの頂点を結ぶ 1 本の直線」を、
+       曲がらずに飛び抜ける。5 本が重なって星（五芒星）になる。
+       実機も、折れ曲がれないぶんを機数で補って角ばった形を描く */
+    const RS = STAR_R, a1 = (90 + i * 72) * D, a2 = (90 + (i + 2) * 72) * D;
+    const px = Math.cos(a1) * RS, py = Math.sin(a1) * RS;
+    const qx = Math.cos(a2) * RS, qy = Math.sin(a2) * RS;
+    const v = (u - STAR_IN) / (STAR_OUT - STAR_IN);         // 0 で始点、1 で終点。外は延長線
+    return { a: px + (qx - px) * v, b: py + (qy - py) * v };
   }
   function figPoint(out, xy, sc) {
     return out.copy(figO).addScaledVector(figR, xy.a * sc).addScaledVector(figU, xy.b * sc);
@@ -791,8 +858,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function inHeart(a, b) {
     if (!heartPoly) {
       heartPoly = [];
-      for (let i = 0; i <= 40; i++) { const q = heartPt(1, HEART_LEAD + (1 - HEART_LEAD) * i / 40); heartPoly.push([q.a, q.b]); }
-      for (let i = 40; i >= 0; i--) { const q = heartPt(-1, HEART_LEAD + (1 - HEART_LEAD) * i / 40); heartPoly.push([q.a, q.b]); }
+      for (let i = 0; i <= 40; i++) { const q = heartCurve(1, Math.PI * i / 40); heartPoly.push([q.a, q.b]); }
+      for (let i = 40; i >= 0; i--) { const q = heartCurve(-1, Math.PI * i / 40); heartPoly.push([q.a, q.b]); }
     }
     let inside = false;
     for (let i = 0, j = heartPoly.length - 1; i < heartPoly.length; j = i++) {
@@ -802,6 +869,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     return inside;
   }
   const CORK_R = 26, CORK_T = 3.6, CORK_LAG = 0.15;   // 回る半径（m）・1 周の時間（秒）・少し後ろ（秒）
+  let corkBlend = 3;                               // 輪に乗るまでにかける時間（遠さで決める）
   function recordHistory(dt) {
     histT += dt;
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
@@ -823,7 +891,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     return exSt;
   }
   function placeMates(dt) {
-    if (retT >= 0) { retT += dt; if (retT >= RET_T) { retT = -1; mates.forEach(h => { h.userData.ret = null; }); } }
+    if (retT >= 0) { retT += dt; if (retT >= retDur) { retT = -1; mates.forEach(h => { h.userData.ret = null; }); } }
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     const emitting = smokeOn && smokeT >= SMOKE_DT;
     if (emitting) smokeT = 0;
@@ -843,20 +911,35 @@ export function mount(container, { onState, view = 'first' } = {}) {
         if (fUp.lengthSq() < 1e-6) fUp.copy(figU);
         fUp.normalize(); fRt.crossVectors(fFw, fUp);
         fq.setFromRotationMatrix(fmat.makeBasis(fRt, fFw, fUp));
-        if (fig.t < 8) {
+        const bl = u.blend || 8;
+        if (fig.t < bl) {
           /* 隊形の位置から図の道へ寄せる。寄せ元は「編隊で飛び続けていたらいる位置」なので、
              止まって待っているようには見えない */
           const s3 = stateAt(Math.max(0, -u.cur.y / SPEED));
           mq.copy(s3.q); mp.copy(s3.p);
           mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq); mp.add(mo);
-          const k = fig.t / 8, e2 = k * k * (3 - 2 * k);
+          const k = fig.t / bl, e2 = k * k * (3 - 2 * k);
           holder.position.lerpVectors(mp, fp, e2);
-          holder.quaternion.copy(mq).slerp(fq, e2);
-        } else { holder.position.copy(fp); holder.quaternion.copy(fq); }
+        } else { holder.position.copy(fp); }
+        /* 姿勢は「実際に動いた向き」から決める。道の接線から決めると、
+           寄せているあいだに機首と進む向きがずれ、腹で滑るように見える */
+        if (u.prevP) {
+          mo.copy(holder.position).sub(u.prevP);
+          if (mo.lengthSq() > 1e-4) {
+            fFw.copy(mo).normalize();
+            fUp.copy(figO).sub(holder.position); fUp.addScaledVector(fFw, -fUp.dot(fFw));
+            if (fUp.lengthSq() < 1e-6) fUp.copy(figU);
+            fUp.normalize(); fRt.crossVectors(fFw, fUp);
+            fq.setFromRotationMatrix(fmat.makeBasis(fRt, fFw, fUp));
+          }
+        } else u.prevP = new THREE.Vector3();
+        u.prevP.copy(holder.position);
+        holder.quaternion.copy(fq);
         holder.visible = true;
         /* スモーク: 矢はハートの内側で切る。色は「カラフル」を選んでいるときだけ図に合わせる */
-        let ok = fig.t > 1.2;
-        if (fig.id === 'cupid' && i === 2) ok = ok && !inHeart(xy.a, xy.b);
+        let ok = fig.t > bl * 0.25;
+        if (fig.id === 'cupid' && i === 2) ok = ok && (!inHeart(xy.a, xy.b) || xy.a < -3);   // 中央の少し手前までは引く
+        if (fig.id === 'star') ok = ok && pu > STAR_IN && pu < STAR_OUT;                     // 星の線を引く区間だけ
         if (emitting && ok) {
           let fc = cols[(i + 1) % cols.length];
           if (smokeColor === 'rainbow') fc = fig.id === 'star' ? '#ffd84d' : (i < 2 ? '#ff7fb6' : '#ffffff');
@@ -868,10 +951,22 @@ export function mount(container, { onState, view = 'first' } = {}) {
          機体の軸まわりに θ+180° 回すと、上が中心を向く */
       if (corkT >= 0 && i === 0) {
         const th = corkT / CORK_T * Math.PI * 2, s2 = stateAt(CORK_LAG);
-        u.cur.set(Math.sin(th) * CORK_R, -CORK_LAG * SPEED, Math.cos(th) * CORK_R);
         mq.copy(s2.q).multiply(cq.setFromAxisAngle(AY, th + Math.PI));
-        mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(s2.q);
-        holder.position.copy(s2.p).add(mo); holder.quaternion.copy(mq); holder.visible = true;
+        mo.set(Math.sin(th) * CORK_R, 0, Math.cos(th) * CORK_R).applyQuaternion(s2.q);
+        mp.copy(s2.p).add(mo);
+        if (corkT < corkBlend) {               // 編隊の位置から 輪の上へ、離れぐあいに応じた時間で移る
+          const s4 = stateAt(Math.max(0, -u.cur.y / SPEED));
+          moFlat.set(u.cur.x, 0, u.cur.z).applyQuaternion(s4.q);
+          fp2.copy(s4.p).add(moFlat);
+          const kc = corkT / corkBlend, ec = kc * kc * (3 - 2 * kc);
+          holder.position.lerpVectors(fp2, mp, ec);
+        } else {
+          holder.position.copy(mp);
+          /* 輪に乗り切ってから、編隊での位置も輪のものに移す
+             （移すのが早いと、寄せ元の位置が飛んでしまう） */
+          u.cur.set(Math.sin(th) * CORK_R, -CORK_LAG * SPEED, Math.cos(th) * CORK_R);
+        }
+        holder.quaternion.copy(mq); holder.visible = true; u.shown = true;
         if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[1 % cols.length]); }
         return;
       }
@@ -905,7 +1000,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       }
       mp.add(mo);
       if (retT >= 0 && u.ret) {          // 図の終わりの位置から、隊形の位置へ なめらかに戻す
-        const k2 = retT / RET_T, e2 = k2 * k2 * (3 - 2 * k2);
+        const k2 = retT / retDur, e2 = k2 * k2 * (3 - 2 * k2);
         holder.position.lerpVectors(u.ret.p, mp, e2);
         holder.quaternion.copy(u.ret.q).slerp(mq, e2);
       } else if (u.shown) {
@@ -1033,7 +1128,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         Object.assign(st, { x: GROUND_EYE.x - 380, y: GROUND_EYE.y - 620, z: SHOW.ALT, h: 25, ground: false, wall: false });
         levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
         beginManeuver(0);
-      } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; corkT = -1; endFigure(); }
+      } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; endCork(); endFigure(); }
     },
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍

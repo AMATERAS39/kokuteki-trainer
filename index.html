@@ -145,6 +145,10 @@ svg text{user-select:none}
 .fld textarea,.fld input[type="text"]{width:100%;font:inherit;font-size:.875rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.5rem .625rem}
 .fld textarea{resize:vertical;min-height:6rem;line-height:1.6}
 .fld input[type="file"]{width:100%;font-size:.75rem;color:var(--muted)}
+.fld input[type="email"],.fld input[type="password"]{width:100%;font:inherit;font-size:.875rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.5rem .625rem}
+.card .codeh{margin:1.25rem 0 .25rem;font-size:.75rem;letter-spacing:.08em;color:var(--accent);font-family:var(--display)}
+.fbrep{margin-top:.5rem;padding:.5rem .625rem;border-left:.1875rem solid var(--accent);background:var(--panel);border-radius:.375rem}
+#inboxPage .coderow{margin-top:.5rem}
 
 /* ===== 説明・選択・練習・シミュレータ ===== */
 .phase{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:0 .375rem;vertical-align:.1rem}
@@ -694,7 +698,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
           <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="menulist" id="menuList" hidden>
             <button data-go="news">お知らせ<span class="dot" id="newsDot" hidden></span></button>
-            <button data-go="contact">ご要望・お問い合わせ</button>
+            <button data-go="contact">ご要望・お問い合わせ<span class="dot" id="fbDot" hidden></span></button>
+            <button data-go="inbox" id="inboxItem" hidden>受信箱</button>
             <button data-go="settings">設定</button>
             <button data-go="about">アプリの説明</button>
             <button data-act="restore">購入を復元</button>
@@ -777,6 +782,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
 
   <section id="view-contact" hidden>
     <div class="about"><div class="card" id="contactPage"></div></div>
+  </section>
+
+  <section id="view-inbox" hidden>
+    <div class="about"><div class="card" id="inboxPage"></div></div>
   </section>
 
   <section id="view-news" hidden>
@@ -875,7 +884,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.15';
+const APP_VER='v03.16';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1435,40 +1444,144 @@ async function renderNews(){
       +`<div class="t">${i.title||''}</div><div class="b">${i.body||''}</div></div>`}).join('')}</div>`
     :'<div class="sub2">お知らせはまだありません。</div>');
 }
-/* ご要望・お問い合わせ。いまは送信をメールで行い、送った控えを端末に残す。
-   返信はメールで届く（アプリの中で受け取る仕組みは、送信の置き場所（Supabase など）を用意してから足す）。
+/* ご要望・お問い合わせ。利用者はログインしない。送ると合言葉が端末に残り、
+   その合言葉で自分の投稿と返信だけを読み返せる。メールアドレスを書いた人にはメールでも届く。
+   置き場所（Supabase）の設定が空のあいだは、これまでどおりメールの下書きを開く形で動く。
    利用者が書いた文字は、画面に出すときに必ず escape する */
 const CONTACT_MAIL='voyages_worsted_0a@icloud.com';
 const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nl2br=t=>esc(t).replace(/\n/g,'<br>');
 const ATTACH_OK=/^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/;   // 添付として扱える形式
 const MAX_ATTACH=2*1024*1024;                                          // 1 ファイル 2MB まで
-function renderContact(){
-  const sent=store.get('inquiries',[]);
-  $('#contactPage').innerHTML=`<h3>ご要望・お問い合わせ</h3>
-    <div class="sub2">気づいたこと、直してほしいところ、ほしい機能を送ってください。返信はメールで届きます。</div>
-    <label class="fld"><span>本文</span><textarea id="cMsg" rows="6" maxlength="2000" placeholder="例: 方位のむずかしいで、N マークが見づらいです"></textarea></label>
-    <label class="fld"><span>お名前・ニックネーム（任意）</span><input id="cName" type="text" maxlength="20" autocomplete="off"></label>
-    <label class="fld"><span>画像や PDF を添える（任意・1 つ 2MB まで）</span><input id="cFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"></label>
-    <div class="sethelp" id="cNote">送信するとメールの下書きが開きます。添付はメールの画面で付けてください。</div>
-    <div class="acts"><button class="btn" id="cSend">メールで送る${ic('next','s')}</button></div>
-    <h4 class="codeh">送った控え</h4>
-    <div class="news" id="cList">${sent.length?sent.map(x=>`<div class="it"><div class="hd"><span class="tag">送信</span><span class="dt">${esc(x.date)}</span>${x.name?`<span class="dt">${esc(x.name)}</span>`:''}</div><div class="b">${esc(x.msg).replace(/\n/g,'<br>')}</div>${x.file?`<div class="dt">添付: ${esc(x.file)}</div>`:''}</div>`).join(''):'<div class="sub2">まだありません。</div>'}</div>`;
-  const fileEl=$('#cFile');
-  fileEl.addEventListener('change',()=>{const f=fileEl.files&&fileEl.files[0];if(!f)return;
-    if(f.size>MAX_ATTACH){fileEl.value='';$('#cNote').textContent='ファイルが大きすぎます（2MB まで）。小さくしてから選び直してください。';return}
-    if(!ATTACH_OK.test(f.type)){fileEl.value='';$('#cNote').textContent='この形式は添えられません（画像か PDF を選んでください）。';return}
-    $('#cNote').textContent=`「${f.name}」を選びました。送信するとメールの下書きが開くので、そこでこのファイルを添付してください。`});
-  $('#cSend').addEventListener('click',()=>{
-    const msg=$('#cMsg').value.trim(),name=$('#cName').value.trim();
-    if(!msg){toast('本文を書いてください');$('#cMsg').focus();return}
-    const f=fileEl.files&&fileEl.files[0];
-    const body=[msg,'','---',`お名前: ${name||'（未記入）'}`,`版: ${APP_VER}`,`画面: ${navigator.userAgent}`,f?`添付予定: ${f.name}`:''].filter(Boolean).join('\n');
-    const list=[{date:new Date().toLocaleString('ja-JP'),msg,name,file:f?f.name:''},...store.get('inquiries',[])].slice(0,20);
-    store.set('inquiries',list);
-    location.href=`mailto:${CONTACT_MAIL}?subject=${encodeURIComponent('TENRYU ご要望・お問い合わせ')}&body=${encodeURIComponent(body)}`;
-    $('#cMsg').value='';fileEl.value='';toast('メールの下書きを開きました');
-    setTimeout(renderContact,400);
-  });
+const jdate=t=>{try{return t?new Date(t).toLocaleString('ja-JP'):''}catch(e){return ''}};
+let FB=null;
+async function fb(){if(!FB)FB=await import('./feedback.js?v=1');return FB}
+
+/* 起動時: 届いている返信があればメニューに赤い印を出す */
+async function initFeedback(){
+  try{
+    const m=await fb();if(!m.CONFIGURED)return;
+    if(m.currentAdmin())$('#inboxItem').hidden=false;
+    if(!m.myTokens().length)return;
+    const rows=await m.listMine();
+    if((rows||[]).some(m.unreadForUser)){menuBtn.classList.add('has');$('#fbDot').hidden=false}
+  }catch(e){}
+}
+/* 添付を読み込む（形式と大きさを確かめてから data URI にする） */
+function readAttach(el){
+  return new Promise(res=>{const f=el&&el.files&&el.files[0];if(!f)return res(null);
+    if(f.size>MAX_ATTACH)return res({err:'ファイルが大きすぎます（2MB まで）。小さくしてから選び直してください。'});
+    if(!ATTACH_OK.test(f.type))return res({err:'この形式は添えられません（画像か PDF を選んでください）。'});
+    const r=new FileReader();r.onload=()=>res({name:f.name,type:f.type,data:String(r.result)});
+    r.onerror=()=>res({err:'ファイルを読めませんでした。'});r.readAsDataURL(f)});
+}
+/* 1 件の状態。返信あり／読んだだけ／まだ、の 3 通りを別々の文で出す */
+function fbState(r){
+  if(r.reply)return `<div class="fbrep"><div class="hd"><span class="tag notice">返信</span><span class="dt">${esc(jdate(r.replied_at))}</span></div><div class="b">${nl2br(r.reply)}</div>${r.reply_mailed_at?'<div class="dt">メールでもお送りしました</div>':''}</div>`;
+  if(r.admin_read_at)return `<div class="sub2">読みました（${esc(jdate(r.admin_read_at))}）。返信をお待ちください。</div>`;
+  return '<div class="sub2">まだ確認していません。</div>';
+}
+const FB_FORM=`
+  <label class="fld"><span>本文</span><textarea id="cMsg" rows="6" maxlength="2000" placeholder="例: 方位のむずかしいで、N の印が見づらいです"></textarea></label>
+  <label class="fld"><span>お名前・ニックネーム（任意・20 字まで）</span><input id="cName" type="text" maxlength="20" autocomplete="off"></label>
+  <label class="fld"><span>メールアドレス（任意）</span><input id="cMail" type="email" inputmode="email" maxlength="120" autocomplete="email" placeholder="返信をメールでも受け取る場合"></label>
+  <label class="fld"><span>画像や PDF を添える（任意・1 つ 2MB まで）</span><input id="cFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"></label>
+  <div class="sethelp" id="cNote"></div>
+  <div class="acts"><button class="btn" id="cSend">送る${ic('next','s')}</button></div>`;
+
+async function renderContact(){
+  const page=$('#contactPage');
+  const m=await fb().catch(()=>null);
+  if(!m||!m.CONFIGURED){   /* 置き場所がまだないとき: メールの下書きを開く */
+    const sent=store.get('inquiries',[]);
+    page.innerHTML=`<h3>ご要望・お問い合わせ</h3>
+      <div class="sub2">気づいたこと、直してほしいところ、ほしい機能を送ってください。</div>${FB_FORM}
+      <h4 class="codeh">送った控え</h4>
+      <div class="news">${sent.length?sent.map(x=>`<div class="it"><div class="hd"><span class="tag">送信</span><span class="dt">${esc(x.date)}</span></div><div class="b">${nl2br(x.msg)}</div>${x.file?`<div class="dt">添付: ${esc(x.file)}</div>`:''}</div>`).join(''):'<div class="sub2">まだありません。</div>'}</div>`;
+    $('#cNote').textContent='送るとメールの下書きが開きます。添付はメールの画面で付けてください。';
+    $('#cSend').addEventListener('click',()=>{
+      const msg=$('#cMsg').value.trim();if(!msg){toast('本文を書いてください');$('#cMsg').focus();return}
+      const name=$('#cName').value.trim(),mail=$('#cMail').value.trim(),f=$('#cFile').files&&$('#cFile').files[0];
+      const body=[msg,'','---',`お名前: ${name||'（未記入）'}`,`メール: ${mail||'（未記入）'}`,`版: ${APP_VER}`,f?`添付予定: ${f.name}`:''].filter(Boolean).join('\n');
+      store.set('inquiries',[{date:new Date().toLocaleString('ja-JP'),msg,name,file:f?f.name:''},...store.get('inquiries',[])].slice(0,20));
+      location.href=`mailto:${CONTACT_MAIL}?subject=${encodeURIComponent('TENRYU ご要望・お問い合わせ')}&body=${encodeURIComponent(body)}`;
+      toast('メールの下書きを開きました');setTimeout(renderContact,400)});
+    return;
+  }
+  page.innerHTML=`<h3>ご要望・お問い合わせ</h3>
+    <div class="sub2">気づいたこと、直してほしいところ、ほしい機能を送ってください。ログインは要りません。
+      返信はこの画面に届きます。メールアドレスを書いていただくと、メールでもお送りします。</div>${FB_FORM}
+    <h4 class="codeh">送信と返信</h4>
+    <div class="news" id="cList"><div class="sub2">読み込み中…</div></div>`;
+  $('#cSend').addEventListener('click',async()=>{
+    const msg=$('#cMsg').value.trim();if(!msg){toast('本文を書いてください');$('#cMsg').focus();return}
+    const at=await readAttach($('#cFile'));
+    if(at&&at.err){$('#cNote').textContent=at.err;return}
+    $('#cSend').disabled=true;$('#cNote').textContent='送っています…';
+    try{
+      await m.submit({message:msg,nickname:$('#cName').value.trim(),email:$('#cMail').value.trim(),file:at});
+      $('#cMsg').value='';$('#cFile').value='';$('#cNote').textContent='送りました。ありがとうございます。';
+      toast('送りました');await loadMine(m);
+    }catch(e){$('#cNote').textContent='送れませんでした。通信を確かめて、もう一度お試しください。'}
+    $('#cSend').disabled=false});
+  await loadMine(m);
+}
+/* 自分の投稿と返信を出す。開いた時点で「読んだ」を記録し、赤い印を消す */
+async function loadMine(m){
+  const list=$('#cList');if(!list)return;
+  if(!m.myTokens().length){list.innerHTML='<div class="sub2">まだありません。</div>';return}
+  try{
+    const rows=(await m.listMine())||[];
+    list.innerHTML=rows.length?rows.map(r=>`<div class="it"><div class="hd"><span class="tag">送信</span><span class="dt">${esc(jdate(r.created_at))}</span>${r.submitter_nickname?`<span class="dt">${esc(r.submitter_nickname)}</span>`:''}</div>
+      <div class="b">${nl2br(r.message)}</div>${r.attachment_name?`<div class="dt">添付: ${esc(r.attachment_name)}</div>`:''}${fbState(r)}</div>`).join(''):'<div class="sub2">まだありません。</div>';
+    menuBtn.classList.remove('has');$('#fbDot').hidden=true;
+    m.markMyRead();
+  }catch(e){list.innerHTML='<div class="sub2">読み込めませんでした。</div>'}
+}
+/* 受信箱（管理者だけ）。画面を隠すのは目隠しで、本当の守りはデータベース側の方針 */
+async function renderInbox(){
+  const page=$('#inboxPage');page.innerHTML='<h3>受信箱</h3><div class="sub2">読み込み中…</div>';
+  const m=await fb().catch(()=>null);
+  if(!m||!m.CONFIGURED){page.innerHTML='<h3>受信箱</h3><div class="sub2">置き場所の設定がまだありません。</div>';return}
+  if(!m.currentAdmin()){
+    page.innerHTML=`<h3>受信箱</h3><div class="sub2">管理者のみ。</div>
+      <label class="fld"><span>メールアドレス</span><input id="aMail" type="email" inputmode="email" autocomplete="username"></label>
+      <label class="fld"><span>合言葉</span><input id="aPass" type="password" autocomplete="current-password"></label>
+      <div class="sethelp" id="aNote"></div>
+      <div class="acts"><button class="btn" id="aLogin">ログイン</button></div>`;
+    $('#aLogin').addEventListener('click',async()=>{
+      $('#aNote').textContent='確かめています…';
+      try{await m.adminLogin($('#aMail').value.trim(),$('#aPass').value);$('#inboxItem').hidden=false;renderInbox()}
+      catch(e){$('#aNote').textContent='入れませんでした。メールと合言葉を確かめてください。'}});
+    return;
+  }
+  let rows=[];
+  try{rows=(await m.listAll())||[]}
+  catch(e){page.innerHTML='<h3>受信箱</h3><div class="sub2">読み込めませんでした。</div><div class="acts"><button class="btn ghost" id="aOut">ログアウト</button></div>';
+    $('#aOut').addEventListener('click',()=>{m.signOut();$('#inboxItem').hidden=true;renderInbox()});return}
+  page.innerHTML=`<h3>受信箱</h3><div class="sub2">${rows.length} 件・${esc(m.currentAdmin().email)}
+      <button class="btn ghost sm" id="aOut">ログアウト</button></div>
+    <div class="news">${rows.map(r=>{
+      const nw=m.unreadForAdmin(r);
+      const att=r.attachment_data?(m.attachmentOk(r.attachment_data)
+        ? `<a class="credit-link" href="${r.attachment_data}" download="${esc(r.attachment_name||'file')}" target="_blank" rel="noopener">${esc(r.attachment_name||'添付')}</a>`
+        : `開けません（形式が不正です）: ${esc(r.attachment_name||'')}`):'';
+      return `<div class="it"><div class="hd"><span class="tag${nw?' notice':''}">${nw?'新着':'既読'}</span>
+        <span class="dt">${esc(jdate(r.created_at))}</span><span class="dt">${esc(r.submitter_nickname||'')}</span>
+        <span class="dt">${r.submitter_email?esc(r.submitter_email):'（メールなし）'}</span></div>
+        <div class="b">${nl2br(r.message)}</div>${att?`<div class="dt">添付: ${att}</div>`:''}
+        ${r.reply?`<div class="fbrep"><div class="hd"><span class="tag notice">返信済み</span><span class="dt">${esc(jdate(r.replied_at))}</span>${r.reply_mailed_at?'<span class="dt">メール送信済み</span>':''}</div><div class="b">${nl2br(r.reply)}</div></div>`:''}
+        <div class="coderow"><input type="text" id="rep${r.id}" placeholder="${r.reply?'追加の返信':'返信を書く'}"><button class="btn sm" data-rep="${r.id}">返信</button></div>
+        ${r.submitter_email?'':'<div class="sub2">メールアドレスの記載がないので、返信はアプリの中だけに届きます。</div>'}</div>`}).join('')}</div>`;
+  $('#aOut').addEventListener('click',()=>{m.signOut();$('#inboxItem').hidden=true;renderInbox()});
+  page.querySelectorAll('[data-rep]').forEach(b=>b.addEventListener('click',async()=>{
+    const id=b.dataset.rep,el=$('#rep'+id),txt=el.value.trim();
+    if(!txt){toast('返信を書いてください');return}
+    b.disabled=true;
+    try{const res=await m.adminReply(id,txt);toast(res&&res.mailed?'返信し、メールも送りました':'返信しました');renderInbox()}
+    catch(e){toast('返信できませんでした');b.disabled=false}}));
+  const unread=rows.filter(m.unreadForAdmin).map(r=>r.id);
+  if(unread.length){try{await m.adminMarkRead(unread)}catch(e){}}
 }
 
 /* 購入の復元: 端末に残っているコードで全機能版を有効にし直す */
@@ -1510,7 +1623,7 @@ async function initAbout(){
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
-const VIEWS=['home','train','settings','about','news','contact','buy'];
+const VIEWS=['home','train','settings','about','news','contact','inbox','buy'];
 function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});window.scrollTo({top:0})}
 let currentHash='';
 function route(){
@@ -1532,6 +1645,7 @@ function route(){
   else if(v==='buy')renderBuy();
   else if(v==='news')renderNews();
   else if(v==='contact')renderContact();
+  else if(v==='inbox')renderInbox();
   else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':`この Web 版は体験版です（方位のみ・1 回 ${DEMO.qCount} 問まで）。全機能は Google Play 版で使えます。`;initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
@@ -1569,7 +1683,7 @@ function renderBuy(){
       else $('#buyMsg').textContent='コードが違います。'}catch(e){$('#buyMsg').textContent='この環境では確認できません（https で開いてください）。'}});
 }
 window.addEventListener('hashchange',route);
-checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews()});
+checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews();initFeedback()});
 
 /* PWA と更新ボタン。新しい sw.js はインストールできしだい有効になる（待機させると、更新ボタンのない古い版の端末が移れない）。
    ただしページは勝手に読み込み直さない: 新しい版が有効になったら更新ボタンに赤い点を出し、押されたら読み込み直す。

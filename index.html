@@ -182,12 +182,25 @@ svg text{user-select:none}
 .sim .rud .pedals{margin-top:0}
 .sim .rud .pedals .ab{min-height:clamp(3.5rem,10dvh,4.5rem);font-size:1rem}
 .sim .pchint{display:none;font-size:.75rem;color:var(--faint);text-align:center;margin-top:.5rem}
-/* 編隊とスモークの操作 */
+/* スモークと水平に戻すの操作（アイコン） */
 .simbar{display:flex;align-items:center;justify-content:center;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
-.simbar .sf{display:flex;align-items:center;gap:.375rem;font-size:.75rem;color:var(--muted)}
-.simbar select{font:inherit;font-size:.75rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.25rem .5rem;min-height:2.25rem}
-.simbar .btn.sm{height:2.25rem;font-size:.75rem;padding:0 .875rem}
-.simbar .btn.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.simbar select{font:inherit;font-size:.75rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.25rem .5rem;min-height:2.5rem}
+.simbar .btn.sm{height:2.5rem;font-size:.75rem;padding:0 .875rem}
+.iconbtn{width:2.75rem;height:2.5rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;border:1px solid var(--line2);background:var(--panel2);color:var(--text)}
+.iconbtn .ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ic.fmi{fill:currentColor;stroke:none}
+.formwrap{position:relative;display:inline-flex}
+.formmenu{position:absolute;right:0;bottom:3rem;z-index:12;display:grid;grid-template-columns:repeat(3,1fr);gap:.25rem;
+  background:var(--panel2);border:1px solid var(--line2);border-radius:.75rem;padding:.375rem;box-shadow:0 .75rem 1.5rem rgba(0,0,0,.5);width:15rem}
+.formmenu button{display:flex;flex-direction:column;align-items:center;gap:.125rem;padding:.25rem;border-radius:.5rem;font-size:.5625rem;color:var(--muted);line-height:1.1;text-align:center}
+.formmenu button .ic{width:1.6rem;height:1.6rem;color:var(--text)}
+.formmenu button.sel{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text)}
+@media (orientation:portrait){.formwrap.landscape{display:none}}
+@media (orientation:landscape) and (max-height:34rem){.simbar .portrait{display:none}}
+/* 縦画面は試験対策のシミュレーターとして簡素に。編隊のスモークなど遊びの操作は横画面だけ */
+@media (orientation:portrait){.simbar #simSmoke,.simbar #simColor{display:none}
+  .sim .views [data-view="front"],.sim .views [data-view="ground"]{display:none}}
 /* ===== 横画面のシミュレーター: 操作に集中できるよう、視界を画面いっぱいにして操縦桿とペダルを重ねる ===== */
 @media (orientation:landscape) and (max-height:34rem){
   body[data-view="train"][data-phase="sim"]{height:100dvh;padding:0;overflow:hidden}
@@ -207,20 +220,22 @@ svg text{user-select:none}
   .sim .stick{width:clamp(6rem,30dvh,8.5rem);margin:0;background:radial-gradient(ellipse at 50% 70%,rgba(42,50,60,.85) 0,rgba(28,38,50,.7) 60%);backdrop-filter:blur(2px)}
   .sim .rud .pedals{grid-template-columns:1fr 1fr;gap:.5rem;width:clamp(8rem,34dvh,11rem)}
   .sim .rud .pedals .ab{min-height:clamp(3rem,14dvh,4rem);background:rgba(28,38,50,.7);backdrop-filter:blur(2px)}
-  body[data-view="train"][data-phase="sim"] .sim .acts.row3{position:absolute;right:.5rem;top:2.5rem;flex-direction:column;align-items:stretch;width:8.5rem;margin:0;gap:.25rem;z-index:5}
-  body[data-view="train"][data-phase="sim"] .sim .acts.row3 .btn{flex:none;height:1.9rem;font-size:.6875rem;padding:0 .5rem;background:rgba(28,38,50,.8)}
-  body[data-view="train"][data-phase="sim"] .sim .views{top:.4rem;right:.5rem;bottom:auto}
-  body[data-view="train"][data-phase="sim"] .sim .vb{padding:.2rem .4rem;font-size:.625rem}
-  /* 計器は左下のスティックの右、煙や機体の邪魔にならない位置 */
-  body[data-view="train"][data-phase="sim"] .sim .instrow{left:auto;right:9.5rem;bottom:.5rem;transform:none}
-  body[data-view="train"][data-phase="sim"] .sim .instrow .inst{height:clamp(2.75rem,13dvh,3.75rem)}
+  body[data-view="train"][data-phase="sim"] .sim .acts.row3{position:absolute;right:.5rem;top:6.2rem;flex-direction:column;align-items:stretch;width:7rem;margin:0;gap:.25rem;z-index:5}
+  body[data-view="train"][data-phase="sim"] .sim .acts.row3 .btn{flex:none;height:1.9rem;font-size:.6875rem;padding:0 .5rem;background:rgba(28,38,50,.85)}
+  body[data-view="train"][data-phase="sim"] .sim .views{top:auto;bottom:.5rem;left:50%;right:auto;transform:translateX(-50%)}
+  body[data-view="train"][data-phase="sim"] .sim .vb{padding:.2rem .45rem;font-size:.625rem;background:rgba(0,0,0,.55)}
+  /* 計器: 方位は右上、姿勢は上の中央 */
+  body[data-view="train"][data-phase="sim"] .sim .instrow{position:absolute;inset:0;margin:0;gap:0;transform:none;pointer-events:none;z-index:4}
+  body[data-view="train"][data-phase="sim"] .sim .instrow .inst{position:absolute;width:clamp(2.75rem,15dvh,4rem);height:clamp(2.75rem,15dvh,4rem)}
+  body[data-view="train"][data-phase="sim"] .sim .instrow .inst.ai{left:50%;top:.4rem;transform:translateX(-50%)}
+  body[data-view="train"][data-phase="sim"] .sim .instrow .inst.hi{right:.5rem;top:.4rem}
+  /* 高度などの読みは左上（ホームボタンの案内と重ならないよう少し下げる） */
+  body[data-view="train"][data-phase="sim"] .sim .hud{top:.4rem;left:.5rem}
   body[data-phase="sim"] .install{display:none}
   /* 右側に操作をまとめ、左はスティックだけにする（重ならないよう縦に積む） */
-  body[data-view="train"][data-phase="sim"] .simbar{position:absolute;right:.5rem;top:9.2rem;flex-direction:column;align-items:stretch;gap:.25rem;margin:0;width:8.5rem;z-index:5}
-  body[data-view="train"][data-phase="sim"] .simbar .sf{display:block}
-  body[data-view="train"][data-phase="sim"] .simbar .sf span{display:none}
-  body[data-view="train"][data-phase="sim"] .simbar select{width:100%}
-  body[data-view="train"][data-phase="sim"] .simbar select,body[data-view="train"][data-phase="sim"] .simbar .btn.sm{min-height:1.9rem;height:1.9rem;font-size:.6875rem;background:rgba(28,38,50,.8)}
+  body[data-view="train"][data-phase="sim"] .simbar{position:absolute;right:.5rem;bottom:5rem;flex-direction:row;align-items:center;gap:.375rem;margin:0;z-index:5}
+  body[data-view="train"][data-phase="sim"] .simbar select{min-height:2rem;height:2rem;font-size:.6875rem;background:rgba(28,38,50,.85)}
+  body[data-view="train"][data-phase="sim"] .iconbtn{width:2.4rem;height:2.4rem;background:rgba(28,38,50,.85)}
   .sim .views{top:auto;bottom:.5rem;right:.5rem}
   .sim .hud{font-size:.6875rem}
 }
@@ -642,6 +657,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
 <symbol id="i-update" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M5.463 4.433A9.96 9.96 0 0 1 12 2c5.523 0 10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228zm13.074 15.134A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772z"/></symbol>
+<symbol id="i-level" viewBox="0 0 24 24"><path d="M3 14h18"/><path d="M12 14V9"/><path d="M7 11h3M14 11h3"/></symbol>
+<symbol id="i-smoke" viewBox="0 0 24 24"><path d="M4 17c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/><path d="M4 11c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="m12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81zM12 3L2 12h3v8h6v-6h2v6h6v-8h3"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
@@ -838,7 +855,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.04';
+const APP_VER='v03.06';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1104,7 +1121,24 @@ function confirmLeave(){
 
 /* ===== 操縦操作の練習: 操縦桿と方向舵を動かして視界の変化を見る ===== */
 let sim=null;
-function startSim(){applyScene();
+/* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
+function startSim(){
+  applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
+  import('./sim3d.js?v=21').then(mod=>{
+    const form=store.get('simForm','solo'),props=store.get('simProps',true);
+    const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
+    $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
+      ${sel('setForm','編隊',Object.entries(mod.FORMATIONS).map(([k,v])=>[k,v.n>1?`${v.ja}（${v.n} 機）`:v.ja]),form)}
+      ${sel('setProps','オブジェクト（山・家・木・塔）',[[1,'あり'],[0,'なし']],props?1:0)}
+      <div class="sethelp">編隊を選ぶと 2 番機以降が付いてきます。スモークや前方・地上からの視点は横画面で使えます（縦画面は操縦の練習だけの簡素な画面です）。</div>
+      <div class="acts"><button class="btn" id="setupSim">はじめる${ic('next','s')}</button></div>`;
+    $('#setForm').addEventListener('change',e=>store.set('simForm',e.target.value));
+    $('#setProps').addEventListener('change',e=>store.set('simProps',e.target.value==='1'));
+    $('#setupSim').addEventListener('click',runSim);
+    window.scrollTo({top:0});
+  }).catch(()=>runSim());
+}
+function runSim(){applyScene();
   stopSim();setPhase('sim','練習');showPane('sim');
   const view=['third','front','ground'].includes(store.get('simView'))?store.get('simView'):'first';   // 一人称 / 三人称（後方・前方）/ 地上
   const inst=`<div class="inst ai">${E.svgAI(0,0)}</div><div class="inst hi">${E.svgHI(0)}</div>`;
@@ -1116,10 +1150,11 @@ function startSim(){applyScene();
       <div class="vload" id="simLoad">3D を読み込み中…</div>
     </div>
     <div class="simbar">
-      <label class="sf"><span>編隊</span><select id="simForm"></select></label>
-      <label class="sf"><span>スモーク</span><select id="simColor"></select></label>
-      <label class="sf"><span>地上物</span><select id="simProps"><option value="1">あり</option><option value="0">なし</option></select></label>
-      <button class="btn ghost sm" id="simSmoke" aria-pressed="false">スモーク</button>
+      <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
+      <button class="iconbtn" id="simSmoke" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
+      <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
+      <select id="simColor" aria-label="スモークの色"></select>
+      <button class="btn ghost sm portrait" id="simHome">初期位置</button>
     </div>
     <div class="instrow" id="instRow">${inst}</div>
     <div class="ctl">
@@ -1129,7 +1164,7 @@ function startSim(){applyScene();
     </div>
     <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
     <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で左クリック・右クリック　スモーク スペース</div>
-    <div class="acts row3"><button class="btn ghost" id="simLevel">水平に戻す</button><button class="btn ghost" id="simHome">位置を戻す</button><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
+    <div class="acts row3"><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
   sim={h:null,keys:new Set(),ptr:null,rud:new Map(),wheelDir:0,wheelUntil:0};
   /* 操縦桿（左）: 円の中でドラッグ。上 = 奥（機首下げ）、右 = 右バンク。離すと中央に戻る */
   const stick=$('#stick'),knob=$('#knob');
@@ -1168,6 +1203,14 @@ function startSim(){applyScene();
     if(e.pointerType==='mouse'&&sim.rud.has('mouse')){sim.rud.delete('mouse');applyInput()}};
   ['pointerup','pointercancel','pointerleave'].forEach(ev=>vw.addEventListener(ev,endLook));
   vw.addEventListener('dblclick',()=>{if(sim.h)sim.h.resetLook()});
+  /* 指でも 2 回叩いたら視点を戻す。横画面で左上（ホームボタンのあたり）を叩いたら戻り方を案内する */
+  vw.addEventListener('pointerup',e=>{
+    if(!sim)return;const now=performance.now();
+    const land=matchMedia('(orientation:landscape) and (max-height:34rem)').matches;
+    const rc=vw.getBoundingClientRect();
+    if(land&&e.clientX-rc.left<64&&e.clientY-rc.top<56){toast('戻るには縦画面にしてください');sim.tap=0;return}
+    if(sim.tap&&now-sim.tap<320&&sim.h)sim.h.resetLook();
+    sim.tap=now});
   vw.addEventListener('wheel',e=>{e.preventDefault();sim.wheelDir=e.deltaY<0?1:-1;sim.wheelUntil=performance.now()+220;applyInput();clearTimeout(sim.wheelT);sim.wheelT=setTimeout(()=>{if(sim){sim.wheelDir=0;applyInput()}},230)},{passive:false});
   sim.ku=e=>{if(!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(sim.keys.delete(k))applyInput()};
   window.addEventListener('keydown',sim.kd);window.addEventListener('keyup',sim.ku);
@@ -1187,21 +1230,34 @@ function startSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=19').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=21').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
-      /* 編隊とスモーク（色・入り切り）。選んだ内容は端末に覚える */
-      const fSel=$('#simForm'),cSel=$('#simColor'),sBtn=$('#simSmoke');
-      const form=store.get('simForm','solo'),col=store.get('simColor','white'),on=store.get('simSmoke',false);
-      fSel.innerHTML=Object.entries(mod.FORMATIONS).map(([k,v])=>`<option value="${k}"${k===form?' selected':''}>${v.ja}${v.n>1?`（${v.n} 機）`:''}</option>`).join('');
+      /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
+      const cSel=$('#simColor'),sBtn=$('#simSmoke');
+      const col=store.get('simColor','white'),on=store.get('simSmoke',false);
       cSel.innerHTML=Object.entries(mod.SMOKE_COLORS).map(([k,v])=>`<option value="${k}"${k===col?' selected':''}>${v.ja}</option>`).join('');
       const paint=()=>{sBtn.classList.toggle('on',sim.smoke);sBtn.setAttribute('aria-pressed',String(sim.smoke))};
       sim.smoke=!!on;
-      sim.h.setFormation(form);sim.h.setSmokeColor(col);sim.h.setSmoke(sim.smoke);paint();
-      const pSel=$('#simProps'),props=store.get('simProps',true);
-      pSel.value=props?'1':'0';sim.h.setProps(props);
-      pSel.addEventListener('change',()=>{const on=pSel.value==='1';store.set('simProps',on);sim.h.setProps(on)});
-      fSel.addEventListener('change',()=>{store.set('simForm',fSel.value);sim.h.setFormation(fSel.value)});
+      sim.h.setProps(store.get('simProps',true));
+      sim.h.setSmokeColor(col);sim.h.setSmoke(sim.smoke);paint();
       cSel.addEventListener('change',()=>{store.set('simColor',cSel.value);sim.h.setSmokeColor(cSel.value)});
+      /* 編隊は飛びながら変えられる（横画面のアイコン）。図は隊形を点で表したもの */
+      const fBtn=$('#simFormBtn'),fMenu=$('#simFormMenu'),fIcon=$('#simFormIcon');
+      const dots=f=>{const pts=[[0,0,0],...f.offs];
+        const vert=Math.max(...pts.map(p=>Math.abs(p[2])))>6;
+        const ax=pts.map(p=>p[0]),ay=pts.map(p=>vert?-p[2]:-p[1]);
+        const x0=Math.min(...ax),x1=Math.max(...ax),y0=Math.min(...ay),y1=Math.max(...ay);
+        const s=Math.min(15/Math.max(1,x1-x0),15/Math.max(1,y1-y0));
+        return pts.map((p,i)=>{const x=12+(p[0]-(x0+x1)/2)*s,y=12+((vert?-p[2]:-p[1])-(y0+y1)/2)*s;
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i?1.8:2.6}" fill="${i?'currentColor':'var(--accent)'}"/>`}).join('')};
+      const setForm=k=>{store.set('simForm',k);sim.h.setFormation(k);fIcon.innerHTML=dots(mod.FORMATIONS[k]);
+        fMenu.querySelectorAll('[data-f]').forEach(b=>b.classList.toggle('sel',b.dataset.f===k))};
+      fMenu.innerHTML=Object.entries(mod.FORMATIONS).map(([k,v])=>
+        `<button data-f="${k}" title="${v.ja}"><svg class="ic fmi" viewBox="0 0 24 24">${dots(v)}</svg><span>${v.ja}</span></button>`).join('');
+      fMenu.querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.f);fMenu.hidden=true}));
+      fBtn.addEventListener('click',e=>{e.stopPropagation();fMenu.hidden=!fMenu.hidden});
+      document.addEventListener('click',e=>{if(!fMenu.hidden&&!e.target.closest('.formwrap'))fMenu.hidden=true});
+      setForm(store.get('simForm','solo'));
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
     })

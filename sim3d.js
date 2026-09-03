@@ -43,6 +43,9 @@ export const SMOKE_COLORS = {
 export const SMOKE_LIFE = 29;                    // 煙が消えるまで（秒）。宙返り 2 周ぶん（25°/s で 1 周 14.4 秒）
 const SMOKE_MAX = 780;                           // 1 機あたりの粒の数（0.04 秒ごとに 1 つ）
 const SMOKE_DT = 0.04;
+/* 編隊に入るとき・抜けるときの位置（先頭機から見て後ろの遠く）。ここから所定の位置へ 4 秒かけて寄る */
+const ENTRY = [[-130, -300, 30], [130, -300, 30], [-190, -420, -25], [190, -420, -25], [0, -520, 45]];
+const JOIN_SEC = 4;
 
 /* CSS 変数（昼／夜の配色）を色として読む。最初に見つかった変数を使う */
 function cssColor(names, fallback) {
@@ -123,7 +126,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     world.add(w); walls.push(w);
   });
 
-  /* 地上の目印（山・民家・木・塔）。まとめて消せるように 1 つの入れ物に入れる（設定で切り替え） */
+  /* オブジェクト（山・民家・木・塔）。まとめて消せるように 1 つの入れ物に入れる（設定で切り替え） */
   const props = new THREE.Group(); world.add(props);
   /* 山: 見え方を学ぶのが目的なので、空間の中の近くに置く。出題の絵と同じく、開始位置の正面やや左に雪山、やや右に塔。
      さらに空間の中に中くらいの山を散らし、壁の外にも遠景の環を置く */
@@ -185,7 +188,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
      画面の入力は下に置いた操縦桿の絵とペダルのボタンで示す */
   const lamp = new THREE.PointLight(0xffe2b8, 0.9, 2.5); lamp.position.set(0, 2.9, 0.3); cockpit.add(lamp);   // 操縦席の灯り（夜でも部品が見える）
   /* 編隊の 2〜6 番機。先頭機の少し前の状態をたどって並ぶ（旋回でも隊形が崩れない） */
-  const mates = [];                       // { grp, plate[] }
+  const mates = [];                       // 2〜6 番機（入れ物）。join に合流の進み具合（0〜1）を持つ
   const hist = [];                        // 先頭機の軌跡 { t, p:Vector3, q:Quaternion }
   let histT = 0;
   let formation = 'solo', smokeOn = false, smokeColor = 'white';
@@ -259,9 +262,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
     seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
     /* 2〜6 番機はモデルを複製して、尾翼に番号の板を貼る */
     for (let n = 2; n <= 6; n++) {
-      const grp = new THREE.Group(); grp.add(g.scene.clone(true)); grp.position.copy(g.scene.position);
-      const holder = new THREE.Group(); holder.add(grp); holder.visible = false; world.add(holder);
-      addPlates(grp, n);
+      const holder = new THREE.Group(); holder.visible = false; world.add(holder);
+      holder.add(g.scene.clone(true));                                   // 複製は元と同じ平行移動を持っている
+      const plates = new THREE.Group(); plates.position.copy(g.scene.position); holder.add(plates);   // 板も同じ平行移動の中に置く
+      addPlates(plates, n);
+      holder.userData.join = 0; holder.userData.last = new THREE.Vector3();
       mates.push(holder);
     }
   }, undefined, () => {});
@@ -300,6 +305,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* 操縦は機体の軸まわりの回転で扱う（機首軸のロール・翼軸のピッチ・上下軸のヨー）。
      左右に倒し続ければ何回でも回り、前後に倒し続ければ宙返りができる。角度の上限は設けない */
   function step(dt) {
+    if (st.ground) return;   // 着地したら止まったまま。「水平に戻す」か「初期位置」で再開する
     const roll = RATE.roll * input.x * dt * D;        // 機首軸(+y): 右に倒すと右バンク
     const pitch = -RATE.pitch * input.y * dt * D;     // 翼軸(+x): 手前に引くと機首上げ
     const yaw = RATE.yaw * input.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
@@ -316,35 +322,40 @@ export function mount(container, { onState, view = 'first' } = {}) {
     st.x += fwd.x * SPEED * dt; st.y += fwd.y * SPEED * dt; st.z += fwd.z * SPEED * dt;
     const L = LIMIT - 4; st.wall = Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL;
     st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, CEIL);
-    st.ground = st.z <= 3;
-    if (st.ground) { st.z = 3; if (st.p < 0 || Math.abs(st.b) > 90) levelAttitude(); }   // 地面に着いたら水平に戻す
+    if (st.z <= 3) { st.z = 3; st.ground = true; }   // 地面に着いたら、その時の姿勢のまま止める（動きを固定）
   }
   /* 先頭機の軌跡を残し、そこから編隊機の位置を決める */
   const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3();
   function recordHistory(dt) {
     histT += dt;
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
-    while (hist.length > 2 && hist[0].t < histT - 6) hist.shift();
+    while (hist.length > 2 && hist[0].t < histT - 12) hist.shift();   // 後ろの遠く（合流位置）まで届く長さ
   }
   function stateAt(lag) {
     const want = histT - lag;
     for (let i = hist.length - 1; i >= 0; i--) if (hist[i].t <= want) return hist[i];
     return hist[0] || { p: plane.position, q: att };
   }
-  function placeMates() {
+  const ease = t => t * t * (3 - 2 * t);
+  function placeMates(dt) {
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     const emitting = smokeOn && smokeT >= SMOKE_DT;
     if (emitting) smokeT = 0;
     if (on[0] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
-      const off = f.offs[i];
-      if (!off) { holder.visible = false; return; }
+      const target = f.offs[i], u = holder.userData;
+      /* 編隊を変えたときは、いきなり現れず後ろの遠くから 4 秒かけて寄る（抜けるときは離れていく） */
+      u.join = clamp(u.join + (target ? 1 : -1) * dt / JOIN_SEC, 0, 1);
+      if (target) u.last.set(target[0], target[1], target[2]);
+      if (u.join <= 0.001) { holder.visible = false; return; }
       holder.visible = true;
-      const st2 = stateAt(Math.max(0, -off[1] / SPEED));
+      const k = ease(u.join), e = ENTRY[i];
+      const ox = e[0] + (u.last.x - e[0]) * k, oy = e[1] + (u.last.y - e[1]) * k, oz = e[2] + (u.last.z - e[2]) * k;
+      const st2 = stateAt(Math.max(0, -oy / SPEED));
       mq.copy(st2.q); mp.copy(st2.p);
-      mo.set(off[0], 0, off[2]).applyQuaternion(mq);
+      mo.set(ox, 0, oz).applyQuaternion(mq);
       holder.position.copy(mp).add(mo); holder.quaternion.copy(mq);
-      if (on[i + 1] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+      if (u.join > 0.98 && on[i + 1] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;
@@ -388,7 +399,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     clock += dt; smokeT += dt;
-    step(dt); place(); recordHistory(dt); placeMates(); renderer.render(world, cam);
+    step(dt); place(); recordHistory(dt); placeMates(dt); renderer.render(world, cam);
     if (onState) onState(st);
     raf = requestAnimationFrame(frame);
   }
@@ -409,13 +420,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
     addLook(dy, dp) { look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },
     resetLook() { look.y = 0; look.p = 0; },
-    setProps(on) { props.visible = !!on; },   // 地上の目印（山・民家・木・塔）の出し入れ
-    setFormation(f) { if (FORMATIONS[f]) { formation = f; clearSmoke(); } },
+    setProps(on) { props.visible = !!on; },   // オブジェクト（山・民家・木・塔）の出し入れ
+    setFormation(f) { if (FORMATIONS[f]) formation = f; },   // 飛びながら変えられる。合流は placeMates がなめらかにする
+    formation() { return formation; },
     setSmoke(on) { smokeOn = !!on; },
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },
-    level() { levelAttitude(); },
-    home() { Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },
+    level() { levelAttitude(); st.ground = false; },
+    home() { Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },
     dispose() { running = false; cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); cv.remove(); }
   };
 }

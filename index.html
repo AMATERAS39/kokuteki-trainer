@@ -792,7 +792,7 @@ const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v01';
+const APP_VER='v01.01';
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -916,15 +916,15 @@ function freezeFigs(){
   const rem=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
   $('#figs').querySelectorAll('.d14,.fig.top,.frame').forEach(el=>{const h=el.getBoundingClientRect().height;if(h>0){el.style.height=(h/rem).toFixed(3)+'rem';el.style.flex='none'}});
 }
-/* 「次の問題」が画面の下の帯にかからない位置に来るまで、なめらかにスクロールする（解説が長いときは末尾を見せる） */
+/* 解説が出たら画面のいちばん下まで自動で送る（「次の問題」を自分でスクロールせずに押せるように） */
 function revealFeedback(){
-  const fb=$('#feedback'),btn=$('#next');
+  const fb=$('#feedback');
+  const bottom=()=>Math.max(0,document.documentElement.scrollHeight-innerHeight);
   setTimeout(()=>{
     if(!fb.classList.contains('show'))return;
-    const r=btn.getBoundingClientRect();
-    if(r.bottom<=innerHeight-56&&r.top>=0)return;
-    const y0=scrollY;btn.scrollIntoView({behavior:'smooth',block:'end'});
-    setTimeout(()=>{if(Math.abs(scrollY-y0)<2)btn.scrollIntoView({block:'end'})},400);   // なめらかな移動が効かない環境の受け皿
+    const y=bottom();if(y<2)return;
+    scrollTo({top:y,behavior:'smooth'});
+    setTimeout(()=>{const y2=bottom();if(y2>2&&Math.abs(scrollY-y2)>2)scrollTo(0,y2)},400);   // なめらかな移動が効かない環境の受け皿
   },80);
 }
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');

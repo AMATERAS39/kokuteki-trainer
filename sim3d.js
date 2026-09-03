@@ -318,16 +318,24 @@ export function mount(container, { onState, view = 'first' } = {}) {
   smokeGeo.setAttribute('birth', new THREE.BufferAttribute(sBirth, 1));
   smokeGeo.setAttribute('asize', new THREE.BufferAttribute(sSize, 1));
   const smokeMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uLife: { value: SMOKE_LIFE } },
+    /* 遠くの煙は、そのままだと画面では細く薄くなって見えない（地上から見るキューピッドなど）。
+       200 m より遠いところでは、離れるほど 太さと濃さを増す（uFarS / uFarA）。
+       一人称では自分と僚機の煙がすぐ近くを通るので、増し方も上限も小さくする。
+       粒ごとに焼き付けず毎コマ計算するので、視点を変えるとその場で太さが変わる。
+       uMinPx / uMaxPx: 画面の中での太さの下限・上限（画素） */
+    uniforms: { uTime: { value: 0 }, uLife: { value: SMOKE_LIFE }, uMinPx: { value: 10 }, uMaxPx: { value: 90 },
+                uFarS: { value: 0.8 }, uFarA: { value: 1.2 } },
     transparent: true, depthWrite: false,
-    vertexShader: `attribute vec3 acolor; attribute float birth; attribute float asize; uniform float uTime, uLife;
+    vertexShader: `attribute vec3 acolor; attribute float birth; attribute float asize; uniform float uTime, uLife, uMinPx, uMaxPx, uFarS, uFarA;
       varying vec3 vC; varying float vA;
       void main(){ float age = (uTime - birth) / uLife; vA = clamp(1.0 - age, 0.0, 1.0); vA *= sqrt(vA);
         vC = acolor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        /* 太さ: 出た直後から少しずつ広がる。遠くても見えるように最小 3 画素、
-           近くで画面を覆わないように最大 90 画素にする */
+        float far = clamp((-mv.z - 200.0) / 800.0, 0.0, 1.0);      // 200 m から 1 km で 0 → 1
+        vA = clamp(vA * (1.0 + uFarA * far), 0.0, 1.0);
+        /* 太さ: 出た直後から少しずつ広がる。遠いほど画面では細くなるので、下限を決めて
+           遠くの演目でも線が見えるようにする（下限・上限は視点で変える） */
         float sz = 6.0 + 60.0 * pow(clamp(age, 0.0, 1.0), 0.5);
-        gl_PointSize = clamp(sz * asize * (240.0 / max(1.0, -mv.z)), 3.0, 90.0 * asize);
+        gl_PointSize = clamp(sz * asize * (1.0 + uFarS * far) * (240.0 / max(1.0, -mv.z)), uMinPx * asize, uMaxPx * asize);
         gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `varying vec3 vC; varying float vA;
       void main(){ float d = length(gl_PointCoord - vec2(0.5)); if (d > 0.5) discard;
@@ -1331,6 +1339,12 @@ export function mount(container, { onState, view = 'first' } = {}) {
     seatMeshes.forEach(m => { m.visible = out; });
     cockpit.visible = !out;
     baseFov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; applyFov(); camPos.set(0, 0, 0);
+    /* 煙の太さ: 一人称はすぐ近くを通るので控えめに、それ以外（特に地上）は遠くでも見えるように */
+    const near1 = v === 'first';
+    smokeMat.uniforms.uMinPx.value = near1 ? 4 : 10;
+    smokeMat.uniforms.uMaxPx.value = near1 ? 60 : 90;
+    smokeMat.uniforms.uFarS.value = near1 ? 0.3 : 0.8;
+    smokeMat.uniforms.uFarA.value = near1 ? 0.6 : 1.2;
     if (v === 'ground') gAim();   // 入ったときだけ機体の方を向く。以後は自分で向ける
   }
   setView(view);

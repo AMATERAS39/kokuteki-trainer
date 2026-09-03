@@ -3,6 +3,10 @@
   "target": {
     "namespace": "android_app",
     "package_name": "com.amaterasuvocab.kokuteki",
-    "sha256_cert_fingerprints": ["D1:2D:28:75:4C:0E:53:EF:54:15:65:15:63:C8:63:3B:CF:9B:CC:F7:BA:9C:6B:BE:31:C2:C8:21:A6:39:7B:3C"]
+    "sha256_cert_fingerprints": [
+      "D1:2D:28:75:4C:0E:53:EF:54:15:65:15:63:C8:63:3B:CF:9B:CC:F7:BA:9C:6B:BE:31:C2:C8:21:A6:39:7B:3C",
+      "EC:47:49:1C:A7:B2:F7:6D:06:8E:F4:45:91:8A:00:0D:37:A1:02:30:2F:2A:B8:70:9D:64:4D:56:0D:EC:00:36",
+      "B6:37:ED:D4:25:F7:5B:C9:B0:D6:E7:8B:71:0D:E9:5D:9C:5F:28:21:53:31:A8:EC:5D:8B:82:84:E0:4C:E7:D3"
+    ]
   }
 }]

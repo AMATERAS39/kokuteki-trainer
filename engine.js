@@ -114,23 +114,22 @@
     return { bank: state.bank + (e.bank || 0), pitch: state.pitch + (e.pitch || 0), yaw: state.yaw + (e.yaw || 0) };
   }
   function genControl(s) {
-    /* 2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。同じ操作の繰り返しや、左右の切り返し（左に倒して右に倒す等）は出さない */
+    /* 出題は 1 操作（同じ操作を続ける）と 2 操作の混在。2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。
+       同じ操作の繰り返しや左右の切り返し（左に倒して右に倒す等）は 2 操作としては出さない */
     const STICK = OPS.filter(o => o.group === 'stick'), RUDDER = OPS.filter(o => o.group === 'rudder');
-    const first = s.ops === 'single' ? pick(OPS).id : pick(STICK).id;
-    const ops = s.ops === 'single' ? [first, first] : [first, pick(RUDDER).id];
+    const one = s.ops === 'single' || (s.ops !== 'double' && Math.random() < 1 / 3);
+    const first = one ? pick(OPS).id : pick(STICK).id;
+    const ops = one ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';
     const init = { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
     const frames = [init];
     for (const op of ops) frames.push(applyOp(frames[frames.length - 1], op));
-    const single = s.ops === 'single';
-    /* 4 択: 正解の操作列 + 似た誤答（順序入れ替え・逆操作・別の操作） */
+    const single = ops[0] === ops[1];
+    /* 4 択: 1 操作（6 通り）と「操縦桿 → 方向舵」（8 通り）を混ぜた中から、正解以外を誤答にする */
     const key = a => a.join('|');
     const cands = [];
-    if (single) { for (const o of OPS) if (o.id !== first) cands.push([o.id, o.id]); }
-    else {
-      /* 誤答も同じ形（操縦桿 → 方向舵）: 操縦桿 4 × 方向舵 2 のうち正解以外の 7 通り */
-      for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
-    }
+    for (const o of OPS) cands.push([o.id, o.id]);
+    for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
     const dis = pickDistractors(cands, c => key(c) !== key(ops), 3);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
     return { type: 'control', ops, frames, init, single, opts };
@@ -168,6 +167,13 @@
   }
   function gradeControl(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
+    if (q.single) {
+      const o = OP_BY_ID[q.ops[0]], b = q.frames[0].bank;
+      let v = o.view;
+      if (o.group === 'rudder' && Math.abs(b) > 1) v = `水平線の傾きは変わらないまま景色が${o.effect.yaw > 0 ? '左' : '右'}へ流れ、${(o.effect.yaw > 0) === (b > 0) ? '少し上がる（機首が沈む）' : '少し下がる（機首が上がる）'}`;
+      return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`,
+        lines: [`①→②→③：同じ向きに変化が続いている。${v} → ${o.body} → ${o.base}。`, '途中で操作が変わっていないので、操作は 1 つです。'] };
+    }
     const lines = q.ops.map((id, k) => {
       const o = OP_BY_ID[id], b = q.frames[k].bank;
       let v = o.view, body = o.body;

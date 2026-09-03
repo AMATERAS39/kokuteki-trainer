@@ -752,7 +752,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=33"></script>
+<script src="engine.js?v=34"></script>
 <script>
 (function(){
 'use strict';
@@ -771,7 +771,7 @@ const modeSet=store.get('modeSet',{});
 const MS=()=>Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});
 function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}   // 変更したキーだけ保存（既定値の変更を反映させるため）
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
-const GEN={north:'random',ops:'double',init:'random',bank:'on'};
+const GEN={north:'random',ops:'mix',init:'random',bank:'on'};
 const genQ=()=>E.generate(mode,Object.assign({},settings,GEN));
 const saved=store.get('settings',{});
 const settings=saved.version===SETTINGS_VERSION?Object.assign({},DEFAULTS,saved):Object.assign({},DEFAULTS);
@@ -784,7 +784,7 @@ const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v01.03';
+const APP_VER='v01.04';
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -851,9 +851,7 @@ function render(){
     }
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else{
-    $('#prompt').textContent=q.single
-      ?'①→②→③ の変化の間に行われた操作を選ぶ'
-      :'①→②、②→③ の順に行われた操作を選ぶ';
+    $('#prompt').textContent='①→②→③ の変化から、行われた操作を選ぶ';
     figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,i/2))}</div></div>`).join('')}</div></div>`;
     ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${'ABCD'[i]}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));

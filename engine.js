@@ -51,17 +51,23 @@
     { id: 'sw_down', ja: '南西下', heading: 225, pitch: -30, read: '機首が手前・左・下 → 南西へ降下。' }
   ];
 
-  const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on' };
+  const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on', level: 'hard' };
+  const LEVELS = { easy: 'やさしい', medium: 'ふつう', hard: 'むずかしい' };
   /* 視界・姿勢指示器のリアルタイム更新に使う係数（svgCockpit / svgAI と同じ値） */
   const CK = { kp: 5, ky: 6, aiK: 2.4, grow: 0.45 };
 
   /* ---------- 出題生成 ---------- */
   /* N マークの向きと機首の向きが一致すると答えが自明になるので、機首は N と別の向きだけを出題する（dir≠0）。
      N マークは 8 方位（45° 刻み、上を含む）のいずれかにランダムに置く。 */
+  /* 方位の難易度
+     easy: 答えは東西南北のみ、N マークは上に固定（機首と同じ向きになってもよい）
+     medium: 答えは東西南北のみ、N マークはランダム（機首とは重ならない）
+     hard: 答えは 8 方位、N マークはランダム（機首とは重ならない） */
   function genHeading(s) {
-    const dir = 1 + rnd(7);
-    const phi = s.north === 'fixed' ? 0 : rnd(8) * 45;
-    return { type: 'heading', dir, phi, theta: norm(phi + dir * 45) };
+    const lv = s.level || 'hard';
+    const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'medium' ? pick([2, 4, 6]) : 1 + rnd(7);
+    const phi = (lv === 'easy' || s.north === 'fixed') ? 0 : rnd(8) * 45;
+    return { type: 'heading', dir, phi, theta: norm(phi + dir * 45), level: lv };
   }
   function pickDistractors(cands, isValid, n) {
     const seen = new Set(); const out = [];
@@ -85,23 +91,32 @@
     for (const bs of [-1, 0, 1]) for (const ps of [-1, 0, 1]) if (cls(bs, ps) !== cls(bank, pitch)) out.push([bs * bm, ps * pm]);
     return out;
   }
+  /* 姿勢指示器の難易度
+     easy: 機首は北の縦の面だけ（北・真上・真下）。上下と傾きは変わる
+     medium: 14 方向すべて。翼は水平に固定
+     hard: 14 方向すべて + バンク */
   function genAttitude(s) {
-    const d = pick(DIR14), pitch = d.pitch, bank = pickBank(s, d);
+    const lv = s.level || 'hard';
+    const pool = lv === 'easy' ? DIR14.filter(x => x.id === 'north' || x.id === 'up' || x.id === 'down') : DIR14;
+    const d = pick(pool), pitch = d.pitch, bank = lv === 'medium' ? 0 : pickBank(s, d);
     const dis = pickDistractors(attCands(bank, pitch), () => true, 3);
     const opts = shuffle([{ bank, pitch, ok: true }, ...dis.map(([b, p]) => ({ bank: b, pitch: p, ok: false }))]);
-    return { type: 'attitude', dir14: d, bank, pitch, opts };
+    return { type: 'attitude', dir14: d, bank, pitch, opts, level: lv };
   }
   /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。誤答は「方位違い（姿勢は同じ）」と「姿勢の区分違い（方位は同じ）」を混ぜる */
   function genCombo(s) {
-    const d = pick(DIR14.filter(x => x.heading !== null)), heading = d.heading, pitch = d.pitch, bank = pickBank(s, d);
+    /* 難易度: easy は東西南北のみ・水平（上下も傾きもなし）、medium は東西南北のみ（傾きあり）、hard は 12 方向すべて */
+    const lv = s.level || 'hard';
+    const pool = DIR14.filter(x => x.heading !== null && (lv === 'hard' || x.pitch === 0));
+    const d = pick(pool), heading = d.heading, pitch = d.pitch, bank = lv === 'easy' ? 0 : pickBank(s, d);
     const hc = [heading + 180, 360 - heading, heading + 90, heading - 90, heading + 45, heading - 45].map(norm).filter(h => h !== heading).map(h => [h, bank, pitch]);
     const ac = attCands(bank, pitch).map(([b, p]) => [heading, b, p]);
     const cands = [...hc, ...ac, [norm(heading + 180), -bank, pitch]].filter(([h, b, p]) => !(h === heading && b === bank && p === pitch));
     const dis = pickDistractors(cands, () => true, 3);
     const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);
-    /* 方位指示器の印を付ける方位: 機首の方位と重ならないものを毎回抽選する（重なると印が真上に来て答えが自明になる） */
-    const mark = pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45));
-    return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, mark, opts };
+    /* 方位指示器の印: むずかしいときだけ、機首の方位と重ならない方位を毎回抽選する。それ以外は北（N）に固定 */
+    const mark = lv === 'hard' ? pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45)) : 0;
+    return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, mark, opts, level: lv };
   }
   /* 方向舵は機体の上下軸まわりに効く。機体が傾いていると、その軸も傾いているので、機首は水平面ではなく斜めに振れる
      （右バンクで右方向舵なら機首はやや沈む）。ヨーは cos(バンク) 倍、ピッチは −sin(バンク) 倍で効く */
@@ -117,7 +132,9 @@
     /* 出題は 1 操作（同じ操作を続ける）と 2 操作の混在。2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。
        同じ操作の繰り返しや左右の切り返し（左に倒して右に倒す等）は 2 操作としては出さない */
     const STICK = OPS.filter(o => o.group === 'stick'), RUDDER = OPS.filter(o => o.group === 'rudder');
-    const one = s.ops === 'single' || (s.ops !== 'double' && Math.random() < 1 / 3);
+    /* 難易度: easy は 1 操作だけ、medium は 1 操作と 2 操作の混在、hard は混在＋視界の目盛りなし */
+    const lv = s.level || 'hard';
+    const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && Math.random() < 1 / 3);
     const first = one ? pick(OPS).id : pick(STICK).id;
     const ops = one ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';
@@ -129,10 +146,10 @@
     const key = a => a.join('|');
     const cands = [];
     for (const o of OPS) cands.push([o.id, o.id]);
-    for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
+    if (lv !== 'easy' && s.ops !== 'single') for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
     const dis = pickDistractors(cands, c => key(c) !== key(ops), 3);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
-    return { type: 'control', ops, frames, init, single, opts };
+    return { type: 'control', ops, frames, init, single, opts, level: lv, hud: lv !== 'hard' };
   }
   function generate(mode, settings) {
     const s = Object.assign({}, DEFAULT_SETTINGS, settings);
@@ -145,7 +162,8 @@
 
   function gradeHeading(q, dir) {
     const ok = dir === q.dir;
-    const lines = [`N マークから時計回りに 45° ずつ数えます。機首は N から ${q.dir * 45}° の方向。`];
+    const lines = q.dir === 0 ? ['機首が N マークと同じ向き → 北。']
+      : [`N マークから時計回りに 45° ずつ数えます。機首は N から ${q.dir * 45}° の方向。`];
     if (q.phi) lines.push('北が上ではないので、画面の上下ではなく N マークを基準に読み替えます。');
     return { ok, correct: q.dir, answerText: `${DIRS[q.dir].ja}（${DIRS[q.dir].k}）`, lines };
   }
@@ -306,7 +324,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
   /* progress: 前進の度合い 0..1。時間が進むと機体が前進し、景色（山・塔・太陽）が大きく見える */
   /* 空は上（--ck-sky-top）から水平線（--ck-sky-hz）への縦グラデーション。日の出・夕焼けで水平線付近だけ色づく。未定義なら --ck-sky → --sky */
   /* marks: true で目印を描く（雪山の頂と塔の先端にオレンジの輪、①の水平線の位置に破線）。見え方の確認画面用 */
-  function svgCockpit(bank, pitch, yaw, progress = 0, marks = false) {
+  function svgCockpit(bank, pitch, yaw, progress = 0, marks = false, hud = true) {
     const id = 'ck' + (++uid), kp = 5, ky = 6, sc = (1 + 0.45 * progress).toFixed(3);
     const mk = marks ? '<circle cx="-90" cy="-72" r="16" fill="none" stroke="#f2a93b" stroke-width="3"/><circle cx="230" cy="-42" r="14" fill="none" stroke="#f2a93b" stroke-width="3"/>' : '';
     const ref = marks ? '<line x1="16" x2="344" y1="108" y2="108" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9"/><text x="20" y="102" font-size="11" font-family="var(--mono)" fill="#f2a93b">①の水平線</text>' : '';
@@ -320,7 +338,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
 <path d="M-130,0 L-90,-72 L-50,0 Z" fill="var(--ck-mtn2, #65788d)"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="var(--ck-snow, #e8eef4)"/>
 <rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/>${mk}</g>
 <line x1="-900" x2="900" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g></g>
-${ref}<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>
+${ref}${hud ? '<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>' : ''}
 <path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z" fill="none" stroke="var(--line)" stroke-width="4"/>
 <path d="M0,240 L0,190 Q180,170 360,190 L360,240 Z" fill="var(--glare, #1a2027)"/><path d="M0,192 Q180,172 360,192" fill="none" stroke="var(--line2)" stroke-width="3"/></svg>`;
   }
@@ -357,6 +375,6 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="18" y="10" text-anchor="middle">上</text><text x="58" y="48">東</text><text x="36" y="30">北</text></g></svg></div>`;
   }
 
-  global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,
+  global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,
     gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, figTopDown, figAttitude, figDir14 };
 })(window);

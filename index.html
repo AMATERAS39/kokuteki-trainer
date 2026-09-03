@@ -752,7 +752,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=34"></script>
+<script src="engine.js?v=35"></script>
 <script>
 (function(){
 'use strict';
@@ -763,16 +763,16 @@ const SETTINGS_VERSION=3;
 const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',version:SETTINGS_VERSION});
 /* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit/sLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ */
 const MODE_DEFAULTS={
-  heading:{qCount:20,qLimit:5,sLimit:300,skipExplain:true},
-  attitude:{qCount:10,qLimit:10,sLimit:300,skipExplain:true},
-  combo:{qCount:20,qLimit:15,sLimit:480,skipExplain:true},
-  control:{qCount:10,qLimit:20,sLimit:900,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
+  heading:{level:'easy',qCount:20,qLimit:5,sLimit:300,skipExplain:true},
+  attitude:{level:'easy',qCount:10,qLimit:10,sLimit:300,skipExplain:true},
+  combo:{level:'easy',qCount:20,qLimit:15,sLimit:480,skipExplain:true},
+  control:{level:'easy',qCount:10,qLimit:20,sLimit:900,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
 const modeSet=store.get('modeSet',{});
 const MS=()=>Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});
 function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}   // 変更したキーだけ保存（既定値の変更を反映させるため）
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'mix',init:'random',bank:'on'};
-const genQ=()=>E.generate(mode,Object.assign({},settings,GEN));
+const genQ=()=>E.generate(mode,Object.assign({},settings,GEN,{level:MS().level}));
 const saved=store.get('settings',{});
 const settings=saved.version===SETTINGS_VERSION?Object.assign({},DEFAULTS,saved):Object.assign({},DEFAULTS);
 const hideIntro=store.get('hideIntro',{});   // 種目ごとの「次回から表示しない」
@@ -784,7 +784,7 @@ const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v01.04';
+const APP_VER='v02';
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -852,7 +852,7 @@ function render(){
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else{
     $('#prompt').textContent='①→②→③ の変化から、行われた操作を選ぶ';
-    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,i/2))}</div></div>`).join('')}</div></div>`;
+    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,i/2,false,q.hud!==false))}</div></div>`).join('')}</div></div>`;
     ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${'ABCD'[i]}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
@@ -964,19 +964,26 @@ function enterMode(m,sub){
   showSetup();
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・全体の制限時間・解説スキップ、説明と練習の表示 */
+const LEVEL_HELP={
+  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',medium:'東西南北の 4 方位だけ。N マークの向きは毎回変わる。',hard:'8 方位すべて。N マークの向きは毎回変わる。'},
+  attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',medium:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
+  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',medium:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'12 方向すべて。方位指示器の印は毎回変わる。'},
+  control:{easy:'操作は 1 つだけ。',medium:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ。視界の中央の目盛りは出ない。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
   const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(ms[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
+    ${sel('level','難易度',[['easy','やさしい'],['medium','ふつう'],['hard','むずかしい']])}
+    <div class="sethelp">${LEVEL_HELP[mode][ms.level]}</div>
     ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']])}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
     ${sel('sLimit','全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[480,'8 分'],[600,'10 分'],[900,'15 分']])}
     ${sw('skipChk',ms.skipExplain,'解説スキップ（正誤だけ見せて次へ）')}
     ${sw('introChk',!hideIntro[mode],'開始前に説明と練習 3 問')}
     <div class="acts"><button class="btn" id="setupGo">始める${ic('next','s')}</button></div>`;
-  $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>setMS(el.dataset.key,+el.value)));
+  $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);if(el.dataset.key==='level')showSetup()}));
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
   toggle($('#skipChk'),()=>MS().skipExplain,on=>setMS('skipExplain',on));
   toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro)});
@@ -996,7 +1003,7 @@ function showChooser(){
 }
 function showIntro(){
   setPhase('intro','説明');showPane('intro');
-  const ms=MS(),lim=[];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(ms.sLimit>0)lim.push(`全体 ${fmtSec(ms.sLimit)}`);if(qMax()>0)lim.push(`${qMax()} 問`);
+  const ms=MS(),lim=[`難易度 ${E.LEVELS[ms.level]||''}`];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(ms.sLimit>0)lim.push(`全体 ${fmtSec(ms.sLimit)}`);if(qMax()>0)lim.push(`${qMax()} 問`);
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${ms.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
     <div class="acts"><button class="btn" id="introGo">練習を始める（3 問）${ic('next','s')}</button></div>`;
   $('#introGo').addEventListener('click',afterIntro);

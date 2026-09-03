@@ -201,23 +201,13 @@ export function mount(container, { onState, view = 'first' } = {}) {
   let formation = 'solo', smokeOn = false, smokeColor = 'white', formScale = 1;   // formScale: 隊形の広がり（課目で変える）
 
   /* 垂直尾翼の番号。モデルの「1」の上に貼る小さな板（左右 2 枚） */
-  function numberPlate(n) {
-    const c = document.createElement('canvas'); c.width = c.height = 128;
-    const g2 = c.getContext('2d');
-    const c2 = document.createElement('canvas'); c2.width = 96; c2.height = 128;   // 縦長（塗装の「1」が縦に長い）
-    const g3 = c2.getContext('2d');
-    g3.fillStyle = finBlue; g3.fillRect(0, 0, 96, 128);                            // 機体から拾った青で塗りつぶす
-    /* 数字は本物と同じく、右に傾いた太字 */
-    g3.fillStyle = '#fff'; g3.font = 'italic bold 112px "Zen Kaku Gothic New", system-ui, sans-serif';
-    g3.textAlign = 'center'; g3.textBaseline = 'middle'; g3.fillText(String(n), 48, 66);
-    const tex = new THREE.CanvasTexture(c2); tex.colorSpace = THREE.SRGBColorSpace;
-    /* 機体と同じ陰の付き方にする（発光したように浮かないように） */
-    return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
-  }
-  /* 垂直尾翼の場所をモデルから実測する（機体の内側の座標）。
-     尾翼は「後ろ寄り・高い・左右に薄い」ので、その条件に合う頂点を集めて囲む箱を作る */
-  /* 尾翼の青を、機体の絵柄（テクスチャ）から拾う。番号板をこの色で塗れば、
-     板だけ色が浮くことがなくなる。白い文字の部分は外して、いちばん多い色を採る */
+  /* 尾翼の番号は、板を貼るのではなく「機体の絵柄（テクスチャ）の 1 を塗り替える」。
+     板だと機体から浮いて見えるうえ、尾翼の形に沿わない。
+
+     やり方: 尾翼の面の三角形から「機体座標 (前後 y, 上下 z) → 絵柄の座標 (u, v)」の
+     写像を作り、その写像で「1」の場所を機体の青で塗りつぶし、同じ書体で別の数字を描く。
+     絵柄は機ごとに複製する（元の絵柄は 1 番機のまま） */
+  /* 尾翼の青を、機体の絵柄から拾う（番号を塗り替えるときの下地）。白や灰は数えない */
   function finColor(root) {
     let img = null;
     root.traverse(o => { if (!img && o.isMesh && o.material && o.material.map && o.material.map.image) img = o.material.map.image; });
@@ -226,9 +216,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
       const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
       const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
       const d = g.getImageData(0, 0, c.width, c.height).data, bins = new Map();
-      for (let i = 0; i < d.length; i += 4 * 37) {                       // 間引いて数える
+      for (let i = 0; i < d.length; i += 4 * 37) {
         const r = d[i], gg = d[i + 1], b = d[i + 2];
-        if (d[i + 3] < 200 || b < 80 || b - r < 40) continue;            // 白・灰・赤は数えない（青だけ）
+        if (d[i + 3] < 200 || b < 80 || b - r < 40) continue;
         const key = (r >> 3) + ',' + (gg >> 3) + ',' + (b >> 3);
         const e = bins.get(key) || { n: 0, r: 0, g: 0, b: 0 };
         e.n++; e.r += r; e.g += gg; e.b += b; bins.set(key, e);
@@ -240,17 +230,18 @@ export function mount(container, { onState, view = 'first' } = {}) {
       return '#' + hex(best.r) + hex(best.g) + hex(best.b);
     } catch (e) { return '#0a6ab4'; }
   }
+  /* 尾翼の箱を機体の頂点から測る。全体の箱も機体の座標に直してから比べ、脚は外す */
   function measureFin(root, frame) {
     const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert();
-    /* 全体の箱も機体の座標に直してから比べる（世界座標のままだと、
-       機体が原点から離れているときに条件が成り立たず、尾翼が見つからない） */
-    const all = new THREE.Box3().setFromObject(root).applyMatrix4(inv);
+    const all = new THREE.Box3();
+    root.traverse(o => { if (o.isMesh && o.geometry && !underGear(o)) all.expandByObject(o); });
+    all.applyMatrix4(inv);
     const hz = all.max.z - all.min.z, ly = all.max.y - all.min.y;
     const v = new THREE.Vector3(), fin = new THREE.Box3(); let hit = 0;
     root.updateWorldMatrix(true, true);
     fin.makeEmpty();
     root.traverse(o => {
-      if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+      if (!o.isMesh || !o.geometry || !o.geometry.attributes.position || underGear(o)) return;
       const pos = o.geometry.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
@@ -259,23 +250,132 @@ export function mount(container, { onState, view = 'first' } = {}) {
     });
     return hit > 20 ? fin : null;
   }
-  let finRect = null, finBlue = '#0a6ab4';
-  function addPlates(grp, n) {
+  let finRect = null, finBlue = '#0a6ab4';           // 尾翼の箱と、機体の青（読み込み時に測る）
+  const NUM_Y = [0.68, 1.02], NUM_Z = [0.13, 0.65];   // 尾翼の箱に対する「1」の範囲（実測）
+  /* 点 (y, z) を含む三角形を、尾翼の指定した側から探して、写像に必要な情報を返す */
+  function finTriAt(root, frame, y, z, side) {
+    const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert();
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    let inside = null, near = null, nearD = 1e9;
+    root.traverse(o => {
+      if (inside || !o.isMesh || !o.geometry || underGear(o)) return;
+      const g = o.geometry, pos = g.attributes.position, uv = g.attributes.uv, idx = g.index;
+      if (!uv) return;
+      o.updateWorldMatrix(true, false);
+      const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      const cnt = idx ? idx.count : pos.count;
+      for (let t = 0; t < cnt; t += 3) {
+        const i0 = idx ? idx.getX(t) : t, i1 = idx ? idx.getX(t + 1) : t + 1, i2 = idx ? idx.getX(t + 2) : t + 2;
+        a.fromBufferAttribute(pos, i0).applyMatrix4(m);
+        if (Math.abs(a.x) > 1 || a.z < finRect.min.z - 0.1 || a.z > finRect.max.z + 0.1) continue;
+        b.fromBufferAttribute(pos, i1).applyMatrix4(m);
+        c.fromBufferAttribute(pos, i2).applyMatrix4(m);
+        /* 左右は「面の向き」で分ける（尾翼は薄いので、頂点の位置だけでは分けられない） */
+        const nx = (b.y - a.y) * (c.z - a.z) - (b.z - a.z) * (c.y - a.y);
+        if (nx * side <= 0) continue;
+        const hit = { mesh: o, p: [[a.y, a.z], [b.y, b.z], [c.y, c.z]],
+                      t: [[uv.getX(i0), uv.getY(i0)], [uv.getX(i1), uv.getY(i1)], [uv.getX(i2), uv.getY(i2)]] };
+        /* 点を含むか。含む三角形があればそれを使う */
+        const d1 = (y - b.y) * (a.z - b.z) - (a.y - b.y) * (z - b.z);
+        const d2 = (y - c.y) * (b.z - c.z) - (b.y - c.y) * (z - c.z);
+        const d3 = (y - a.y) * (c.z - a.z) - (c.y - a.y) * (z - a.z);
+        if (!(((d1 < 0) || (d2 < 0) || (d3 < 0)) && ((d1 > 0) || (d2 > 0) || (d3 > 0)))) { inside = hit; return; }
+        /* 含まないときのために、いちばん近い三角形を覚えておく（面が平らなので写像を延ばして使える） */
+        const gy = (a.y + b.y + c.y) / 3, gz = (a.z + b.z + c.z) / 3;
+        const dd = (gy - y) * (gy - y) + (gz - z) * (gz - z);
+        if (dd < nearD) { nearD = dd; near = hit; }
+      }
+    });
+    return inside || (nearD < 4 ? near : null);
+  }
+  /* 機体座標 (y, z) → 絵柄の画素 (px, py) の写像（2×3 の行列）を作る */
+  function uvMap(hit, W, H, flipY) {
+    const [p0, p1, p2] = hit.p, [t0, t1, t2] = hit.t;
+    const e = [[p1[0] - p0[0], p2[0] - p0[0]], [p1[1] - p0[1], p2[1] - p0[1]]];
+    const det = e[0][0] * e[1][1] - e[0][1] * e[1][0];
+    if (Math.abs(det) < 1e-12) return null;
+    const inv = [[e[1][1] / det, -e[0][1] / det], [-e[1][0] / det, e[0][0] / det]];
+    const f = [[t1[0] - t0[0], t2[0] - t0[0]], [t1[1] - t0[1], t2[1] - t0[1]]];
+    const M = [[f[0][0] * inv[0][0] + f[0][1] * inv[1][0], f[0][0] * inv[0][1] + f[0][1] * inv[1][1]],
+               [f[1][0] * inv[0][0] + f[1][1] * inv[1][0], f[1][0] * inv[0][1] + f[1][1] * inv[1][1]]];
+    /* px = W·u。py は絵柄の上下の向きで決まる（glTF は flipY=false なので py = H·v） */
+    const fy = flipY ? -1 : 1, off = flipY ? H : 0;
+    return { a: W * M[0][0], c: W * M[0][1], e: W * (t0[0] - M[0][0] * p0[0] - M[0][1] * p0[1]),
+             b: fy * H * M[1][0], d: fy * H * M[1][1], f: off + fy * H * (t0[1] - M[1][0] * p0[0] - M[1][1] * p0[1]) };
+  }
+  const paintedTex = new Map();      // 「元の絵柄＋番号」→ 塗り替えた絵柄
+  let finTexInfo = null;             // 尾翼に使われている絵柄と、その中の「1」の場所（1 度だけ調べる）
+
+  /* 尾翼に貼られた「1」は、機体とは別の小さな部品（貼り紙）でできている。
+     編隊機ではその部品を隠し、尾翼の絵柄に数字を描く */
+  function findDecals(root, frame) {
     if (!finRect) return [];
-    const ly = finRect.max.y - finRect.min.y, lz = finRect.max.z - finRect.min.z;
-    /* 塗装の「1」は 尾翼の箱の 前後 0.71〜0.99・上下 0.19〜0.59 のところにある（実測）。
-       それを覆う大きさ・位置にする。横長にすると尾翼からはみ出すので、縦長の板にする */
-    const w = Math.min(lz, ly) * 0.42, h = Math.min(lz, ly) * 0.56;
-    const cy = finRect.min.y + ly * 0.85, cz = finRect.min.z + lz * 0.385;
-    const gap = (finRect.max.x - finRect.min.x) / 2 + 0.015;
-    const geo = new THREE.PlaneGeometry(w, h), mat = numberPlate(n), out = [];
-    for (const sx of [1, -1]) {
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(gap * sx, cy, cz);
-      m.up.set(0, 0, 1); m.lookAt(m.position.x + sx, m.position.y, m.position.z);   // 板の面を左右の外側に向ける（数字は上向き）
-      grp.add(m); out.push(m);
-    }
+    const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert(), bx = new THREE.Box3(), out = [];
+    root.traverse(o => {
+      if (!o.isMesh || !o.geometry || underGear(o)) return;
+      o.geometry.computeBoundingBox();
+      bx.copy(o.geometry.boundingBox).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      const sy = bx.max.y - bx.min.y, sz = bx.max.z - bx.min.z, sx = bx.max.x - bx.min.x;
+      if (bx.min.y < finRect.min.y - 0.05 || bx.max.y > finRect.max.y + 0.05) return;
+      if (bx.min.z < finRect.min.z - 0.05 || bx.max.z > finRect.max.z + 0.05) return;
+      if (sy > 0.8 || sz > 1.2 || sz < 0.2 || sx > 0.6) return;      // 数字くらいの大きさ
+      out.push({ mesh: o, y0: bx.min.y, y1: bx.max.y, z0: bx.min.z, z1: bx.max.z });
+    });
     return out;
+  }
+
+  /* 1 機ぶん、尾翼の番号を n にする。貼り紙を隠し、尾翼の絵柄に同じ場所へ数字を描く */
+  function paintFinNumber(root, frame, n) {
+    if (!finRect) return 0;
+    const decals = findDecals(root, frame);
+    decals.forEach(d => { d.mesh.visible = false; });               // 元の「1」を隠す
+    const box = decals.length
+      ? { y0: Math.min(...decals.map(d => d.y0)), y1: Math.max(...decals.map(d => d.y1)),
+          z0: Math.min(...decals.map(d => d.z0)), z1: Math.max(...decals.map(d => d.z1)) }
+      : null;
+    if (!box) return 0;
+    const cy = (box.y0 + box.y1) / 2, cz = (box.z0 + box.z1) / 2;
+    let done = 0;
+    const byTex = new Map();
+    for (const side of [1, -1]) {
+      const hit = finTriAt(root, frame, cy, cz, side);
+      if (!hit || !hit.mesh.material || !hit.mesh.material.map || !hit.mesh.material.map.image) continue;
+      const t = hit.mesh.material.map;
+      if (!byTex.has(t)) byTex.set(t, []);
+      byTex.get(t).push(hit);
+    }
+    byTex.forEach((hits, texOld) => {
+      const img = texOld.image, W = img.width || 1024, H = img.height || 1024;
+      const key = texOld.uuid + '#' + n;
+      let tex = paintedTex.get(key);
+      if (!tex) {
+        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const g2 = cv.getContext('2d'); g2.drawImage(img, 0, 0);
+        hits.forEach(hit => {
+          const map = uvMap(hit, W, H, texOld.flipY);
+          if (!map) return;
+          g2.save();
+          g2.setTransform(map.a, map.b, map.c, map.d, map.e, map.f);   // ここから先は機体の座標（m）
+          g2.translate(cy, cz);
+          const h2 = (box.z1 - box.z0) * 1.06;
+          g2.scale(h2, -h2);                                           // 数字の上下を機体に合わせる
+          g2.fillStyle = '#ffffff';
+          g2.font = 'italic bold 1px "Zen Kaku Gothic New", system-ui, sans-serif';
+          g2.textAlign = 'center'; g2.textBaseline = 'middle';
+          g2.fillText(String(n), 0, 0);
+          g2.restore();
+        });
+        tex = new THREE.CanvasTexture(cv);
+        tex.flipY = texOld.flipY; tex.colorSpace = texOld.colorSpace; tex.wrapS = texOld.wrapS; tex.wrapT = texOld.wrapT;
+        paintedTex.set(key, tex);
+      }
+      root.traverse(o => {
+        if (!o.isMesh || !o.material || o.material.map !== texOld) return;
+        const m2 = o.material.clone(); m2.map = tex; m2.needsUpdate = true; o.material = m2;
+      });
+      done++;
+    });
+    return done;
   }
 
   /* スモーク: 粒の集まり。位置・色・生まれた時刻を持ち、時間が経つと薄れて広がる。
@@ -418,7 +518,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function applyGear() {
     gearSets.forEach(g => { g.visible = gearOn || treeMode; });
     lightSets.forEach(L => { L.visible = lightsOn || treeMode; });
-    shimmerSets.forEach(S => { S.visible = treeMode; });
+    shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });   // 蜃気楼は地上から見たときだけ
   }
   function setTreeMode(on) {
     treeMode = !!on;
@@ -442,7 +542,10 @@ export function mount(container, { onState, view = 'first' } = {}) {
     for (let n = 2; n <= 6; n++) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
       holder.add(clones[n - 2]);                                          // 複製は元と同じ平行移動を持っている
-      addPlates(holder, n);                                              // 実測した位置は機体の座標そのままなので、入れ物に直接置く
+      holder.userData.seats = [];
+      holder.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) holder.userData.seats.push(o); });
+      holder.updateWorldMatrix(true, true);
+      paintFinNumber(holder, holder, n);                                 // 尾翼の「1」を n に塗り替える
       holder.updateWorldMatrix(true, true); addGear(holder, holder.children[0]); applyGear();
       holder.userData.cur = new THREE.Vector3(ENTRY[n - 2][0], ENTRY[n - 2][1], ENTRY[n - 2][2]);   // いまの位置（先頭機から見て）
       holder.userData.want = new THREE.Vector3();
@@ -462,7 +565,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
-  const gdir = new THREE.Vector3(), gright = new THREE.Vector3(), focus = new THREE.Vector3();   // 地上視点の向きを作るのに使う
+  const gdir = new THREE.Vector3(), gright = new THREE.Vector3(), focus = new THREE.Vector3(), bup2 = new THREE.Vector3();   // 地上視点の向きを作るのに使う
+  const seatQ = new THREE.Quaternion(), seatR = new THREE.Matrix4();   // 乗っている機体の姿勢
   const gEye = new THREE.Vector3(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z + EYE_H);   // 地上の立ち位置（目の高さ）
   let gYaw = 0, gPitch = 0.06;                                     // 地上視点の向き（自分で決めた方向）
   let follow = false;                                              // 機体を目で追うか（切ってあれば向けた方向のまま）
@@ -481,7 +585,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function levelAttitude() { att.setFromAxisAngle(AZ, -st.h * D); readAttitude(); }
   readAttitude();
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
-  let curView = view;
+  let curView = view, seat = 0;   // seat: 0=1 番機、1〜5=2〜6 番機（視点だけ移る）
   /* 見回し（ドラッグ量）。一人称は首の向き、三人称は機体のまわりの位置。視点を変えると中央に戻す */
   const look = { y: 0, p: 0 };
   const LOOK_MAX_P = 75 * D;
@@ -1205,6 +1309,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function place(dt) {
     if (dt) lastDt = dt;
     if (treeMode && (++shimN % 3) === 0) drawShimmer();
+    shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });
     rotation();
     walls.forEach(w => { w.visible = !auto; });   // 技の途中は壁の枠を出さない
     /* 自動追従: 地上から見るとき、飛んでいる機体の真ん中へ ゆっくり首を回す。
@@ -1221,6 +1326,12 @@ export function mount(container, { onState, view = 'first' } = {}) {
     }
     marker.visible = markOn && curView === 'ground' && !follow;   // 進入の目印は、地上から自分で向きを決めているときだけ
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
+    /* 乗っている機体（視点の元）。編隊機が出ていなければ 1 番機に戻す */
+    const seatObj = (seat > 0 && mates[seat - 1] && mates[seat - 1].visible) ? mates[seat - 1] : plane;
+    if (seatObj === plane && seat > 0) seat = 0;
+    seatQ.copy(seatObj.quaternion); seatR.makeRotationFromQuaternion(seatQ);
+    seatMeshes.forEach(m => { m.visible = !(curView === 'first' && seatObj === plane); });
+    mates.forEach((h, i) => { const sm = h.userData.seats; if (sm) sm.forEach(m => { m.visible = !(curView === 'first' && seatObj === h); }); });
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     if (curView === 'ground') {
       /* 地上から見る。機体は追いかけない（自分で向けた方向のまま）。
@@ -1234,13 +1345,13 @@ export function mount(container, { onState, view = 'first' } = {}) {
       /* 三人称は機体の後ろ上（前方視点は機首の前）から。ドラッグで機体のまわりを回れる */
       const back = curView === 'front' ? 36 : -32, up = curView === 'front' ? 5 : 10;
       tmp.set(0, back, up);
-      tmp.applyAxisAngle(AX, look.p).applyAxisAngle(AZ, -look.y).applyQuaternion(att).add(plane.position);
+      tmp.applyAxisAngle(AX, look.p).applyAxisAngle(AZ, -look.y).applyQuaternion(seatQ).add(seatObj.position);
       if (camPos.lengthSq() === 0) camPos.copy(tmp); else camPos.lerp(tmp, 0.18);
-      cam.position.copy(camPos); cam.up.copy(bup); cam.lookAt(plane.position);
+      cam.position.copy(camPos); cam.up.copy(bup2.set(0, 0, 1).applyQuaternion(seatQ)); cam.lookAt(seatObj.position);
     } else {
-      cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(R).add(plane.position));
+      cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(seatR).add(seatObj.position));
       /* 一人称は少し下向き（計器盤と操縦桿が視界に入る）。そこからドラッグで首を振る */
-      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(R, RX90).multiply(TILT));
+      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(seatR, RX90).multiply(TILT));
       cam.quaternion.multiply(qc.setFromAxisAngle(AY, look.y)).multiply(qc.setFromAxisAngle(AX, look.p));
     }
     sky.position.copy(cam.position);
@@ -1320,6 +1431,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
     setGear(on) { gearOn = !!on; applyGear(); }, gearState() { return gearOn; },
+    /* 乗り換え: 押すたびに 1 番機 → 2 番機 → … → 出ている機体の中で順に回る */
+    nextSeat() {
+      for (let k = 1; k <= mates.length + 1; k++) {
+        const n = (seat + k) % (mates.length + 1);
+        if (n === 0 || (mates[n - 1] && mates[n - 1].visible)) { seat = n; camPos.set(0, 0, 0); return seat + 1; }
+      }
+      return seat + 1;
+    },
+    seatNo() { return seat + 1; },
     /* 待機中に押すと加速して離陸する。飛行中は何もしない */
     throttle() { if (gmode === 'stand') { gmode = 'takeoff'; return true; } return false; },
     groundMode() { return gmode; },

@@ -269,6 +269,7 @@ svg text{user-select:none}
 .hi-g{display:none}
 .inst.hi.gnd .hi-a{display:none}
 .inst.hi.gnd .hi-g{display:block}
+.seatbtn b{font-family:var(--mono);font-size:.9375rem;font-weight:700}
 .zoomlbl{position:absolute;right:.5rem;top:4.8rem;z-index:6;padding:.2rem .5rem;border-radius:.5rem;
   background:rgba(0,0,0,.55);color:var(--text);font-family:var(--mono);font-size:.6875rem}
 .sim .rotate{display:none;align-items:center;gap:.5rem;justify-content:center;margin-top:.5rem;font-size:.75rem;color:var(--faint)}
@@ -905,7 +906,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.34';
+const APP_VER='v03.36';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1174,7 +1175,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=46').then(mod=>{
+  import('./sim3d.js?v=48').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1208,6 +1209,7 @@ function runSim(opt){applyScene();
     <div class="simbar">
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simSmoke" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
+      <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"><b>1</b></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
       <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（夜は自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
@@ -1337,7 +1339,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=46').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=48').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1371,6 +1373,10 @@ function runSim(opt){applyScene();
         gBtn.classList.toggle('on',g);gBtn.setAttribute('aria-pressed',String(g));lBtn.classList.toggle('on',l);lBtn.setAttribute('aria-pressed',String(l));
         if(sim.smoke!==k){sim.smoke=k;store.set('simSmoke',k);sBtn.classList.toggle('on',k);sBtn.setAttribute('aria-pressed',String(k))}};
       sim.paintGL=paintGL;
+      /* 乗り換え: 視点が 1〜6 番機に移る（操縦は編隊の先頭機のまま） */
+      const seatBtn=$('#simSeat');
+      seatBtn.addEventListener('click',()=>{const n=sim.h.nextSeat();seatBtn.querySelector('b').textContent=n;
+        toast(n===1?'1 番機に戻りました':n+' 番機に乗り換えました')});
       /* 空の切り替え: 設定が「自動」のときだけ。3D は組み立て時の空で作るので、作り直して同じ状態に戻す */
       const skyBtn=$('#simSky');
       if(settings.scene!=='auto')skyBtn.hidden=true;

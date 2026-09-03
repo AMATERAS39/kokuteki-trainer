@@ -9,7 +9,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 | もの | 内容 | 費用・期間 |
 |---|---|---|
 | Apple ID | 二要素認証を有効にしておく | 無料 |
-| Apple Developer Program | 個人または法人で登録。個人なら本人確認あり | 年 12,980 円、審査 1〜3 日 |
+| Apple Developer Program | **登録済み（2026-09-04 に承認）** | 年 12,980 円 |
 | Mac | **不要**。持っていないので、クラウドの macOS（Codemagic）でビルドする。下の「1. パッケージの作り方」を参照 | Codemagic 無料枠 月 500 分 |
 | iPhone | 実機確認とスクリーンショットの撮影に使う（TestFlight で配信して確認する） | — |
 | 銀行口座と税務情報 | 有料アプリの売上を受け取るため、App Store Connect の「契約、税金、口座情報」で設定 | — |
@@ -49,9 +49,9 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 - Display Name: TENRYU
 - Version 1.0、Build 1（以後、申請のたびに Build を上げる）
 - Deployment Target: iOS 15.0 以上
-- Device Orientation: Portrait のみ（アプリは縦向き固定）
-- App Icons: `icons/icon-512.png` から 1024×1024 を作って設定する（角丸と透明は不可。白地の四角い画像にする）
-- Launch Screen: 背景 #141a22 に中央アイコン
+- Device Orientation: **縦・横の両方**（横画面では視界が画面いっぱいになる作りなので、横を止めてはいけない）。`mobile/patch-ios.js` が Info.plist に入れる
+- App Icons: `mobile/assets/icon.png`（1024×1024・不透明・角丸なし）から `npx capacitor-assets generate --ios` が各サイズを作る
+- Launch Screen: `mobile/assets/splash.png`（2732×2732）から同じコマンドが作る
 - Signing: Automatically manage signing、Team に開発者アカウントを選ぶ
 - 3D（three.js）は `copy-web.js` が `node_modules` から `www/vendor` にコピーし、`importmap` をローカル参照に書き換える。Google Fonts の link も外すので、通信なしで動く
 
@@ -69,7 +69,8 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 4. 「App のプライバシー」
    - データを収集しない（No, we do not collect data）を選ぶ。設定と記録は端末内の localStorage だけで、外部に送らない
 5. 「バージョン情報」: 掲載文は `dev/docs/appstore/ストア掲載文.md` から貼る
-6. スクリーンショット: 6.7 インチ（1290×2796）が必須。`dev/docs/play/screenshots/` の 1080×1920 は使い回せないので、TestFlight で実機に入れて iPhone で撮り直す
+6. スクリーンショット: **用意済み**。`dev/docs/appstore/screenshots/iphone-6.7/`（1290×2796・6 枚）と `ipad-12.9/`（2732×2048・4 枚、横向き）をそのまま上げる。
+   iPad に対応させない場合は `patch-ios.js` に `TARGETED_DEVICE_FAMILY=1` を足して iPhone 専用にし、iPad のぶんは上げない
 
 ## 4. 提出
 
@@ -94,8 +95,24 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 - `PLAY_URL` と同様に App Store の URL を `index.html` に足し、「全機能版について」の画面に両方を並べる
 - 版を上げるたびに Xcode の Build 番号を上げて再提出する。Web 版と違い、審査があるので即時反映はできない
 
-## 7. 今わかっている未確定事項
+## 7. いまの状態と残っていること
 
-- Apple Developer Program の登録（利用者の作業）。登録後に Team ID が決まる
-- 【解決】Mac は持っていないので Codemagic（クラウドの macOS）でビルドする。`mobile/` に一式を用意済み
-- スクリーンショットの撮り直し（6.7 インチ 1290×2796 が必須）。TestFlight で実機に入れてから iPhone で撮るのが早い。手元の iPhone の画面が小さいときは、撮った画像を必要な大きさに拡大して出す（縦横比がほぼ同じなので見た目は変わらない）
+済み
+- Apple Developer Program の登録（2026-09-04 承認）
+- Mac なしのビルド一式（`mobile/`。Capacitor + Codemagic）。`copy-web.js` は three.js と 3D モデルを同梱し、外の CDN を指していたら止める
+- アイコン（1024）と起動画面（2732）の素材、Info.plist の手当て（向き・輸出コンプライアンス・表示名）
+- スクリーンショット（iPhone 6.7 インチ 6 枚、iPad 12.9 インチ 横 4 枚）
+- 掲載文（`ストア掲載文.md`）とプライバシーポリシー
+
+利用者の作業（この順）
+1. App Store Connect で **App Store Connect API キー**を作る（ユーザとアクセス → 統合 → キーを生成。権限は App Manager。`.p8` は 1 回だけダウンロードできる）
+2. **バンドル ID を登録**（Certificates, Identifiers & Profiles → Identifiers → `com.amaterasuvocab.kokuteki`）
+3. App Store Connect で **アプリを作る**（名前 TENRYU、SKU `tenryu-001`）
+4. Codemagic に GitHub でログインし、`AMATERAS39/kokuteki-trainer` を追加。Teams → Integrations → App Store Connect に 1 のキーを登録
+5. Codemagic のアプリ設定で `mobile/codemagic.yaml` を使う設定にし、変数グループ `appstore` を作る（中身は空でよい）
+6. ビルドを実行 → TestFlight に上がる → iPhone で確認
+7. 掲載文・スクリーンショット・価格（800 円）・「App のプライバシー（収集なし）」を入れて審査へ提出
+
+決めておくこと
+- iPad に対応させるか（対応するなら iPad のスクリーンショットも上げる。しないなら iPhone 専用にする）
+- 有料アプリケーション契約と税務情報（マイナンバー）の登録。これが済むまで価格を設定できない

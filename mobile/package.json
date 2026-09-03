@@ -5,15 +5,16 @@
   "description": "TENRYU を iOS アプリとして包む（Capacitor）。Mac がなくても Codemagic の macOS マシンでビルドできる",
   "scripts": {
     "prepare-web": "node copy-web.js",
-    "sync": "node copy-web.js && cap sync ios"
+    "sync": "node copy-web.js && cap sync ios && node patch-ios.js",
+    "icons": "capacitor-assets generate --ios --assetPath assets"
   },
   "dependencies": {
     "@capacitor/core": "^7.0.0",
     "@capacitor/haptics": "^7.0.0",
-    "@capacitor/ios": "^7.0.0",
-    "three": "0.160.0"
+    "@capacitor/ios": "^7.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^7.0.0"
   }
 }

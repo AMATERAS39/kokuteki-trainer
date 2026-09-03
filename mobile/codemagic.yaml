@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
     environment:
       groups:
-        - appstore              # Codemagic の画面で作る変数グループ。APP_STORE_CONNECT_* と CERTIFICATE_PRIVATE_KEY を入れる
+        - appstore              # Codemagic の画面で作る変数グループ。App Store Connect 連携を使うなら中身は空でよい
       vars:
         BUNDLE_ID: "com.amaterasuvocab.kokuteki"
         XCODE_SCHEME: "App"
@@ -17,15 +17,30 @@ workflows:
         script: |
           cd mobile
           npm install
-      - name: 配信ファイルを www に集める（three.js も同梱）
+      - name: 配信ファイルを www に集める（three.js と 3D モデルも同梱）
         script: |
           cd mobile
           node copy-web.js
       - name: iOS プロジェクトを作る
         script: |
           cd mobile
-          npx cap add ios || npx cap sync ios
+          npx cap add ios || true
           npx cap sync ios
+      - name: アイコンと起動画面を作る
+        script: |
+          cd mobile
+          npx capacitor-assets generate --ios --assetPath assets
+      - name: Info.plist を直す（向き・輸出コンプライアンス・表示名）
+        script: |
+          cd mobile
+          node patch-ios.js
+      - name: ビルド番号を決める（App Store Connect の最新 +1）
+        script: |
+          BUILD=$(($(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo 0) + 1))
+          echo "ビルド番号: $BUILD"
+          cd mobile/ios/App
+          agvtool new-version -all "$BUILD"
+        ignore_failure: true       # 初回はまだアプリの ID がないので飛ばしてよい
       - name: 署名の設定
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create

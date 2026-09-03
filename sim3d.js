@@ -7,6 +7,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const D = Math.PI / 180;
 export const LIMIT = 1500;                       // 壁までの距離（原点から、m）
+export const CEIL = 3000;                        // 天井（m）。宙返りができる高さを取る
 export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
@@ -163,29 +164,50 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const drop = new THREE.Line(dropGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })); world.add(drop);
 
   /* ---- 状態と入力 ---- */
+  /* 姿勢はクォータニオンで持つ。オイラー角（方位・ピッチ・バンク）だと宙返りの真上・真下で破綻するため。
+     h / p / b は表示と計器のために毎フレーム取り出す。機体の軸: 機首 +y、右翼 +x、機体上 +z */
   const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false };
+  const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
+  const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
+  const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
+  function readAttitude() {
+    fwd.copy(AY).applyQuaternion(att); bup.copy(AZ).applyQuaternion(att); bright.copy(AX).applyQuaternion(att);
+    st.h = ((Math.atan2(fwd.x, fwd.y) / D) % 360 + 360) % 360;
+    st.p = Math.asin(clamp(fwd.z, -1, 1)) / D;
+    st.b = Math.atan2(-bright.dot(WUP), bup.dot(WUP)) / D;
+  }
+  function levelAttitude() { att.setFromAxisAngle(AZ, -st.h * D); readAttitude(); }
+  readAttitude();
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
   let curView = view;
   const cam = new THREE.PerspectiveCamera(70, 1, 0.08, 9000);
   const camPos = new THREE.Vector3(), tmp = new THREE.Vector3(), R = new THREE.Matrix4(), Rh = new THREE.Matrix4(), RX90 = new THREE.Matrix4().makeRotationX(Math.PI / 2), TILT = new THREE.Matrix4().makeRotationX(-16 * D), qc = new THREE.Quaternion();
-  function rotation() { return R.makeRotationZ(-st.h * D).multiply(new THREE.Matrix4().makeRotationX(st.p * D)).multiply(new THREE.Matrix4().makeRotationY(st.b * D)); }
+  function rotation() { return R.makeRotationFromQuaternion(att); }
 
   function resize() { const w = container.clientWidth || 1, h = container.clientHeight || 1; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
   const ro = new ResizeObserver(resize); ro.observe(container); resize();
 
+  /* 操縦は機体の軸まわりの回転で扱う（機首軸のロール・翼軸のピッチ・上下軸のヨー）。
+     左右に倒し続ければ何回でも回り、前後に倒し続ければ宙返りができる。角度の上限は設けない */
   function step(dt) {
-    st.b = clamp(st.b + RATE.roll * input.x * dt, -80, 80);
-    /* 方向舵は機体の上下軸まわりに効く。傾いていると機首は斜めに振れ、方位の変化は cos(バンク) 倍、
-       ピッチは −sin(バンク) 倍（右バンクで右方向舵なら沈む）になる */
-    const ry = RATE.yaw * input.r, sb = Math.sin(st.b * D), cb = Math.cos(st.b * D);
-    st.p = clamp(st.p - RATE.pitch * input.y * dt - ry * sb * dt, -60, 60);
-    const turn = clamp((9.81 / SPEED) * Math.tan(st.b * D) / D, -30, 30);   // バンクによる旋回（協調旋回）
-    st.h = ((st.h + (ry * cb / Math.max(0.2, Math.cos(st.p * D)) + turn) * dt) % 360 + 360) % 360;
-    const cp = Math.cos(st.p * D);
-    st.x += Math.sin(st.h * D) * cp * SPEED * dt; st.y += Math.cos(st.h * D) * cp * SPEED * dt; st.z += Math.sin(st.p * D) * SPEED * dt;
-    const L = LIMIT - 4; st.wall = Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > 1400;
-    st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, 1400);
-    st.ground = st.z <= 3; if (st.ground) { st.z = 3; if (st.p < 0) st.p = 0; }
+    const roll = RATE.roll * input.x * dt * D;        // 機首軸(+y): 右に倒すと右バンク
+    const pitch = -RATE.pitch * input.y * dt * D;     // 翼軸(+x): 手前に引くと機首上げ
+    const yaw = RATE.yaw * input.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
+    if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
+    if (pitch) att.multiply(dq.setFromAxisAngle(AX, pitch));
+    if (yaw) att.multiply(dq.setFromAxisAngle(AZ, -yaw));
+    /* バンクによる旋回（協調旋回）。世界の上下軸まわりに機体ごと回す。真上・真下付近では効かせない */
+    readAttitude();
+    if (Math.abs(st.p) < 70) {
+      const turn = clamp((9.81 / SPEED) * Math.tan(st.b * D) / D, -30, 30) * dt * D;
+      if (turn) att.premultiply(dq.setFromAxisAngle(AZ, -turn));
+    }
+    att.normalize(); readAttitude();
+    st.x += fwd.x * SPEED * dt; st.y += fwd.y * SPEED * dt; st.z += fwd.z * SPEED * dt;
+    const L = LIMIT - 4; st.wall = Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL;
+    st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, CEIL);
+    st.ground = st.z <= 3;
+    if (st.ground) { st.z = 3; if (st.p < 0 || Math.abs(st.b) > 90) levelAttitude(); }   // 地面に着いたら水平に戻す
   }
   function place() {
     rotation();
@@ -193,10 +215,10 @@ export function mount(container, { onState, view = 'first' } = {}) {
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
     if (curView === 'third') {
-      Rh.makeRotationZ(-st.h * D);
-      tmp.set(0, -32, 10).applyMatrix4(Rh).add(plane.position);
+      /* 三人称は機体の後ろ上から追う。宙返りでも見失わないよう、機体の姿勢に沿って後ろを取る */
+      tmp.set(0, -32, 10).applyQuaternion(att).add(plane.position);
       if (camPos.lengthSq() === 0) camPos.copy(tmp); else camPos.lerp(tmp, 0.12);
-      cam.position.copy(camPos); cam.up.set(0, 0, 1); cam.lookAt(tmp.set(0, 20, 2).applyMatrix4(Rh).add(plane.position));
+      cam.position.copy(camPos); cam.up.copy(bup); cam.lookAt(tmp.set(0, 20, 2).applyQuaternion(att).add(plane.position));
     } else {
       cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(R).add(plane.position));
       cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(R, RX90).multiply(TILT));   // 一人称は少し下向き（計器盤と操縦桿が視界に入る）
@@ -220,8 +242,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   return {
     input, state: st, setView,
-    level() { st.b = 0; st.p = 0; },
-    home() { Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0 }); camPos.set(0, 0, 0); },
+    level() { levelAttitude(); },
+    home() { Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h }); levelAttitude(); camPos.set(0, 0, 0); },
     dispose() { running = false; cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); cv.remove(); }
   };
 }

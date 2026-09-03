@@ -181,6 +181,34 @@ svg text{user-select:none}
 .sim .rud .pedals{margin-top:0}
 .sim .rud .pedals .ab{min-height:clamp(3.5rem,10dvh,4.5rem);font-size:1rem}
 .sim .pchint{display:none;font-size:.75rem;color:var(--faint);text-align:center;margin-top:.5rem}
+/* ===== 横画面のシミュレーター: 操作に集中できるよう、視界を画面いっぱいにして操縦桿とペダルを重ねる ===== */
+@media (orientation:landscape) and (max-height:34rem){
+  body[data-view="train"][data-phase="sim"]{height:100dvh;padding:0;overflow:hidden}
+  body[data-phase="sim"] .hdr,body[data-phase="sim"] .modebar,body[data-phase="sim"] .foot,
+  body[data-phase="sim"] .sim .pchint,body[data-phase="sim"] .sim h4,body[data-phase="sim"] .stick .lb{display:none}
+  body[data-view="train"][data-phase="sim"] .app{padding:0;max-width:none}
+  body[data-view="train"][data-phase="sim"] .layout{margin:0;flex:1;min-height:0}
+  body[data-view="train"][data-phase="sim"] .layout > .card{padding:0;border:0;border-radius:0;background:transparent}
+  body[data-view="train"][data-phase="sim"] #sim:not([hidden]){flex:1;min-height:0}
+  .sim{position:relative;height:100dvh}
+  .sim .view{position:absolute;inset:0;height:100%;border:0;border-radius:0}
+  .sim .instrow{position:absolute;left:50%;bottom:.5rem;transform:translateX(-50%);margin:0;gap:.75rem;z-index:4;opacity:.92}
+  .sim .instrow .inst{height:clamp(3.25rem,16dvh,4.5rem)}
+  .sim .ctl{position:absolute;inset:auto 0 0 0;display:flex;justify-content:space-between;align-items:flex-end;
+    gap:0;margin:0;padding:0 .75rem .75rem;z-index:5;pointer-events:none}
+  .sim .ctl > *{pointer-events:auto}
+  .sim .stick{width:clamp(6rem,30dvh,8.5rem);margin:0;background:radial-gradient(ellipse at 50% 70%,rgba(42,50,60,.85) 0,rgba(28,38,50,.7) 60%);backdrop-filter:blur(2px)}
+  .sim .rud .pedals{grid-template-columns:1fr 1fr;gap:.5rem;width:clamp(8rem,34dvh,11rem)}
+  .sim .rud .pedals .ab{min-height:clamp(3rem,14dvh,4rem);background:rgba(28,38,50,.7);backdrop-filter:blur(2px)}
+  body[data-phase="sim"] .sim .acts.row3{position:absolute;right:.5rem;top:.5rem;flex-direction:column;align-items:stretch;width:auto;margin:0;gap:.375rem;z-index:5}
+  body[data-phase="sim"] .sim .acts.row3 .btn{flex:none;height:2.25rem;font-size:.6875rem;padding:0 .625rem;background:rgba(28,38,50,.75)}
+  body[data-phase="sim"] .install{display:none}
+  .sim .views{top:auto;bottom:.5rem;right:.5rem}
+  .sim .hud{font-size:.6875rem}
+}
+/* 縦画面のときだけ出す案内 */
+.sim .rotate{display:none;align-items:center;gap:.5rem;justify-content:center;margin-top:.5rem;font-size:.75rem;color:var(--faint)}
+@media (orientation:portrait){.sim .rotate{display:flex}}
 .sim .acts.row3{flex-direction:row;gap:.375rem}
 .sim .acts.row3 .btn{flex:1;font-size:.8125rem;padding:0 .25rem;height:2.75rem;gap:.25rem}
 .sim .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem;align-items:start}
@@ -792,7 +820,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v02.01';
+const APP_VER='v02.03';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1075,6 +1103,7 @@ function startSim(){applyScene();
         <svg class="grip" id="knob" viewBox="-40 -60 80 120" aria-hidden="true"><ellipse cx="0" cy="44" rx="22" ry="8" fill="#0d1116" opacity=".7"/><rect x="-5" y="-4" width="10" height="46" rx="4" fill="#8a939e"/><path d="M-14,-50 h28 a10,10 0 0 1 10,10 v34 a10,10 0 0 1 -10,10 h-28 a10,10 0 0 1 -10,-10 v-34 a10,10 0 0 1 10,-10z" fill="#14171b" stroke="#3a424c" stroke-width="2"/><rect x="-10" y="-42" width="8" height="8" rx="2" fill="#c0392b"/><rect x="2" y="-42" width="8" height="8" rx="2" fill="#5b6570"/><rect x="-9" y="-26" width="18" height="4" rx="2" fill="#3a424c"/><rect x="-9" y="-16" width="18" height="4" rx="2" fill="#3a424c"/></svg></div></div>
       <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1"><span class="pl">左</span></button><button class="ab pedal" data-r="1"><span class="pl">右</span></button></div></div>
     </div>
+    <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
     <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で左クリック・右クリック</div>
     <div class="acts row3"><button class="btn ghost" id="simLevel">水平に戻す</button><button class="btn ghost" id="simHome">位置を戻す</button><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
   sim={h:null,keys:new Set(),ptr:null,rud:new Map(),wheelDir:0,wheelUntil:0};
@@ -1121,7 +1150,7 @@ function startSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=12').then(mod=>{if(sim!==mySim)return;sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput()})
+  import('./sim3d.js?v=14').then(mod=>{if(sim!==mySim)return;sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput()})
     .catch(err=>{if(sim===mySim)$('#simLoad').textContent='3D を読み込めませんでした。通信状態を確認してください。';console.error(err)});
   window.scrollTo({top:0});
 }

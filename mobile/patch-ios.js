@@ -26,3 +26,22 @@ setKey('ITSAppUsesNonExemptEncryption', '\n\t<false/>');
 setKey('CFBundleDisplayName', '\n\t<string>TENRYU</string>');
 fs.writeFileSync(PLIST, s);
 console.log('Info.plist を直しました（向き・輸出コンプライアンス・表示名）');
+
+/* Xcode プロジェクトのバンドル ID を確実に書き込む。
+   ここが Capacitor の既定値のままだと、取ってきたプロビジョニングプロファイルと
+   照合できず、書庫を作る段階で「requires a provisioning profile」で落ちる */
+const PBX = path.join(__dirname, 'ios', 'App', 'App.xcodeproj', 'project.pbxproj');
+const APPID = JSON.parse(fs.readFileSync(path.join(__dirname, 'capacitor.config.json'), 'utf8')).appId;
+if (fs.existsSync(PBX)) {
+  let x = fs.readFileSync(PBX, 'utf8');
+  const before = x;
+  x = x.replace(/PRODUCT_BUNDLE_IDENTIFIER = [^;]+;/g, 'PRODUCT_BUNDLE_IDENTIFIER = ' + APPID + ';');
+  if (process.env.DEVELOPMENT_TEAM) {
+    x = x.replace(/DEVELOPMENT_TEAM = [^;]*;/g, 'DEVELOPMENT_TEAM = ' + process.env.DEVELOPMENT_TEAM + ';');
+  }
+  if (x !== before) { fs.writeFileSync(PBX, x); console.log('project.pbxproj のバンドル ID を', APPID, 'にしました'); }
+  else console.log('project.pbxproj は直す必要がありませんでした');
+} else {
+  console.error('project.pbxproj がありません');
+  process.exit(1);
+}

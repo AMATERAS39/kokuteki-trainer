@@ -47,10 +47,14 @@ workflows:
           agvtool new-version -all "${BUILD_NUMBER:-1}" || echo "agvtool で入れられませんでした（既定の番号のまま進みます）"
       - name: 署名の設定
         script: |
+          set -x
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
-          xcode-project use-profiles
+          # 割り当て先を明示する（既定の探索だと Pods 側を見て App に当たらないことがある）
+          xcode-project use-profiles --project "mobile/ios/App/App.xcodeproj"
+          # 当たったかどうかを残す（次に落ちたときの手がかり）
+          xcodebuild -workspace mobile/ios/App/App.xcworkspace -scheme App -showBuildSettings 2>/dev/null             | grep -E "PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE|CODE_SIGN_IDENTITY|CODE_SIGN_STYLE|DEVELOPMENT_TEAM" | sort -u || true
       - name: ビルド
         script: |
           cd mobile/ios/App

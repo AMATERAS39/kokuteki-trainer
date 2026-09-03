@@ -218,6 +218,8 @@ svg text{user-select:none}
     gap:0;margin:0;padding:0 .75rem .75rem;z-index:5;pointer-events:none}
   .sim .ctl > *{pointer-events:auto}
   .sim .stick{width:clamp(6rem,30dvh,8.5rem);margin:0;background:radial-gradient(ellipse at 50% 70%,rgba(42,50,60,.85) 0,rgba(28,38,50,.7) 60%);backdrop-filter:blur(2px)}
+  /* 操縦桿は少し右上に寄せ、左下に手が置ける余白を残す */
+  body[data-view="train"][data-phase="sim"] .sim .stkwrap{margin:0 0 1.75rem 2.25rem}
   .sim .rud .pedals{grid-template-columns:1fr 1fr;gap:.5rem;width:clamp(8rem,34dvh,11rem)}
   .sim .rud .pedals .ab{min-height:clamp(3rem,14dvh,4rem);background:rgba(28,38,50,.7);backdrop-filter:blur(2px)}
   body[data-view="train"][data-phase="sim"] .sim .acts.row3{position:absolute;right:.5rem;top:6.2rem;flex-direction:column;align-items:stretch;width:7rem;margin:0;gap:.25rem;z-index:5}
@@ -855,7 +857,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.07';
+const APP_VER='v03.08';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで

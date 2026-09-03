@@ -102,12 +102,6 @@ svg text{user-select:none}
 .news .b{font-size:.8125rem;line-height:1.7;color:var(--muted);margin-top:.25rem}
 .sub{display:none;font-size:.75rem;color:var(--muted);margin-top:.25rem}
 @media (display-mode:standalone){.sub{display:block}}
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:.375rem;margin-top:.625rem}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:.5rem;padding:.375rem .25rem;text-align:center}
-.stat .v{font-family:var(--mono);font-size:.875rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3}
-.stat .l{font-size:.5625rem;color:var(--muted)}
-.stat.streak .v{color:var(--accent)}
-.stat .v.dim{color:var(--faint)}
 
 /* ===== 種目タブ ===== */
 .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:.25rem}
@@ -210,7 +204,7 @@ svg text{user-select:none}
 .gallery .gexp b{color:var(--text)}
 .gallery .gsel.off{opacity:.35;pointer-events:none}
 /* 見え方画面は 1 画面に収める: 記録チップを隠し、フレームは画面の高さから逆算 */
-body[data-phase="gallery"] .stats,body[data-phase="gallery"] aside{display:none}
+body[data-phase="gallery"] aside{display:none}
 body[data-phase="gallery"]{padding-bottom:.5rem}
 body[data-phase="gallery"] .hdr{padding-bottom:.25rem}
 body[data-phase="gallery"] .card{padding:.75rem 1rem}
@@ -379,7 +373,6 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 body:not([data-view="home"]) .back{display:inline-flex}
 /* ホーム以外では長いタイトルを隠し、戻るボタンだけにする（スマホ幅） */
 /* 成績チップは訓練画面だけ */
-body:not([data-view="train"]) .stats{display:none}
 [hidden]{display:none!important}
 .hero{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center;margin-top:.5rem}
 .hero h2{font-family:var(--display);font-weight:700;font-size:1.375rem;margin:0;letter-spacing:.02em}
@@ -477,7 +470,6 @@ body:not([data-view="train"]) .stats{display:none}
   .mode{padding:.875rem 1rem}
   /* 訓練: 脇のメモ・記録は出さず、出題中は成績チップも隠す */
   body[data-view="train"] aside{display:none}
-  body[data-phase="practice"] .stats,body[data-phase="session"] .stats,body[data-phase="sim"] .stats{display:none}
   body[data-view="train"] .hdr{padding-bottom:.25rem}
   .layout{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:.5rem}
   body[data-view="train"] .layout > .card{flex:1;min-height:0;display:flex;flex-direction:column;padding:.75rem}
@@ -529,10 +521,6 @@ body:not([data-view="train"]) .stats{display:none}
   .brand .name{font-size:1.375rem}
   .brand .pwa{display:none}
   .sub{display:block;font-size:.8125rem}
-  .stats{display:flex;margin-top:0;gap:.5rem}
-  .stat{display:flex;gap:.5rem;align-items:baseline;padding:.375rem .75rem}
-  .stat .l{font-size:.6875rem;order:-1}
-  .stat .v{font-size:1rem}
   .tabs{gap:.5rem;margin-top:.25rem}
   .tab{flex-direction:row;gap:.75rem;align-items:center;padding:.75rem 1rem;border-radius:.75rem .75rem 0 0}
   .tab .t{font-size:.875rem;color:var(--text)}
@@ -630,7 +618,6 @@ body:not([data-view="train"]) .stats{display:none}
         </div>
       </div>
     </div>
-    <div class="stats" id="stats"></div>
   </header>
 
   <section id="view-home" hidden>
@@ -797,7 +784,7 @@ const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v01.02';
+const APP_VER='v01.03';
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1169,10 +1156,6 @@ function galDraw(){
 
 /* ===== 記録・設定 ===== */
 function renderStats(){
-  const st=stats[mode];
-  const chip=(l,v,cls)=>`<div class="stat ${cls||''}"><div class="v${v==='—'?' dim':''}">${v}</div><div class="l">${l}</div></div>`;
-  const sn=session?session.n:0,sc=session?session.c:0;
-  $('#stats').innerHTML=chip('出題',sn)+chip('正解',sc)+chip('正答率',sn?Math.round(sc/sn*100)+'%':'—')+chip('平均 s',session&&sn?(session.t/sn).toFixed(1):'—')+chip('連続',streak,'streak');
   $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span>${s.n}問 / ${s.n?Math.round(s.c/s.n*100)+'%':'—'} / ${s.n?(s.t/s.n).toFixed(1):'—'} s</span>`}).join('');
 }
 function renderSettingsPage(){

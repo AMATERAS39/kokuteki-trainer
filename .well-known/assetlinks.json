@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "com.amaterasuvocab.kokuteki",
-    "sha256_cert_fingerprints": ["ここに PWABuilder が生成した署名鍵の SHA-256 フィンガープリントを入れる（AA:BB:… の形式）"]
+    "sha256_cert_fingerprints": ["D1:2D:28:75:4C:0E:53:EF:54:15:65:15:63:C8:63:3B:CF:9B:CC:F7:BA:9C:6B:BE:31:C2:C8:21:A6:39:7B:3C"]
   }
 }]

@@ -257,13 +257,16 @@ export function mount(container, { onState, view = 'first' } = {}) {
     transparent: true, depthWrite: false,
     vertexShader: `attribute vec3 acolor; attribute float birth; uniform float uTime, uLife;
       varying vec3 vC; varying float vA;
-      void main(){ float age = (uTime - birth) / uLife; vA = clamp(1.0 - age, 0.0, 1.0); vA *= vA;
+      void main(){ float age = (uTime - birth) / uLife; vA = clamp(1.0 - age, 0.0, 1.0); vA *= sqrt(vA);
         vC = acolor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = (5.0 + 55.0 * pow(clamp(age, 0.0, 1.0), 0.6)) * (240.0 / max(1.0, -mv.z));
+        /* 太さ: 出た直後から少しずつ広がる。遠くても見えるように最小 3 画素、
+           近くで画面を覆わないように最大 90 画素にする */
+        float sz = 6.0 + 60.0 * pow(clamp(age, 0.0, 1.0), 0.5);
+        gl_PointSize = clamp(sz * (240.0 / max(1.0, -mv.z)), 3.0, 90.0);
         gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `varying vec3 vC; varying float vA;
       void main(){ float d = length(gl_PointCoord - vec2(0.5)); if (d > 0.5) discard;
-        float a = vA * smoothstep(0.5, 0.06, d) * 0.5; if (a <= 0.01) discard;
+        float a = vA * smoothstep(0.5, 0.04, d) * 0.4; if (a <= 0.01) discard;
         gl_FragColor = vec4(vC, a); }`
   });
   const smoke = new THREE.Points(smokeGeo, smokeMat); smoke.frustumCulled = false; world.add(smoke);
@@ -316,6 +319,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const gdir = new THREE.Vector3(), gright = new THREE.Vector3();   // 地上視点の向きを作るのに使う
   const gEye = new THREE.Vector3(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z + EYE_H);   // 地上の立ち位置（目の高さ）
   let gYaw = 0, gPitch = 0.06;                                     // 地上視点の向き（自分で決めた方向）
+  let follow = false;                                              // 機体を目で追うか（切ってあれば向けた方向のまま）
   const gRay = new THREE.Raycaster();
   function gAim() {   // いまの立ち位置から機体の方へ向ける
     tmp.copy(plane.position).sub(gEye);
@@ -354,22 +358,22 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const PROGRAM = [
     { id: 'orbit', ja: '旋回', t: 8, front: false },
     { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200 },
-    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130 },
-    { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240 },
+    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130, entry: 'front' },
+    { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front' },
     { id: 'orbit', ja: '旋回', t: 6, front: false },
     { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200 },
     { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190 },
     { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 240 },
     { id: 'orbit', ja: '旋回', t: 6, front: false },
     { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200 },
-    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 120 },
-    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190 },
+    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 120, entry: 'front' },
+    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190, entry: 'front' },
     { id: 'orbit', ja: '旋回', t: 6, front: false },
     { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300 },
-    { id: 'bloom', ja: '上向き空中開花', form: 'delta', alt: 190 },
+    { id: 'bloom', ja: '上向き空中開花', form: 'delta', alt: 190, entry: 'front' },
     { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260 },
-    { id: 'cork', ja: 'コークスクリュー', form: 'pair', alt: 200 },
+    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260, entry: 'front' },
+    { id: 'cork', ja: 'コークスクリュー', form: 'pair', alt: 200, entry: 'front' },
     { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240 }
   ];
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
@@ -404,10 +408,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function planEntry(m) {
     const e = eyeDir(), W = LIMIT - 220;
     const cx = clamp(e.ex + e.dx * SHOW.GATE, -W, W), cy = clamp(e.ey + e.dy * SHOW.GATE, -W, W);
-    const sx = e.dy, sy = -e.dx;                                          // 正面から見て右向き
-    const side = ((st.x - cx) * sx + (st.y - cy) * sy) >= 0 ? 1 : -1;     // 機体に近いほうの横から
-    GATE.x = clamp(cx + sx * side * SHOW.SIDE, -W, W);
-    GATE.y = clamp(cy + sy * side * SHOW.SIDE, -W, W);
+    if (m.entry === 'front') {          // 正面の遠くから、まっすぐ向かってきて頭の上へ抜ける
+      GATE.x = clamp(e.ex + e.dx * (SHOW.GATE + 760), -W, W);
+      GATE.y = clamp(e.ey + e.dy * (SHOW.GATE + 760), -W, W);
+    } else {                            // 近いほうの横から入って、正面を横切る
+      const sx = e.dy, sy = -e.dx;
+      const side = ((st.x - cx) * sx + (st.y - cy) * sy) >= 0 ? 1 : -1;
+      GATE.x = clamp(cx + sx * side * SHOW.SIDE, -W, W);
+      GATE.y = clamp(cy + sy * side * SHOW.SIDE, -W, W);
+    }
     GATE.z = m.alt || SHOW.ALT_IN;
     aimX = cx; aimY = cy;
     const bear = ((Math.atan2(GATE.x - e.ex, GATE.y - e.ey) / D) % 360 + 360) % 360;
@@ -551,8 +560,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
         break;
       }
       case 'cork':                               // コークスクリュー: らせんを描いて上がる
-        autoIn.x = 0.7 * turnSign; holdPitch(22);
-        if (manT > 12 || st.z > 900) nextManeuver();
+        autoIn.x = 0.7 * turnSign; holdPitch(16);
+        if (manT > 16 || st.z > 900) nextManeuver();
         break;
       case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
         if (manT < 4) { formation = 'trail'; away(600, SHOW.ALT); }
@@ -633,9 +642,17 @@ export function mount(container, { onState, view = 'first' } = {}) {
     smokeMat.uniforms.uTime.value = clock;
   }
 
-  function place() {
+  function place(dt) {
     rotation();
-    marker.visible = markOn && curView === 'ground';   // 進入の目印は地上から見ているときだけ
+    /* 自動追従: 地上から見るとき、機体の方へ ゆっくり首を回す（急に動くと見づらいので少しずつ） */
+    if (follow && curView === 'ground') {
+      tmp.copy(plane.position).sub(gEye);
+      const wy = Math.atan2(tmp.x, tmp.y), wp = Math.asin(clamp(tmp.z / Math.max(1, tmp.length()), -1, 1));
+      const k = 1 - Math.exp(-(dt || 0.016) / 0.45);
+      gYaw += ((wy - gYaw + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
+      gPitch += (wp - gPitch) * k;
+    }
+    marker.visible = markOn && curView === 'ground' && !follow;   // 進入の目印は、地上から自分で向きを決めているときだけ
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
@@ -670,7 +687,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     try {
       clock += dt; smokeT += dt;
-      step(dt); place(); recordHistory(dt); placeMates(dt); renderer.render(world, cam);
+      step(dt); place(dt); recordHistory(dt); placeMates(dt); renderer.render(world, cam);
       st.err = 0;
     } catch (e) {
       st.err = (st.err || 0) + 1;
@@ -721,6 +738,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
     },
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
+    setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },
+    followState() { return follow; },
     zoomVal() { return zoom; },
     /* 技の一覧（移動のための旋回と正面通過を除く）と、1 つだけ行わせる呼び出し。
        自分で操縦しているときに技を選ぶと、その技の間だけ自動で飛び、終わると操縦が戻る */

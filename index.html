@@ -86,10 +86,10 @@ svg text{user-select:none}
 .menubtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent)}
 @media (hover:hover){.menubtn:hover{background:var(--panel)}}
 .menubtn .ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
-.menulist{position:absolute;right:0;top:3rem;min-width:11rem;background:var(--panel2);border:1px solid var(--line2);border-radius:.75rem;padding:.375rem;box-shadow:0 1rem 2rem rgba(0,0,0,.5);z-index:20;display:flex;flex-direction:column}
+.menulist{position:absolute;right:0;top:3rem;min-width:13.5rem;background:var(--panel2);border:1px solid var(--line2);border-radius:.75rem;padding:.375rem;box-shadow:0 1rem 2rem rgba(0,0,0,.5);z-index:20;display:flex;flex-direction:column}
 .menulist button{text-align:left;padding:.75rem .875rem;border-radius:.5rem;font-size:.875rem;font-weight:700}
 .menulist button:hover{background:var(--panel)}
-.menulist button{display:flex;align-items:center;gap:.5rem}
+.menulist button{display:flex;align-items:center;gap:.5rem;white-space:nowrap}
 .menulist .dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);flex:none}
 .menubtn.has{position:relative}
 .menubtn.has::after{content:"";position:absolute;top:.5rem;right:.5rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);box-shadow:0 0 0 .125rem var(--bg)}
@@ -147,6 +147,7 @@ svg text{user-select:none}
 .fld input[type="file"]{width:100%;font-size:.75rem;color:var(--muted)}
 .fld input[type="email"],.fld input[type="password"]{width:100%;font:inherit;font-size:.875rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.5rem .625rem}
 .card .codeh{margin:1.25rem 0 .25rem;font-size:.75rem;letter-spacing:.08em;color:var(--accent);font-family:var(--display)}
+.news .it .b,.fbrep .b{overflow-wrap:anywhere}
 .fbrep{margin-top:.5rem;padding:.5rem .625rem;border-left:.1875rem solid var(--accent);background:var(--panel);border-radius:.375rem}
 #inboxPage .coderow{margin-top:.5rem}
 
@@ -884,7 +885,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.17';
+const APP_VER='v03.18';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1509,8 +1510,7 @@ async function renderContact(){
     return;
   }
   page.innerHTML=`<h3>ご要望・お問い合わせ</h3>
-    <div class="sub2">気づいたこと、直してほしいところ、ほしい機能を送ってください。ログインは要りません。
-      返信はこの画面に届きます。メールアドレスを書いていただくと、メールでもお送りします。</div>${FB_FORM}
+    <div class="sub2">気づいたこと、直してほしいところ、ほしい機能を送ってください。ログインは要りません。返信はこの画面に届きます。メールアドレスを書いていただくと、メールでもお送りします。</div>${FB_FORM}
     <h4 class="codeh">送信と返信</h4>
     <div class="news" id="cList"><div class="sub2">読み込み中…</div></div>`;
   $('#cSend').addEventListener('click',async()=>{
@@ -1559,17 +1559,13 @@ async function renderInbox(){
   try{rows=(await m.listAll())||[]}
   catch(e){page.innerHTML='<h3>受信箱</h3><div class="sub2">読み込めませんでした。</div><div class="acts"><button class="btn ghost" id="aOut">ログアウト</button></div>';
     $('#aOut').addEventListener('click',()=>{m.signOut();$('#inboxItem').hidden=true;renderInbox()});return}
-  page.innerHTML=`<h3>受信箱</h3><div class="sub2">${rows.length} 件・${esc(m.currentAdmin().email)}
-      <button class="btn ghost sm" id="aOut">ログアウト</button></div>
+  page.innerHTML=`<h3>受信箱</h3><div class="sub2">${rows.length} 件・${esc(m.currentAdmin().email)} <button class="btn ghost sm" id="aOut">ログアウト</button></div>
     <div class="news">${rows.map(r=>{
       const nw=m.unreadForAdmin(r);
       const att=r.attachment_data?(m.attachmentOk(r.attachment_data)
         ? `<a class="credit-link" href="${r.attachment_data}" download="${esc(r.attachment_name||'file')}" target="_blank" rel="noopener">${esc(r.attachment_name||'添付')}</a>`
         : `開けません（形式が不正です）: ${esc(r.attachment_name||'')}`):'';
-      return `<div class="it"><div class="hd"><span class="tag${nw?' notice':''}">${nw?'新着':'既読'}</span>
-        <span class="dt">${esc(jdate(r.created_at))}</span><span class="dt">${esc(r.submitter_nickname||'')}</span>
-        <span class="dt">${r.submitter_email?esc(r.submitter_email):'（メールなし）'}</span></div>
-        <div class="b">${nl2br(r.message)}</div>${att?`<div class="dt">添付: ${att}</div>`:''}
+      return `<div class="it"><div class="hd"><span class="tag${nw?' notice':''}">${nw?'新着':'既読'}</span><span class="dt">${esc(jdate(r.created_at))}</span><span class="dt">${esc(r.submitter_nickname||'')}</span><span class="dt">${r.submitter_email?esc(r.submitter_email):'（メールなし）'}</span></div><div class="b">${nl2br(r.message)}</div>${att?`<div class="dt">添付: ${att}</div>`:''}
         ${r.reply?`<div class="fbrep"><div class="hd"><span class="tag notice">返信済み</span><span class="dt">${esc(jdate(r.replied_at))}</span>${r.reply_mailed_at?'<span class="dt">メール送信済み</span>':''}</div><div class="b">${nl2br(r.reply)}</div></div>`:''}
         <div class="coderow"><input type="text" id="rep${r.id}" placeholder="${r.reply?'追加の返信':'返信を書く'}"><button class="btn sm" data-rep="${r.id}">返信</button></div>
         ${r.submitter_email?'':'<div class="sub2">メールアドレスの記載がないので、返信はアプリの中だけに届きます。</div>'}</div>`}).join('')}</div>`;

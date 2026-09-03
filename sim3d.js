@@ -825,7 +825,6 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
 
   function step(dt) {
-    if (st.ground) return;   // 着地したら止まったまま。「水平に戻す」か「初期位置」で再開する
     /* 自動操縦の舵は、目標へ 0.55 秒の時定数で寄せる。
        実機は舵をいきなり一杯には切らないので、そのぶんの緩みを入れる */
     let inp = input;
@@ -856,7 +855,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     st.wall = !auto && (Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL);
     st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, C);
     if (auto && st.z < 45) { st.z = 45; levelAttitude(); }          // 自動操縦では墜落させない（最後の砦）
-    if (!auto && st.z <= 3) { st.z = 3; st.ground = true; }         // 自分で操縦して地面に着いたら、その姿勢のまま止める
+    if (st.z < 3) st.z = 3;                                         // 地面より下へは行かないが、止めない（そのまま飛び続ける）
     if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
       Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
       levelAttitude(); hist.length = 0; auto = false; oneShot = false; formScale = 1;
@@ -1280,7 +1279,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     maneuvers() { const seen = new Set();   // 同じ技が演技の中に何度も出るので、一覧では 1 つにまとめる
       return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja, desc: m.desc || '' })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
     runManeuver(i) {
-      if (!PROGRAM[i] || st.ground) return false;
+      if (!PROGRAM[i]) return false;
       if (!auto) { userForm = formation; oneShot = true; }   // 自分で操縦しているときは、その技だけ行って操縦を返す
       auto = true; beginManeuver(i); return true;
     },

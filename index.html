@@ -163,6 +163,7 @@ svg text{user-select:none}
 .sim .view.fp .cross{display:block}   /* 照準は一人称のときだけ */
 .sim .view.fp .cross{top:29%}   /* 一人称は視線を 16° 下げているので、水平時の水平線の位置に合わせる */
 .sim .inst svg{height:100%;width:100%;display:block}
+.sim .showname{position:absolute;left:50%;bottom:2.6rem;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:.75rem;font-weight:700;padding:.2rem .7rem;border-radius:.375rem;white-space:nowrap;z-index:3}
 .sim .wallmsg{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:rgba(200,60,60,.85);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:2}
 .sim .vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:var(--muted);background:var(--panel2);z-index:3}
 .sim .instrow{display:flex;justify-content:center;gap:1.5rem;margin-top:.5rem}
@@ -191,13 +192,15 @@ svg text{user-select:none}
 .iconbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .ic.fmi{fill:currentColor;stroke:none}
 /* 自動操縦のとき、操縦桿とペダルは薄くして触っても効かないことを示す */
-.sim.autoon .ctl{opacity:.35;pointer-events:none}
+.sim.autoon .rud{display:none}   /* 自動操縦のときは方向舵を出さない（操縦桿は視点を動かすのに使う） */
 @media (orientation:portrait){.iconbtn.landscape{display:none}}
 .formwrap{position:relative;display:inline-flex}
 .formmenu{position:absolute;right:0;bottom:3rem;z-index:12;display:grid;grid-template-columns:repeat(3,1fr);gap:.25rem;
   background:var(--panel2);border:1px solid var(--line2);border-radius:.75rem;padding:.375rem;box-shadow:0 .75rem 1.5rem rgba(0,0,0,.5);width:15rem}
 .formmenu button{display:flex;flex-direction:column;align-items:center;gap:.125rem;padding:.25rem;border-radius:.5rem;font-size:.5625rem;color:var(--muted);line-height:1.1;text-align:center}
 .formmenu button .ic{width:1.6rem;height:1.6rem;color:var(--text)}
+.trickmenu{grid-template-columns:repeat(2,1fr);width:17rem}
+.trickmenu button{font-size:.625rem;padding:.375rem .25rem;background:var(--panel);color:var(--text)}
 .formmenu button.sel{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text)}
 @media (orientation:portrait){.formwrap.landscape{display:none}}
 @media (orientation:landscape) and (max-height:34rem){.simbar .portrait{display:none}}
@@ -663,6 +666,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
 <symbol id="i-update" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M5.463 4.433A9.96 9.96 0 0 1 12 2c5.523 0 10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228zm13.074 15.134A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772z"/></symbol>
 <symbol id="i-level" viewBox="0 0 24 24"><path d="M3 14h18"/><path d="M12 14V9"/><path d="M7 11h3M14 11h3"/></symbol>
+<symbol id="i-trick" viewBox="0 0 24 24"><path d="M3 19c5 0 6-14 11-14 3 0 4 3 4 6s-1 6-4 6-4-3-4-6"/></symbol>
 <symbol id="i-auto" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3.2-6.4"/><path d="M20 4v5h-5"/><circle cx="12" cy="12" r="2.2" style="fill:currentColor;stroke:none"/></symbol>
 <symbol id="i-smoke" viewBox="0 0 24 24"><path d="M4 17c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/><path d="M4 11c3 0 3-4 6-4s3 4 6 4 3-3 4-3"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
@@ -861,7 +865,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.11';
+const APP_VER='v03.14';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1130,7 +1134,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=25').then(mod=>{
+  import('./sim3d.js?v=28').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1153,12 +1157,14 @@ function runSim(){applyScene();
       <div class="views">${[['first','一人称'],['third','後方'],['front','前方'],['ground','地上']].map(([v,t])=>`<button class="vb${v===view?' sel':''}" data-view="${v}">${t}</button>`).join('')}</div>
       <svg class="cross" viewBox="0 0 140 40" aria-hidden="true"><g stroke="var(--hud,#8ce99a)" stroke-width="2" fill="none"><line x1="70" y1="10" x2="70" y2="30"/><line x1="60" y1="20" x2="80" y2="20"/><path d="M8,20 h32 v8 M132,20 h-32 v8"/></g></svg>
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
+      <div class="showname" id="showName" hidden></div>
       <div class="vload" id="simLoad">3D を読み込み中…</div>
     </div>
     <div class="simbar">
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simSmoke" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
       <button class="iconbtn landscape" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（地上から見る）"><svg class="ic"><use href="#i-auto"/></svg></button>
+      <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技を出す"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
       <button class="btn ghost sm portrait" id="simHome">初期位置</button>
@@ -1183,7 +1189,8 @@ function runSim(){applyScene();
     let r=0;sim.rud.forEach(v=>r+=v);if(k.has('o'))r-=1;if(k.has('p'))r+=1;i.r=Math.max(-1,Math.min(1,r));
     $('#sim').querySelectorAll('[data-r]').forEach(b=>b.classList.toggle('down',Math.sign(i.r)===+b.dataset.r))};
   const setStick=e=>{const rc=stick.getBoundingClientRect();let dx=(e.clientX-(rc.left+rc.width/2))/(rc.width/2),dy=(e.clientY-(rc.top+rc.height/2))/(rc.height/2);const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
-    if(sim.h){sim.h.input.x=dx;sim.h.input.y=-dy}knob.style.transform=`translate(${(dx*22).toFixed(1)}%,${(dy*22).toFixed(1)}%) rotate(${(dx*18).toFixed(1)}deg)`};
+    sim.stickVec={x:dx,y:-dy};
+    if(sim.h){if(sim.h.autoState()){sim.h.input.x=0;sim.h.input.y=0}else{sim.h.input.x=dx;sim.h.input.y=-dy}}knob.style.transform=`translate(${(dx*22).toFixed(1)}%,${(dy*22).toFixed(1)}%) rotate(${(dx*18).toFixed(1)}deg)`};
   stick.addEventListener('pointerdown',e=>{if(sim.ptr!==null)return;sim.ptr=e.pointerId;try{stick.setPointerCapture(e.pointerId)}catch(_){}setStick(e);e.preventDefault()});
   stick.addEventListener('pointermove',e=>{if(e.pointerId===sim.ptr)setStick(e)});
   ['pointerup','pointercancel'].forEach(ev=>stick.addEventListener(ev,e=>{if(e.pointerId!==sim.ptr)return;sim.ptr=null;if(sim.h){sim.h.input.x=0;sim.h.input.y=0}knob.style.transform='';applyInput()}));
@@ -1237,12 +1244,19 @@ function runSim(){applyScene();
   let lastTxt=0;
   const onState=s=>{
     if(sim.wheelDir&&sim.wheelUntil<=performance.now()){sim.wheelDir=0;applyInput()}
+    /* 自動操縦のときは、操縦桿の傾けぐあいで視点を動かす（機体は自動で飛ぶ） */
+    if(sim.h&&sim.h.autoState()){
+      const v=sim.stickVec;if(v&&(v.x||v.y))sim.h.addLook(-v.x*1.6,v.y*1.6);
+      const nm=$('#showName');if(nm){nm.textContent=s.show||'';nm.hidden=!s.show}
+      if(!$('#sim').classList.contains('autoon'))$('#sim').classList.add('autoon');
+    }else{const nm=$('#showName');if(nm&&!nm.hidden)nm.hidden=true;
+      if($('#sim').classList.contains('autoon')&&!(sim.h&&sim.h.autoState())&&!$('#simAuto').classList.contains('on'))$('#sim').classList.remove('autoon')}
     ais.forEach(a=>{a.querySelector('.ai-h').setAttribute('transform',`rotate(${-s.b}) translate(0 ${(s.p*K).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-s.b})`)});
     his.forEach(h=>h.querySelector('.hi-c').setAttribute('transform',`rotate(${-s.h})`));
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=25').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=28').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1274,10 +1288,19 @@ function runSim(){applyScene();
       const aBtn=$('#simAuto');
       const paintAuto=()=>{const on=sim.h.autoState();aBtn.classList.toggle('on',on);aBtn.setAttribute('aria-pressed',String(on));
         $('#sim').classList.toggle('autoon',on)};
-      aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();sim.h.setAuto(on);paintAuto();
+      aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
         if(on){toast('自動操縦。2 回叩くとその場所に立てます');const g=$('#sim').querySelector('[data-view="ground"]');if(g&&!g.classList.contains('sel'))g.click()}
         else toast('自動操縦を止めました')});
       paintAuto();
+      /* 技: 自分で操縦しているときでも、選んだ技をひとつだけ自動で行う（終わると操縦が戻る） */
+      const tBtn=$('#simTrickBtn'),tMenu=$('#simTrickMenu');
+      tMenu.innerHTML=sim.h.maneuvers().map(m=>`<button data-m="${m.i}"><span>${m.ja}</span></button>`).join('');
+      const nameEl=$('#showName');
+      const showLabel=txt=>{if(!nameEl)return;nameEl.textContent=txt||'';nameEl.hidden=!txt};
+      tMenu.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{tMenu.hidden=true;
+        const nm=b.textContent.trim();
+        if(sim.h.runManeuver(+b.dataset.m)){toast(nm);showLabel(nm)}else toast('飛んでいるときに使えます')}));
+      tBtn.addEventListener('click',e=>{e.stopPropagation();tMenu.hidden=!tMenu.hidden;fMenu.hidden=true});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
     })

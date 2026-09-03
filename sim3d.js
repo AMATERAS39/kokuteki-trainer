@@ -194,7 +194,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const mates = [];                       // 2〜6 番機（入れ物）。join に合流の進み具合（0〜1）を持つ
   const hist = [];                        // 先頭機の軌跡 { t, p:Vector3, q:Quaternion }
   let histT = 0;
-  let formation = 'solo', smokeOn = false, smokeColor = 'white';
+  let formation = 'solo', smokeOn = false, smokeColor = 'white', formScale = 1;   // formScale: 隊形の広がり（課目で変える）
 
   /* 垂直尾翼の番号。モデルの「1」の上に貼る小さな板（左右 2 枚） */
   function numberPlate(n) {
@@ -341,38 +341,131 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   /* 操縦は機体の軸まわりの回転で扱う（機首軸のロール・翼軸のピッチ・上下軸のヨー）。
      左右に倒し続ければ何回でも回り、前後に倒し続ければ宙返りができる。角度の上限は設けない */
-  /* 自動操縦: 目標の点へ向かうように操縦桿を自分で動かす（周回 → 正面通過 → 宙返り の繰り返し） */
-  let auto = false, showPhase = 'orbit', showT = 0, loopSum = 0;
-  const autoIn = { x: 0, y: 0, r: 0 }, tgt = new THREE.Vector3();
+  /* 自動操縦: 演目（課目）を順に行う。目標へ向かうときは、方位のずれをバンクに、高さのずれをピッチに直して操縦桿を動かす。
+     機体は 1 機を操縦して編隊が付いてくる作りなので、機体ごとに別々に動く課目（交差など）は隊形の変化で表す。
+     演目の名前の出典: ブルーインパルスの課目一覧（masdf.com のプログラム紹介） */
+  const PROGRAM = [
+    { id: 'orbit', ja: '旋回', t: 14 },
+    { id: 'change', ja: 'チェンジオーバー・ターン' },
+    { id: 'pass', ja: '正面通過', t: 12 },
+    { id: 'loop', ja: 'デルタ・ループ' },
+    { id: 'orbit', ja: '旋回', t: 10 },
+    { id: 'roll', ja: 'デルタ・ロール' },
+    { id: 'pass', ja: '正面通過', t: 12 },
+    { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ' },
+    { id: 'orbit', ja: '旋回', t: 10 },
+    { id: 'eight', ja: 'レター・エイト' },
+    { id: 'pass', ja: '正面通過', t: 10 },
+    { id: 'vert', ja: 'バーティカル・クライム・ロール' },
+    { id: 'orbit', ja: '旋回', t: 12 },
+    { id: 'half', ja: 'ハーフ・スロー・ロール' },
+    { id: 'bloom', ja: '上向き空中開花' },
+    { id: 'orbit', ja: '旋回', t: 10 },
+    { id: 'rain', ja: 'レインフォール' },
+    { id: 'cork', ja: 'コークスクリュー' },
+    { id: 'turnloop', ja: '360 度ターン & ループ' }
+  ];
+  let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
+  const autoIn = { x: 0, y: 0, r: 0 };
   const wrap180 = a => ((a + 180) % 360 + 360) % 360 - 180;
-  function autoInputs(dt) {
-    showT += dt;
-    const ox = GROUND_EYE.x, oy = GROUND_EYE.y;
-    const rx = st.x - ox, ry = st.y - oy, r = Math.max(1, Math.hypot(rx, ry));
-    if (showPhase === 'orbit') {
-      /* 観覧位置のまわりを回る。少し先の点をねらう */
-      const a = Math.atan2(ry, rx) + 0.45;
-      tgt.set(ox + Math.cos(a) * SHOW.R, oy + Math.sin(a) * SHOW.R, SHOW.ALT);
-      if (showT > SHOW.ORBIT) { showPhase = 'pass'; showT = 0; }
-    } else if (showPhase === 'pass') {
-      /* 観覧位置の正面を通り抜ける。手前 120 m の高さで真上あたりを通す */
-      tgt.set(ox - rx / r * 700, oy - ry / r * 700, SHOW.ALT - 40);
-      if (showT > SHOW.PASS) { showPhase = st.z < 420 ? 'loop' : 'orbit'; showT = 0; loopSum = 0; }   // 高すぎるときは宙返りをせず周回に戻る
-    } else {
-      /* 宙返り。1 周したら周回に戻る */
-      loopSum += RATE.pitch * dt;
-      if (loopSum > 360 || showT > SHOW.LOOPMAX) { showPhase = 'orbit'; showT = 0; }
-      autoIn.x = 0; autoIn.y = -1; autoIn.r = 0;   // 宙返り中は傾きを直さない（直すと輪が傾いて高度が上がる）
-      return autoIn;
-    }
-    /* 目標へ向く: 方位のずれをバンクに、高さのずれをピッチにする */
-    const wantH = ((Math.atan2(tgt.x - st.x, tgt.y - st.y) / D) % 360 + 360) % 360;
-    const eh = wrap180(wantH - st.h);
-    const wantB = clamp(eh * 1.4, -52, 52);
+  const lerp = (a, b, t) => a + (b - a) * clamp(t, 0, 1);
+  /* 目標の点へ向く（方位のずれ → バンク、高さのずれ → ピッチ） */
+  function steerTo(tx, ty, tz) {
+    const wantH = ((Math.atan2(tx - st.x, ty - st.y) / D) % 360 + 360) % 360;
+    const wantB = clamp(wrap180(wantH - st.h) * 1.4, -52, 52);
     autoIn.x = clamp((wantB - st.b) / 22, -1, 1);
-    const wantP = clamp((tgt.z - st.z) * 0.12, -20, 20);
+    const wantP = clamp((tz - st.z) * 0.12, -20, 20);
     autoIn.y = -clamp((wantP - st.p) / 10, -1, 1);
     autoIn.r = 0;
+  }
+  const holdBank = b => { autoIn.x = clamp((b - st.b) / 18, -1, 1); };
+  const holdPitch = p2 => { autoIn.y = -clamp((p2 - st.p) / 10, -1, 1); };
+  function nextManeuver() {
+    formation = userForm; formScale = 1;        // 隊形と広がりは、課目が終わるたびに元に戻す
+    if (oneShot) { oneShot = false; auto = false; st.show = ''; return; }   // 1 つだけの技なら操縦を返す
+    step_i = (step_i + 1) % PROGRAM.length; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h;
+    st.show = PROGRAM[step_i].ja;
+  }
+  function autoInputs(dt) {
+    manT += dt;
+    hdgSum += Math.abs(wrap180(st.h - prevH)); prevH = st.h;
+    rollSum += Math.abs(RATE.roll * autoIn.x) * dt;
+    const m = PROGRAM[step_i], ox = GROUND_EYE.x, oy = GROUND_EYE.y;
+    const rx = st.x - ox, ry = st.y - oy, r = Math.max(1, Math.hypot(rx, ry));
+    const away = (d, z) => steerTo(ox - rx / r * d, oy - ry / r * d, z);   // 観覧位置の向こうへ抜ける
+    switch (m.id) {
+      case 'orbit': {                            // 観覧位置のまわりを回る（次の課目への移動）
+        const a = Math.atan2(ry, rx) + 0.45;
+        steerTo(ox + Math.cos(a) * SHOW.R, oy + Math.sin(a) * SHOW.R, SHOW.ALT);
+        if (manT > m.t) nextManeuver();
+        break;
+      }
+      case 'pass':                               // 観覧位置の正面を低めに通り抜ける
+        away(700, SHOW.ALT - 40);
+        if (manT > m.t) nextManeuver();
+        break;
+      case 'loop':                               // デルタ・ループ: 正面で引き起こし、輪を描く
+        loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; autoIn.r = 0;
+        if (loopSum > 360 || manT > 20) nextManeuver();
+        break;
+      case 'roll':                               // デルタ・ロール: 隊形のまま横転（機首は少し上げ気味）
+        autoIn.x = 1; holdPitch(6); autoIn.r = 0;
+        if (rollSum > 360 || manT > 12) nextManeuver();
+        break;
+      case 'wide':                               // ワイド・トゥ・デルタ・ループ: 間隔を広げて入り、輪の中で詰める
+        loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; autoIn.r = 0;
+        formation = 'delta'; formScale = lerp(2.4, 1, loopSum / 320);
+        if (loopSum > 360 || manT > 20) nextManeuver();
+        break;
+      case 'eight':                              // レター・エイト: 右へ 1 周、左へ 1 周で 8 の字
+        holdBank(hdgSum < 360 ? 44 : -44); holdPitch(0);
+        if (hdgSum > 720 || manT > 60) nextManeuver();
+        break;
+      case 'vert':                               // バーティカル・クライム・ロール: 垂直に上げながら横転
+        if (st.p < 70 && manT < 8) { autoIn.x = 0; autoIn.y = -1; }
+        else if (rollSum < 360 && st.z < 1200) { autoIn.x = 1; autoIn.y = 0; }
+        else { autoIn.x = clamp(-st.b / 20, -1, 1); autoIn.y = 0.6; }
+        autoIn.r = 0;
+        if ((st.p < 10 && manT > 10) || manT > 26) nextManeuver();
+        break;
+      case 'half':                               // ハーフ・スロー・ロール: 背面にして少し飛び、戻す
+        if (manT < 3) { autoIn.x = 1; holdPitch(3); }
+        else if (manT < 6) { autoIn.x = 0; autoIn.y = -0.25; }
+        else { autoIn.x = 1; holdPitch(3); }
+        autoIn.r = 0;
+        if (manT > 9) nextManeuver();
+        break;
+      case 'bloom':                              // 上向き空中開花: 正面で垂直上昇し、隊形を大きく開く
+        if (st.p < 72 && manT < 7) { autoIn.x = 0; autoIn.y = -1; }
+        else { autoIn.x = clamp(-st.b / 20, -1, 1); autoIn.y = 0.5;
+          formation = 'leaders'; formScale = lerp(1, 3.2, (manT - 7) / 4); }
+        autoIn.r = 0;
+        if (manT > 15) nextManeuver();
+        break;
+      case 'rain':                               // レインフォール: 輪に入り、真下を向いたところで大きく散開
+        loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; autoIn.r = 0;
+        if (st.p < -50) { formation = 'pyramid'; formScale = lerp(1, 2.6, (loopSum - 200) / 90); }
+        if (loopSum > 360 || manT > 22) nextManeuver();
+        break;
+      case 'cork':                               // コークスクリュー: らせんを描いて上がる
+        autoIn.x = 0.7; holdPitch(22);
+        if (manT > 12 || st.z > 900) nextManeuver();
+        break;
+      case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
+        if (manT < 4) { formation = 'line'; away(600, SHOW.ALT); }
+        else { formation = userForm === 'solo' ? 'delta' : userForm; formScale = lerp(1.9, 1, (manT - 4) / 8); holdBank(45); holdPitch(2); }
+        if (hdgSum > 300 || manT > 20) nextManeuver();
+        break;
+      case 'turnloop':                           // 360 度ターン & ループ: 1 周旋回してから宙返り
+        if (hdgSum < 350) { holdBank(46); holdPitch(0); }
+        else { loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; }
+        autoIn.r = 0;
+        if (loopSum > 360 || manT > 40) nextManeuver();
+        break;
+    }
+    /* 安全: 低すぎたら上げる、高すぎたら下げる（どの課目でも最後に効かせる） */
+    if (st.z < 110 && st.p < 12) autoIn.y = -0.8;
+    if (st.z > 1500 && st.p > -10) autoIn.y = 0.8;
     return autoIn;
   }
 
@@ -418,7 +511,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
       /* どの編隊の変更でも、いまの位置から新しい位置へなめらかに移る。
          隊形から外れる機体は後ろの遠く（ENTRY）へ離れていき、届いたら消える */
-      u.want.set(target ? target[0] : e[0], target ? target[1] : e[1], target ? target[2] : e[2]);
+      u.want.set(target ? target[0] * formScale : e[0], target ? target[1] * formScale : e[1], target ? target[2] * formScale : e[2]);
       u.cur.lerp(u.want, 1 - Math.exp(-dt / JOIN_TAU));
       const settled = u.cur.distanceTo(u.want) < 12;
       if (!target && settled) { holder.visible = false; return; }
@@ -501,15 +594,24 @@ export function mount(container, { onState, view = 'first' } = {}) {
     },
     /* 自動操縦の入り切り。入れたときは観覧位置の南の空から演技を始める */
     setAuto(on) {
-      auto = !!on; showPhase = 'orbit'; showT = 0; loopSum = 0;
+      auto = !!on; oneShot = false; step_i = 0; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0;
       if (auto) {
+        userForm = formation; st.show = PROGRAM[0].ja;
         Object.assign(st, { x: GROUND_EYE.x - 380, y: GROUND_EYE.y - 620, z: SHOW.ALT, h: 25, ground: false, wall: false });
-        levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
-      }
+        levelAttitude(); prevH = st.h; camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
+      } else { formation = userForm; formScale = 1; st.show = ''; }
     },
     autoState() { return auto; },
+    /* 技の一覧（移動のための旋回と正面通過を除く）と、1 つだけ行わせる呼び出し。
+       自分で操縦しているときに技を選ぶと、その技の間だけ自動で飛び、終わると操縦が戻る */
+    maneuvers() { return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja })).filter(m => m.id !== 'orbit' && m.id !== 'pass'); },
+    runManeuver(i) {
+      if (!PROGRAM[i] || st.ground) return false;
+      userForm = formation; step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h;
+      st.show = PROGRAM[i].ja; auto = true; oneShot = true; return true;
+    },
     setProps(on) { props.visible = !!on; },   // オブジェクト（山・民家・木・塔）の出し入れ
-    setFormation(f) { if (FORMATIONS[f]) formation = f; },   // 飛びながら変えられる。合流は placeMates がなめらかにする
+    setFormation(f) { if (FORMATIONS[f]) { formation = f; userForm = f; } },   // 飛びながら変えられる。合流は placeMates がなめらかにする
     formation() { return formation; },
     setSmoke(on) { smokeOn = !!on; },
     smokeState() { return smokeOn; },

@@ -22,6 +22,7 @@ export const FORMATIONS = {
   solo:    { ja: '単機', n: 1, offs: [] },
   pair:    { ja: '2 機', n: 2, offs: [[14, -12, 0]] },
   trail:   { ja: 'トレイル（縦隊）', n: 6, offs: [[0, -16, 0], [0, -32, 0], [0, -48, 0], [0, -64, 0], [0, -80, 0]] },
+  tree:    { ja: 'クリスマスツリー', n: 6, offs: [[-14, -22, -6], [14, -22, -6], [-28, -44, -12], [0, -44, -12], [28, -44, -12]] },
   delta:   { ja: 'デルタ', n: 6, offs: [[-14, -14, 0], [14, -14, 0], [-28, -28, 0], [28, -28, 0], [0, -34, 0]] },
   pyramid: { ja: 'ピラミッド', n: 6, offs: [[-13, -12, -7], [13, -12, -7], [-26, -24, -14], [0, -24, -14], [26, -24, -14]] },
   phoenix: { ja: 'フェニックス', n: 6, offs: [[-16, -10, 0], [16, -10, 0], [0, -36, 0], [-30, -22, 0], [30, -22, 0]] },
@@ -44,7 +45,7 @@ export const SMOKE_COLORS = {
   rainbow:{ ja: 'カラフル', c: ['#ffffff', '#ff7fb6', '#6ee7a0', '#ffd84d', '#6ec1ff', '#c79bff'] }
 };
 export const SMOKE_LIFE = 29;                    // 煙が消えるまで（秒）。宙返り 2 周ぶん（25°/s で 1 周 14.4 秒）
-const SMOKE_MAX = 780;                           // 1 機あたりの粒の数（0.04 秒ごとに 1 つ）
+const SMOKE_MAX = 1400;                          // 1 機あたりの粒の数（0.04 秒ごとに 1 つ。濃い煙のときは 3 つ）
 const SMOKE_DT = 0.04;
 /* 編隊に入るとき・抜けるときの位置（先頭機から見て後ろの遠く）。ここから所定の位置へ 4 秒かけて寄る */
 const ENTRY = [[-170, -620, 40], [170, -620, 40], [-250, -800, -30], [250, -800, -30], [0, -960, 60]];
@@ -281,22 +282,23 @@ export function mount(container, { onState, view = 'first' } = {}) {
      出る場所は機体の後ろの端（全長 13 m の機体で、中心から後ろへ 6.9 m。少し下） */
   const SMOKE_N = SMOKE_MAX * 6;
   const smokeGeo = new THREE.BufferGeometry();
-  const sPos = new Float32Array(SMOKE_N * 3), sCol = new Float32Array(SMOKE_N * 3), sBirth = new Float32Array(SMOKE_N);
+  const sPos = new Float32Array(SMOKE_N * 3), sCol = new Float32Array(SMOKE_N * 3), sBirth = new Float32Array(SMOKE_N), sSize = new Float32Array(SMOKE_N).fill(1);
   sBirth.fill(-1e6);
   smokeGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
   smokeGeo.setAttribute('acolor', new THREE.BufferAttribute(sCol, 3));
   smokeGeo.setAttribute('birth', new THREE.BufferAttribute(sBirth, 1));
+  smokeGeo.setAttribute('asize', new THREE.BufferAttribute(sSize, 1));
   const smokeMat = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uLife: { value: SMOKE_LIFE } },
     transparent: true, depthWrite: false,
-    vertexShader: `attribute vec3 acolor; attribute float birth; uniform float uTime, uLife;
+    vertexShader: `attribute vec3 acolor; attribute float birth; attribute float asize; uniform float uTime, uLife;
       varying vec3 vC; varying float vA;
       void main(){ float age = (uTime - birth) / uLife; vA = clamp(1.0 - age, 0.0, 1.0); vA *= sqrt(vA);
         vC = acolor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
         /* 太さ: 出た直後から少しずつ広がる。遠くても見えるように最小 3 画素、
            近くで画面を覆わないように最大 90 画素にする */
         float sz = 6.0 + 60.0 * pow(clamp(age, 0.0, 1.0), 0.5);
-        gl_PointSize = clamp(sz * (240.0 / max(1.0, -mv.z)), 3.0, 90.0);
+        gl_PointSize = clamp(sz * asize * (240.0 / max(1.0, -mv.z)), 3.0, 90.0 * asize);
         gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `varying vec3 vC; varying float vA;
       void main(){ float d = length(gl_PointCoord - vec2(0.5)); if (d > 0.5) discard;
@@ -306,24 +308,59 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const smoke = new THREE.Points(smokeGeo, smokeMat); smoke.frustumCulled = false; world.add(smoke);
   let sHead = 0, smokeT = 0, clock = 0;
   const smokeCol = new THREE.Color(), emitPos = new THREE.Vector3();
+  let smokeBoost = false;                          // 濃い煙（ローパス）。3 粒を少し散らして、大きめに出す
   function emit(pos, colorHex) {
-    const i = sHead % SMOKE_N; sHead++;
-    sPos[i * 3] = pos.x; sPos[i * 3 + 1] = pos.y; sPos[i * 3 + 2] = pos.z;
-    smokeCol.set(colorHex); sCol[i * 3] = smokeCol.r; sCol[i * 3 + 1] = smokeCol.g; sCol[i * 3 + 2] = smokeCol.b;
-    sBirth[i] = clock;
+    smokeCol.set(colorHex);
+    const n = smokeBoost ? 3 : 1;
+    for (let k = 0; k < n; k++) {
+      const i = sHead % SMOKE_N; sHead++;
+      const j = smokeBoost ? 2.5 : 0;
+      sPos[i * 3] = pos.x + (Math.random() - 0.5) * j; sPos[i * 3 + 1] = pos.y + (Math.random() - 0.5) * j; sPos[i * 3 + 2] = pos.z + (Math.random() - 0.5) * j;
+      sCol[i * 3] = smokeCol.r; sCol[i * 3 + 1] = smokeCol.g; sCol[i * 3 + 2] = smokeCol.b;
+      sBirth[i] = clock; sSize[i] = smokeBoost ? 2.4 : 1;
+    }
   }
   function clearSmoke() { sBirth.fill(-1e6); smokeGeo.attributes.birth.needsUpdate = true; }
   /* 同じ左右の位置に後続がいる機体は煙を出さない（後ろの機体が煙の中を飛ぶため）。単機なら先頭機が出す */
   function smokers() {
     const offs = [[0, 0, 0], ...FORMATIONS[formation].offs];
-    return offs.map((o, i) => !!o && !offs.some((q, j) => q && j !== i && Math.abs(q[0] - o[0]) < 6 && q[1] < o[1] - 2));
+    return offs.map((o, i) => !!o && !offs.some((q, j) => q && j !== i && Math.abs(q[0] - o[0]) < 6 && q[1] < o[1] - 2 && Math.abs(q[2] - o[2]) < 4));
   }
 
+  /* 着陸の脚（3 本）とライト（機首の着陸灯、翼端の航法灯）。ローパスのときだけ出す */
+  const gearSets = [];
+  function addGear(grp) {
+    const g = new THREE.Group(); g.visible = false;
+    const strut = new THREE.MeshLambertMaterial({ color: 0xb9bec6 }), tire = new THREE.MeshLambertMaterial({ color: 0x1b1d20 });
+    const legGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), whGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.18, 14);
+    for (const [x, y] of [[0, 3.6], [-1.5, -0.6], [1.5, -0.6]]) {
+      const leg = new THREE.Mesh(legGeo, strut); leg.rotation.x = Math.PI / 2; leg.position.set(x, y, -1.15); g.add(leg);
+      const wh = new THREE.Mesh(whGeo, tire); wh.rotation.z = Math.PI / 2; wh.position.set(x, y, -1.72); g.add(wh);
+    }
+    /* ライト: 加算合成の丸い光。遠くからも見えるよう大きめ */
+    const glow = (col, size, x, y, z) => {
+      const c = document.createElement('canvas'); c.width = c.height = 64; const g2 = c.getContext('2d');
+      const gr = g2.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+      const tex = new THREE.CanvasTexture(c);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+      sp.scale.set(size, size, 1); sp.position.set(x, y, z); g.add(sp);
+    };
+    glow('rgba(255,250,220,0.95)', 3.2, 0, 4.0, -1.3);      // 着陸灯（機首の脚）
+    glow('rgba(255,60,60,0.9)', 1.6, -5.2, -0.8, 0.2);      // 左翼端: 赤
+    glow('rgba(60,255,90,0.9)', 1.6, 5.2, -0.8, 0.2);       // 右翼端: 緑
+    grp.add(g); gearSets.push(g); return g;
+  }
+  let treeMode = false;
+  function setTreeMode(on) {
+    treeMode = !!on; gearSets.forEach(g => { g.visible = treeMode; });
+    smokeBoost = treeMode; spdWant = treeMode ? 0.6 : 1;
+  }
   new GLTFLoader().load('model/t4.glb', g => {
     g.scene.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
     const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), k = 13 / Math.max(size.y, 1e-3);   // 全長 13 m
     g.scene.scale.setScalar(k); const c = box.getCenter(new THREE.Vector3()).multiplyScalar(k); g.scene.position.set(-c.x, -c.y, -c.z);
-    plane.add(g.scene);
+    plane.add(g.scene); addGear(plane);
     cockpit.position.copy(g.scene.position); eyeOff.copy(g.scene.position);   // 操縦席の部品と目の位置はモデル座標（×k）で書いてあるので、同じ平行移動を掛ける
     g.scene.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) seatMeshes.push(o); });   // 自分が座る前席（一人称では隠す）
     seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
@@ -335,6 +372,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
       holder.add(g.scene.clone(true));                                   // 複製は元と同じ平行移動を持っている
       addPlates(holder, n);                                              // 実測した位置は機体の座標そのままなので、入れ物に直接置く
+      addGear(holder);
       holder.userData.cur = new THREE.Vector3(ENTRY[n - 2][0], ENTRY[n - 2][1], ENTRY[n - 2][2]);   // いまの位置（先頭機から見て）
       holder.userData.want = new THREE.Vector3();
       mates.push(holder);
@@ -346,6 +384,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* 姿勢はクォータニオンで持つ。オイラー角（方位・ピッチ・バンク）だと宙返りの真上・真下で破綻するため。
      h / p / b は表示と計器のために毎フレーム取り出す。機体の軸: 機首 +y、右翼 +x、機体上 +z */
   const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false, show: '', cue: '', desc: '', gh: 0 };
+  let spdK = 1, spdWant = 1;                        // 速さの係数（1 がふつう。ローパスでは 0.6 まで落とす）
   const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
@@ -422,6 +461,9 @@ export function mount(container, { onState, view = 'first' } = {}) {
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260, entry: 'front',
       desc: '開花のあと、雨が降るように機体が降りてきます。' },
+    { id: 'tree', ja: 'クリスマスツリー・ローパス', form: 'tree', alt: 110, entry: 'front',
+      desc: '6 機が木の形に組み、列ごとに少し低く並びます。速度を落とし、脚を出してライトを点け、濃いスモークを引きながら頭の上を通り抜けます。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'cork', ja: 'コーク・スクリュー', form: 'pair', alt: 200, entry: 'front',
       desc: '2 機。1 機がまっすぐ進み、その周りをもう 1 機が背中を内側に向けて回ります。実際の演技では、直進する 5 番機が背面で飛びます。' },
     { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240,
@@ -519,7 +561,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   /* 課目を始める。使う隊形をそろえてから（いまの機数によらず集まる）、進入に入る */
   function beginManeuver(i) {
-    endCork(); endFigure();
+    endCork(); endFigure(); if (treeMode) setTreeMode(false);
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1;
     const m = PROGRAM[i];
     formation = m.form || userForm;
@@ -532,7 +574,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function nextManeuver() {
     formScale = 1;
     if (oneShot) {   // 1 つだけの技なら、水平に戻してから操縦を返す
-      manPhase = 'out'; phaseT = 0; st.cue = '水平に戻します'; markOn = false; endCork(); endFigure(); return;
+      manPhase = 'out'; phaseT = 0; st.cue = '水平に戻します'; markOn = false; endCork(); endFigure(); if (treeMode) setTreeMode(false); return;
     }
     beginManeuver((step_i + 1) % PROGRAM.length);
   }
@@ -672,6 +714,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
         if (fig.t >= fig.dur + 1.2) nextManeuver();
         break;
       }
+      case 'tree': {                             // クリスマスツリー・ローパス: 減速・脚出し・ライト・濃い煙で頭上を低く抜ける
+        if (!treeMode) setTreeMode(true);
+        const e6 = eyeDir();
+        steerTo(e6.ex - e6.dx * 700, e6.ey - e6.dy * 700, m.alt || 110);
+        holdBank(clamp(st.b + autoIn.x * 22, -12, 12));                   // 隊形を保つため、傾きは小さく
+        const past6 = (st.x - e6.ex) * e6.dx + (st.y - e6.ey) * e6.dy;
+        if (past6 < -350 || manT > 60) nextManeuver();
+        break;
+      }
       case 'cork': {                             // コークスクリュー: 1 番機はまっすぐ、2 番機がその周りを回る
         if (corkT < 0 && !matesReady() && manT < 20) { holdBank(0); holdPitch(0); break; }   // 2 番機が付くまで待つ
         const e4 = eyeDir();
@@ -721,11 +772,13 @@ export function mount(container, { onState, view = 'first' } = {}) {
     /* バンクによる旋回（協調旋回）。世界の上下軸まわりに機体ごと回す。真上・真下付近では効かせない */
     readAttitude();
     if (Math.abs(st.p) < 70) {
-      const turn = clamp((9.81 / SPEED) * Math.tan(st.b * D) / D, -30, 30) * dt * D;
+      const turn = clamp((9.81 / (SPEED * spdK)) * Math.tan(st.b * D) / D, -30, 30) * dt * D;
       if (turn) att.premultiply(dq.setFromAxisAngle(AZ, -turn));
     }
     att.normalize(); readAttitude();
-    st.x += fwd.x * SPEED * dt; st.y += fwd.y * SPEED * dt; st.z += fwd.z * SPEED * dt;
+    spdK += (spdWant - spdK) * (1 - Math.exp(-dt / 2.5));          // 速さはゆっくり変える
+    const v = SPEED * spdK;
+    st.x += fwd.x * v * dt; st.y += fwd.y * v * dt; st.z += fwd.z * v * dt;
     /* 技の途中（自動操縦）は、壁を少し越えてもよい。警告も出さず、自然に飛びながら戻ってくる。
        自分で操縦しているときは これまでどおり壁で止める */
     const L = auto ? LIMIT + 420 : LIMIT - 4, C = auto ? CEIL + 300 : CEIL;
@@ -924,7 +977,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         if (fig.t < bl) {
           /* 隊形の位置から図の道へ寄せる。寄せ元は「編隊で飛び続けていたらいる位置」なので、
              止まって待っているようには見えない */
-          const s3 = stateAt(Math.max(0, -u.cur.y / SPEED));
+          const s3 = stateAt(Math.max(0, -u.cur.y / (SPEED * spdK)));
           mq.copy(s3.q); mp.copy(s3.p);
           mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq); mp.add(mo);
           const k = fig.t / bl, e2 = k * k * (3 - 2 * k);
@@ -968,7 +1021,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         mo.set(Math.sin(th) * CORK_R, 0, Math.cos(th) * CORK_R).applyQuaternion(s2.q);
         mp.copy(s2.p).add(mo);
         if (corkT < corkBlend) {               // 編隊の位置から 輪の上へ、離れぐあいに応じた時間で移る
-          const s4 = stateAt(Math.max(0, -u.cur.y / SPEED));
+          const s4 = stateAt(Math.max(0, -u.cur.y / (SPEED * spdK)));
           moFlat.set(u.cur.x, 0, u.cur.z).applyQuaternion(s4.q);
           fp2.copy(s4.p).add(moFlat);
           const kc = corkT / corkBlend, ec = kc * kc * (3 - 2 * kc);
@@ -995,7 +1048,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       /* 離れていく機体は、十分に離れて小さくなってから消す */
       if (!target && (settled || u.cur.length() > 520)) { holder.visible = false; u.shown = false; return; }
       holder.visible = true;
-      const st2 = stateAt(Math.max(0, -u.cur.y / SPEED));
+      const st2 = stateAt(Math.max(0, -u.cur.y / (SPEED * spdK)));
       mq.copy(st2.q); mp.copy(st2.p);
       /* 離れている機体は、先頭機の傾きに巻き込まない。巻き込むと、横転のたびに
          「腕の長さ × 回る速さ」で振り回され、あり得ない速さで飛んでしまう。
@@ -1025,7 +1078,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       u.shown = true;
       if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
-    if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; }
+    if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;
   }
 
@@ -1086,7 +1139,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     } catch (e) {
       st.err = (st.err || 0) + 1;
       if (st.err <= 2) console.error('sim frame error', e);
-      if (st.err === 3) { endCork(); endFigure(); auto = false; oneShot = false; formation = userForm; formScale = 1; levelAttitude(); manPhase = 'do'; st.cue = ''; markOn = false; }
+      if (st.err === 3) { endCork(); endFigure(); if (treeMode) setTreeMode(false); auto = false; oneShot = false; formation = userForm; formScale = 1; levelAttitude(); manPhase = 'do'; st.cue = ''; markOn = false; }
     }
     if (onState) onState(st);
     raf = requestAnimationFrame(frame);
@@ -1141,7 +1194,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         Object.assign(st, { x: GROUND_EYE.x - 380, y: GROUND_EYE.y - 620, z: SHOW.ALT, h: 25, ground: false, wall: false });
         levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
         beginManeuver(0);
-      } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; endCork(); endFigure(); }
+      } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; endCork(); endFigure(); if (treeMode) setTreeMode(false); }
     },
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍

@@ -214,6 +214,7 @@ svg text{user-select:none}
 .formmenu button .ic{width:1.6rem;height:1.6rem;color:var(--text)}
 .trickmenu{grid-template-columns:repeat(2,1fr);width:17rem}
 .trickmenu button{font-size:.625rem;padding:.375rem .25rem;background:var(--panel);color:var(--text)}
+.trickmenu button.off{opacity:.35}
 .formmenu button.sel{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text)}
 @media (orientation:portrait){.formwrap.landscape{display:none}}
 @media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse){.simbar .portrait{display:none}}
@@ -900,7 +901,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.28';
+const APP_VER='v03.29';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1169,7 +1170,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=41').then(mod=>{
+  import('./sim3d.js?v=42').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1183,8 +1184,9 @@ function startSim(){
     window.scrollTo({top:0});
   }).catch(()=>runSim());
 }
-function runSim(){applyScene();
-  document.body.dataset.scene='day';   // 演目を見せるので、シミュレーターの中はいつも昼
+function runSim(opt){applyScene();
+  opt=(opt&&opt.scene!==undefined)?opt:{};             // ボタンから呼ばれたときは Event が来るので捨てる
+  if(opt.scene)document.body.dataset.scene=opt.scene;   // 通しの演目は昼の空で行う
   stopSim();setPhase('sim','練習');showPane('sim');
   const view=['third','front','ground'].includes(store.get('simView'))?store.get('simView'):'first';   // 一人称 / 三人称（後方・前方）/ 地上
   const inst=`<div class="inst ai">${E.svgAI(0,0)}</div><div class="inst hi">${E.svgHI(0)}</div>`;
@@ -1321,7 +1323,7 @@ function runSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=41').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=42').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1365,16 +1367,23 @@ function runSim(){applyScene();
         const lb={t:on?(g?'前':'上'):'奥',b:on?(g?'後ろ':'下'):'手前',l:'左',r:'右'};
         Object.entries(lb).forEach(([k,v])=>{const e=$('#sim').querySelector('.stick .lb.'+k);if(e)e.textContent=v})};
       sim.paintAuto=paintAuto;
-      aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
+      aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();
+        /* 夜に通しの演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
+        if(on&&document.body.dataset.scene==='night'){toast('演目は昼の空で行います');runSim({scene:'day',autoStart:true});return}
+        sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
         if(on){toast('自動操縦。2 回叩くとその場所に立てます');const g=$('#sim').querySelector('[data-view="ground"]');if(g&&!g.classList.contains('sel'))g.click()}
         else toast('自動操縦を止めました')});
       paintAuto();
+      if(opt.autoStart)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
       /* 技: 自分で操縦しているときでも、選んだ技をひとつだけ自動で行う（終わると操縦が戻る） */
       const tBtn=$('#simTrickBtn'),tMenu=$('#simTrickMenu');
-      tMenu.innerHTML=sim.h.maneuvers().map(m=>`<button data-m="${m.i}"><span>${m.ja}</span></button>`).join('');
+      /* 夜は クリスマスツリー・ローパスだけ（夜の背景のまま行える）。ほかの技は昼の空で */
+      const night=document.body.dataset.scene==='night';
+      tMenu.innerHTML=sim.h.maneuvers().map(m=>`<button data-m="${m.i}"${night&&m.id!=='tree'?' class="off"':''}><span>${m.ja}</span></button>`).join('');
       const nameEl=$('#showName');
       const showLabel=txt=>{if(!nameEl)return;nameEl.textContent=txt||'';nameEl.hidden=!txt};
       tMenu.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{tMenu.hidden=true;
+        if(b.classList.contains('off')){toast('夜に行えるのはクリスマスツリー・ローパスだけです');return}
         const nm=b.textContent.trim();
         if(sim.h.runManeuver(+b.dataset.m)){toast(nm);showLabel(nm)}else toast('飛んでいるときに使えます')}));
       tBtn.addEventListener('click',e=>{e.stopPropagation();tMenu.hidden=!tMenu.hidden;fMenu.hidden=true});

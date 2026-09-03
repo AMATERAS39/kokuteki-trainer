@@ -755,7 +755,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   let corkT = -1;                                  // 0 以上ならコークスクリューの最中（2 番機が周りを回る）
   /* 描き物の課目（キューピッド・スタークロス）。編隊では描けない形なので、機体を式で置く。
      1 番機（操作する機体）は隠して、2 番機以降で描く。図は観覧位置の正面の空に立てた面の上に描く */
-  const FIGS = { cupid: { dur: 28, n: 3, s: 15, d: 640, z: 500 }, star: { dur: 12, n: 5, s: 15, d: 520, z: 560 } };
+  const FIGS = { cupid: { dur: 28, n: 3, s: 15, d: 640, z: 600 }, star: { dur: 12, n: 5, s: 15, d: 520, z: 560 } };
   const HEART_END = 0.62;                          // ハートを描く 2 機は、ここまでで道すじを飛び終える
   const STAR_IN = 0.20, STAR_OUT = 0.85, STAR_R = 16;   // スタークロス: 線を引く区間と、星の大きさ（単位）
   let fig = null;                                  // {id, t, dur, n, s}
@@ -777,6 +777,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       if (i >= f.n) return;
       figPoint(fp, figXY(id, i, 0), f.s);
       h.userData.blend = clamp(h.position.distanceTo(fp) / 45, 4, 14);
+      h.userData.prevP = null;
     });
   }
   /* 図の中の位置（a: 右、b: 上、単位）。u は 0〜1 の進み具合、i は何番目の機体か */
@@ -791,14 +792,20 @@ export function mount(container, { onState, view = 'first' } = {}) {
      そこで両端を落とし、入りと出はまっすぐな線でつなぐ。
      下から上がってきて → 外側の葉を回り → 上のくぼみへ降りて 相手と交わる */
   const T1 = Math.PI - 0.38, T2 = 0.38;
+  /* 上の交点（くぼみ）へ 内側の下から上がってきて → 外側の葉を回り → 下の交点へ降りて
+     → そのまま まっすぐ抜ける。2 機は くぼみと尖りの 2 か所で交わる。
+     煙を出すのは 交点から交点まで（table の smokeOn〜smokeOff） */
   function heartPath(k) {
-    const pts = [], A = heartCurve(k, T1), A2 = heartCurve(k, T1 - 0.05);
-    let dx = A.a - A2.a, dy = A.b - A2.b, dl = Math.hypot(dx, dy);
-    for (let i = 20; i >= 1; i--) pts.push({ a: A.a + dx / dl * 12 * i / 20, b: A.b + dy / dl * 12 * i / 20 });
-    for (let i = 0; i <= 140; i++) pts.push(heartCurve(k, T1 + (T2 - T1) * i / 140));
-    const B = heartCurve(k, T2), B2 = heartCurve(k, T2 + 0.05);
-    dx = B.a - B2.a; dy = B.b - B2.b; dl = Math.hypot(dx, dy);
-    for (let i = 1; i <= 20; i++) pts.push({ a: B.a + dx / dl * 15 * i / 20, b: B.b + dy / dl * 15 * i / 20 });
+    const pts = [], A = heartCurve(k, T2), A2 = heartCurve(k, T2 + 0.05);
+    let dx = A.a - A2.a, dy = A.b - A2.b, dl = Math.hypot(dx, dy);     // くぼみへ向かう向き（曲線を逆にたどった向き）
+    for (let i = 14; i >= 1; i--) pts.push({ a: A.a + dx / dl * 14 * i / 14, b: A.b + dy / dl * 14 * i / 14 });
+    const iOn = pts.length;
+    for (let i = 0; i <= 140; i++) pts.push(heartCurve(k, T2 + (T1 - T2) * i / 140));
+    const iOff = pts.length - 1;
+    const B = heartCurve(k, T1), B2 = heartCurve(k, T1 - 0.05);
+    dx = B.a - B2.a; dy = B.b - B2.b; dl = Math.hypot(dx, dy);         // 尖りから抜ける向き
+    for (let i = 1; i <= 6; i++) pts.push({ a: B.a + dx / dl * 6 * i / 6, b: B.b + dy / dl * 6 * i / 6 });
+    pts.iOn = iOn; pts.iOff = iOff;
     return pts;
   }
   /* 道の長さで測り直す（式のままだと、尖りのところで速さが落ちて 止まって見える）。
@@ -808,7 +815,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     if (!heartTab) {
       const pts = heartPath(1), N = pts.length - 1, cum = [0];
       for (let i = 1; i <= N; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].a - pts[i - 1].a, pts[i].b - pts[i - 1].b));
-      heartTab = { pts, cum, total: cum[N], N };
+      heartTab = { pts, cum, total: cum[N], N, smokeOn: cum[pts.iOn] / cum[N], smokeOff: cum[pts.iOff] / cum[N] };
     }
     const t = heartTab, want = clamp(p, 0, 1) * t.total;
     let lo = 0, hi = t.N;
@@ -827,7 +834,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         const e1 = heartPt(k, 1), e0 = heartPt(k, 0.985);
         const dx = e1.a - e0.a, dy = e1.b - e0.b, dl = Math.max(1e-4, Math.hypot(dx, dy));
         const g2 = (u - HEART_END) / (1 - HEART_END);
-        return { a: e1.a + dx / dl * 30 * g2, b: e1.b + dy / dl * 30 * g2 * (1 - 0.6 * g2) };
+        return { a: e1.a + dx / dl * 34 * g2, b: e1.b + dy / dl * 34 * g2 * (1 - 1.1 * g2) };   // 下がる量は 8 単位まで。あとは引き起こす
       }
       /* 矢: ハートを描いているあいだは、その左でひと回りして待つ（止まらず、遠くへも行かない）。
          回り終わりが ちょうど射る向きになるように輪を置いてあり、
@@ -893,16 +900,18 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function placeMates(dt) {
     if (retT >= 0) { retT += dt; if (retT >= retDur) { retT = -1; mates.forEach(h => { h.userData.ret = null; }); } }
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
-    const emitting = smokeOn && smokeT >= SMOKE_DT;
-    if (emitting) smokeT = 0;
+    /* 演目の合間（進入・高度取り・水平に戻す）は煙を切る。旋回は演目の一部なので出す */
+    const between = auto && manPhase !== 'do';
+    const emitting = smokeOn && smokeT >= SMOKE_DT && !between;
+    if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
     if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
       /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
       if (fig) {
         if (i >= fig.n) { holder.visible = false; u.shown = false; return; }
-        const pu = clamp(fig.t / fig.dur, 0, 1);
-        const xy = figXY(fig.id, i, pu), xy2 = figXY(fig.id, i, Math.min(1, pu + 0.004));
+        const pu = Math.min(1.25, fig.t / fig.dur);                // 1 を超えても止めない（延長線上を飛び続ける）
+        const xy = figXY(fig.id, i, pu), xy2 = figXY(fig.id, i, pu + 0.004);
         figPoint(fp, xy, fig.s);
         figPoint(fp2, xy2, fig.s);
         fFw.copy(fp2).sub(fp); if (fFw.lengthSq() < 1e-9) fFw.copy(figF); fFw.normalize();
@@ -935,10 +944,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
         } else u.prevP = new THREE.Vector3();
         u.prevP.copy(holder.position);
         holder.quaternion.copy(fq);
-        holder.visible = true;
+        holder.visible = true; u.shown = true;
         /* スモーク: 矢はハートの内側で切る。色は「カラフル」を選んでいるときだけ図に合わせる */
         let ok = fig.t > bl * 0.25;
-        if (fig.id === 'cupid' && i === 2) ok = ok && (!inHeart(xy.a, xy.b) || xy.a < -3);   // 中央の少し手前までは引く
+        if (fig.id === 'cupid' && i < 2) {                                  // ハート組: 上の交点から下の交点まで
+          const ph = pu / HEART_END; heartPt(1, 0);                          // （表を作っておく）
+          ok = ok && ph >= heartTab.smokeOn && ph <= heartTab.smokeOff;
+        }
+        if (fig.id === 'cupid' && i === 2) ok = ok && pu >= 0.55 && (!inHeart(xy.a, xy.b) || xy.a < -3);   // 矢: 射る位置から。中央の少し手前まで引く
         if (fig.id === 'star') ok = ok && pu > STAR_IN && pu < STAR_OUT;                     // 星の線を引く区間だけ
         if (emitting && ok) {
           let fc = cols[(i + 1) % cols.length];
@@ -1073,7 +1086,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     } catch (e) {
       st.err = (st.err || 0) + 1;
       if (st.err <= 2) console.error('sim frame error', e);
-      if (st.err === 3) { auto = false; oneShot = false; formation = userForm; formScale = 1; levelAttitude(); manPhase = 'do'; st.cue = ''; markOn = false; }
+      if (st.err === 3) { endCork(); endFigure(); auto = false; oneShot = false; formation = userForm; formScale = 1; levelAttitude(); manPhase = 'do'; st.cue = ''; markOn = false; }
     }
     if (onState) onState(st);
     raf = requestAnimationFrame(frame);

@@ -328,9 +328,10 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
 
   /* 着陸の脚（3 本）とライト（機首の着陸灯、翼端の航法灯）。ローパスのときだけ出す */
-  const gearSets = [];
+  const gearSets = [], lightSets = [];
   function addGear(grp) {
-    const g = new THREE.Group(); g.visible = false;
+    const g = new THREE.Group(); g.visible = false;   // 脚
+    const L = new THREE.Group(); L.visible = false;   // ライト
     const strut = new THREE.MeshLambertMaterial({ color: 0xb9bec6 }), tire = new THREE.MeshLambertMaterial({ color: 0x1b1d20 });
     const legGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), whGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.18, 14);
     for (const [x, y] of [[0, 3.6], [-1.5, -0.6], [1.5, -0.6]]) {
@@ -344,23 +345,27 @@ export function mount(container, { onState, view = 'first' } = {}) {
       g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
       const tex = new THREE.CanvasTexture(c);
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-      sp.scale.set(size, size, 1); sp.position.set(x, y, z); g.add(sp);
+      sp.scale.set(size, size, 1); sp.position.set(x, y, z); L.add(sp);
     };
     glow('rgba(255,250,220,0.95)', 3.2, 0, 4.0, -1.3);      // 着陸灯（機首の脚）
     glow('rgba(255,60,60,0.9)', 1.6, -5.2, -0.8, 0.2);      // 左翼端: 赤
     glow('rgba(60,255,90,0.9)', 1.6, 5.2, -0.8, 0.2);       // 右翼端: 緑
-    grp.add(g); gearSets.push(g); return g;
+    grp.add(g); grp.add(L); gearSets.push(g); lightSets.push(L); return g;
   }
-  let treeMode = false;
+  /* 脚とライトは別々に出し入れできる。昼以外はライトを自動で点けておく（手で消せる）。
+     ローパスのあいだは両方出し、終わったら手で決めていた状態に戻す */
+  let gearOn = false, lightsOn = scene !== 'day', treeMode = false;   // ライトは昼以外（夕・夜明け・夜）で自動点灯
+  function applyGear() { gearSets.forEach(g => { g.visible = gearOn || treeMode; }); lightSets.forEach(L => { L.visible = lightsOn || treeMode; }); }
   function setTreeMode(on) {
-    treeMode = !!on; gearSets.forEach(g => { g.visible = treeMode; });
+    treeMode = !!on;
     smokeBoost = treeMode; spdWant = treeMode ? 0.6 : 1;
+    applyGear();
   }
   new GLTFLoader().load('model/t4.glb', g => {
     g.scene.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
     const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), k = 13 / Math.max(size.y, 1e-3);   // 全長 13 m
     g.scene.scale.setScalar(k); const c = box.getCenter(new THREE.Vector3()).multiplyScalar(k); g.scene.position.set(-c.x, -c.y, -c.z);
-    plane.add(g.scene); addGear(plane);
+    plane.add(g.scene); addGear(plane); applyGear();
     cockpit.position.copy(g.scene.position); eyeOff.copy(g.scene.position);   // 操縦席の部品と目の位置はモデル座標（×k）で書いてあるので、同じ平行移動を掛ける
     g.scene.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) seatMeshes.push(o); });   // 自分が座る前席（一人称では隠す）
     seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
@@ -372,7 +377,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
       holder.add(g.scene.clone(true));                                   // 複製は元と同じ平行移動を持っている
       addPlates(holder, n);                                              // 実測した位置は機体の座標そのままなので、入れ物に直接置く
-      addGear(holder);
+      addGear(holder); applyGear();
       holder.userData.cur = new THREE.Vector3(ENTRY[n - 2][0], ENTRY[n - 2][1], ENTRY[n - 2][2]);   // いまの位置（先頭機から見て）
       holder.userData.want = new THREE.Vector3();
       mates.push(holder);
@@ -1198,6 +1203,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
     },
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
+    setGear(on) { gearOn = !!on; applyGear(); }, gearState() { return gearOn; },
+    setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },
     followState() { return follow; },
     zoomVal() { return zoom; },

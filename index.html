@@ -263,6 +263,10 @@ svg text{user-select:none}
 /* 縦画面のときだけ出す案内 */
 .trickdesc{position:absolute;left:50%;transform:translateX(-50%);bottom:4.6rem;max-width:min(30rem,88%);
   background:rgba(0,0,0,.6);color:#fff;font-size:.75rem;line-height:1.55;padding:.35rem .7rem;border-radius:.5rem;z-index:3}
+/* 方位計の真ん中: ふだんは機体、地上から見ているときは「見ている人」 */
+.hi-g{display:none}
+.inst.hi.gnd .hi-a{display:none}
+.inst.hi.gnd .hi-g{display:block}
 .zoomlbl{position:absolute;right:.5rem;top:4.8rem;z-index:6;padding:.2rem .5rem;border-radius:.5rem;
   background:rgba(0,0,0,.55);color:var(--text);font-family:var(--mono);font-size:.6875rem}
 .sim .rotate{display:none;align-items:center;gap:.5rem;justify-content:center;margin-top:.5rem;font-size:.75rem;color:var(--faint)}
@@ -862,7 +866,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=37"></script>
+<script src="engine.js?v=38"></script>
 <script>
 (function(){
 'use strict';
@@ -896,7 +900,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.23';
+const APP_VER='v03.24';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1165,7 +1169,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=35').then(mod=>{
+  import('./sim3d.js?v=36').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1285,7 +1289,9 @@ function runSim(){applyScene();
   sim.viewName=view;
   $('#sim').querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;store.set('simView',v);sim.viewName=v;
     $('#sim').querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('sel',x===b));$('#simView').classList.toggle('fp',v==='first');
+    $('#sim').querySelectorAll('.inst.hi').forEach(x=>x.classList.toggle('gnd',v==='ground'));
     if(sim.h){sim.h.setView(v);if(sim.setZoom)sim.setZoom(1);if(sim.paintAuto)sim.paintAuto()}}));
+  $('#sim').querySelectorAll('.inst.hi').forEach(x=>x.classList.toggle('gnd',view==='ground'));
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
   $('#simHome').addEventListener('click',()=>{if(sim.h)sim.h.home()});
   $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
@@ -1314,7 +1320,7 @@ function runSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=35').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=36').then(mod=>{if(sim!==mySim)return;
       sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');

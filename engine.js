@@ -302,7 +302,9 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
 <circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
   }
   function svgHI(heading, mark = 0) {
-    /* 目盛りは 10° 刻み、印は 1 箇所だけ（方位モードの上面図の N マークと同じ読み方にそろえる）。
+    /* 真ん中の印は 2 つ用意する。hi-a が機体、hi-g が「見ている人」（地上から見るときに使う）。
+       出し分けは画面側の CSS で行う。
+       目盛りは 10° 刻み、印は 1 箇所だけ（方位モードの上面図の N マークと同じ読み方にそろえる）。
        mark は印を付ける方位（0=N, 1=NE, … 45° 刻み）。出題ごとに変わり、機首の方位とは重ならない。
        目盛りは 8 方位のぶんだけ（45° 刻み。方位モードの上面図と同じ） */
     let card = '';
@@ -314,7 +316,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     card += `<g transform="rotate(${mark * 45})"><polygon points="0,-86 -7,-68 7,-68" fill="var(--accent)"/><text y="-44" text-anchor="middle" font-size="${mk.length > 1 ? 17 : 22}" font-weight="700" font-family="var(--display)" fill="var(--accent)">${mk}</text></g>`;
     return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="方位指示器">
 <circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><circle r="90" fill="none" stroke="var(--line2)" stroke-width="1"/><g class="hi-c" transform="rotate(${-heading})">${card}</g>
-<path d="M0,-30 L4,-16 L4,-2 L22,8 L22,13 L4,7 L4,16 L11,21 L11,25 L0,22 L-11,25 L-11,21 L-4,16 L-4,7 L-22,13 L-22,8 L-4,-2 L-4,-16 Z" fill="var(--accent)" opacity=".9"/>
+<path class="hi-a" d="M0,-30 L4,-16 L4,-2 L22,8 L22,13 L4,7 L4,16 L11,21 L11,25 L0,22 L-11,25 L-11,21 L-4,16 L-4,7 L-22,13 L-22,8 L-4,-2 L-4,-16 Z" fill="var(--accent)" opacity=".9"/><g class="hi-g"><path d="M0,-6 L20,-34 A34,34 0 0 0 -20,-34 Z" fill="var(--accent)" opacity=".45"/><circle r="7" fill="var(--accent)"/></g>
 <polygon points="0,-96 -7,-84 7,-84" fill="var(--accent)"/><circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
   }
 

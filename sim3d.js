@@ -317,7 +317,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
-  const gdir = new THREE.Vector3(), gright = new THREE.Vector3();   // 地上視点の向きを作るのに使う
+  const gdir = new THREE.Vector3(), gright = new THREE.Vector3(), focus = new THREE.Vector3();   // 地上視点の向きを作るのに使う
   const gEye = new THREE.Vector3(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z + EYE_H);   // 地上の立ち位置（目の高さ）
   let gYaw = 0, gPitch = 0.06;                                     // 地上視点の向き（自分で決めた方向）
   let follow = false;                                              // 機体を目で追うか（切ってあれば向けた方向のまま）
@@ -603,13 +603,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
         if (past < -300 || manT > 30) nextManeuver();
         break;
       }
-      case 'cupid': case 'star': {               // 描き物: 2 番機以降が図を描く。1 番機は隠して外を回る
+      case 'cupid': case 'star': {               // 描き物: 2 番機以降が図を描き、1 番機は図のそばを回る
         if (!fig) {
           if (!matesReady() && manT < 26) { holdBank(28); holdPitch(0); break; }   // 集まるまで ゆっくり回って待つ
           beginFigure(m.fig);
         }
         fig.t += dt;
-        holdBank(24); holdPitch(0);
+        /* 1 番機は図の下のあたりを ゆっくり回る。目で追う視点は 1 番機を追うので、図も画面に入る */
+        const fa = Math.atan2(st.y - figO.y, st.x - figO.x) + 0.5;
+        steerTo(figO.x + Math.cos(fa) * 160, figO.y + Math.sin(fa) * 160, Math.max(160, figO.z - 230));
         if (fig.t >= fig.dur + 1.2) nextManeuver();
         break;
       }
@@ -811,10 +813,13 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function place(dt) {
     if (dt) lastDt = dt;
     rotation();
-    plane.visible = shadow.visible = drop.visible = !fig;   // 描き物の最中は 1 番機を隠す
-    /* 自動追従: 地上から見るとき、機体の方へ ゆっくり首を回す（急に動くと見づらいので少しずつ） */
+    /* 自動追従: 地上から見るとき、飛んでいる機体の真ん中へ ゆっくり首を回す。
+       図を描く課目では機体が広がるので、見えている機体の平均を見る（急に動くと見づらいので少しずつ） */
     if (follow && curView === 'ground') {
-      tmp.copy(plane.position).sub(gEye);
+      focus.copy(plane.position); let fn = 1;
+      mates.forEach(mt => { if (mt.visible) { focus.add(mt.position); fn++; } });
+      focus.multiplyScalar(1 / fn);
+      tmp.copy(focus).sub(gEye);
       const wy = Math.atan2(tmp.x, tmp.y), wp = Math.asin(clamp(tmp.z / Math.max(1, tmp.length()), -1, 1));
       const k = 1 - Math.exp(-(dt || 0.016) / 0.45);
       gYaw += ((wy - gYaw + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;

@@ -47,18 +47,28 @@ workflows:
           agvtool new-version -all "${BUILD_NUMBER:-1}" || echo "agvtool で入れられませんでした（既定の番号のまま進みます）"
       - name: 署名の設定
         script: |
-          set -x
+          set -e
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
-          # 割り当て先を明示する（既定の探索だと Pods 側を見て App に当たらないことがある）
+          # 割り当て先を明示する（既定の探索だと App に当たらないことがある）
           xcode-project use-profiles --project "mobile/ios/App/App.xcodeproj"
-          # 当たったかどうかを残す（次に落ちたときの手がかり）
+          # 取ってきたプロファイルの UUID とチーム ID を、次の段階へ渡す
+          # （プロジェクトへの書き込みが当たらなくても、xcodebuild に直接渡せば署名できる）
+          PROF=$(ls -t "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision | head -1)
+          INFO=$(security cms -D -i "$PROF")
+          PROFILE_UUID=$(echo "$INFO" | plutil -extract UUID raw -)
+          PROFILE_NAME=$(echo "$INFO" | plutil -extract Name raw -)
+          TEAM_ID=$(echo "$INFO" | plutil -extract TeamIdentifier.0 raw -)
+          echo "プロファイル: $PROFILE_NAME / UUID: $PROFILE_UUID / チーム: $TEAM_ID"
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $CM_ENV
+          echo "TEAM_ID=$TEAM_ID" >> $CM_ENV
+          # いまの設定を残す（次に落ちたときの手がかり）
           xcodebuild -workspace mobile/ios/App/App.xcworkspace -scheme App -showBuildSettings 2>/dev/null             | grep -E "PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE|CODE_SIGN_IDENTITY|CODE_SIGN_STYLE|DEVELOPMENT_TEAM" | sort -u || true
       - name: ビルド
         script: |
           cd mobile/ios/App
-          xcode-project build-ipa --workspace "App.xcworkspace" --scheme "$XCODE_SCHEME"
+          xcode-project build-ipa --workspace "App.xcworkspace" --scheme "$XCODE_SCHEME"             --archive-flags "DEVELOPMENT_TEAM=$TEAM_ID PROVISIONING_PROFILE_SPECIFIER=$PROFILE_UUID CODE_SIGN_STYLE=Manual"
     artifacts:
       - mobile/ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

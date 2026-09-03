@@ -52,7 +52,8 @@
   ];
 
   const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on', level: 'hard' };
-  const LEVELS = { easy: 'やさしい', medium: 'ふつう', hard: 'むずかしい' };
+  const LEVELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+  const lvOf = s => s.level === 'medium' ? 'normal' : (s.level || 'hard');   // medium は旧称
   /* 視界・姿勢指示器のリアルタイム更新に使う係数（svgCockpit / svgAI と同じ値） */
   const CK = { kp: 5, ky: 6, aiK: 2.4, grow: 0.45 };
 
@@ -64,8 +65,8 @@
      medium: 答えは東西南北のみ、N マークはランダム（機首とは重ならない）
      hard: 答えは 8 方位、N マークはランダム（機首とは重ならない） */
   function genHeading(s) {
-    const lv = s.level || 'hard';
-    const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'medium' ? pick([2, 4, 6]) : 1 + rnd(7);
+    const lv = lvOf(s);
+    const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'normal' ? pick([2, 4, 6]) : 1 + rnd(7);
     const phi = (lv === 'easy' || s.north === 'fixed') ? 0 : rnd(8) * 45;
     return { type: 'heading', dir, phi, theta: norm(phi + dir * 45), level: lv };
   }
@@ -96,9 +97,9 @@
      medium: 14 方向すべて。翼は水平に固定
      hard: 14 方向すべて + バンク */
   function genAttitude(s) {
-    const lv = s.level || 'hard';
+    const lv = lvOf(s);
     const pool = lv === 'easy' ? DIR14.filter(x => x.id === 'north' || x.id === 'up' || x.id === 'down') : DIR14;
-    const d = pick(pool), pitch = d.pitch, bank = lv === 'medium' ? 0 : pickBank(s, d);
+    const d = pick(pool), pitch = d.pitch, bank = lv === 'normal' ? 0 : pickBank(s, d);
     const dis = pickDistractors(attCands(bank, pitch), () => true, 3);
     const opts = shuffle([{ bank, pitch, ok: true }, ...dis.map(([b, p]) => ({ bank: b, pitch: p, ok: false }))]);
     return { type: 'attitude', dir14: d, bank, pitch, opts, level: lv };
@@ -106,7 +107,7 @@
   /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。誤答は「方位違い（姿勢は同じ）」と「姿勢の区分違い（方位は同じ）」を混ぜる */
   function genCombo(s) {
     /* 難易度: easy は東西南北のみ・水平（上下も傾きもなし）、medium は東西南北のみ（傾きあり）、hard は 12 方向すべて */
-    const lv = s.level || 'hard';
+    const lv = lvOf(s);
     const pool = DIR14.filter(x => x.heading !== null && (lv === 'hard' || x.pitch === 0));
     const d = pick(pool), heading = d.heading, pitch = d.pitch, bank = lv === 'easy' ? 0 : pickBank(s, d);
     const hc = [heading + 180, 360 - heading, heading + 90, heading - 90, heading + 45, heading - 45].map(norm).filter(h => h !== heading).map(h => [h, bank, pitch]);
@@ -133,7 +134,7 @@
        同じ操作の繰り返しや左右の切り返し（左に倒して右に倒す等）は 2 操作としては出さない */
     const STICK = OPS.filter(o => o.group === 'stick'), RUDDER = OPS.filter(o => o.group === 'rudder');
     /* 難易度: easy は 1 操作だけ、medium は 1 操作と 2 操作の混在、hard は混在＋視界の目盛りなし */
-    const lv = s.level || 'hard';
+    const lv = lvOf(s);
     const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && Math.random() < 1 / 3);
     const first = one ? pick(OPS).id : pick(STICK).id;
     const ops = one ? [first, first] : [first, pick(RUDDER).id];

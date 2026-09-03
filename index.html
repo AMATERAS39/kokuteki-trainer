@@ -752,7 +752,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=35"></script>
+<script src="engine.js?v=36"></script>
 <script>
 (function(){
 'use strict';
@@ -768,7 +768,7 @@ const MODE_DEFAULTS={
   combo:{level:'easy',qCount:20,qLimit:15,sLimit:480,skipExplain:true},
   control:{level:'easy',qCount:10,qLimit:20,sLimit:900,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
 const modeSet=store.get('modeSet',{});
-const MS=()=>Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});
+const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';return m};   // medium は旧称
 function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}   // 変更したキーだけ保存（既定値の変更を反映させるため）
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'mix',init:'random',bank:'on'};
@@ -965,17 +965,17 @@ function enterMode(m,sub){
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・全体の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
-  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',medium:'東西南北の 4 方位だけ。N マークの向きは毎回変わる。',hard:'8 方位すべて。N マークの向きは毎回変わる。'},
-  attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',medium:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
-  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',medium:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'12 方向すべて。方位指示器の印は毎回変わる。'},
-  control:{easy:'操作は 1 つだけ。',medium:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ。視界の中央の目盛りは出ない。'}};
+  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東西南北の 4 方位だけ。N マークの向きは毎回変わる。',hard:'8 方位すべて。N マークの向きは毎回変わる。'},
+  attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',normal:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
+  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'12 方向すべて。方位指示器の印は毎回変わる。'},
+  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ。視界の中央の目盛りは出ない。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
   const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(ms[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
-    ${sel('level','難易度',[['easy','やさしい'],['medium','ふつう'],['hard','むずかしい']])}
+    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard']])}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}</div>
     ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']])}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}

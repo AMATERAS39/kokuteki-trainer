@@ -12,6 +12,28 @@ export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
 
+/* 編隊。offs は先頭機（操作する機体）から見た 2〜6 番機の位置 [右, 前後, 上]（m）。
+   前後が負なら後ろ。同じ左右の位置に後続がいる機体はスモークを出さない（後ろの機体が煙の中を飛ぶため） */
+export const FORMATIONS = {
+  solo:  { ja: '単機', offs: [] },
+  delta: { ja: '三角形', offs: [[-14, -14, 0], [14, -14, 0], [-28, -28, 0], [28, -28, 0], [0, -34, 0]] },
+  inv:   { ja: '逆三角形', offs: [[-28, -10, 0], [28, -10, 0], [-14, -22, 0], [14, -22, 0], [0, -34, 0]] },
+  box:   { ja: '四角形', offs: [[-16, -12, 0], [16, -12, 0], [-16, -30, 0], [16, -30, 0], [0, -42, 0]] },
+  line:  { ja: '一列縦隊', offs: [[0, -14, -4], [0, -28, -8], [0, -42, -12], [0, -56, -16], [0, -70, -20]] }
+};
+/* スモークの色。1 色なら全機同じ、6 色なら 1〜6 番機に順に割り当てる */
+export const SMOKE_COLORS = {
+  white:  { ja: '白', c: ['#ffffff'] },
+  pink:   { ja: 'ピンク', c: ['#ff7fb6'] },
+  green:  { ja: '緑', c: ['#6ee7a0'] },
+  yellow: { ja: '黄', c: ['#ffd84d'] },
+  blue:   { ja: '青', c: ['#6ec1ff'] },
+  rainbow:{ ja: 'カラフル', c: ['#ffffff', '#ff7fb6', '#6ee7a0', '#ffd84d', '#6ec1ff', '#c79bff'] }
+};
+export const SMOKE_LIFE = 29;                    // 煙が消えるまで（秒）。宙返り 2 周ぶん（25°/s で 1 周 14.4 秒）
+const SMOKE_MAX = 620;                           // 1 機あたりの粒の数（0.05 秒ごとに 1 つ）
+const SMOKE_DT = 0.05;
+
 /* CSS 変数（昼／夜の配色）を色として読む。最初に見つかった変数を使う */
 function cssColor(names, fallback) {
   const cs = getComputedStyle(document.body);
@@ -150,6 +172,71 @@ export function mount(container, { onState, view = 'first' } = {}) {
      近くにある機体内部の部品（操縦桿など）が目の前に大きく映るため、一人称ではカメラの手前の面を 1.1 で切る（setView）。
      画面の入力は下に置いた操縦桿の絵とペダルのボタンで示す */
   const lamp = new THREE.PointLight(0xffe2b8, 0.9, 2.5); lamp.position.set(0, 2.9, 0.3); cockpit.add(lamp);   // 操縦席の灯り（夜でも部品が見える）
+  /* 編隊の 2〜6 番機。先頭機の少し前の状態をたどって並ぶ（旋回でも隊形が崩れない） */
+  const mates = [];                       // { grp, plate[] }
+  const hist = [];                        // 先頭機の軌跡 { t, p:Vector3, q:Quaternion }
+  let histT = 0;
+  let formation = 'solo', smokeOn = false, smokeColor = 'white';
+
+  /* 垂直尾翼の番号。モデルの「1」の上に貼る小さな板（左右 2 枚） */
+  function numberPlate(n) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g2 = c.getContext('2d');
+    g2.fillStyle = '#0a6ab4'; g2.fillRect(0, 0, 128, 128);
+    g2.fillStyle = '#fff'; g2.font = 'bold 104px "Zen Kaku Gothic New", system-ui, sans-serif';
+    g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText(String(n), 64, 68);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    return new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+  }
+  const FIN = { y: -4.25, z: 2.15, size: 1.05, x: 0.07 };
+  function addPlates(grp, n) {
+    const geo = new THREE.PlaneGeometry(FIN.size, FIN.size), mat = numberPlate(n), out = [];
+    for (const sx of [1, -1]) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(FIN.x * sx, FIN.y, FIN.z); m.rotation.set(Math.PI / 2, 0, sx > 0 ? Math.PI / 2 : -Math.PI / 2);
+      grp.add(m); out.push(m);
+    }
+    return out;
+  }
+
+  /* スモーク: 粒の集まり。位置・色・生まれた時刻を持ち、時間が経つと薄れて広がる */
+  const SMOKE_N = SMOKE_MAX * 6;
+  const smokeGeo = new THREE.BufferGeometry();
+  const sPos = new Float32Array(SMOKE_N * 3), sCol = new Float32Array(SMOKE_N * 3), sBirth = new Float32Array(SMOKE_N);
+  sBirth.fill(-1e6);
+  smokeGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+  smokeGeo.setAttribute('acolor', new THREE.BufferAttribute(sCol, 3));
+  smokeGeo.setAttribute('birth', new THREE.BufferAttribute(sBirth, 1));
+  const smokeMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uLife: { value: SMOKE_LIFE } },
+    transparent: true, depthWrite: false,
+    vertexShader: `attribute vec3 acolor; attribute float birth; uniform float uTime, uLife;
+      varying vec3 vC; varying float vA;
+      void main(){ float age = (uTime - birth) / uLife; vA = clamp(1.0 - age, 0.0, 1.0); vA *= vA;
+        vC = acolor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = (2.5 + 15.0 * clamp(age, 0.0, 1.0)) * (240.0 / max(1.0, -mv.z));
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying vec3 vC; varying float vA;
+      void main(){ float d = length(gl_PointCoord - vec2(0.5)); if (d > 0.5) discard;
+        float a = vA * smoothstep(0.5, 0.1, d) * 0.42; if (a <= 0.01) discard;
+        gl_FragColor = vec4(vC, a); }`
+  });
+  const smoke = new THREE.Points(smokeGeo, smokeMat); smoke.frustumCulled = false; world.add(smoke);
+  let sHead = 0, smokeT = 0, clock = 0;
+  const smokeCol = new THREE.Color(), emitPos = new THREE.Vector3();
+  function emit(pos, colorHex) {
+    const i = sHead % SMOKE_N; sHead++;
+    sPos[i * 3] = pos.x; sPos[i * 3 + 1] = pos.y; sPos[i * 3 + 2] = pos.z;
+    smokeCol.set(colorHex); sCol[i * 3] = smokeCol.r; sCol[i * 3 + 1] = smokeCol.g; sCol[i * 3 + 2] = smokeCol.b;
+    sBirth[i] = clock;
+  }
+  function clearSmoke() { sBirth.fill(-1e6); smokeGeo.attributes.birth.needsUpdate = true; }
+  /* 同じ左右の位置に後続がいる機体は煙を出さない（後ろの機体が煙の中を飛ぶため）。単機なら先頭機が出す */
+  function smokers() {
+    const offs = [[0, 0, 0], ...FORMATIONS[formation].offs];
+    return offs.map((o, i) => !offs.some((q, j) => j !== i && Math.abs(q[0] - o[0]) < 6 && q[1] < o[1] - 2));
+  }
+
   new GLTFLoader().load('model/t4.glb', g => {
     g.scene.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
     const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), k = 13 / Math.max(size.y, 1e-3);   // 全長 13 m
@@ -157,7 +244,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
     plane.add(g.scene);
     cockpit.position.copy(g.scene.position); eyeOff.copy(g.scene.position);   // 操縦席の部品と目の位置はモデル座標（×k）で書いてあるので、同じ平行移動を掛ける
     g.scene.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) seatMeshes.push(o); });   // 自分が座る前席（一人称では隠す）
-    seatMeshes.forEach(m => { m.visible = curView === 'third'; });
+    seatMeshes.forEach(m => { m.visible = curView !== 'first'; });
+    /* 2〜6 番機はモデルを複製して、尾翼に番号の板を貼る */
+    for (let n = 2; n <= 6; n++) {
+      const grp = new THREE.Group(); grp.add(g.scene.clone(true)); grp.position.copy(g.scene.position);
+      const holder = new THREE.Group(); holder.add(grp); holder.visible = false; world.add(holder);
+      addPlates(grp, n);
+      mates.push(holder);
+    }
   }, undefined, () => {});
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false })); shadow.position.z = 0.8; world.add(shadow);
   const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 1)]);
@@ -209,16 +303,48 @@ export function mount(container, { onState, view = 'first' } = {}) {
     st.ground = st.z <= 3;
     if (st.ground) { st.z = 3; if (st.p < 0 || Math.abs(st.b) > 90) levelAttitude(); }   // 地面に着いたら水平に戻す
   }
+  /* 先頭機の軌跡を残し、そこから編隊機の位置を決める */
+  const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3();
+  function recordHistory(dt) {
+    histT += dt;
+    hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
+    while (hist.length > 2 && hist[0].t < histT - 6) hist.shift();
+  }
+  function stateAt(lag) {
+    const want = histT - lag;
+    for (let i = hist.length - 1; i >= 0; i--) if (hist[i].t <= want) return hist[i];
+    return hist[0] || { p: plane.position, q: att };
+  }
+  function placeMates() {
+    const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
+    const emitting = smokeOn && smokeT >= SMOKE_DT;
+    if (emitting) smokeT = 0;
+    if (on[0] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
+    mates.forEach((holder, i) => {
+      const off = f.offs[i];
+      if (!off) { holder.visible = false; return; }
+      holder.visible = true;
+      const st2 = stateAt(Math.max(0, -off[1] / SPEED));
+      mq.copy(st2.q); mp.copy(st2.p);
+      mo.set(off[0], 0, off[2]).applyQuaternion(mq);
+      holder.position.copy(mp).add(mo); holder.quaternion.copy(mq);
+      if (on[i + 1] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+    });
+    if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; }
+    smokeMat.uniforms.uTime.value = clock;
+  }
+
   function place() {
     rotation();
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
-    if (curView === 'third') {
-      /* 三人称は機体の後ろ上から追う。宙返りでも見失わないよう、機体の姿勢に沿って後ろを取る */
-      tmp.set(0, -32, 10).applyQuaternion(att).add(plane.position);
+    if (curView === 'third' || curView === 'front') {
+      /* 三人称は機体の後ろ上（前方視点は機首の前）から。宙返りでも見失わないよう、機体の姿勢に沿って取る */
+      const back = curView === 'front' ? 36 : -32, up = curView === 'front' ? 5 : 10;
+      tmp.set(0, back, up).applyQuaternion(att).add(plane.position);
       if (camPos.lengthSq() === 0) camPos.copy(tmp); else camPos.lerp(tmp, 0.12);
-      cam.position.copy(camPos); cam.up.copy(bup); cam.lookAt(tmp.set(0, 20, 2).applyQuaternion(att).add(plane.position));
+      cam.position.copy(camPos); cam.up.copy(bup); cam.lookAt(plane.position);
     } else {
       cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(R).add(plane.position));
       cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(R, RX90).multiply(TILT));   // 一人称は少し下向き（計器盤と操縦桿が視界に入る）
@@ -230,20 +356,30 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function frame(now) {
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    step(dt); place(); renderer.render(world, cam);
+    clock += dt; smokeT += dt;
+    step(dt); place(); recordHistory(dt); placeMates(); renderer.render(world, cam);
     if (onState) onState(st);
     raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
 
   /* 一人称はカメラの手前の面を 1.1 で切る（目のすぐ前にある機体内部の部品が画面を塞ぐのを防ぐ）。三人称は 0.5 */
-  function setView(v) { curView = v; seatMeshes.forEach(m => { m.visible = v === 'third'; }); cam.fov = v === 'third' ? 55 : 68; cam.near = v === 'third' ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0); }
+  function setView(v) {
+    curView = v; const out = v !== 'first';
+    seatMeshes.forEach(m => { m.visible = out; });
+    cockpit.visible = !out;
+    cam.fov = out ? 55 : 68; cam.near = out ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0);
+  }
   setView(view);
 
   return {
     input, state: st, setView,
+    setFormation(f) { if (FORMATIONS[f]) { formation = f; clearSmoke(); } },
+    setSmoke(on) { smokeOn = !!on; },
+    smokeState() { return smokeOn; },
+    setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },
     level() { levelAttitude(); },
-    home() { Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h }); levelAttitude(); camPos.set(0, 0, 0); },
+    home() { Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },
     dispose() { running = false; cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); cv.remove(); }
   };
 }

@@ -26,7 +26,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 | `mobile/package.json` | Capacitor と three.js の依存 |
 | `mobile/capacitor.config.json` | アプリ ID `com.amaterasuvocab.kokuteki`、名前 TENRYU、www を読む |
 | `mobile/copy-web.js` | 配信ファイルを `mobile/www` に集め、three.js を同梱して importmap をローカルに書き換える（sw.js と Google Fonts は入れない） |
-| `mobile/codemagic.yaml` | クラウドでのビルドと TestFlight への配信 |
+| `codemagic.yaml`（リポジトリ直下） | クラウドでのビルドと TestFlight への配信。Codemagic は直下しか見ないので、ここに置く |
 
 アプリ側の作りは対応済み: Capacitor で動いているときはサービスワーカーを登録せず、版は常に全機能版になる（`index.html` の `NATIVE`）。
 
@@ -108,8 +108,9 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 1. App Store Connect で **App Store Connect API キー**を作る（ユーザとアクセス → 統合 → キーを生成。権限は App Manager。`.p8` は 1 回だけダウンロードできる）
 2. **バンドル ID を登録**（Certificates, Identifiers & Profiles → Identifiers → `com.amaterasuvocab.kokuteki`）
 3. App Store Connect で **アプリを作る**（名前 TENRYU、SKU `tenryu-001`）
-4. Codemagic に GitHub でログインし、`AMATERAS39/kokuteki-trainer` を追加。Teams → Integrations → App Store Connect に 1 のキーを登録
-5. Codemagic のアプリ設定で `mobile/codemagic.yaml` を使う設定にし、変数グループ `appstore` を作る（中身は空でよい）
+4. Codemagic に GitHub でログインし、`AMATERAS39/kokuteki-trainer` を追加。
+   Teams → Integrations → **App Store Connect** に 1 のキーを登録する。**名前は `TENRYU`**（`codemagic.yaml` の `integrations` と一致させる）
+5. Codemagic のアプリ画面で「codemagic.yaml」を使う設定にする（直下の `codemagic.yaml` を自動で読む）。変数グループは要らない
 6. ビルドを実行 → TestFlight に上がる → iPhone で確認
 7. 掲載文・スクリーンショット・価格（800 円）・「App のプライバシー（収集なし）」を入れて審査へ提出
 

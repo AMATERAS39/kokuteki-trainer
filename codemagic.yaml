@@ -1,11 +1,17 @@
+# Codemagic（クラウドの macOS）でのビルド設定。Codemagic はリポジトリ直下の codemagic.yaml を読む。
+# 前提: Codemagic の Teams → Integrations → App Store Connect に、名前 "TENRYU" でキーを登録してあること
+#       （Key ID / Issuer ID / .p8 は kokuteki-private/appstore/ に控え）
 workflows:
   ios-appstore:
     name: TENRYU iOS（App Store）
     instance_type: mac_mini_m2
     max_build_duration: 60
+    integrations:
+      app_store_connect: TENRYU        # ← Codemagic で付けた連携の名前と一致させる
     environment:
-      groups:
-        - appstore              # Codemagic の画面で作る変数グループ。App Store Connect 連携を使うなら中身は空でよい
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.amaterasuvocab.kokuteki
       vars:
         BUNDLE_ID: "com.amaterasuvocab.kokuteki"
         XCODE_SCHEME: "App"
@@ -34,17 +40,14 @@ workflows:
         script: |
           cd mobile
           node patch-ios.js
-      - name: ビルド番号を決める（App Store Connect の最新 +1）
+      - name: ビルド番号を入れる（Codemagic の通し番号を使う）
         script: |
-          BUILD=$(($(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo 0) + 1))
-          echo "ビルド番号: $BUILD"
           cd mobile/ios/App
-          agvtool new-version -all "$BUILD"
-        ignore_failure: true       # 初回はまだアプリの ID がないので飛ばしてよい
+          agvtool new-version -all "${BUILD_NUMBER:-1}"
       - name: 署名の設定
         script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
           xcode-project use-profiles
       - name: ビルド
@@ -56,6 +59,6 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
-        auth: integration          # Codemagic の App Store Connect 連携を使う
+        auth: integration
         submit_to_testflight: true
-        submit_to_app_store: false # 動作確認が済んだら true にする
+        submit_to_app_store: false     # 動作確認が済んだら true にする

@@ -22,6 +22,8 @@
   --sky:#2b6cb0;--earth:#7b4a22;--sky3:#1a3b66;--earth3:#3a2513;
   --bezel:#2b3644;--card:#0d1219;--glare:#07090c;--hud:#8ce99a;
   --jet:#cfd8e2;--jet-line:#0b1017;--canopy:#8fd3ff;--ok:#3ed48a;--bad:#ff6b6b;
+  --hero-a:#1b2d48;--hero-b:#111a27;--hero-grid:rgba(255,255,255,.035);--hero-shadow:rgba(0,0,0,.55);
+  --word-face:#f6f8fb;--word-edge:#cfd8e2;--word-edge2:#8f9cab;--word-edge3:#4e5967;--word-shadow:rgba(0,0,0,.6);--inst-ink:#fff;
   --display:"Zen Kaku Gothic New","Noto Sans JP",sans-serif;
   --body:"Noto Sans JP",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,monospace;
@@ -32,12 +34,16 @@
   --text:#172130;--muted:#556477;--faint:#8592a1;--accent:#c4711a;--on-accent:#fff;
   --sky:#4a8ad8;--earth:#8c5a2a;--sky3:#9cc3ea;--earth3:#b98a5a;
   --bezel:#c9d2dc;--card:#f5f7fa;--glare:#4b5563;--hud:#1f7a45;
+  --hero-a:#dbe6f2;--hero-b:#eef3f8;--hero-grid:rgba(23,33,48,.06);--hero-shadow:rgba(23,33,48,.28);
+  --word-face:#2b3a4d;--word-edge:#8d9cb0;--word-edge2:#b9c5d3;--word-edge3:#dbe3ec;--word-shadow:rgba(23,33,48,.28);--inst-ink:#2c3a4b;
   --jet:#3b4756;--jet-line:#172130;--canopy:#63b3e6;--ok:#1f8a4c;--bad:#d43d3d;color-scheme:light}}
 :root[data-theme="light"]{
   --bg:#eef1f5;--panel:#fff;--panel2:#e4e9ef;--line:#d5dce4;--line2:#b7c2cf;
   --text:#172130;--muted:#556477;--faint:#8592a1;--accent:#c4711a;--on-accent:#fff;
   --sky:#4a8ad8;--earth:#8c5a2a;--sky3:#9cc3ea;--earth3:#b98a5a;
   --bezel:#c9d2dc;--card:#f5f7fa;--glare:#4b5563;--hud:#1f7a45;
+  --hero-a:#dbe6f2;--hero-b:#eef3f8;--hero-grid:rgba(23,33,48,.06);--hero-shadow:rgba(23,33,48,.28);
+  --word-face:#2b3a4d;--word-edge:#8d9cb0;--word-edge2:#b9c5d3;--word-edge3:#dbe3ec;--word-shadow:rgba(23,33,48,.28);--inst-ink:#2c3a4b;
   --jet:#3b4756;--jet-line:#172130;--canopy:#63b3e6;--ok:#1f8a4c;--bad:#d43d3d;color-scheme:light}
 
 /* ===== 基本 ===== */
@@ -379,15 +385,15 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .hero p{margin:.5rem 0 0;font-size:.875rem;line-height:1.7;color:var(--muted)}
 .hero img{width:5.5rem;height:5.5rem;object-fit:contain;transform:rotate(-45deg);filter:drop-shadow(0 .5rem 1rem rgba(0,0,0,.5))}
 .hero2{position:relative;margin-top:.5rem;border-radius:1rem;border:1px solid var(--line);padding:1.25rem 1rem .875rem;display:flex;flex-direction:column;align-items:center;overflow:hidden;
-  background:radial-gradient(70% 60% at 50% 42%,#1b2d48 0%,#111a27 55%,var(--panel) 100%)}
-.hero2::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 2.4rem,rgba(255,255,255,.035) 2.4rem calc(2.4rem + 1px)),repeating-linear-gradient(90deg,transparent 0 2.4rem,rgba(255,255,255,.035) 2.4rem calc(2.4rem + 1px));mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%);-webkit-mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%)}
+  background:radial-gradient(70% 60% at 50% 42%,var(--hero-a) 0%,var(--hero-b) 55%,var(--panel) 100%)}
+.hero2::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 2.4rem,var(--hero-grid) 2.4rem calc(2.4rem + 1px)),repeating-linear-gradient(90deg,transparent 0 2.4rem,var(--hero-grid) 2.4rem calc(2.4rem + 1px));mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%);-webkit-mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%)}
 /* 画像は機体が中央になるよう左右対称の余白付き。枠より広く表示してスモークは左端で切れる */
-.hero-jet{position:relative;width:150%;max-width:none;height:auto;margin:0 -25%;filter:drop-shadow(0 1.25rem 1.5rem rgba(0,0,0,.55))}
+.hero-jet{position:relative;width:150%;max-width:none;height:auto;margin:0 -25%;filter:drop-shadow(0 1.25rem 1.5rem var(--hero-shadow))}
 /* ロゴは機体と重ならないよう、画像の下の独立した行に右寄せで置く */
 /* 立体文字 TENRYU（暫定: CSS の押し出し文字。RIKYU の納品（透明 PNG）が届いたら <img> に差し替える） */
-.hero-word{position:relative;align-self:flex-end;margin:.5rem .5rem 0 0;font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,7.5vw,2.4rem);letter-spacing:.14em;line-height:1;color:#f6f8fb;user-select:none;
-  text-shadow:0 .03em 0 #cfd8e2,0 .06em 0 #b3bfcc,0 .09em 0 #8f9cab,0 .12em 0 #6c7886,0 .15em 0 #4e5967,0 .22em .35em rgba(0,0,0,.6);transform:perspective(18rem) rotateX(16deg) skewX(-5deg)}
-.hero-word span{background:linear-gradient(180deg,#ffffff 0%,#f2f6fa 50%,#dbe3ec 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-word{position:relative;align-self:flex-end;margin:.5rem .5rem 0 0;font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,7.5vw,2.4rem);letter-spacing:.14em;line-height:1;color:var(--word-face);user-select:none;
+  text-shadow:0 .03em 0 var(--word-edge),0 .06em 0 var(--word-edge),0 .09em 0 var(--word-edge2),0 .12em 0 var(--word-edge2),0 .15em 0 var(--word-edge3),0 .22em .35em var(--word-shadow);transform:perspective(18rem) rotateX(16deg) skewX(-5deg)}
+.hero-word span{color:var(--word-face)}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
 .mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
 @media (hover:hover){.mode:hover{border-color:var(--muted)}}
@@ -752,7 +758,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=36"></script>
+<script src="engine.js?v=37"></script>
 <script>
 (function(){
 'use strict';
@@ -783,9 +789,11 @@ const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab
 const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
+/* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
+const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v02';
-let edition=DEMO_ON?store.get('edition','demo'):'full';
+const APP_VER='v02.01';
+let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
 async function checkKey(){
@@ -1341,7 +1349,7 @@ let swReg=null,toastId=null,updReady=false;
 function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastId);toastId=setTimeout(()=>{t.hidden=true},ms||2200)}
 function setUpdateReady(){updReady=true;$('#updBtn').classList.add('has')}
 function applyWaiting(){if(swReg&&swReg.waiting){try{sessionStorage.setItem('aat.updated','1')}catch(e){}swReg.waiting.postMessage('SKIP_WAITING');return true}return false}
-if('serviceWorker' in navigator){
+if('serviceWorker' in navigator&&!NATIVE&&/^https?:$/.test(location.protocol)){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;
     if(reg.waiting&&navigator.serviceWorker.controller)setUpdateReady();
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)setUpdateReady()})});

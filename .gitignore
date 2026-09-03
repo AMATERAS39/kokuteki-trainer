@@ -3,3 +3,8 @@ t4model/
 # 購入した 3D モデル（非公開。C:/適性検査 にも控えあり）
 dev/t4model/
 dev/package/
+
+# iOS の包み（生成物。CI で作り直す）
+mobile/node_modules/
+mobile/www/
+mobile/ios/

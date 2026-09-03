@@ -10,29 +10,40 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 |---|---|---|
 | Apple ID | 二要素認証を有効にしておく | 無料 |
 | Apple Developer Program | 個人または法人で登録。個人なら本人確認あり | 年 12,980 円、審査 1〜3 日 |
-| Mac | Xcode 15 以上が動く macOS。実機ビルドと申請に必要 | — |
-| iPhone または iPad | 実機確認用（シミュレーターだけでも申請はできるが確認が甘くなる） | — |
+| Mac | **不要**。持っていないので、クラウドの macOS（Codemagic）でビルドする。下の「1. パッケージの作り方」を参照 | Codemagic 無料枠 月 500 分 |
+| iPhone | 実機確認とスクリーンショットの撮影に使う（TestFlight で配信して確認する） | — |
 | 銀行口座と税務情報 | 有料アプリの売上を受け取るため、App Store Connect の「契約、税金、口座情報」で設定 | — |
 
 - 有料アプリは「有料アプリケーション契約」への同意が必要。これが済むまで価格を設定できない。
 - 日本の個人の場合、マイナンバーの提出を求められる（税務情報）。
 
-## 1. パッケージの作り方（2 案）
+## 1. パッケージの作り方（Mac なし・Capacitor + Codemagic）
 
-### 案 A: Capacitor（推奨）
-ネイティブの機能を足しやすく、審査対策（4.2）に必要な「アプリらしさ」を作りやすい。
+リポジトリの `mobile/` に用意済み。Mac は要らず、Codemagic（クラウドの macOS）がビルドして TestFlight まで上げる。
 
-1. Mac で Node.js を入れる。
-2. 空のフォルダで `npm init -y` → `npm i @capacitor/core @capacitor/cli @capacitor/ios`
-3. `npx cap init TENRYU com.amaterasuvocab.kokuteki --web-dir=www`
-4. リポジトリの配信ファイル（index.html、engine.js、sim3d.js、viewer.js、img/、model/、icons/、news.json、manifest.webmanifest、privacy.html）を `www/` にコピーする。**sw.js は入れない**（アプリ内では不要で、更新の扱いが二重になる）。
-5. `npx cap add ios` → `npx cap open ios` で Xcode が開く。
-6. 全機能版の扱い: アプリ内は常に全機能版にする。`index.html` の `DEMO_ON` は Web 版のためのもので、アプリに入れるファイルでは `edition='full'` 固定にするか、起動 URL の `?key=` と同じ判定を通す。
+| ファイル | 役割 |
+|---|---|
+| `mobile/package.json` | Capacitor と three.js の依存 |
+| `mobile/capacitor.config.json` | アプリ ID `com.amaterasuvocab.kokuteki`、名前 TENRYU、www を読む |
+| `mobile/copy-web.js` | 配信ファイルを `mobile/www` に集め、three.js を同梱して importmap をローカルに書き換える（sw.js と Google Fonts は入れない） |
+| `mobile/codemagic.yaml` | クラウドでのビルドと TestFlight への配信 |
 
-### 案 B: PWABuilder の iOS パッケージ
-ブラウザだけで作れるが、中身は WKWebView で URL を表示するだけなので 4.2 で落ちやすい。急ぐとき以外は勧めない。
+アプリ側の作りは対応済み: Capacitor で動いているときはサービスワーカーを登録せず、版は常に全機能版になる（`index.html` の `NATIVE`）。
 
-## 2. Xcode での設定
+### 手順
+1. **Apple Developer Program に登録**（年 12,980 円）。登録が済んだら App Store Connect にログインできる。
+2. **App Store Connect の API キーを作る**: ユーザとアクセス → 統合 → App Store Connect API → 「キーを生成」。アクセス権は App Manager。`.p8` ファイル、Key ID、Issuer ID を控える（`.p8` は 1 回しかダウンロードできない）。
+3. **Codemagic に登録**（https://codemagic.io）。GitHub でログインし、`AMATERAS39/kokuteki-trainer` を選ぶ。
+4. Codemagic の Teams → Integrations → App Store Connect に、上の Key ID・Issuer ID・`.p8` を登録する。
+5. Codemagic のアプリ設定で、ビルド設定に `mobile/codemagic.yaml` を使うよう指定し、環境変数グループ `appstore` を作る。
+6. ビルドを実行する。成功すると TestFlight にビルドが上がる。iPhone の TestFlight アプリで実機確認する。
+7. 問題なければ `codemagic.yaml` の `submit_to_app_store` を true にするか、App Store Connect の画面から審査に提出する。
+
+### 代わりの方法
+- **クラウドの Mac を借りる**: MacinCloud（月 30 ドル前後）や Scaleway の Mac mini（時間貸し）。画面越しに Xcode を使う。CI に慣れていないときはこちら。
+- **PWABuilder の iOS パッケージ**: ブラウザだけで Xcode プロジェクトは作れるが、結局ビルドに macOS が要る。中身も URL を表示するだけなので審査 4.2 で落ちやすい。勧めない。
+
+## 2. Xcode での設定（Codemagic 上で自動。手で直すときの控え）
 
 - Bundle Identifier: `com.amaterasuvocab.kokuteki`（Play と同じ）
 - Display Name: TENRYU
@@ -42,7 +53,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 - App Icons: `icons/icon-512.png` から 1024×1024 を作って設定する（角丸と透明は不可。白地の四角い画像にする）
 - Launch Screen: 背景 #141a22 に中央アイコン
 - Signing: Automatically manage signing、Team に開発者アカウントを選ぶ
-- 3D（three.js）は CDN から読み込んでいる。オフラインでも動くよう、`three` と `OrbitControls`・`GLTFLoader` をローカルに置いて `importmap` を書き換えることを検討する（審査でオフライン動作を見られることがある）
+- 3D（three.js）は `copy-web.js` が `node_modules` から `www/vendor` にコピーし、`importmap` をローカル参照に書き換える。Google Fonts の link も外すので、通信なしで動く
 
 ## 3. App Store Connect でアプリを作る
 
@@ -58,11 +69,11 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 4. 「App のプライバシー」
    - データを収集しない（No, we do not collect data）を選ぶ。設定と記録は端末内の localStorage だけで、外部に送らない
 5. 「バージョン情報」: 掲載文は `dev/docs/appstore/ストア掲載文.md` から貼る
-6. スクリーンショット: 6.7 インチ（1290×2796）と 6.5 インチ（1242×2688）が必須。`dev/docs/play/screenshots/` の 1080×1920 は使い回せないので、iPhone の実機かシミュレーターで撮り直す
+6. スクリーンショット: 6.7 インチ（1290×2796）が必須。`dev/docs/play/screenshots/` の 1080×1920 は使い回せないので、TestFlight で実機に入れて iPhone で撮り直す
 
 ## 4. 提出
 
-1. Xcode → Product → Archive → Distribute App → App Store Connect → Upload
+1. Codemagic のビルドが TestFlight まで上げる（Mac があるときは Xcode → Product → Archive → Distribute App）
 2. App Store Connect でビルドを選び、輸出コンプライアンス（暗号化）に回答する。**HTTPS 通信だけなら「いいえ」**（`ITSAppUsesNonExemptEncryption` を `false` で Info.plist に入れておくと毎回聞かれない）
 3. 「審査へ提出」。初回は 1〜3 日で結果が来る
 
@@ -86,6 +97,5 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 ## 7. 今わかっている未確定事項
 
 - Apple Developer Program の登録（利用者の作業）。登録後に Team ID が決まる
-- Mac の有無。なければ、Mac を借りる、または Xcode Cloud / 代行ビルドの検討が要る
-- スクリーンショットの撮り直し（6.7 インチと 6.5 インチ）
-- three.js とモデルの同梱（オフライン動作の担保）
+- 【解決】Mac は持っていないので Codemagic（クラウドの macOS）でビルドする。`mobile/` に一式を用意済み
+- スクリーンショットの撮り直し（6.7 インチ 1290×2796 が必須）。TestFlight で実機に入れてから iPhone で撮るのが早い。手元の iPhone の画面が小さいときは、撮った画像を必要な大きさに拡大して出す（縦横比がほぼ同じなので見た目は変わらない）

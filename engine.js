@@ -308,12 +308,12 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     let card = '';
     for (let i = 0; i < 8; i++) {
       const a = i * 45, major = i % 2 == 0;
-      card += `<line x1="0" y1="-88" x2="0" y2="${major ? -72 : -78}" stroke="#fff" stroke-width="${major ? 3 : 2}" transform="rotate(${a})"/>`;
+      card += `<line x1="0" y1="-88" x2="0" y2="${major ? -72 : -78}" stroke="var(--inst-ink, #fff)" stroke-width="${major ? 3 : 2}" transform="rotate(${a})"/>`;
     }
     const mk = DIRS[((mark % 8) + 8) % 8].k;
     card += `<g transform="rotate(${mark * 45})"><polygon points="0,-86 -7,-68 7,-68" fill="var(--accent)"/><text y="-44" text-anchor="middle" font-size="${mk.length > 1 ? 17 : 22}" font-weight="700" font-family="var(--display)" fill="var(--accent)">${mk}</text></g>`;
     return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="方位指示器">
-<circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><g class="hi-c" transform="rotate(${-heading})">${card}</g>
+<circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><circle r="90" fill="none" stroke="var(--line2)" stroke-width="1"/><g class="hi-c" transform="rotate(${-heading})">${card}</g>
 <path d="M0,-30 L4,-16 L4,-2 L22,8 L22,13 L4,7 L4,16 L11,21 L11,25 L0,22 L-11,25 L-11,21 L-4,16 L-4,7 L-22,13 L-22,8 L-4,-2 L-4,-16 Z" fill="var(--accent)" opacity=".9"/>
 <polygon points="0,-96 -7,-84 7,-84" fill="var(--accent)"/><circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
   }

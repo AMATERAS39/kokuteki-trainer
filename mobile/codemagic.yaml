@@ -1,0 +1,46 @@
+workflows:
+  ios-appstore:
+    name: TENRYU iOS（App Store）
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      groups:
+        - appstore              # Codemagic の画面で作る変数グループ。APP_STORE_CONNECT_* と CERTIFICATE_PRIVATE_KEY を入れる
+      vars:
+        BUNDLE_ID: "com.amaterasuvocab.kokuteki"
+        XCODE_SCHEME: "App"
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: 依存を入れる
+        script: |
+          cd mobile
+          npm install
+      - name: 配信ファイルを www に集める（three.js も同梱）
+        script: |
+          cd mobile
+          node copy-web.js
+      - name: iOS プロジェクトを作る
+        script: |
+          cd mobile
+          npx cap add ios || npx cap sync ios
+          npx cap sync ios
+      - name: 署名の設定
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: ビルド
+        script: |
+          cd mobile/ios/App
+          xcode-project build-ipa --workspace "App.xcworkspace" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - mobile/ios/App/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration          # Codemagic の App Store Connect 連携を使う
+        submit_to_testflight: true
+        submit_to_app_store: false # 動作確認が済んだら true にする

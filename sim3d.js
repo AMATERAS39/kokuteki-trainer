@@ -11,7 +11,8 @@ export const CEIL = 3000;                        // 天井（m）。宙返りが
 export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
-const GROUND_EYE = { x: 90, y: -120, z: 3 };     // 地上から見るときの立ち位置（滑走路の東側）
+const GROUND_EYE = { x: 90, y: -120, z: 0 };     // 地上から見るときの立ち位置（滑走路の東側）
+const EYE_H = 1.6;                               // 目の高さ（人の背丈）
 
 /* 編隊。ブルーインパルスの隊形にならう（名前と並びの出典: wporep.com のブルーインパルス編隊飛行の一覧）。
    offs は先頭機（操作する機体）から見た 2 番機以降の位置 [右, 前後, 上]（m）。前後が負なら後ろ。
@@ -45,7 +46,9 @@ const SMOKE_MAX = 780;                           // 1 機あたりの粒の数�
 const SMOKE_DT = 0.04;
 /* 編隊に入るとき・抜けるときの位置（先頭機から見て後ろの遠く）。ここから所定の位置へ 4 秒かけて寄る */
 const ENTRY = [[-130, -300, 30], [130, -300, 30], [-190, -420, -25], [190, -420, -25], [0, -520, 45]];
-const JOIN_SEC = 4;
+const JOIN_TAU = 1.4;                            // 隊形を変えるときの寄り方（秒、時定数。約 4 秒でほぼ所定の位置）
+/* 自動操縦（地上から見るための演技）。観覧位置のまわりを回り、正面を通過し、宙返りをする */
+const SHOW = { R: 430, ALT: 170, ORBIT: 22, PASS: 15, LOOPMAX: 18 };
 
 /* CSS 変数（昼／夜の配色）を色として読む。最初に見つかった変数を使う */
 function cssColor(names, fallback) {
@@ -291,7 +294,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
       const holder = new THREE.Group(); holder.visible = false; world.add(holder);
       holder.add(g.scene.clone(true));                                   // 複製は元と同じ平行移動を持っている
       addPlates(holder, n);                                              // 実測した位置は機体の座標そのままなので、入れ物に直接置く
-      holder.userData.join = 0; holder.userData.last = new THREE.Vector3();
+      holder.userData.cur = new THREE.Vector3(ENTRY[n - 2][0], ENTRY[n - 2][1], ENTRY[n - 2][2]);   // いまの位置（先頭機から見て）
+      holder.userData.want = new THREE.Vector3();
       mates.push(holder);
     }
   }, undefined, () => {});
@@ -307,6 +311,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
   const gdir = new THREE.Vector3(), gright = new THREE.Vector3();   // 地上視点の向きを作るのに使う
+  const gEye = new THREE.Vector3(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z + EYE_H);   // 地上の立ち位置（目の高さ）
+  let gYaw = 0, gPitch = 0.06;                                     // 地上視点の向き（自分で決めた方向）
+  const gRay = new THREE.Raycaster();
+  function gAim() {   // いまの立ち位置から機体の方へ向ける
+    tmp.copy(plane.position).sub(gEye);
+    gYaw = Math.atan2(tmp.x, tmp.y); gPitch = Math.asin(clamp(tmp.z / Math.max(1, tmp.length()), -1, 1));
+    look.y = 0; look.p = 0;
+  }
   function readAttitude() {
     fwd.copy(AY).applyQuaternion(att); bup.copy(AZ).applyQuaternion(att); bright.copy(AX).applyQuaternion(att);
     st.h = ((Math.atan2(fwd.x, fwd.y) / D) % 360 + 360) % 360;
@@ -329,11 +341,47 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   /* 操縦は機体の軸まわりの回転で扱う（機首軸のロール・翼軸のピッチ・上下軸のヨー）。
      左右に倒し続ければ何回でも回り、前後に倒し続ければ宙返りができる。角度の上限は設けない */
+  /* 自動操縦: 目標の点へ向かうように操縦桿を自分で動かす（周回 → 正面通過 → 宙返り の繰り返し） */
+  let auto = false, showPhase = 'orbit', showT = 0, loopSum = 0;
+  const autoIn = { x: 0, y: 0, r: 0 }, tgt = new THREE.Vector3();
+  const wrap180 = a => ((a + 180) % 360 + 360) % 360 - 180;
+  function autoInputs(dt) {
+    showT += dt;
+    const ox = GROUND_EYE.x, oy = GROUND_EYE.y;
+    const rx = st.x - ox, ry = st.y - oy, r = Math.max(1, Math.hypot(rx, ry));
+    if (showPhase === 'orbit') {
+      /* 観覧位置のまわりを回る。少し先の点をねらう */
+      const a = Math.atan2(ry, rx) + 0.45;
+      tgt.set(ox + Math.cos(a) * SHOW.R, oy + Math.sin(a) * SHOW.R, SHOW.ALT);
+      if (showT > SHOW.ORBIT) { showPhase = 'pass'; showT = 0; }
+    } else if (showPhase === 'pass') {
+      /* 観覧位置の正面を通り抜ける。手前 120 m の高さで真上あたりを通す */
+      tgt.set(ox - rx / r * 700, oy - ry / r * 700, SHOW.ALT - 40);
+      if (showT > SHOW.PASS) { showPhase = st.z < 420 ? 'loop' : 'orbit'; showT = 0; loopSum = 0; }   // 高すぎるときは宙返りをせず周回に戻る
+    } else {
+      /* 宙返り。1 周したら周回に戻る */
+      loopSum += RATE.pitch * dt;
+      if (loopSum > 360 || showT > SHOW.LOOPMAX) { showPhase = 'orbit'; showT = 0; }
+      autoIn.x = 0; autoIn.y = -1; autoIn.r = 0;   // 宙返り中は傾きを直さない（直すと輪が傾いて高度が上がる）
+      return autoIn;
+    }
+    /* 目標へ向く: 方位のずれをバンクに、高さのずれをピッチにする */
+    const wantH = ((Math.atan2(tgt.x - st.x, tgt.y - st.y) / D) % 360 + 360) % 360;
+    const eh = wrap180(wantH - st.h);
+    const wantB = clamp(eh * 1.4, -52, 52);
+    autoIn.x = clamp((wantB - st.b) / 22, -1, 1);
+    const wantP = clamp((tgt.z - st.z) * 0.12, -20, 20);
+    autoIn.y = -clamp((wantP - st.p) / 10, -1, 1);
+    autoIn.r = 0;
+    return autoIn;
+  }
+
   function step(dt) {
     if (st.ground) return;   // 着地したら止まったまま。「水平に戻す」か「初期位置」で再開する
-    const roll = RATE.roll * input.x * dt * D;        // 機首軸(+y): 右に倒すと右バンク
-    const pitch = -RATE.pitch * input.y * dt * D;     // 翼軸(+x): 手前に引くと機首上げ
-    const yaw = RATE.yaw * input.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
+    const inp = auto ? autoInputs(dt) : input;
+    const roll = RATE.roll * inp.x * dt * D;        // 機首軸(+y): 右に倒すと右バンク
+    const pitch = -RATE.pitch * inp.y * dt * D;     // 翼軸(+x): 手前に引くと機首上げ
+    const yaw = RATE.yaw * inp.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
     if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
     if (pitch) att.multiply(dq.setFromAxisAngle(AX, pitch));
     if (yaw) att.multiply(dq.setFromAxisAngle(AZ, -yaw));
@@ -361,26 +409,25 @@ export function mount(container, { onState, view = 'first' } = {}) {
     for (let i = hist.length - 1; i >= 0; i--) if (hist[i].t <= want) return hist[i];
     return hist[0] || { p: plane.position, q: att };
   }
-  const ease = t => t * t * (3 - 2 * t);
   function placeMates(dt) {
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     const emitting = smokeOn && smokeT >= SMOKE_DT;
     if (emitting) smokeT = 0;
     if (on[0] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
-      const target = f.offs[i], u = holder.userData;
-      /* 編隊を変えたときは、いきなり現れず後ろの遠くから 4 秒かけて寄る（抜けるときは離れていく） */
-      u.join = clamp(u.join + (target ? 1 : -1) * dt / JOIN_SEC, 0, 1);
-      if (target) u.last.set(target[0], target[1], target[2]);
-      if (u.join <= 0.001) { holder.visible = false; return; }
+      const target = f.offs[i], u = holder.userData, e = ENTRY[i];
+      /* どの編隊の変更でも、いまの位置から新しい位置へなめらかに移る。
+         隊形から外れる機体は後ろの遠く（ENTRY）へ離れていき、届いたら消える */
+      u.want.set(target ? target[0] : e[0], target ? target[1] : e[1], target ? target[2] : e[2]);
+      u.cur.lerp(u.want, 1 - Math.exp(-dt / JOIN_TAU));
+      const settled = u.cur.distanceTo(u.want) < 12;
+      if (!target && settled) { holder.visible = false; return; }
       holder.visible = true;
-      const k = ease(u.join), e = ENTRY[i];
-      const ox = e[0] + (u.last.x - e[0]) * k, oy = e[1] + (u.last.y - e[1]) * k, oz = e[2] + (u.last.z - e[2]) * k;
-      const st2 = stateAt(Math.max(0, -oy / SPEED));
+      const st2 = stateAt(Math.max(0, -u.cur.y / SPEED));
       mq.copy(st2.q); mp.copy(st2.p);
-      mo.set(ox, 0, oz).applyQuaternion(mq);
+      mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq);
       holder.position.copy(mp).add(mo); holder.quaternion.copy(mq);
-      if (u.join > 0.98 && on[i + 1] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+      if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -4.2, 0).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;
@@ -392,17 +439,12 @@ export function mount(container, { onState, view = 'first' } = {}) {
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
     if (curView === 'ground') {
-      /* 地上から見る。立ち位置は動かさず、機体の方を向く（見回しのぶんだけ向きをずらす）。
-         遠いほど狭く映して、編隊とスモークが見えるようにする（望遠のように） */
-      cam.position.set(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z); cam.up.set(0, 0, 1);
-      tmp.copy(plane.position).sub(cam.position);
-      const dist = Math.max(20, tmp.length());
-      gdir.copy(tmp).normalize();
-      gright.copy(gdir).cross(WUP).normalize();
-      gdir.applyAxisAngle(WUP, look.y).applyAxisAngle(gright, look.p);
-      cam.lookAt(tmp.copy(gdir).multiplyScalar(dist).add(cam.position));
-      const fov = clamp(2 * Math.atan(60 / dist) / D, 8, 50);   // 編隊がほどよい大きさに映るまで寄る
-      if (Math.abs(cam.fov - fov) > 0.2) { cam.fov += (fov - cam.fov) * 0.15; cam.updateProjectionMatrix(); }
+      /* 地上から見る。機体は追いかけない（自分で向けた方向のまま）。
+         向きは 見回し（ドラッグ）だけで変わり、立ち位置は 2 回叩いた場所へ移る */
+      cam.position.copy(gEye); cam.up.set(0, 0, 1);
+      const yaw = gYaw - look.y, pit = clamp(gPitch + look.p, -1.35, 1.35);
+      gdir.set(Math.sin(yaw) * Math.cos(pit), Math.cos(yaw) * Math.cos(pit), Math.sin(pit));
+      cam.lookAt(tmp.copy(gdir).multiplyScalar(200).add(cam.position));
     } else if (curView === 'third' || curView === 'front') {
       /* 三人称は機体の後ろ上（前方視点は機首の前）から。ドラッグで機体のまわりを回れる */
       const back = curView === 'front' ? 36 : -32, up = curView === 'front' ? 5 : 10;
@@ -435,7 +477,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
     curView = v; look.y = 0; look.p = 0; const out = v !== 'first';
     seatMeshes.forEach(m => { m.visible = out; });
     cockpit.visible = !out;
-    cam.fov = v === 'ground' ? 30 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0);
+    cam.fov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0);
+    if (v === 'ground') gAim();   // 入ったときだけ機体の方を向く。以後は自分で向ける
   }
   setView(view);
 
@@ -444,7 +487,27 @@ export function mount(container, { onState, view = 'first' } = {}) {
     /* 画面のドラッグで視点を動かす（度）。一人称は首、三人称は機体のまわり */
     addLook(dy, dp) { look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },
-    resetLook() { look.y = 0; look.p = 0; },
+    resetLook() { if (curView === 'ground') gAim(); else { look.y = 0; look.p = 0; } },
+    /* 地上視点で 2 回叩いた場所へ立ち位置を移す。画面の座標は −1〜1（中央が 0）。
+       地面・滑走路・オブジェクト（山や家や木）の上に立てる */
+    groundMoveTo(nx, ny) {
+      if (curView !== 'ground') return false;
+      gRay.setFromCamera({ x: nx, y: ny }, cam);
+      const hit = gRay.intersectObjects([ground, runway, props], true)[0];
+      if (!hit) return false;
+      gEye.set(hit.point.x, hit.point.y, hit.point.z + EYE_H);
+      gAim();
+      return true;
+    },
+    /* 自動操縦の入り切り。入れたときは観覧位置の南の空から演技を始める */
+    setAuto(on) {
+      auto = !!on; showPhase = 'orbit'; showT = 0; loopSum = 0;
+      if (auto) {
+        Object.assign(st, { x: GROUND_EYE.x - 380, y: GROUND_EYE.y - 620, z: SHOW.ALT, h: 25, ground: false, wall: false });
+        levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
+      }
+    },
+    autoState() { return auto; },
     setProps(on) { props.visible = !!on; },   // オブジェクト（山・民家・木・塔）の出し入れ
     setFormation(f) { if (FORMATIONS[f]) formation = f; },   // 飛びながら変えられる。合流は placeMates がなめらかにする
     formation() { return formation; },

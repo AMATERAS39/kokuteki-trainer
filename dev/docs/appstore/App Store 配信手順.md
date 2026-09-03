@@ -91,7 +91,10 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 
 ## 6. 公開後
 
-- Web 版を体験版にする（`DEMO_ON=true`）タイミングは、Play と App Store の両方が公開されてから。片方だけ先に出さない（利用者の決め事）
+- Web 版を体験版にする（`DEMO_ON=true`）タイミング: **App Store 版が公開された時点**に変更（2026-09-04、利用者の判断）。
+  Play は 12 人・14 日のテストが要るため後になる。App Store が先に出る見込み。
+  そのとき Android の人が完全版を買えないので、**Web 版の鍵を自分で売る口**（BOOTH か note の有料記事）を用意するか、
+  「Android 版は準備中」と案内するかを決めておく
 - `PLAY_URL` と同様に App Store の URL を `index.html` に足し、「全機能版について」の画面に両方を並べる
 - 版を上げるたびに Xcode の Build 番号を上げて再提出する。Web 版と違い、審査があるので即時反映はできない
 

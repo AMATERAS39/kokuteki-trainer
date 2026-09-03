@@ -680,7 +680,7 @@ body:not([data-view="train"]) .stats{display:none}
       </div>
       <div class="card">
         <h3>練習する</h3>
-        <div class="sub2">解説つきで 3 問解いてから計測に進みます。操縦操作は 3D シミュレーターで操作と見え方を確かめます。</div>
+        <div class="sub2">どの種目も、制限時間なし・解説つきで 3 問解いてから計測に進みます。</div>
         <div class="prow" id="abPractice"></div>
       </div>
       <div class="card wide">
@@ -694,6 +694,11 @@ body:not([data-view="train"]) .stats{display:none}
         <div class="vinst" id="vInst"></div>
         <div class="dirbtns" id="dirBtns"></div>
         <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
+      </div>
+      <div class="card">
+        <h3>3D シミュレーターで操縦する</h3>
+        <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方がどう変わるかを確かめます。一人称と三人称を切り替えられます。</div>
+        <div class="prow"><button class="btn ghost" id="abSim">シミュレーターを開く</button><button class="btn ghost" id="abGallery">全操作パターンの見え方</button></div>
       </div>
     </div>
   </section>
@@ -792,7 +797,7 @@ const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v01.01';
+const APP_VER='v01.02';
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -904,7 +909,7 @@ function finish(g,timedOut){
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'check':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
   $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。「次へ」で次の問題に進みます。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
-  if(inPractice&&practiceLeft===0)$('#next').innerHTML=`計測を始める${ic('next','s')}`;
+  if(inPractice&&practiceLeft===0)$('#next').innerHTML=(backTo==='about'?'説明に戻る':'計測を始める')+ic('next','s');
   else if(session&&session.ended)$('#next').textContent='結果を見る';
   else $('#next').innerHTML=`次の問題${ic('next','s')}`;
   $('#next').focus({preventScroll:true});
@@ -940,7 +945,9 @@ function answerOpts(i){
   finish(g);
 }
 function next(){
-  if(phase==='practice'&&practiceLeft===0){startMeasured();return}
+  if(phase==='practice'&&practiceLeft===0){
+    if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}   // 説明から入った練習は計測に進まない
+    startMeasured();return}
   if(session&&session.ended){showSummary();return}
   q=genQ();render();window.scrollTo({top:0});
 }
@@ -961,20 +968,20 @@ function setBack(target){
 }
 function enterMode(m,sub){
   if(!isFull()&&!DEMO.modes.includes(m)){location.hash='#buy';return}
-  setBack(sub==='practice'?pendingBack:null);pendingBack=null;
+  setBack(sub==='practice'||sub==='sim'?pendingBack:null);pendingBack=null;
   mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);clearInterval(sessTimerId);
   $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
   $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
   if(m==='control'&&!sub){showChooser();return}
-  if(m==='control'&&sub==='practice'){startSim();return}
+  if(m==='control'&&sub==='sim'){startSim();return}
   if(m==='control'&&sub==='gallery'){showGallery();return}
-  if(sub==='practice'){startPractice();return}   // アプリの説明から「練習する」
+  if(sub==='practice'){startPractice();return}   // アプリの説明から「練習する」（操縦操作も 3 問の練習問題）
   showSetup();
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・全体の制限時間・解説スキップ、説明と練習の表示 */
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
-  const ms=MS(),practice=mode!=='control';
+  const ms=MS();
   const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(ms[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
@@ -982,7 +989,7 @@ function showSetup(){
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
     ${sel('sLimit','全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[480,'8 分'],[600,'10 分'],[900,'15 分']])}
     ${sw('skipChk',ms.skipExplain,'解説スキップ（正誤だけ見せて次へ）')}
-    ${sw('introChk',!hideIntro[mode],practice?'開始前に説明と練習 3 問':'開始前に説明')}
+    ${sw('introChk',!hideIntro[mode],'開始前に説明と練習 3 問')}
     <div class="acts"><button class="btn" id="setupGo">始める${ic('next','s')}</button></div>`;
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>setMS(el.dataset.key,+el.value)));
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
@@ -993,26 +1000,24 @@ function showSetup(){
 }
 function showChooser(){
   setPhase('chooser');showPane('chooser');
-  $('#chooser').innerHTML=`<h2>操縦操作</h2><ul><li>練習: 操縦桿と方向舵を自分で動かして、外の見え方の変化を確かめます。</li><li>計測: 3 枚の視界から操作を選ぶ問題に、制限時間つきで答えます。</li></ul>
-    <div class="choice"><button class="ab" id="chPractice">${ic('mode-control')}<span class="t">練習</span><span class="d">操作と見え方を確かめる</span></button><button class="ab" id="chMeasure">${ic('timer')}<span class="t">計測</span><span class="d">制限時間つきで出題</span></button></div>
-    <div class="acts"><button class="btn ghost" id="chGallery">全操作パターンの見え方を見る</button></div>`;
+  $('#chooser').innerHTML=`<h2>操縦操作</h2><ul><li>練習: 3 枚の視界から操作を選ぶ問題を、制限時間なし・解説つきで 3 問。</li><li>計測: 同じ問題に制限時間つきで答えます。</li><li>シミュレーター: 操縦桿と方向舵を自分で動かして、外の見え方の変化を確かめます。</li></ul>
+    <div class="choice"><button class="ab" id="chPractice">${ic('mode-control')}<span class="t">練習</span><span class="d">解説つきで 3 問</span></button><button class="ab" id="chMeasure">${ic('timer')}<span class="t">計測</span><span class="d">制限時間つきで出題</span></button></div>
+    <div class="acts"><button class="btn ghost" id="chSim">3D シミュレーターで操縦する</button><button class="btn ghost" id="chGallery">全操作パターンの見え方を見る</button></div>`;
   $('#chPractice').addEventListener('click',()=>{location.hash='#train/control/practice'});
   $('#chMeasure').addEventListener('click',()=>{location.hash='#train/control/measure'});
+  $('#chSim').addEventListener('click',()=>{location.hash='#train/control/sim'});
   $('#chGallery').addEventListener('click',()=>{location.hash='#train/control/gallery'});
   window.scrollTo({top:0});
 }
 function showIntro(){
   setPhase('intro','説明');showPane('intro');
   const ms=MS(),lim=[];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(ms.sLimit>0)lim.push(`全体 ${fmtSec(ms.sLimit)}`);if(qMax()>0)lim.push(`${qMax()} 問`);
-  const practice=mode!=='control';
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${ms.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
-    <div class="acts"><button class="btn" id="introGo">${practice?'練習を始める（3 問）':'計測を始める'}${ic('next','s')}</button></div>`;
+    <div class="acts"><button class="btn" id="introGo">練習を始める（3 問）${ic('next','s')}</button></div>`;
   $('#introGo').addEventListener('click',afterIntro);
   window.scrollTo({top:0});
 }
-function afterIntro(){
-  if(mode!=='control')startPractice();else startMeasured();
-}
+function afterIntro(){startPractice()}
 function startPractice(){
   setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessTimer').hidden=true;
   q=genQ();render();window.scrollTo({top:0});
@@ -1321,6 +1326,8 @@ function renderAbout(){
   $('#abOps').innerHTML=E.OPS.map(o=>{const f=E.applyOp({bank:0,pitch:0,yaw:0},o.id);return `<div class="op"><div class="opt">${o.ja}</div><div class="opv">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,0.5,true))}</div><div class="opd">${o.view}</div></div>`}).join('');
   $('#abPractice').innerHTML=Object.keys(E.MODES).map(m=>`<button class="btn ghost" data-pr="${m}">${E.MODES[m]}</button>`).join('');
   $('#abPractice').querySelectorAll('[data-pr]').forEach(b=>b.addEventListener('click',()=>{pendingBack='about';location.hash='#train/'+b.dataset.pr+'/practice'}));
+  $('#abSim').addEventListener('click',()=>{pendingBack='about';location.hash='#train/control/sim'});
+  $('#abGallery').addEventListener('click',()=>{location.hash='#train/control/gallery'});
 }
 function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版（Google Play）</h3>

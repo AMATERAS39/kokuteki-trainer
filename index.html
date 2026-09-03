@@ -779,6 +779,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
     <div>
       <div class="brand">
         <button class="homebtn" id="backHome" aria-label="ホーム"><svg class="ic"><use href="#i-home"/></svg></button>
+        <button class="homebtn" id="backStep" aria-label="戻る" title="一つ前の画面に戻る" hidden><svg class="ic"><use href="#i-back"/></svg></button>
         <div class="name">TENRYU</div>
         <button class="updbtn" id="updBtn" aria-label="更新"><svg class="ic"><use href="#i-update"/></svg></button>
         <div class="menu">
@@ -971,7 +972,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.45';
+const APP_VER='v03.46';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1153,9 +1154,27 @@ const INTRO={
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
    計測に進んだら（startMeasured）ホームボタンに戻る。入口の判定は説明ページのボタンが立てる pendingBack で行う（同じハッシュを操縦操作の選択画面からも使うため） */
 let backTo=null,pendingBack=null,scrollTarget=null;
+/* 一つ前の画面（ホーム以外なら、ヘッダーの戻るボタンでそこへ戻れる）。
+   ホームボタンはいつもホーム。戻るボタンはその隣に出す */
+let prevHash=null,seenHash=location.hash||'#home',goingBack=false;
 function setBack(target){
-  backTo=target;const b=$('#backHome');
-  b.querySelector('use').setAttribute('href',target?'#i-back':'#i-home');b.setAttribute('aria-label',target?'戻る':'ホーム');
+  backTo=target;paintBack();
+}
+function paintBack(){
+  const b=$('#backStep');if(!b)return;
+  const to=backTo?'#about':prevHash;
+  b.hidden=!to;
+}
+/* 画面が変わるたびに「一つ前」を更新する */
+function markNav(){
+  const h=location.hash||'#home';
+  if(h!==seenHash){
+    const from=seenHash;
+    prevHash=(goingBack||!from||from==='#home'||from==='#'||from===h)?null:from;   // 戻ったあとは往復しない
+    goingBack=false;
+    seenHash=h;
+  }
+  paintBack();
 }
 function enterMode(m,sub){
   if(!isFull()&&!DEMO.modes.includes(m)){location.hash='#buy';return}
@@ -1259,7 +1278,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=53').then(mod=>{
+  import('./sim3d.js?v=54').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1306,6 +1325,7 @@ function runSim(opt){applyScene();
       <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技を出す"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
+      <button class="btn ghost sm portrait" id="simBack2">選択に戻る</button>
       <button class="btn ghost sm portrait" id="simHome">初期位置</button>
     </div>
     <div class="instrow" id="instRow">${inst}</div>
@@ -1406,6 +1426,7 @@ function runSim(opt){applyScene();
   $('#sim').querySelectorAll('.inst.ai').forEach(x=>x.classList.toggle('off',view==='ground'));
   $('#sim').classList.toggle('fpv',view==='first');
   $('#simBack').addEventListener('click',()=>{location.hash='#train/control'});
+  $('#simBack2').addEventListener('click',()=>{location.hash='#train/control'});
   /* 操作をしまう／出す。自動操縦を入れると自動でしまう（鑑賞のため）。押せばいつでも戻せる */
   $('#simUI').addEventListener('click',()=>{const on=!$('#sim').classList.contains('uihide');
     $('#sim').classList.toggle('uihide',on);sim.uiHidden=on;toast(on?'操作をしまいました':'操作を出しました')});
@@ -1441,9 +1462,6 @@ function runSim(opt){applyScene();
     const tk=$('#simTakeoff');
     if(tk){const show=s.mode==='stand';if(tk.hidden===show)tk.hidden=!show}
     if(s.mode&&s.mode!=='fly'&&!sim.h.autoState()){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
-    /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く */
-    if(sim.h&&sim.h.panelSpot){const sp=sim.viewName==='first'?sim.h.panelSpot():null;
-      if(sp){const el=$('#sim');el.style.setProperty('--ix',(sp.x*100).toFixed(2)+'%');el.style.setProperty('--iy',(sp.y*100).toFixed(2)+'%')}}
     /* 一時停止の表示。演目が終わったら止めるのをやめる */
     if(sim.h){const pz=sim.h.pausedState();
       if(pz&&!sim.h.showing())sim.h.setPaused(false);
@@ -1453,8 +1471,13 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=53').then(mod=>{if(sim!==mySim)return;
-      sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput();
+  import('./sim3d.js?v=54').then(mod=>{if(sim!==mySim)return;
+      /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
+      const onPanel=sp=>{const el=$('#sim');if(!el)return;
+        if(!sp){el.classList.remove('haspanel');return}
+        el.style.setProperty('--ix',(sp.x*100).toFixed(2)+'%');el.style.setProperty('--iy',(sp.y*100).toFixed(2)+'%');
+        if(!el.classList.contains('haspanel'))el.classList.add('haspanel')};
+      sim.h=mod.mount($('#simView'),{onState,view,onPanel});$('#simLoad').remove();applyInput();
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
       const col=store.get('simColor','white'),on=store.get('simSmoke',false);
@@ -1993,6 +2016,7 @@ function route(){
   leaveSession();
   if(v!=='about'&&viewer)viewer.pause();
   currentHash='#'+h;
+  markNav();
   if(v!=='train')setBack(null);
   show(v);
   if(v==='home')renderHome();
@@ -2007,8 +2031,13 @@ function route(){
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
 }
 $('#backHome').addEventListener('click',()=>{
-  if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}   // 説明ページの練習ボタンへ戻る
   if(!confirmLeave())return;leaveSession();location.hash='#home'});
+/* 戻る: 説明ページから入った練習は説明ページの練習ボタンへ。それ以外は一つ前の画面へ */
+$('#backStep').addEventListener('click',()=>{
+  if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}
+  if(!prevHash)return;
+  if(!confirmLeave())return;leaveSession();
+  const to=prevHash;prevHash=null;goingBack=true;location.hash=to});
 /* アプリの説明の図: 既存の描画関数で組み立てる（説明ページは 1 画面に収める対象外） */
 let aboutDrawn=false;
 function renderAbout(){

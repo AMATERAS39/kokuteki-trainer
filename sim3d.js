@@ -1442,6 +1442,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
       step(dt); place(dt); if (dt) recordHistory(dt); placeMates(dt); aimCamera(dt);
       renderer.render(world, cam);
       drawStick();
+      tellPanel();
       st.err = 0;
     } catch (e) {
       st.err = (st.err || 0) + 1;
@@ -1452,6 +1453,16 @@ export function mount(container, { onState, view = 'first' } = {}) {
     raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
+
+  /* 計器盤の上端が画面のどこに来るかを、描いたその場で知らせる（画面に置く計器の位置決め用）。
+     onState（1 コマ遅れ）で渡すと、見回したときに計器が遅れてついてくる */
+  function tellPanel() {
+    if (!opt.onPanel) return;
+    if (curView !== 'first') { opt.onPanel(null); return; }
+    cockpit.updateWorldMatrix(true, false);
+    panelPt.set(0, 3.32, -0.29).applyMatrix4(cockpit.matrixWorld).project(cam);
+    opt.onPanel(panelPt.z > 1 ? null : { x: (panelPt.x + 1) / 2, y: (1 - panelPt.y) / 2 });
+  }
 
   /* 操縦桿を本編の上に重ねて描く（一人称のときだけ） */
   function drawStick() {

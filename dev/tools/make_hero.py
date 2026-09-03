@@ -3,7 +3,7 @@
 # 機体の後ろへ「遠ざかるほど細くなる」スモークを 2 本描いて img/hero.webp に保存する。
 # 元絵の描き方（dev/tools/render_server.py を 8766 番で起動してから開く）:
 #   /render/render.html?ax=90&hide=landing,front_gear,blake_op&paint=main/main/006ab0
-#     &w=4400&h=2350&probe&hemi=2.4&dir=1.0&save=hero-src2&hd=235&p=-10&bk=32&elev=10&fov=68&dist=8.6
+#     &w=4400&h=2600&probe&hemi=2.4&dir=1.0&save=hero-src2&hd=222&p=38&bk=12&elev=50&fov=64&dist=8.6
 #   （hd=方位 p=ピッチ bk=バンク elev=視点の仰角 fov=画角。fov を大きく・dist を小さくするほど迫力が出る）
 import math, random, os, sys
 from PIL import Image, ImageFilter, ImageDraw
@@ -16,14 +16,14 @@ jet = Image.open(SRC).convert('RGBA')
 jet = jet.crop(jet.getbbox())
 JW, JH = jet.size
 
-# 置き場所: 機体は左寄り。右側の余白へスモークが遠ざかっていく
-CW, CH = int(JW * 1.72), int(JH * 1.24)
-JX, JY = int(JW * 0.03), int(JH * 0.17)
+# 置き場所: 機体は枠いっぱい（はみ出させない）。右上の余白へスモークが遠ざかっていく
+CW, CH = int(JW * 1.30), int(JH * 1.18)
+JX, JY = int(JW * 0.02), int(JH * 0.14)
 canvas = Image.new('RGBA', (CW, CH), (0, 0, 0, 0))
 
 # 排気口のおおよその場所（機体の絵の中での割合）と、煙が遠ざかる向き（機首 → 尾）
-tail = (JX + int(JW * 0.78), JY + int(JH * 0.36))
-dirv = (0.90, -0.44)
+tail = (JX + int(JW * 0.56), JY + int(JH * 0.62))
+dirv = (0.946, -0.324)
 n = math.hypot(*dirv); dirv = (dirv[0] / n, dirv[1] / n)
 perp = (-dirv[1], dirv[0])
 random.seed(7)

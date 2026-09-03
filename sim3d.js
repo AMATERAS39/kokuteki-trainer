@@ -676,11 +676,21 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   /* 課目を始める。使う隊形をそろえてから（いまの機数によらず集まる）、進入に入る */
   /* その技で使う装備を自動で入れる（入れるだけ。外すのは手で） */
-  function applyPreset(m) {
+  /* 技ごとに決めてある初期設定（スモーク・タイヤ・ライト）を反映する。
+     自分で技を選んだときは「入れるだけ」で外さない（外すのは手動、という利用者の決め）。
+     通しの演目（自動）では課目ごとに設定どおりに入れ替える（その課目に要らない装備はしまう）。
+     ライトは昼以外なら自動で点ける（夜間の飛行灯）。 */
+  function applyPreset(m, full) {
     const set = m.set || { smoke: true };
-    if (set.smoke) smokeOn = true;
-    if (set.gear) gearOn = true;
-    if (set.lights) lightsOn = true;
+    if (full) {
+      smokeOn = !!set.smoke;
+      gearOn = !!set.gear;
+      lightsOn = !!set.lights || scene !== 'day';
+    } else {
+      if (set.smoke) smokeOn = true;
+      if (set.gear) gearOn = true;
+      if (set.lights) lightsOn = true;
+    }
     applyGear();
   }
   function beginManeuver(i) {
@@ -689,7 +699,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const m = PROGRAM[i];
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    applyPreset(m);
+    applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = m.alt || SHOW.ALT_IN;
     if (m.front !== false && (curView === 'ground' || !oneShot)) { planEntry(m); manPhase = 'in'; }
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
@@ -954,6 +964,15 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* 先頭機の軌跡を残し、そこから編隊機の位置を決める */
   const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3(), cq = new THREE.Quaternion(), fwant = new THREE.Vector3();
   const qFlat = new THREE.Quaternion(), qa = new THREE.Quaternion();
+  let flatYaw = 0;                 // 「翼は水平」の置き方に使う方位。真上・真下では方位が決まらないので、そのときは前の値を使う
+  /* 追従機の向きを入れ替える。1 コマで回れる角度に上限をつける（乗っている機体が一瞬で回らないように）。
+     宙返りの頂点などで置き方が切り替わっても、画面は目で追える速さまでしか回らない */
+  const MAX_TURN = 180 * D;        // [°/s]
+  function turnMate(holder, q, dt) {
+    if (!dt) { holder.quaternion.copy(q); return; }
+    const a = holder.quaternion.angleTo(q), lim = MAX_TURN * dt;
+    if (a > lim) holder.quaternion.slerp(q, lim / a); else holder.quaternion.copy(q);
+  }
   const fwd2 = new THREE.Vector3(), moFlat = new THREE.Vector3();
   const basePos = new THREE.Vector3(), offNow = new THREE.Vector3();   // 追従機は「1 番機から見たずれ」で置く
   /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
@@ -1156,19 +1175,28 @@ export function mount(container, { onState, view = 'first' } = {}) {
           holder.position.lerpVectors(mp, fp, e2);
         } else { holder.position.copy(fp); }
         /* 姿勢は「実際に動いた向き」から決める。道の接線から決めると、
-           寄せているあいだに機首と進む向きがずれ、腹で滑るように見える */
-        if (u.prevP) {
-          mo.copy(holder.position).sub(u.prevP);
-          if (mo.lengthSq() > 1e-4) {
-            fFw.copy(mo).normalize();
-            fUp.copy(figO).sub(holder.position); fUp.addScaledVector(fFw, -fUp.dot(fFw));
-            if (fUp.lengthSq() < 1e-6) fUp.copy(figU);
-            fUp.normalize(); fRt.crossVectors(fFw, fUp);
-            fq.setFromRotationMatrix(fmat.makeBasis(fRt, fFw, fUp));
-          }
-        } else u.prevP = new THREE.Vector3();
+           寄せているあいだに機首と進む向きがずれ、腹で滑るように見える。
+           ただし 1 コマぶんの動きをそのまま向きにすると、動きが小さいコマで向きが暴れる
+           （その機体に乗ると画面が振り回される）。向きをなましてから使う */
+        if (!u.prevP) { u.prevP = holder.position.clone(); u.fwdS = null; }
+        mo.copy(holder.position).sub(u.prevP);
+        if (mo.lengthSq() > 1e-6) {
+          mo.normalize();
+          if (!u.fwdS) u.fwdS = mo.clone();
+          else u.fwdS.lerp(mo, 1 - Math.exp(-dt / 0.20)).normalize();
+        }
         u.prevP.copy(holder.position);
-        holder.quaternion.copy(fq);
+        if (u.fwdS) {
+          fFw.copy(u.fwdS);
+          fUp.copy(figO).sub(holder.position); fUp.addScaledVector(fFw, -fUp.dot(fFw));
+          if (fUp.lengthSq() < 1e-6) fUp.copy(figU);
+          fUp.normalize(); fRt.crossVectors(fFw, fUp);
+          fq.setFromRotationMatrix(fmat.makeBasis(fRt, fFw, fUp));
+          /* 向きも少しずつ寄せる（急に向きが変わる機体には乗っていられない）。
+             まだ進む向きが分からないうちは、いまの向きのままにする */
+          if (u.shown) { fq.slerp(holder.quaternion, Math.exp(-dt / 0.12)); turnMate(holder, fq, dt); }
+          else holder.quaternion.copy(fq);
+        }
         holder.visible = true; u.shown = true;
         /* スモーク: 矢はハートの内側で切る。色は「カラフル」を選んでいるときだけ図に合わせる */
         let ok = fig.t > bl * 0.25;
@@ -1204,7 +1232,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
              （移すのが早いと、寄せ元の位置が飛んでしまう） */
           u.cur.set(Math.sin(th) * CORK_R, -CORK_LAG * SPEED, Math.cos(th) * CORK_R);
         }
-        holder.quaternion.copy(mq); holder.visible = true; u.shown = true;
+        turnMate(holder, mq, dt); holder.visible = true; u.shown = true;
         if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[1 % cols.length]); }
         return;
       }
@@ -1230,18 +1258,24 @@ export function mount(container, { onState, view = 'first' } = {}) {
       mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(mq);
       if (far > 0.001) {
         fwd2.set(0, 1, 0).applyQuaternion(st2.q);
-        qFlat.setFromAxisAngle(AZ, -Math.atan2(fwd2.x, fwd2.y))
+        /* 真上・真下を向いているときは方位が決まらない（atan2 が暴れる）ので、直前の方位を使う。
+           これをしないと、宙返りの頂点で 180° 向きが飛び、その機体に乗っていると画面が一瞬で回る */
+        if (Math.abs(fwd2.z) < 0.95) flatYaw = -Math.atan2(fwd2.x, fwd2.y);
+        qFlat.setFromAxisAngle(AZ, flatYaw)
              .multiply(qa.setFromAxisAngle(AX, Math.asin(clamp(fwd2.z, -1, 1))));
         moFlat.set(u.cur.x, 0, u.cur.z).applyQuaternion(qFlat);
         mo.lerp(moFlat, far);
-        if (far > 0.5) mq.copy(qFlat);        // 遠くの機体は水平に飛んでいるように見せる
+        /* 遠くの機体は水平に飛んでいるように見せる。切り替えると姿勢が飛ぶので、少しずつ寄せる
+           （切り替えだと、その機体に乗っているときに画面が一瞬で回ってしまう） */
+        const kf = far * far * (3 - 2 * far);
+        if (kf > 0.001) mq.slerp(qFlat, kf);
       }
       basePos.copy(mp);                  // 遅らせた 1 番機の位置（ここからのずれで置く）
       mp.add(mo);
       if (retT >= 0 && u.ret) {          // 図の終わりの位置から、隊形の位置へ なめらかに戻す
         const k2 = retT / retDur, e2 = k2 * k2 * (3 - 2 * k2);
         holder.position.lerpVectors(u.ret.p, mp, e2);
-        holder.quaternion.copy(u.ret.q).slerp(mq, e2);
+        turnMate(holder, qa.copy(u.ret.q).slerp(mq, e2), dt);
       } else if (u.shown) {
         /* なますのは「世界の中での位置」ではなく「1 番機から見たずれ」。
            位置そのものをなますと、編隊ごと 60 m/s で進むぶんまで毎コマ引きずられ、
@@ -1251,7 +1285,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         offNow.copy(holder.position).sub(basePos);
         offNow.lerp(mo, 1 - Math.exp(-dt / (0.06 + far * 0.8)));
         holder.position.copy(basePos).add(offNow);
-        holder.quaternion.copy(mq);
+        turnMate(holder, mq, dt);
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
       u.shown = true;
       if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }

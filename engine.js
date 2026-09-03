@@ -103,8 +103,14 @@
     const mark = pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45));
     return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, mark, opts };
   }
+  /* 方向舵は機体の上下軸まわりに効く。機体が傾いていると、その軸も傾いているので、機首は水平面ではなく斜めに振れる
+     （右バンクで右方向舵なら機首はやや沈む）。ヨーは cos(バンク) 倍、ピッチは −sin(バンク) 倍で効く */
   function applyOp(state, opId) {
-    const e = OP_BY_ID[opId].effect;
+    const o = OP_BY_ID[opId], e = o.effect;
+    if (o.group === 'rudder') {
+      const b = state.bank * D, r = e.yaw;
+      return { bank: state.bank, pitch: state.pitch - r * Math.sin(b), yaw: state.yaw + r * Math.cos(b) };
+    }
     return { bank: state.bank + (e.bank || 0), pitch: state.pitch + (e.pitch || 0), yaw: state.yaw + (e.yaw || 0) };
   }
   function genControl(s) {
@@ -162,7 +168,18 @@
   }
   function gradeControl(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
-    const lines = q.ops.map((id, k) => { const o = OP_BY_ID[id]; return `${'①②③'[k]}→${'①②③'[k + 1]}：${o.view} → ${o.body} → ${o.base}。`; });
+    const lines = q.ops.map((id, k) => {
+      const o = OP_BY_ID[id], b = q.frames[k].bank;
+      let v = o.view, body = o.body;
+      if (o.group === 'rudder' && Math.abs(b) > 1) {
+        const right = o.effect.yaw > 0, down = right === (b > 0);
+        v = `水平線の傾きは変わらないまま景色が${right ? '左' : '右'}へ流れ、${down ? '少し上がる（機首が沈む）' : '少し下がる（機首が上がる）'}`;
+        body = `機体の上下軸まわりに${right ? '右' : '左'}を向き、傾いているぶん機首が${down ? '沈む' : '上がる'}`;
+      }
+      return `${'①②③'[k]}→${'①②③'[k + 1]}：${v} → ${body} → ${o.base}。`;
+    });
+    if (q.ops.some((id, k) => OP_BY_ID[id].group === 'rudder' && Math.abs(q.frames[k].bank) > 1))
+      lines.push('方向舵は機体の上下軸まわりに効くので、機体が傾いているときは機首が水平面ではなく斜めに振れます（傾いた側へ沈む）。');
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
     return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`, lines };
   }

@@ -326,7 +326,10 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 .btn.mt{margin-top:1rem}
 
 /* フィードバック */
-.fb{display:none;margin-top:1rem;border-radius:.875rem;padding:.875rem 1rem;border:1px solid}
+/* 解説の下に余白: 画面下の固定表示（.foot）に「次の問題」が隠れて押しにくくなるのを防ぐ。
+   scroll-margin は、解説まで自動で送るときに同じだけ空けるため */
+#quiz:has(.fb.show){padding-bottom:3rem}
+.fb{display:none;scroll-margin-bottom:3.5rem;margin-top:1rem;border-radius:.875rem;padding:.875rem 1rem;border:1px solid}
 .fb.show{display:block}
 .fb.ok{border-color:color-mix(in srgb,var(--ok) 50%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent)}
 .fb.ng{border-color:color-mix(in srgb,var(--bad) 50%,transparent);background:color-mix(in srgb,var(--bad) 10%,transparent)}
@@ -757,7 +760,7 @@ body:not([data-view="train"]) .stats{display:none}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=32"></script>
+<script src="engine.js?v=33"></script>
 <script>
 (function(){
 'use strict';
@@ -788,7 +791,7 @@ const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab
 const DEMO={modes:['heading'],qCount:10};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=false;
-const APP_VER='v64';   // 表示用の版。sw.js の CACHE と合わせる
+const APP_VER='v67';   // 表示用の版。sw.js の CACHE と合わせる
 let edition=DEMO_ON?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -912,10 +915,16 @@ function freezeFigs(){
   const rem=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
   $('#figs').querySelectorAll('.d14,.fig.top,.frame').forEach(el=>{const h=el.getBoundingClientRect().height;if(h>0){el.style.height=(h/rem).toFixed(3)+'rem';el.style.flex='none'}});
 }
-/* 解説が画面の外にあるときだけ、解説の下端（「次へ」）が見えるところまでなめらかにスクロールする。解説が長ければ先頭を合わせる */
+/* 「次の問題」が画面の下の帯にかからない位置に来るまで、なめらかにスクロールする（解説が長いときは末尾を見せる） */
 function revealFeedback(){
-  requestAnimationFrame(()=>{const fb=$('#feedback');if(!fb.classList.contains('show'))return;const r=fb.getBoundingClientRect();
-    if(r.bottom>innerHeight||r.top<0)fb.scrollIntoView({behavior:'smooth',block:r.height>innerHeight*.85?'start':'end'})});
+  const fb=$('#feedback'),btn=$('#next');
+  setTimeout(()=>{
+    if(!fb.classList.contains('show'))return;
+    const r=btn.getBoundingClientRect();
+    if(r.bottom<=innerHeight-56&&r.top>=0)return;
+    const y0=scrollY;btn.scrollIntoView({behavior:'smooth',block:'end'});
+    setTimeout(()=>{if(Math.abs(scrollY-y0)<2)btn.scrollIntoView({block:'end'})},400);   // なめらかな移動が効かない環境の受け皿
+  },80);
 }
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
   if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').innerHTML=ic('check')}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').innerHTML=ic('cross')}else b.classList.add('dim')})}
@@ -1106,7 +1115,7 @@ function startSim(){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=10').then(mod=>{if(sim!==mySim)return;sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput()})
+  import('./sim3d.js?v=12').then(mod=>{if(sim!==mySim)return;sim.h=mod.mount($('#simView'),{onState,view});$('#simLoad').remove();applyInput()})
     .catch(err=>{if(sim===mySim)$('#simLoad').textContent='3D を読み込めませんでした。通信状態を確認してください。';console.error(err)});
   window.scrollTo({top:0});
 }

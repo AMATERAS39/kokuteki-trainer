@@ -145,28 +145,17 @@ export function mount(container, { onState, view = 'first' } = {}) {
   const EYE = new THREE.Vector3(0, 2.55, 0.40), eyeOff = new THREE.Vector3(), seatMeshes = [];
   const cockpit = new THREE.Group(); plane.add(cockpit);
   const dark = new THREE.MeshLambertMaterial({ color: 0x1b2027 }), mid = new THREE.MeshLambertMaterial({ color: 0x2e3640 }), grip = new THREE.MeshLambertMaterial({ color: 0x14171b }), metal = new THREE.MeshLambertMaterial({ color: 0x8a939e });
-  const shield = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 0.04), grip); shield.position.set(0, 3.45, 0.05); shield.rotation.x = 0.3; cockpit.add(shield);      // グレアシールド（風防の下）
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 0.3), dark); panel.position.set(0, 3.35, -0.2); panel.rotation.x = 0.35; cockpit.add(panel);            // 計器盤（その下は足元の空間）
-  const dialMat = new THREE.MeshBasicMaterial({ color: 0x0b0d10 });
-  [-0.16, 0.16].forEach(x => { const d = new THREE.Mesh(new THREE.CircleGeometry(0.045, 16), dialMat); d.position.set(x, 3.29, -0.16); d.rotation.x = -Math.PI / 2 + 0.35; cockpit.add(d); });
-  const stick = new THREE.Group(); stick.position.set(0, 3.2, -0.9); cockpit.add(stick);                                                                                 // 操縦桿（根元が回転の中心）
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.65, 10).rotateX(Math.PI / 2), metal); shaft.position.set(0, 0, 0.325); stick.add(shaft);
-  const g1 = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.12, 4, 10).rotateX(Math.PI / 2), grip); g1.position.set(0, 0.01, 0.7); stick.add(g1);
-  const g2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.04), new THREE.MeshLambertMaterial({ color: 0xc0392b })); g2.position.set(0, 0.035, 0.75); stick.add(g2);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.05, 12).rotateX(Math.PI / 2), mid); base.position.set(0, 3.2, -0.92); cockpit.add(base);
-  const pedalGeo = new THREE.BoxGeometry(0.16, 0.05, 0.14);
-  const pedalL = new THREE.Mesh(pedalGeo, mid), pedalR = new THREE.Mesh(pedalGeo, mid); pedalL.rotation.x = -0.5; pedalR.rotation.x = -0.5; cockpit.add(pedalL, pedalR);
-  const PEDAL = { y: 3.5, z: -0.72, x: 0.2, travel: 0.09 };
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.02), dark); floor.position.set(0, 3.3, -0.98); cockpit.add(floor);
+  /* 操縦席は GLB のモデルに本物（計器盤・風防・操縦桿）が入っているので、自作の部品は置かない。
+     近くにある機体内部の部品（操縦桿など）が目の前に大きく映るため、一人称ではカメラの手前の面を 1.1 で切る（setView）。
+     画面の入力は下に置いた操縦桿の絵とペダルのボタンで示す */
   const lamp = new THREE.PointLight(0xffe2b8, 0.9, 2.5); lamp.position.set(0, 2.9, 0.3); cockpit.add(lamp);   // 操縦席の灯り（夜でも部品が見える）
-  const vis = { x: 0, y: 0, r: 0 };   // 表示用になめらかに追従させた入力
   new GLTFLoader().load('model/t4.glb', g => {
     g.scene.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
     const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), k = 13 / Math.max(size.y, 1e-3);   // 全長 13 m
     g.scene.scale.setScalar(k); const c = box.getCenter(new THREE.Vector3()).multiplyScalar(k); g.scene.position.set(-c.x, -c.y, -c.z);
     plane.add(g.scene);
     cockpit.position.copy(g.scene.position); eyeOff.copy(g.scene.position);   // 操縦席の部品と目の位置はモデル座標（×k）で書いてあるので、同じ平行移動を掛ける
-    g.scene.traverse(o => { if (o.isMesh && /^mesh_2(_|$)/.test(o.name)) seatMeshes.push(o); });   // 前席（一人称では隠す。目の真下で視界を塞ぐため）
+    g.scene.traverse(o => { if (o.isMesh && (o.name === 'seat1' || /^mesh_2(_|$)/.test(o.name))) seatMeshes.push(o); });   // 自分が座る前席（一人称では隠す）
     seatMeshes.forEach(m => { m.visible = curView === 'third'; });
   }, undefined, () => {});
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false })); shadow.position.z = 0.8; world.add(shadow);
@@ -186,9 +175,12 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   function step(dt) {
     st.b = clamp(st.b + RATE.roll * input.x * dt, -80, 80);
-    st.p = clamp(st.p - RATE.pitch * input.y * dt, -60, 60);
+    /* 方向舵は機体の上下軸まわりに効く。傾いていると機首は斜めに振れ、方位の変化は cos(バンク) 倍、
+       ピッチは −sin(バンク) 倍（右バンクで右方向舵なら沈む）になる */
+    const ry = RATE.yaw * input.r, sb = Math.sin(st.b * D), cb = Math.cos(st.b * D);
+    st.p = clamp(st.p - RATE.pitch * input.y * dt - ry * sb * dt, -60, 60);
     const turn = clamp((9.81 / SPEED) * Math.tan(st.b * D) / D, -30, 30);   // バンクによる旋回（協調旋回）
-    st.h = ((st.h + (RATE.yaw * input.r + turn) * dt) % 360 + 360) % 360;
+    st.h = ((st.h + (ry * cb / Math.max(0.2, Math.cos(st.p * D)) + turn) * dt) % 360 + 360) % 360;
     const cp = Math.cos(st.p * D);
     st.x += Math.sin(st.h * D) * cp * SPEED * dt; st.y += Math.cos(st.h * D) * cp * SPEED * dt; st.z += Math.sin(st.p * D) * SPEED * dt;
     const L = LIMIT - 4; st.wall = Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > 1400;
@@ -197,10 +189,6 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   function place() {
     rotation();
-    vis.x += (input.x - vis.x) * 0.25; vis.y += (input.y - vis.y) * 0.25; vis.r += (input.r - vis.r) * 0.25;
-    stick.rotation.set(-0.38 * vis.y, 0.38 * vis.x, 0);                       // 奥に倒す → 先端が前へ、右 → 先端が右へ
-    pedalL.position.set(-PEDAL.x, PEDAL.y - PEDAL.travel * vis.r, PEDAL.z);   // 右方向舵 → 右ペダルが前に出て左が戻る
-    pedalR.position.set(PEDAL.x, PEDAL.y + PEDAL.travel * vis.r, PEDAL.z);
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
     drop.position.set(st.x, st.y, 0); drop.scale.z = Math.max(0.1, st.z - 1);
@@ -226,7 +214,8 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   raf = requestAnimationFrame(frame);
 
-  function setView(v) { curView = v; cockpit.visible = v !== 'third'; seatMeshes.forEach(m => { m.visible = v === 'third'; }); cam.fov = v === 'third' ? 55 : 68; cam.updateProjectionMatrix(); camPos.set(0, 0, 0); }
+  /* 一人称はカメラの手前の面を 1.1 で切る（目のすぐ前にある機体内部の部品が画面を塞ぐのを防ぐ）。三人称は 0.5 */
+  function setView(v) { curView = v; seatMeshes.forEach(m => { m.visible = v === 'third'; }); cam.fov = v === 'third' ? 55 : 68; cam.near = v === 'third' ? 0.5 : 1.1; cam.updateProjectionMatrix(); camPos.set(0, 0, 0); }
   setView(view);
 
   return {

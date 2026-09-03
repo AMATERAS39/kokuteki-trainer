@@ -490,6 +490,13 @@ export function mount(container, { onState, view = 'first' } = {}) {
      （背面のまま引くと地面へ向かうので、順番が要る） */
   function safety() {
     if (st.z > 1500 && st.p > -10) { autoIn.y = 0.8; return; }        // 高すぎるときは下げる
+    /* 壁の外へ出たら、中へ向き直る（急がず、傾きは 45 度まで） */
+    const outX = Math.abs(st.x) > LIMIT - 120, outY = Math.abs(st.y) > LIMIT - 120;
+    if (outX || outY) {
+      const wantH = ((Math.atan2(-st.x, -st.y) / D) % 360 + 360) % 360;
+      const e = wrap180(wantH - st.h);
+      if (Math.abs(e) > 25) { autoIn.x = clamp(clamp(e * 1.2, -45, 45) - st.b, -22, 22) / 22; }
+    }
     const ahead = st.z + fwd.z * SPEED * 6;                           // このまま 6 秒進んだときの高さ
     if (Math.abs(st.b) > 60 && st.z < 180 && fwd.z < 0.15) {          // 低くて背面気味: まず翼を水平に戻す
       autoIn.x = clamp(-wrap180(st.b) / 25, -1, 1); autoIn.y = clamp(st.p / 25, -0.2, 0.2); return;
@@ -657,8 +664,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
     }
     att.normalize(); readAttitude();
     st.x += fwd.x * SPEED * dt; st.y += fwd.y * SPEED * dt; st.z += fwd.z * SPEED * dt;
-    const L = LIMIT - 4; st.wall = Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL;
-    st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, CEIL);
+    /* 技の途中（自動操縦）は、壁を少し越えてもよい。警告も出さず、自然に飛びながら戻ってくる。
+       自分で操縦しているときは これまでどおり壁で止める */
+    const L = auto ? LIMIT + 420 : LIMIT - 4, C = auto ? CEIL + 300 : CEIL;
+    st.wall = !auto && (Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL);
+    st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, C);
     if (auto && st.z < 45) { st.z = 45; levelAttitude(); }          // 自動操縦では墜落させない（最後の砦）
     if (!auto && st.z <= 3) { st.z = 3; st.ground = true; }         // 自分で操縦して地面に着いたら、その姿勢のまま止める
     if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
@@ -813,6 +823,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function place(dt) {
     if (dt) lastDt = dt;
     rotation();
+    walls.forEach(w => { w.visible = !auto; });   // 技の途中は壁の枠を出さない
     /* 自動追従: 地上から見るとき、飛んでいる機体の真ん中へ ゆっくり首を回す。
        図を描く課目では機体が広がるので、見えている機体の平均を見る（急に動くと見づらいので少しずつ） */
     if (follow && curView === 'ground') {

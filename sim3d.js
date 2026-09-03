@@ -47,8 +47,8 @@ export const SMOKE_LIFE = 29;                    // 煙が消えるまで（秒�
 const SMOKE_MAX = 780;                           // 1 機あたりの粒の数（0.04 秒ごとに 1 つ）
 const SMOKE_DT = 0.04;
 /* 編隊に入るとき・抜けるときの位置（先頭機から見て後ろの遠く）。ここから所定の位置へ 4 秒かけて寄る */
-const ENTRY = [[-130, -300, 30], [130, -300, 30], [-190, -420, -25], [190, -420, -25], [0, -520, 45]];
-const JOIN_TAU = 1.4;                            // 隊形を変えるときの寄り方（秒、時定数。約 4 秒でほぼ所定の位置）
+const ENTRY = [[-170, -620, 40], [170, -620, 40], [-250, -800, -30], [250, -800, -30], [0, -960, 60]];
+const JOIN_TIME = 14;                             // 隊形を変えるときにかける時間（秒）。ゆっくり出て ゆっくり入る
 /* 自動操縦（地上から見るための演技）。観覧位置のまわりを回り、正面を通過し、宙返りをする */
 const SHOW = { R: 330, ALT: 150, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 300, SIDE: 220, ALT_IN: 220 };
 const DIRJA = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
@@ -313,7 +313,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* ---- 状態と入力 ---- */
   /* 姿勢はクォータニオンで持つ。オイラー角（方位・ピッチ・バンク）だと宙返りの真上・真下で破綻するため。
      h / p / b は表示と計器のために毎フレーム取り出す。機体の軸: 機首 +y、右翼 +x、機体上 +z */
-  const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false, show: '', cue: '' };
+  const st = { x: START.x, y: START.y, z: START.z, h: START.h, p: 0, b: 0, wall: false, ground: false, show: '', cue: '', desc: '' };
   const att = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -START.h * D);
   const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1), WUP = new THREE.Vector3(0, 0, 1);
   const dq = new THREE.Quaternion(), fwd = new THREE.Vector3(), bup = new THREE.Vector3(), bright = new THREE.Vector3();
@@ -357,25 +357,43 @@ export function mount(container, { onState, view = 'first' } = {}) {
   /* form: その課目で使う隊形（いまの機数によらず、その数だけ集まる）。
      front: 見ている前方で行う（旋回だけは前方に限らない）。alt: 入る高さ（m） */
   const PROGRAM = [
-    { id: 'orbit', ja: '旋回', t: 8, front: false },
-    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200 },
-    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130, entry: 'front' },
-    { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200 },
-    { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190 },
-    { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 240 },
-    { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200 },
-    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 120, entry: 'front' },
-    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190, entry: 'front' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300 },
-    { id: 'bloom', ja: '上向き空中開花', form: 'delta', alt: 190, entry: 'front' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false },
-    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260, entry: 'front' },
-    { id: 'cork', ja: 'コークスクリュー', form: 'pair', alt: 200, entry: 'front' },
-    { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240 }
+    { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200,
+      desc: '縦隊で入り、旋回しながら隊形を組み替えます。傘が開くように見えます。' },
+    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130, entry: 'front',
+      desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
+    { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front',
+      desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'cupid', ja: 'キューピッド', form: 'diamond', alt: 260, entry: 'front', fig: 'cupid',
+      desc: '3 機。2 機がハートを描き、もう 1 機が矢のように貫きます。実際の演技では、矢の機体がスモークを一度切って、貫いて見せます。' },
+    { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200,
+      desc: '6 機がデルタ隊形のまま横転します。' },
+    { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190,
+      desc: '隊形のまま、正面を低く通り抜けます。' },
+    { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 240,
+      desc: '間隔を広げて入り、宙返りの中でデルタ隊形に詰めます。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200,
+      desc: '4 機で、空に数字の 8 を描きます。' },
+    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 120, entry: 'front',
+      desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
+    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190, entry: 'front',
+      desc: '垂直に上昇しながら横転します。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'star', ja: 'スタークロス', form: 'delta', alt: 260, entry: 'front', fig: 'star',
+      desc: '5 機。デルタ隊形で入って大きく開き、一斉に反転降下して星を描きます。' },
+    { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300,
+      desc: 'ゆっくり背面に入り、そのまま飛んでから戻します。' },
+    { id: 'bloom', ja: '上向き空中開花（サンライズ）', form: 'delta', alt: 190, entry: 'front',
+      desc: '5 機が上を向いたまま大きく開き、花が咲くように見せます。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260, entry: 'front',
+      desc: '開花のあと、雨が降るように機体が降りてきます。' },
+    { id: 'cork', ja: 'コーク・スクリュー', form: 'pair', alt: 200, entry: 'front',
+      desc: '2 機。1 機がまっすぐ進み、その周りをもう 1 機が背中を内側に向けて回ります。実際の演技では、直進する 5 番機が背面で飛びます。' },
+    { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240,
+      desc: '1 周まわってから、続けて宙返りします。' }
   ];
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
   let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
@@ -428,6 +446,18 @@ export function mount(container, { onState, view = 'first' } = {}) {
     st.cue = `${hand}（${DIRJA[Math.round(bear / 45) % 8]}）から進入`;
     marker.position.set(GATE.x, GATE.y, 160); markOn = true;
   }
+  /* 図を終える。機体は散らばった位置にいるので、そこからの相対位置を覚えて、隊形へ寄り直させる */
+  function endFigure() {
+    if (!fig) return;
+    const inv = att.clone().invert();
+    mates.forEach(h => {
+      if (!h.visible) return;
+      mo.copy(h.position).sub(plane.position).applyQuaternion(inv);
+      h.userData.cur.set(mo.x, Math.min(-20, mo.y), mo.z); h.userData.figFrom = null;
+      startJoin(h.userData);                                   // 図の位置から隊形へ、ゆっくり戻る
+    });
+    fig = null;
+  }
   function endEntry() {
     manPhase = 'do'; st.cue = ''; markOn = false;
     /* 回る課目は、まず観覧位置から遠ざかる側へ回る（近づく側へ回ると頭の上を越えて後ろへ抜ける） */
@@ -436,10 +466,11 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   /* 課目を始める。使う隊形をそろえてから（いまの機数によらず集まる）、進入に入る */
   function beginManeuver(i) {
+    corkT = -1; endFigure();
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1;
     const m = PROGRAM[i];
     formation = m.form || userForm;
-    st.show = m.ja;
+    st.show = m.ja; st.desc = m.desc || '';
     GATE.z = m.alt || SHOW.ALT_IN;
     if (m.front !== false && (curView === 'ground' || !oneShot)) { planEntry(m); manPhase = 'in'; }
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
@@ -448,7 +479,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   function nextManeuver() {
     formScale = 1;
     if (oneShot) {   // 1 つだけの技なら、水平に戻してから操縦を返す
-      manPhase = 'out'; phaseT = 0; st.cue = '水平に戻します'; markOn = false; return;
+      manPhase = 'out'; phaseT = 0; st.cue = '水平に戻します'; markOn = false; corkT = -1; endFigure(); return;
     }
     beginManeuver((step_i + 1) % PROGRAM.length);
   }
@@ -476,7 +507,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         autoIn.x = clamp(-wrap180(st.b) / 18, -1, 1); autoIn.y = -clamp(-st.p / 10, -1, 1); autoIn.r = 0;
         safety();
         if ((Math.abs(st.b) < 12 && Math.abs(st.p) < 8 && st.z > 120) || phaseT > 10) {
-          auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.cue = ''; formation = userForm; formScale = 1;
+          auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.cue = ''; st.desc = ''; formation = userForm; formScale = 1;
         }
         return autoIn;
       }
@@ -556,14 +587,29 @@ export function mount(container, { onState, view = 'first' } = {}) {
       case 'byover': {                           // 頭上通過: 見ている人の真上を低く通り抜ける
         const e3 = eyeDir();
         steerTo(e3.ex - e3.dx * 600, e3.ey - e3.dy * 600, m.alt || 130);
-        const past = (st.x - e3.ex) * e3.dx + (st.y - e3.ey) * e3.dy;   // 観覧位置を越えたか
-        if (past > 300 || manT > 30) nextManeuver();
+        const past = (st.x - e3.ex) * e3.dx + (st.y - e3.ey) * e3.dy;   // 正なら観覧位置の手前、負なら越えた先
+        if (past < -300 || manT > 30) nextManeuver();
         break;
       }
-      case 'cork':                               // コークスクリュー: らせんを描いて上がる
-        autoIn.x = 0.7 * turnSign; holdPitch(16);
-        if (manT > 16 || st.z > 900) nextManeuver();
+      case 'cupid': case 'star': {               // 描き物: 2 番機以降が図を描く。1 番機は隠して外を回る
+        if (!fig) {
+          if (!matesReady() && manT < 26) { holdBank(28); holdPitch(0); break; }   // 集まるまで ゆっくり回って待つ
+          beginFigure(m.fig);
+        }
+        fig.t += dt;
+        holdBank(24); holdPitch(0);
+        if (fig.t >= fig.dur + 1.2) nextManeuver();
         break;
+      }
+      case 'cork': {                             // コークスクリュー: 1 番機はまっすぐ、2 番機がその周りを回る
+        const e4 = eyeDir();
+        steerTo(e4.ex - e4.dx * 700, e4.ey - e4.dy * 700, m.alt || 200);
+        holdBank(0);                             // 1 番機は翼を水平のまままっすぐ進む
+        corkT = corkT < 0 ? 0 : corkT + dt;
+        const past4 = (st.x - e4.ex) * e4.dx + (st.y - e4.ey) * e4.dy;   // 正なら手前、負なら越えた先
+        if (past4 < -320 || manT > 34) nextManeuver();
+        break;
+      }
       case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
         if (manT < 4) { formation = 'trail'; away(600, SHOW.ALT); }
         else { formation = userForm === 'solo' ? 'delta' : userForm; formScale = lerp(1.9, 1, (manT - 4) / 8); holdBank(52 * turnSign); holdPitch(2); }
@@ -608,11 +654,60 @@ export function mount(container, { onState, view = 'first' } = {}) {
     }
   }
   /* 先頭機の軌跡を残し、そこから編隊機の位置を決める */
-  const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3();
+  const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3(), cq = new THREE.Quaternion(), fwant = new THREE.Vector3();
+  /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
+  function startJoin(u) {
+    if (!u.from) { u.from = new THREE.Vector3(); u.bow = new THREE.Vector3(); }
+    u.from.copy(u.cur); u.k = 0;
+    const amt = Math.min(90, u.from.distanceTo(u.want) * 0.28);
+    u.bow.set((u.from.x >= 0 ? 1 : -1) * amt, 0, amt * 0.3);
+  }
+  let corkT = -1;                                  // 0 以上ならコークスクリューの最中（2 番機が周りを回る）
+  /* 描き物の課目（キューピッド・スタークロス）。編隊では描けない形なので、機体を式で置く。
+     1 番機（操作する機体）は隠して、2 番機以降で描く。図は観覧位置の正面の空に立てた面の上に描く */
+  const FIGS = { cupid: { dur: 26, n: 3, s: 15, d: 780, z: 500 }, star: { dur: 20, n: 5, s: 17, d: 820, z: 430 } };
+  let fig = null;                                  // {id, t, dur, n, s}
+  const figO = new THREE.Vector3(), figR = new THREE.Vector3(), figU = new THREE.Vector3(0, 0, 1), figF = new THREE.Vector3();
+  const fp = new THREE.Vector3(), fp2 = new THREE.Vector3(), fUp = new THREE.Vector3(), fRt = new THREE.Vector3(), fFw = new THREE.Vector3();
+  const fmat = new THREE.Matrix4(), fq = new THREE.Quaternion();
+  /* 図を描く前に、編隊が組み終わっているか（合流の途中で始めると、機体が飛んで移動してしまう） */
+  function matesReady() {
+    const f = FORMATIONS[formation];
+    return mates.every((h, i) => !f.offs[i] || (h.userData.k || 0) > 0.9);
+  }
+  function beginFigure(id) {
+    const e = eyeDir(), f = FIGS[id];
+    figO.set(e.ex + e.dx * f.d, e.ey + e.dy * f.d, f.z);
+    figR.set(e.dy, -e.dx, 0); figF.set(e.dx, e.dy, 0);
+    fig = { id, t: 0, dur: f.dur, n: f.n, s: f.s };
+  }
+  /* 図の中の位置（a: 右、b: 上、単位）。u は 0〜1 の進み具合、i は何番目の機体か */
+  function figXY(id, i, u) {
+    if (id === 'cupid') {
+      if (i < 2) {                                 // ハートを描く 2 機（左右に分かれて回り込む）
+        const k = i === 0 ? 1 : -1;
+        if (u < 0.22) { const v = u / 0.22; return { a: k * 1.2 * (1 - v), b: -24 + 29 * v }; }
+        const t = Math.PI * (u - 0.22) / 0.78;
+        return { a: k * 16 * Math.pow(Math.sin(t), 3),
+                 b: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) };
+      }
+      return { a: -40 + 80 * u, b: -26 + 52 * u };   // 矢（左下から右上へ貫く）
+    }
+    const RS = 18, ang = (90 + i * 72) * D;         // スタークロス: 開いてから、1 つ飛ばしの頂点へ渡る
+    const ax = Math.cos(ang) * RS, ay = Math.sin(ang) * RS;
+    if (u < 0.4) { const v = u / 0.4; return { a: ax * v, b: ay * v }; }
+    const a2 = (90 + (i + 2) * 72) * D, v = (u - 0.4) / 0.6;
+    return { a: ax + (Math.cos(a2) * RS - ax) * v, b: ay + (Math.sin(a2) * RS - ay) * v };
+  }
+  function figPoint(out, id, i, u, sc) {
+    const q = figXY(id, i, clamp(u, 0, 1));
+    return out.copy(figO).addScaledVector(figR, q.a * sc).addScaledVector(figU, q.b * sc);
+  }
+  const CORK_R = 26, CORK_T = 3.6, CORK_LAG = 0.15;   // 回る半径（m）・1 周の時間（秒）・少し後ろ（秒）
   function recordHistory(dt) {
     histT += dt;
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
-    while (hist.length > 2 && hist[0].t < histT - 12) hist.shift();   // 後ろの遠く（合流位置）まで届く長さ
+    while (hist.length > 2 && hist[0].t < histT - 20) hist.shift();   // 後ろの遠く（合流位置）まで届く長さ
   }
   function stateAt(lag) {
     const want = histT - lag;
@@ -623,14 +718,52 @@ export function mount(container, { onState, view = 'first' } = {}) {
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     const emitting = smokeOn && smokeT >= SMOKE_DT;
     if (emitting) smokeT = 0;
-    if (on[0] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
+    if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
+      /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
+      if (fig) {
+        if (i >= fig.n) { holder.visible = false; return; }
+        const pu = clamp(fig.t / fig.dur, 0, 1);
+        figPoint(fp, fig.id, i, pu, fig.s);
+        figPoint(fp2, fig.id, i, pu + 0.004, fig.s);
+        fFw.copy(fp2).sub(fp); if (fFw.lengthSq() < 1e-9) fFw.copy(figF); fFw.normalize();
+        fUp.copy(figO).sub(fp);                                  // 図の中心の側を機体の上に向ける
+        fUp.addScaledVector(fFw, -fUp.dot(fFw));
+        if (fUp.lengthSq() < 1e-6) fUp.copy(figU);
+        fUp.normalize(); fRt.crossVectors(fFw, fUp);
+        fq.setFromRotationMatrix(fmat.makeBasis(fRt, fFw, fUp));
+        if (fig.t < 6) {                                         // 隊形の位置から図の始点へ寄せる
+          if (!u.figFrom) { u.figFrom = holder.position.clone(); u.figQ = holder.quaternion.clone(); }
+          const k = fig.t / 6, e2 = k * k * (3 - 2 * k);
+          holder.position.lerpVectors(u.figFrom, fp, e2);
+          holder.quaternion.copy(u.figQ).slerp(fq, e2);
+        } else { holder.position.copy(fp); holder.quaternion.copy(fq); u.figFrom = null; }
+        holder.visible = true;
+        if (emitting && fig.t > 1.2) { emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+        return;
+      }
+      /* コークスクリューの 2 番機: 1 番機のまわりを回る。背中（機体の上）を輪の中心へ向ける。
+         機体の軸まわりに θ+180° 回すと、上が中心を向く */
+      if (corkT >= 0 && i === 0) {
+        const th = corkT / CORK_T * Math.PI * 2, s2 = stateAt(CORK_LAG);
+        u.cur.set(Math.sin(th) * CORK_R, -CORK_LAG * SPEED, Math.cos(th) * CORK_R);
+        mq.copy(s2.q).multiply(cq.setFromAxisAngle(AY, th + Math.PI));
+        mo.set(u.cur.x, 0, u.cur.z).applyQuaternion(s2.q);
+        holder.position.copy(s2.p).add(mo); holder.quaternion.copy(mq); holder.visible = true;
+        if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[1 % cols.length]); }
+        return;
+      }
       /* どの編隊の変更でも、いまの位置から新しい位置へなめらかに移る。
          隊形から外れる機体は後ろの遠く（ENTRY）へ離れていき、届いたら消える */
-      u.want.set(target ? target[0] * formScale : e[0], target ? target[1] * formScale : e[1], target ? target[2] * formScale : e[2]);
-      u.cur.lerp(u.want, 1 - Math.exp(-dt / JOIN_TAU));
-      const settled = u.cur.distanceTo(u.want) < 12;
+      fwant.set(target ? target[0] * formScale : e[0], target ? target[1] * formScale : e[1], target ? target[2] * formScale : e[2]);
+      if (!u.from || u.want.distanceTo(fwant) > 6) { u.want.copy(fwant); startJoin(u); }   // 行き先が変わったら道を引き直す
+      else u.want.copy(fwant);
+      u.k = Math.min(1, (u.k || 0) + dt / JOIN_TIME);
+      const ek = u.k * u.k * (3 - 2 * u.k);                    // ゆっくり出て ゆっくり入る
+      u.cur.lerpVectors(u.from, u.want, ek).addScaledVector(u.bow, Math.sin(Math.PI * u.k));
+      const settled = u.k > 0.97;
+      /* 離れていく機体は、後ろの遠く（ENTRY）まで下がりきってから消す（十分小さくなっている） */
       if (!target && settled) { holder.visible = false; return; }
       holder.visible = true;
       const st2 = stateAt(Math.max(0, -u.cur.y / SPEED));
@@ -645,6 +778,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
 
   function place(dt) {
     rotation();
+    plane.visible = shadow.visible = drop.visible = !fig;   // 描き物の最中は 1 番機を隠す
     /* 自動追従: 地上から見るとき、機体の方へ ゆっくり首を回す（急に動くと見づらいので少しずつ） */
     if (follow && curView === 'ground') {
       tmp.copy(plane.position).sub(gEye);
@@ -735,7 +869,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
         Object.assign(st, { x: GROUND_EYE.x - 380, y: GROUND_EYE.y - 620, z: SHOW.ALT, h: 25, ground: false, wall: false });
         levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
         beginManeuver(0);
-      } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; }
+      } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; corkT = -1; endFigure(); }
     },
     autoState() { return auto; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
@@ -745,7 +879,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
     /* 技の一覧（移動のための旋回と正面通過を除く）と、1 つだけ行わせる呼び出し。
        自分で操縦しているときに技を選ぶと、その技の間だけ自動で飛び、終わると操縦が戻る */
     maneuvers() { const seen = new Set();   // 同じ技が演技の中に何度も出るので、一覧では 1 つにまとめる
-      return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
+      return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja, desc: m.desc || '' })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
     runManeuver(i) {
       if (!PROGRAM[i] || st.ground) return false;
       if (!auto) { userForm = formation; oneShot = true; }   // 自分で操縦しているときは、その技だけ行って操縦を返す

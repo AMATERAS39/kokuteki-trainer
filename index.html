@@ -569,9 +569,12 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .avg{font-family:var(--mono);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .mode.locked{opacity:.7}
 .mode .lk{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:.125rem .4rem;white-space:nowrap}
-.demo{margin-top:.75rem;background:var(--panel);border:1px dashed var(--line2);border-radius:1rem;padding:.75rem 1rem;font-size:.8125rem;color:var(--muted);line-height:1.6}
+.demo{margin-top:.5rem;display:flex;align-items:center;gap:.625rem;background:var(--panel);border:1px dashed var(--line2);border-radius:.875rem;padding:.5rem .625rem .5rem .875rem;font-size:.75rem;color:var(--muted);line-height:1.35}
 .demo b{color:var(--accent)}
-.demo .btn{margin-top:.5rem;height:2.75rem;font-size:.875rem}
+.demo span{flex:1;min-width:0}
+.demo .btn{margin:0;flex:none;width:auto;height:2.125rem;font-size:.75rem;padding:0 .75rem;white-space:nowrap}
+/* 鍵のかかったボタン（体験版）。押せることは押せるが、押すと完全版の案内を出す */
+.iconbtn.lock{opacity:.45}
 #buyPage ul{margin:.5rem 0 0;padding-left:1.2em;font-size:.875rem;line-height:1.7;color:var(--muted)}
 #buyPage .acts{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
 #buyPage a.btn{text-decoration:none}
@@ -966,7 +969,11 @@ const MODE_DEFAULTS={
   control:{level:'easy',qCount:10,qLimit:20,sLimit:900,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
 const modeSet=store.get('modeSet',{});
 const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';   // medium は旧称
-  if(DEMO_ON&&!isFull()&&!DEMO.levels.includes(m.level))m.level=DEMO.levels[0];   // 体験版は Easy だけ（前に選んでいた難易度が残っていても戻す）
+  if(DEMO_ON&&!isFull()){                                    // 体験版は Easy まで・出題数は上限まで（前に選んだ値が残っていても戻す）
+    if(!DEMO.levels.includes(m.level))m.level=DEMO.levels[0];
+    const cap=Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
+    if(m.qCount===0||m.qCount>cap)m.qCount=cap;
+  }
   return m};
 function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}   // 変更したキーだけ保存（既定値の変更を反映させるため）
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
@@ -979,20 +986,23 @@ const hideIntro=store.get('hideIntro',{});   // 種目ごとの「次回から�
    full は起動 URL の ?key= の SHA-256 が FULL_HASH と一致したときに端末へ記憶する（Play 版のアプリは常にこの URL で起動する） */
 const FULL_HASH='c9bb76ecad45a99039353b7f2b9195f95f19fdda5fa8bd816da7cc06609ae060';
 const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki';
-/* 体験版でできること。4 種目とも触れるが、次の 4 つに限る（引継ぎ書 5.8 の決め）。
-   levels: 選べる難易度／qRatio: 出題数は完全版の半分／simAuto: シミュレーターは自動操縦を眺めるだけ／
-   galleryOne: 「見え方」は操作 1 つずつ。制限は隠さず、押すと完全版でできることが分かるようにする */
-const DEMO={levels:['easy'],qRatio:.5,qMin:5,simAuto:true,galleryOne:true};
+/* 体験版でできること。**機能は隠さずに見せて、鍵をかける**（選べないものは灰色にする）。
+   levels: 選べる難易度／qDefRatio: 出題数の上限は、完全版の既定の何割か／
+   galleryOne: 「見え方」は操作 1 つずつ。
+   シミュレーターは体験版でも自分で操縦できる（操縦桿も方向舵も）。鍵をかけるのは 演目・編隊・スモーク */
+const DEMO={levels:['easy'],qDefRatio:.5,galleryOne:true};
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.52';
+const APP_VER='v03.53';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
-const qMax=()=>{const c=MS().qCount;if(isFull())return c;   // 体験版は選んだ出題数の半分（制限なしを選んだときは 20 問の半分）
-  const n=Math.max(DEMO.qMin,Math.round((c>0?c:20)*DEMO.qRatio));return c>0?Math.min(c,n):n};
+/* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
+   （方位 20 → 10、姿勢指示器 10 → 5、方位×姿勢指示器 20 → 10、操縦操作 10 → 5） */
+const qCap=()=>Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
+const qMax=()=>{const c=MS().qCount;return isFull()?c:Math.min(c>0?c:qCap(),qCap())};
 async function checkKey(){
   const k=new URLSearchParams(location.search).get('key');if(!k)return;
   if(!DEMO_ON){history.replaceState(null,'',location.pathname+location.hash);return}
@@ -1215,13 +1225,15 @@ const LEVEL_HELP={
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
-  const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(ms[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
+  /* 体験版で選べないものは、消さずに灰色で見せる（何が完全版で増えるのかが分かるように） */
+  const sel=(key,label,opts,lock)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>{const off=!isFull()&&lock&&lock(v);
+    return `<option value="${v}"${String(ms[key])===String(v)?' selected':''}${off?' disabled':''}>${t}${off?'（完全版）':''}</option>`}).join('')}</select></label>`;
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
-    ${sel('level','難易度',isFull()?[['easy','Easy'],['normal','Normal'],['hard','Hard']]:[['easy','Easy']])}
-    <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy だけです。'}</div>
-    ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']])}
-    ${isFull()?'':`<div class="sethelp">体験版は選んだ数の半分（${qMax()} 問）で終わります。</div>`}
+    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard']],v=>!DEMO.levels.includes(v))}
+    <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
+    ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']],v=>+v===0||+v>qCap())}
+    ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
     ${sel('sLimit','全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[480,'8 分'],[600,'10 分'],[900,'15 分']])}
     ${sw('skipChk',ms.skipExplain,'解説スキップ（正誤だけ見せて次へ）')}
@@ -1299,11 +1311,11 @@ function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
   import('./sim3d.js?v=56').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
-    const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
+    const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
-      ${isFull()?sel('setForm','編隊',Object.entries(mod.FORMATIONS).map(([k,v])=>[k,v.n>1?`${v.ja}（${v.n} 機）`:v.ja]),form):sel('setForm','編隊',[['solo',mod.FORMATIONS.solo.ja]],'solo')}
+      ${sel('setForm','編隊',Object.entries(mod.FORMATIONS).map(([k,v])=>[k,(v.n>1?`${v.ja}（${v.n} 機）`:v.ja)+(isFull()||k==='solo'?'':'（完全版）')]),isFull()?form:'solo',isFull()?null:(k=>k!=='solo'))}
       ${sel('setProps','オブジェクト（山・家・木・塔）',[[1,'あり'],[0,'なし']],props?1:0)}
-      <div class="sethelp">${isFull()?'編隊を選ぶと 2 番機以降が付いてきます。スモークや前方・地上からの視点は横画面で使えます（縦画面は操縦の練習だけの簡素な画面です）。':'体験版では、単機の自動操縦を眺める形になります（視点は変えられます）。自分で操縦する・編隊を組む・スモークを引くのは完全版です。'}</div>
+      <div class="sethelp">${isFull()?'編隊を選ぶと 2 番機以降が付いてきます。スモークや前方・地上からの視点は横画面で使えます（縦画面は操縦の練習だけの簡素な画面です）。':'体験版でも、操縦桿と方向舵で自分で飛べます。端末を横にすると、自動操縦の演目も見られます。編隊・スモーク・写真・タイヤ・ライトには鍵がかかっています（完全版で外れます）。'}</div>
       <div class="acts"><button class="btn" id="setupSim">はじめる${ic('next','s')}</button></div>`;
     $('#setForm').addEventListener('change',e=>store.set('simForm',e.target.value));
     $('#setProps').addEventListener('change',e=>store.set('simProps',e.target.value==='1'));
@@ -1530,10 +1542,10 @@ function runSim(opt){applyScene();
         el.style.setProperty('--ix',(sp.x*100).toFixed(2)+'%');el.style.setProperty('--iy',(sp.y*100).toFixed(2)+'%');
         if(!el.classList.contains('haspanel'))el.classList.add('haspanel')};
       sim.h=mod.mount($('#simView'),{onState,view,onPanel});$('#simLoad').remove();applyInput();
-      /* 体験版は「自動操縦の演技を眺める形」。単機・スモークなしで、視点だけ変えられる。
-         止められると自分で操縦できてしまうので、入り切りのボタンは断りを出して何もしない */
+      /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。
+         鍵をかけるのは 編隊・スモーク・写真・タイヤ・ライト。ボタンは消さずに灰色にして出しておく */
       sim.demo=!isFull();
-      const demoStop=()=>{if(!sim.demo)return false;toast('体験版では、自動操縦の演技を眺める形です。自分で操縦するには完全版が要ります');return true};
+      const demoStop=()=>{if(!sim.demo)return false;toast('体験版では鍵がかかっています。編隊・スモーク・写真・タイヤ・ライトは完全版で使えます');return true};
       sim.h.setCockpit(sim.viewName==='first'&&sim.fpMode==='cockpit');
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
       const cSel=$('#simColor'),sBtn=$('#simSmoke');
@@ -1558,7 +1570,7 @@ function runSim(opt){applyScene();
       fMenu.innerHTML=Object.entries(mod.FORMATIONS).map(([k,v])=>
         `<button data-f="${k}" title="${v.ja}"><svg class="ic fmi" viewBox="0 0 24 24">${dots(v)}</svg><span>${v.ja}</span></button>`).join('');
       fMenu.querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.f);fMenu.hidden=true}));
-      fBtn.addEventListener('click',e=>{e.stopPropagation();if(demoStop())return;fMenu.hidden=!fMenu.hidden});
+      fBtn.addEventListener('click',e=>{e.stopPropagation();fMenu.hidden=!fMenu.hidden});
       /* メニューの外を触ったら閉じる。横画面では技の一覧が画面の右いっぱいに出てボタンを覆うので、
          ボタンをもう一度押しても閉じられない。3D の画面は click を作らないことがあるので pointerdown で見る。
          閉じたその 1 回は 3D へ渡さない（2 回叩く＝一時停止 と重ならないように） */
@@ -1646,7 +1658,7 @@ function runSim(opt){applyScene();
         const lb={t:on?(g?'前':'上'):'奥',b:on?(g?'後ろ':'下'):'手前',l:'左',r:'右'};
         Object.entries(lb).forEach(([k,v])=>{const e=$('#sim').querySelector('.stick .lb.'+k);if(e)e.textContent=v})};
       sim.paintAuto=paintAuto;
-      aBtn.addEventListener('click',()=>{if(demoStop())return;const on=!sim.h.autoState();
+      aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();
         /* 夜に通しの演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
         if(on&&document.body.dataset.scene!=='day'){toast('演目は昼の空で行います');
           runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
@@ -1681,10 +1693,16 @@ function runSim(opt){applyScene();
         if(sim.h.runManeuver(idx)){toast(nm);showLabel(nm)}else toast('飛んでいるときに使えます')}));
       tBtn.addEventListener('click',e=>{e.stopPropagation();tMenu.hidden=!tMenu.hidden;fMenu.hidden=true});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
-      sBtn.addEventListener('click',()=>{if(demoStop())return;sim.toggleSmoke()});
-      /* 体験版は、始めたらそのまま自動操縦の演技に入る（単機・スモークなし） */
-      if(sim.demo){sim.h.setFormation('solo');sim.smoke=false;sim.h.setSmoke(false);paint();
-        if(!sim.h.autoState()){sim.h.setAuto(true);paintAuto();showLabel(sim.h.state.show||'')}}
+      sBtn.addEventListener('click',()=>sim.toggleSmoke());
+      /* 体験版: 鍵のかかったボタンは、消さずに灰色で出しておく。押すと断りだけ出す。
+         捕まえる段で止めるので、そのボタンに付いている本来の処理は動かない */
+      if(sim.demo){
+        [fBtn,sBtn,$('#simShot'),$('#simGear'),$('#simLight')].forEach(b=>{if(!b)return;
+          b.classList.add('lock');b.title=(b.title||'')+'（完全版）';
+          b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();demoStop()},true);
+          b.addEventListener('pointerdown',e=>{e.stopImmediatePropagation()},true)});
+        if(cSel){cSel.disabled=true;cSel.classList.add('lock')}
+        sim.h.setFormation('solo');sim.smoke=false;sim.h.setSmoke(false);paint();paintGL()}
     })
     .catch(err=>{if(sim===mySim)$('#simLoad').textContent='3D を読み込めませんでした。通信状態を確認してください。';console.error(err)});
   window.scrollTo({top:0});
@@ -1724,7 +1742,10 @@ function showGallery(){applyScene();
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
     const id=b.dataset.op,grp=b.dataset.grp;
     if(gal.sel.includes(id))gal.sel=gal.sel.filter(x=>x!==id);
-    else if(!isFull()&&DEMO.galleryOne)gal.sel=[id];   /* 体験版は操作 1 つずつ（2 つの組み合わせは完全版） */
+    else if(!isFull()&&DEMO.galleryOne&&gal.sel.some(x=>E.OP_BY_ID[x].group!==grp)){
+      /* 体験版は操作 1 つずつ。黙って入れ替えると壊れて見えるので、鍵だと伝えてから入れ替える */
+      toast('体験版では操作 1 つずつです。組み合わせは完全版で使えます');gal.sel=[id];
+    }
     else{gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group!==grp);gal.sel.push(id)}
     galDraw()}));
   $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.addEventListener('click',()=>{gal.init=b.dataset.init;galDraw()}));
@@ -1871,7 +1892,7 @@ document.addEventListener('contextmenu',e=>{if(!e.target.closest('select,input,t
 function renderHome(){
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒（${s.n} 問）`:'まだ記録なし'};
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODES[m]}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
-    +(isFull()?'':`<div class="demo"><b>体験版</b>: 4 種目とも試せます。難易度は Easy のみ、出題数は半分まで、シミュレーターは自動操縦を眺める形（自分では操縦できません）、「見え方」は操作 1 つずつ。全部を使うには完全版が要ります。<button class="btn" data-go2="buy">全機能版について</button></div>`);
+    +(isFull()?'':`<div class="demo"><span><b>体験版</b>: 鍵のかかった機能は完全版で使えます</span><button class="btn" data-go2="buy">くわしく</button></div>`);
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
   $('#modeCards').querySelectorAll('[data-go2]').forEach(b=>b.addEventListener('click',()=>{location.hash='#'+b.dataset.go2}));
 }
@@ -2101,7 +2122,7 @@ function route(){
   else if(v==='news')renderNews();
   else if(v==='contact')renderContact();
   else if(v==='inbox')renderInbox();
-  else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です（4 種目とも試せます。難易度は Easy のみ・出題数は半分まで・シミュレーターは自動操縦を眺める形・「見え方」は操作 1 つずつ）。全機能は Google Play 版と App Store 版で使えます。';initAbout();
+  else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。4 種目とも試せて、3D シミュレーターは単機で操縦でき、横画面では自動操縦の演目も見られます。難易度は Easy まで、出題数は種目ごとに決まった数まで、編隊・スモーク・写真・タイヤ・ライト、「見え方」の 2 つの操作の組み合わせには鍵がかかっています。';initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
 }
@@ -2129,9 +2150,11 @@ function renderAbout(){
   $('#abGallery').addEventListener('click',()=>{location.hash='#train/control/gallery'});
 }
 function renderBuy(){
-  $('#buyPage').innerHTML=`<h3>全機能版（Google Play）</h3>
-    <ul><li>方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目すべて。</li><li>操縦操作の 3D 練習シミュレーター（一人称／三人称）と、全操作パターンの見え方。</li><li>出題数・制限時間の制限なし（種目ごとに開始前に変更）。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
-    <div class="acts"><a class="btn" href="${PLAY_URL}" target="_blank" rel="noopener">Google Play で見る${ic('next','s')}</a><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
+  $('#buyPage').innerHTML=`<h3>全機能版</h3>
+    <div class="sethelp">体験版でも 4 種目すべてと 3D シミュレーターを試せます。完全版では、次の鍵が外れます。</div>
+    <ul><li>難易度 Normal と Hard（方位は 8 方位、姿勢は翼の傾きも、操縦操作は 2 つの操作）。</li><li>出題数と制限時間を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
+    <div class="sethelp">アプリ版（App Store・Google Play）は<b>準備中</b>です。公開までしばらくお待ちください。</div>
+    <div class="acts"><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
     <h4 class="codeh">PC で使う（購入済みの方）</h4>
     <div class="sethelp">Android 版または iPhone 版を購入済みなら、そのアプリの設定画面に出る「PC 用コード」を入力すると、この端末でも全機能版になります。</div>
     <div class="coderow"><input id="buyCode" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="PC 用コード"><button class="btn sm" id="buyApply">有効にする</button></div>

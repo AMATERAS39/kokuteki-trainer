@@ -478,6 +478,9 @@ export function mount(container, opt = {}) {
        道引きの進み具合だけで見ると、ずっと未完成の扱いになってスモークが止まってしまう */
     const ready = smokeAll || matesReady() || mates.every(h => !h.userData.shown || h.userData.cur.length() < 200);
     for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) smokeOnArr[k] = false;
+    /* レター・エイト: 合流したら、先頭機と入れ替える（戻った 1 機が円を仕上げる） */
+    if (e8 && e8.done && !e8.out) { smokeOnArr[0] = false; smokeOnArr[e8.solo + 1] = true; }
+    if (smokeNone) smokeOnArr.fill(false);       // 課目の終わりに一斉に切る
     return smokeOnArr;
   }
 
@@ -898,6 +901,7 @@ export function mount(container, opt = {}) {
   let tkWp = 0, tkT = 0, tkT2 = 0;         // タック・クロスの通過点の番号、背面へ回す経過、外側へ戻す経過（秒）
   let oproX = false, oproUp = false, oproZ = -1;   // オポジット: 交差したか、機首を上げ終えたか、進入の高さ
   let noTurn = false;                      // 連続ロールのあいだ、傾きで向きを変えない
+  let smokeNone = false;                   // 課目の終わりに、全機いっせいにスモークを切る
   function orbitEye(z) {
     const e = eyeDir();
     const cx = e.ex + e.dx * SHOW.GATE, cy = e.ey + e.dy * SHOW.GATE;
@@ -1051,7 +1055,7 @@ export function mount(container, opt = {}) {
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
     e8 = null; touchDone = false; touchT = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
-    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; oproX = false; oproUp = false; oproZ = -1; noTurn = false;
+    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; oproX = false; oproUp = false; oproZ = -1; noTurn = false; smokeNone = false;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1269,24 +1273,41 @@ export function mount(container, opt = {}) {
         if (loopSum > 360 || manT > 20) nextManeuver();
         break;
       case 'eight': {                            // レター・エイト: 3 機が片方の輪、離れた 1 機がもう片方の輪
+        spdWant = E8_SLOW;                       // 3 機はふつうより遅く回る
         if (!e8) {
-          if (!matesReady() && manT < 60) { orbitEye(GATE.z); st.cue = '隊形を組みます'; break; }   // 集まるまで観覧位置のまわりを回って待つ
-          const sg = turnSign, br = 56 * D;
-          const nE = Math.min(N_MAX, 1 / Math.max(Math.abs(Math.cos(br)), 1 / N_MAX));
-          const w = (9.81 / (SPEED * Math.max(.2, spdK))) * nE * Math.sin(br);      // 旋回の角速度（rad/s）
-          const R = clamp(SPEED / Math.max(0.02, w), 120, 600);                     // 輪の半径（m）
+          if (!matesReady() && manT < 60) { orbitEye(GATE.z); st.cue = '隊形を組みます'; break; }   // 集まるまで待つ
+          if (Math.abs(spdK - E8_SLOW) > 0.04 && manT < 30) { holdBank(0); holdPitch(0); break; }   // 速さが落ち着いてから始める
+          const sg = turnSign, br = E8_BANK * D;
+          const v3 = SPEED * spdK;                                                   // 3 機の速さ
+          const R = clamp(v3 * v3 / (9.81 * Math.tan(br)), 90, 600);                 // 3 機の輪の半径（m）
           const a = (st.h - sg * 90) * D;
           const soloI = Math.min(2, mates.length - 1);
           const sp = (mates[soloI] && mates[soloI].visible) ? mates[soloI].position : plane.position;
-          /* 離れる 1 機の輪は、3 機の輪の半分の半径。中心は 3 機と反対側 */
-          const rS = R / 2;
-          e8 = { s: sg, R, h0: st.h, z: sp.z, t0: hdgSum, solo: soloI, ph: 0, t: 0, chase: false, done: false,
+          /* 離れる 1 機の輪は 3 機の 1/1.5。中心は 3 機と反対側。
+             3 機が E8_LEAD_AT まで回るあいだに 1 周するので、その速さで飛ぶ */
+          const rS = R / E8_RAD, lap = (2 * Math.PI * R) / v3;
+          e8 = { s: sg, R, rS, lap, h0: st.h, z: sp.z, t0: hdgSum, solo: soloI, ph: 0, t: 0,
+                 chase: false, done: false, joinT: -1, out: false,
+                 v1: (2 * Math.PI * rS) / (lap * E8_LEAD_AT / 360),
                  cx: sp.x + rS * Math.sin(a), cy: sp.y + rS * Math.cos(a) };
           figAim = new THREE.Vector3(plane.position.x, plane.position.y, plane.position.z);   // 描き物なので、視線は絵の付け根へ
         }
-        smokeAll = true;                         // 3 機はずっとスモーク（1 機は自分の輪のあいだだけ）
-        holdBank(56 * turnSign); holdPitch(0);
-        if ((e8.done && hdgSum - e8.t0 > 360) || manT > 110) nextManeuver();
+        const turned = hdgSum - e8.t0;
+        if (!e8.out) {
+          /* スモークは、合流するまで 3 機が出す。合流したら先頭機と入れ替える（1 機が円を仕上げる） */
+          smokeAll = true;
+          holdBank(E8_BANK * turnSign); holdPitch(0);
+          if (turned > 360) { e8.out = true; e8.outT = 0; }
+        } else {
+          /* 円を描き終えた。x 軸を負の向き（南）へ進み、後方の点まで行って一斉にスモークを切る */
+          e8.outT += dt;
+          spdWant = 1;
+          steerTo(GROUND_EYE.x, GROUND_EYE.y - 3000, GATE.z);
+          const farE = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
+          if (!smokeNone && (farE > JUMP_FAR || e8.outT > 40)) { smokeNone = true; e8.offT = e8.outT; }
+          if (smokeNone && e8.outT > e8.offT + 2) { spdWant = 1; nextManeuver(); }
+        }
+        if (manT > 150) { spdWant = 1; nextManeuver(); }
         break;
       }
       case 'vert':                               // バーティカル・クライム・ロール: 垂直に上げながら横転
@@ -1855,7 +1876,16 @@ export function mount(container, opt = {}) {
   /* レター・エイト: 3 機が片方の輪を描くあいだ、離れた 1 機がもう片方の輪を描く。
      離れる機体は式で置く（ねじらずに 8 の字を描かせるため）。E8_SPAN は、
      1 番機が何度まわるあいだに輪を描き終えるか。残りの旋回で隊形へ戻る */
-  const E8_SPAN = 300, E8_FAST = 1.2;      // 離れた 1 機は 1.2 倍の速さで輪を描き、追いついて戻る
+  /* レター・エイト。
+     3 機の円は 1 機の円の 1.5 倍（`E8_RAD`）。3 機はふつうより遅く（`E8_SLOW`）、
+     離れた 1 機は速く飛ぶ。1 機は自分の円を 1 周し、3 機が円の 4 割まで来たところで描き終える。
+     そこから 3 機の通った道をたどり、3 機が 3/4 まで来るまでに追いつく（そこでダイヤモンドになる）。
+     追いつく速さは残り時間から決めるが、無理のない速さ（`E8_VMAX`）までにとどめる */
+  const E8_RAD = 1.5, E8_SLOW = 0.75, E8_LEAD_AT = 130, E8_JOIN_AT = 270, E8_VMAX = 1.55;
+  const E8_BLEND = 2.0;                    // 自分の円から 3 機の道へ移るのにかける時間（秒）
+  /* 3 機の傾き。深く倒すと円が小さくなり、1 周が短くなって 1 機が 3/4 までに追いつけない
+     （追いつく速さが 2 倍を超えてしまう）。浅く倒して円を大きくすると、無理のない速さで間に合う */
+  const E8_BANK = 42;
   let e8 = null;
   /* 左右から寄って交差する課目（オポジット・コンティニュアス・ロール、タック・クロス）。
      相手の機体は、見ている正面の線について 1 番機を鏡に映した位置・向きに置く。
@@ -1927,36 +1957,53 @@ export function mount(container, opt = {}) {
      速さは輪の上の進み方で決まる（sin で滑らかに増減させるので、急な変化にならない）。
      輪を描き終えたら、残りの旋回のあいだに隊形の位置へ寄せる */
   const e8p = new THREE.Vector3(), e8q = new THREE.Quaternion(), e8s = new THREE.Vector3();
-  const E8_CHASE = 0.35;                   // 追いつくとき、遅れを 1 秒あたり何秒ぶん縮めるか（1.35 倍の速さ）
   function placeEight(holder, u, i, dt, emitting, color) {
     const s = e8.s, off0 = FORMATIONS[formation].offs[i] || [0, -32, 0];
     e8.t += dt;
+    const turned = hdgSum - e8.t0;
     if (!e8.chase) {
-      /* 自分の輪（3 機の輪の半分の半径）を、同じ速さで描く */
-      const rS = e8.R / 2;
-      e8.ph = Math.min(360, e8.ph + (SPEED * spdK / rS) / D * dt);
+      /* 自分の円（3 機の 1/1.5）を、決めた速さで 1 周する */
+      e8.ph = Math.min(360, e8.ph + (e8.v1 / e8.rS) / D * dt);
       const hd = e8.h0 - s * e8.ph, a = (hd - s * 90) * D;
-      e8p.set(e8.cx - rS * Math.sin(a), e8.cy - rS * Math.cos(a), e8.z);
+      e8p.set(e8.cx - e8.rS * Math.sin(a), e8.cy - e8.rS * Math.cos(a), e8.z);
+      /* 傾きは、その円をその速さで回るのに要るぶん */
+      const bk = Math.atan(e8.v1 * e8.v1 / (9.81 * e8.rS)) / D;
       e8q.setFromAxisAngle(AZ, -hd * D);
-      e8q.multiply(dq.setFromAxisAngle(AY, -s * 64 * D));   // 半径が半分なので深めに傾く
-      if (e8.ph >= 360) { e8.chase = true; e8.lag = e8.t; }  // 輪の付け根に戻った。ここから追いつく
+      e8q.multiply(dq.setFromAxisAngle(AY, -s * clamp(bk, 25, 82) * D));
+      if (e8.ph >= 360) {                        // 1 周した。ここから 3 機の道をたどって追いつく
+        e8.chase = true; e8.bt = 0;
+        e8.from = e8p.clone(); e8.fq = e8q.clone();        // 移り始めの位置と向き（つなぎに使う）
+        e8.lag = Math.max(0.2, (turned / 360) * e8.lap);   // 3 機の道の、どれだけ後ろにいるか（秒）
+      }
     } else {
-      /* 描き終えたら、3 機の軌跡（1 番機の通った道）に沿って追いつく。
-         「どれだけ遅れているか（秒）」を縮めていく。縮めるぶんだけ 1 番機より速く進む */
-      const slotLag = Math.max(0.2, -off0[1] / (SPEED * Math.max(0.2, spdK)));
-      e8.lag = Math.max(slotLag, e8.lag - E8_CHASE * dt);
+      /* 3 機の通った道（1 番機の通った道）をたどる。3 機が E8_JOIN_AT まで回るまでに追いつくよう、
+         遅れを縮める速さを残り時間から決める。ただし無理のない速さ（E8_VMAX）までにとどめる */
+      const slotLag = Math.max(0.2, -off0[1] / Math.max(1, SPEED * spdK));
+      const remain = Math.max(0.6, ((E8_JOIN_AT - turned) / 360) * e8.lap);
+      const need = (e8.lag - slotLag) / remain;                       // 1 秒あたり、何秒ぶん縮めるか
+      const cap = Math.max(0, E8_VMAX / Math.max(0.2, spdK) - 1);     // 速さの上限から決まる縮め方
+      e8.lag = Math.max(slotLag, e8.lag - Math.min(need, cap) * dt);
       const sA = stateAt(e8.lag);
       mo.set(off0[0], 0, off0[2]).applyQuaternion(sA.q);
       e8p.copy(sA.p).add(mo); e8q.copy(sA.q);
-      if (e8.lag <= slotLag + 1e-3) {              // 列に戻った。ここから先はふつうの置き方に返す
-        e8.done = true;
+      /* 円の上の位置と、道の上の位置は 隊形のずれのぶんだけ離れている。
+         そのまま移すと飛んで見えるので、少しの間かけてつなぐ（そのあいだも前へ進み続ける） */
+      if (e8.bt < E8_BLEND) {
+        e8.bt += dt;
+        const kb = clamp(e8.bt / E8_BLEND, 0, 1), eb = kb * kb * (3 - 2 * kb);
+        e8.from.addScaledVector(fwd2.set(0, 1, 0).applyQuaternion(e8.fq), e8.v1 * dt);
+        e8p.lerpVectors(e8.from, e8p, eb);
+        e8q.slerp(e8.fq, 1 - eb);
+      }
+      if (e8.lag <= slotLag + 1e-3 && !e8.done) {  // 列に戻った（ダイヤモンド）。ここでスモークを入れ替える
+        e8.done = true; e8.joinT = e8.t;
         u.cur.set(off0[0], off0[1], off0[2]); u.from = null;
       }
     }
     holder.position.copy(e8p);
     turnMate(holder, e8q, dt);
     holder.visible = true; u.shown = true;
-    /* 輪を描いているあいだだけ煙を出す。描き終えたら切り、列に戻ってからふつうの決まりに返す */
+    /* 自分の円を描くあいだは出す。たどっているあいだは切る（合流したら、ふつうの決まりに返る） */
     if (emitting && color && !e8.chase) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color); }
   }
   /* 地上では 2 本の滑走路に 2 機ずつ並び、離陸は 2 機ずつ TK_GAP 秒あけて始める。

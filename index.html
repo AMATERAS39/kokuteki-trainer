@@ -202,7 +202,7 @@ svg text{user-select:none}
 .sim .inst svg{height:100%;width:100%;display:block}
 .sim .landback,.sim .showui{display:none}   /* 横画面（視界いっぱい）のときだけ出す */
 .sim .pausemsg{position:absolute;left:50%;top:.5rem;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:6}
-.sim .showname{position:absolute;left:50%;bottom:2.6rem;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:.75rem;font-weight:700;padding:.2rem .7rem;border-radius:.375rem;white-space:nowrap;z-index:3}
+.sim .showname{position:absolute;left:50%;bottom:2.6rem;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:.75rem;font-weight:700;padding:.2rem .7rem;border-radius:.375rem;white-space:nowrap;z-index:6}   /* 計器（z-index:4）より前に出す。一人称では計器が計器盤の上に来るので、後ろに隠れていた */
 .sim .wallmsg{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:rgba(200,60,60,.85);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:2}
 .sim .vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:var(--muted);background:var(--panel2);z-index:3}
 .sim .instrow{display:flex;justify-content:center;gap:1.5rem;margin-top:.5rem}
@@ -267,13 +267,7 @@ svg text{user-select:none}
   body[data-view="train"][data-phase="sim"]{height:100dvh;padding:0;overflow:hidden}
   body[data-phase="sim"] .hdr,body[data-phase="sim"] .modebar,body[data-phase="sim"] .foot,
   body[data-phase="sim"] .sim h4,body[data-phase="sim"] .stick .lb{display:none}
-  /* キーボードで操作できる場所なので、凡例は消さずに左上へ小さく重ねる（PC だけ。指の端末では出さない） */
   body[data-phase="sim"] .sim .pchint{display:none}
-  @media (pointer:fine){
-    body[data-phase="sim"] .sim .pchint{display:block;position:absolute;left:.5rem;top:.5rem;margin:0;z-index:4;
-      max-width:22rem;padding:.375rem .5rem;border-radius:.5rem;background:rgba(11,16,23,.62);
-      font-size:.6875rem;line-height:1.45;color:var(--muted);pointer-events:none}
-  }
   body[data-view="train"][data-phase="sim"] .app{padding:0;max-width:none}
   body[data-view="train"][data-phase="sim"] .layout{margin:0;flex:1;min-height:0}
   /* シミュレーターのあいだは脇の「解き方のメモ・記録」を出さない。
@@ -630,6 +624,19 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .demo .btn{margin:0;flex:none;width:auto;height:2.125rem;font-size:.75rem;padding:0 .75rem;white-space:nowrap}
 /* 鍵のかかったボタン（体験版）。押せることは押せるが、押すと完全版の案内を出す */
 .iconbtn.lock{opacity:.45}
+/* PC のキーの凡例。操作するものの近くに小さく出す（指の端末では出さない） */
+@media (pointer:fine){
+  .keyhint{display:block;font-family:var(--mono);font-size:.5625rem;line-height:1.2;color:var(--faint);text-align:center;margin-top:.125rem}
+  .iconbtn[data-key]{position:relative}
+  .iconbtn[data-key]::after{content:attr(data-key);position:absolute;left:50%;bottom:-.6875rem;transform:translateX(-50%);
+    font-family:var(--mono);font-size:.5rem;color:var(--faint);pointer-events:none;white-space:nowrap}
+  .sim .pedal .pk{position:absolute;right:.25rem;bottom:.125rem;font-family:var(--mono);font-size:.5625rem;color:var(--faint)}
+}
+@media (pointer:coarse){.keyhint{display:none}}
+@media (pointer:fine){
+  body[data-view="train"][data-phase="sim"] .sim .viewhint{position:absolute;left:50%;top:.4rem;transform:translateX(-50%);
+    margin:0;z-index:4;padding:.125rem .5rem;border-radius:.5rem;background:rgba(11,16,23,.5);pointer-events:none}
+}
 /* 自動操縦を 2 回押した「固定」（離着陸なしで繰り返す）。枠を太くして、固定だと分かるようにする */
 .iconbtn.loop{box-shadow:inset 0 0 0 .125rem var(--accent)}
 #buyPage ul{margin:.5rem 0 0;padding-left:1.2em;font-size:.875rem;line-height:1.7;color:var(--muted)}
@@ -1097,7 +1104,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.62';
+const APP_VER='v03.63';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1421,7 +1428,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=60').then(mod=>{
+  import('./sim3d.js?v=61').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1458,7 +1465,7 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"></button>
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button>
-      <button class="iconbtn" id="simSmoke" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
+      <button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
       <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
@@ -1471,13 +1478,15 @@ function runSim(opt){applyScene();
       <button class="btn ghost sm portrait" id="simBack2">選択に戻る</button>
       <button class="iconbtn showui" id="simUI" aria-label="操作を出す／しまう" title="操作を出す／しまう"><svg class="ic"><use href="#i-ui"/></svg></button>
       <button class="iconbtn showui landscape" id="simSmall" aria-label="画面を小さくする" title="戻る・計測へ進むを出す"><svg class="ic"><use href="#i-vthird"/></svg></button>
+      <button class="iconbtn" id="simSkip" aria-label="滑走路へ戻る" title="着陸してから滑走路へ戻るまでを飛ばす" hidden><svg class="ic"><use href="#i-next"/></svg></button>
     </div>
     <div class="instrow" id="instRow">${inst}</div>
     <div class="ctl">
       <div class="stkwrap"><h4>操縦桿</h4><div class="stick" id="stick"><span class="lb t">奥</span><span class="lb b">手前</span><span class="lb l">左</span><span class="lb r">右</span>
-        <svg class="grip" id="knob" viewBox="-40 -60 80 120" aria-hidden="true"><circle class="plain" cx="0" cy="0" r="26" fill="#8a939e" stroke="#3a424c" stroke-width="3"/><g class="col"><ellipse cx="0" cy="44" rx="22" ry="8" fill="#0d1116" opacity=".7"/><rect x="-5" y="-4" width="10" height="46" rx="4" fill="#8a939e"/><path d="M-14,-50 h28 a10,10 0 0 1 10,10 v34 a10,10 0 0 1 -10,10 h-28 a10,10 0 0 1 -10,-10 v-34 a10,10 0 0 1 10,-10z" fill="#14171b" stroke="#3a424c" stroke-width="2"/><rect x="-10" y="-42" width="8" height="8" rx="2" fill="#c0392b"/><rect x="2" y="-42" width="8" height="8" rx="2" fill="#5b6570"/><rect x="-9" y="-26" width="18" height="4" rx="2" fill="#3a424c"/><rect x="-9" y="-16" width="18" height="4" rx="2" fill="#3a424c"/></g></svg></div></div>
-      <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1" aria-label="方向舵 左"><span class="pl">L</span></button><button class="ab pedal" data-r="1" aria-label="方向舵 右"><span class="pl">R</span></button></div></div>
+        <svg class="grip" id="knob" viewBox="-40 -60 80 120" aria-hidden="true"><circle class="plain" cx="0" cy="0" r="26" fill="#8a939e" stroke="#3a424c" stroke-width="3"/><g class="col"><ellipse cx="0" cy="44" rx="22" ry="8" fill="#0d1116" opacity=".7"/><rect x="-5" y="-4" width="10" height="46" rx="4" fill="#8a939e"/><path d="M-14,-50 h28 a10,10 0 0 1 10,10 v34 a10,10 0 0 1 -10,10 h-28 a10,10 0 0 1 -10,-10 v-34 a10,10 0 0 1 10,-10z" fill="#14171b" stroke="#3a424c" stroke-width="2"/><rect x="-10" y="-42" width="8" height="8" rx="2" fill="#c0392b"/><rect x="2" y="-42" width="8" height="8" rx="2" fill="#5b6570"/><rect x="-9" y="-26" width="18" height="4" rx="2" fill="#3a424c"/><rect x="-9" y="-16" width="18" height="4" rx="2" fill="#3a424c"/></g></svg></div><span class="keyhint">W A S D ／ 斜め Q E Z C</span></div>
+      <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1" aria-label="方向舵 左"><span class="pl">L</span><span class="pk">O</span></button><button class="ab pedal" data-r="1" aria-label="方向舵 右"><span class="pl">R</span><span class="pk">P</span></button></div></div>
     </div>
+    <div class="viewhint keyhint">2 回クリックで一時停止　カーソルを動かすと見回し　ホイールで機首の上げ下げ</div>
     <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
     <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）、斜めは Q・E・Z・C／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で左クリック・右クリック　スモーク スペース</div>
     <div class="acts row3"><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
@@ -1543,7 +1552,15 @@ function runSim(opt){applyScene();
     sim.look={id:e.pointerId,x:e.clientX,y:e.clientY,moved:0};
     clearTimeout(sim.holdT);const he={clientX:e.clientX,clientY:e.clientY};
     sim.holdT=setTimeout(()=>{if(sim&&sim.look&&sim.look.moved<=8)holdAt(he)},620);   /* 長押し */
-    if(e.pointerType==='mouse'){sim.rud.set('mouse',e.button===2?1:-1);applyInput()}});
+    /* マウスの左クリックでは方向舵を入れない（カーソルでの見回しと 2 回クリックの邪魔になる）。
+       方向舵は キーボードの O・P と、画面の L・R のボタンで操作する。右クリックだけは右方向舵に残す */
+    if(e.pointerType==='mouse'&&e.button===2){sim.rud.set('mouse',1);applyInput()}
+    /* 2 回続けてクリックしたら止める・動かす。pointerdown で preventDefault しているため
+       dblclick が来ないので、ここで自分で数える */
+    if(e.pointerType==='mouse'){const now=performance.now();
+      if(sim.lastClick&&now-sim.lastClick<380&&Math.abs(e.clientX-sim.lastX)<24&&Math.abs(e.clientY-sim.lastY)<24){
+        sim.lastClick=0;tapAt();return}
+      sim.lastClick=now;sim.lastX=e.clientX;sim.lastY=e.clientY}});
   /* PC: ボタンを押していなくても、カーソルを動かすと視線が変わる（マウスのときだけ）。
      操縦桿のまわりと、体験版の投影中は動かさない */
   vw.addEventListener('mousemove',e=>{
@@ -1642,9 +1659,10 @@ function runSim(opt){applyScene();
   /* 操作をしまう／出す。自動操縦を入れると自動でしまう（鑑賞のため）。押せばいつでも戻せる */
   /* 画面を小さくする: 横画面モードのまま、戻る・計測へ進むを右下に出す（PC は常に横画面モードのため） */
   $('#simSmall').addEventListener('click',()=>{const on=!$('#sim').classList.contains('showacts');
-    $('#sim').classList.toggle('showacts',on);toast(on?'「計測へ進む」を出しました':'しまいました')});
+    $('#sim').classList.toggle('showacts',on)});
   $('#simUI').addEventListener('click',()=>{const on=!$('#sim').classList.contains('uihide');
-    $('#sim').classList.toggle('uihide',on);sim.uiHidden=on;toast(on?'操作をしまいました':'操作を出しました')});
+    $('#sim').classList.toggle('uihide',on);sim.uiHidden=on});
+  $('#simSkip').addEventListener('click',()=>{if(sim.h&&sim.h.skipTaxi())toast('滑走路に戻りました')});
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
   $('#simHome').addEventListener('click',()=>{if(sim.h)sim.h.home()});
   $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
@@ -1654,6 +1672,8 @@ function runSim(opt){applyScene();
   let lastTxt=0;
   const onState=s=>{
     if(sim.wheelDir&&sim.wheelUntil<=performance.now()){sim.wheelDir=0;applyInput()}
+    /* 着陸して滑走路へ戻るまでのあいだだけ、飛ばすボタンを出す */
+    {const sk=$('#simSkip');if(sk){const show=s.mode==='land'||s.mode==='taxi';if(sk.hidden===show)sk.hidden=!show}}
     /* 自動操縦のときは、操縦桿の傾けぐあいで視点を動かす（機体は自動で飛ぶ） */
     if(sim.h&&sim.h.autoState()){
       const v=sim.stickVec;
@@ -1687,7 +1707,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=60').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=61').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1747,7 +1767,7 @@ function runSim(opt){applyScene();
         seatBtn.setAttribute('aria-label','乗り換え: '+n+' 番機')};
       paintSeat(sim.h.seatNo());
       seatBtn.addEventListener('click',()=>{const n=sim.h.nextSeat();paintSeat(n);
-        toast(n===1?'1 番機に戻りました':n+' 番機に乗り換えました')});
+        });
       /* 空の切り替え: 設定が「自動」のときだけ。3D は組み立て時の空で作るので、作り直して同じ状態に戻す */
       const skyBtn=$('#simSky');
       if(settings.scene!=='auto'||!isFull())skyBtn.hidden=true;   /* 体験版は昼に固定なので、空の切り替えも出さない */
@@ -1789,8 +1809,8 @@ function runSim(opt){applyScene();
         try{const w=window.open();if(w){w.document.write(`<title>${name}</title><img src="${url}" style="max-width:100%">`);w.document.close();toast('長押しで保存できます');return}}catch(e){}
         toast('写真を保存できませんでした');
       });
-      gBtn.addEventListener('click',()=>{const on=!sim.h.gearState();sim.h.setGear(on);paintGL();toast(on?'タイヤを出しました':'タイヤをしまいました')});
-      lBtn.addEventListener('click',()=>{const on=!sim.h.lightState();sim.h.setLights(on);paintGL();toast(on?'ライトを点けました':'ライトを消しました')});
+      gBtn.addEventListener('click',()=>{const on=!sim.h.gearState();sim.h.setGear(on);paintGL()});
+      lBtn.addEventListener('click',()=>{const on=!sim.h.lightState();sim.h.setLights(on);paintGL()});
       paintGL();
       /* 視点の自動追従: 地上から見るとき、機体を目で追うかどうか */
       const foBtn=$('#simFollow');
@@ -1803,7 +1823,7 @@ function runSim(opt){applyScene();
       if(opt.smoke){sim.smoke=true;sim.h.setSmoke(true);paint()}
       paintGL();
       foBtn.addEventListener('click',()=>{const on=!sim.h.followState();sim.h.setFollow(on);store.set('simFollow',on);paintFollow();
-        toast(on?'機体を目で追います':'向けた方向のままにします')});
+        });
       /* 自動操縦: 入れると編隊が演技をする（地上からの視点で見るためのもの）。操縦桿の操作は効かない */
       const aBtn=$('#simAuto');
       const stkH=$('#sim').querySelector('.stkwrap h4');

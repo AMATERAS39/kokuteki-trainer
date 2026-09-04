@@ -1475,7 +1475,10 @@ export function mount(container, opt = {}) {
       if (i + 1 >= n) { holder.visible = false; u.shown = false; u.tk = null; return; }
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }
       const g = GRID[i + 1];
-      tgtP.set(RWY.x + g[0], RWY.y + g[1], 3);
+      /* 減速中・誘導路のあいだは 1 番機の後ろに続く。待機位置へ先回りさせると、
+         接地の瞬間に僚機が居なくなって見える */
+      const rolling = gmode === 'land' || gmode === 'taxi';
+      tgtP.set(RWY.x + g[0], (rolling ? plane.position.y : RWY.y) + g[1], 3);
       qa.setFromAxisAngle(AZ, -RWY.h * D);
       if (!u.shown) { holder.position.copy(tgtP); holder.quaternion.copy(qa); }
       else { holder.position.lerp(tgtP, 1 - Math.exp(-dt / 1.2)); turnMate(holder, qa, dt); }
@@ -1889,6 +1892,15 @@ export function mount(container, opt = {}) {
     seatNo() { return seat + 1; },
     /* 待機中に押すと加速して離陸する。飛行中は何もしない */
     throttle() { if (gmode === 'stand') { gmode = 'takeoff'; startTakeoff(); return true; } return false; },
+    /* 着陸してから滑走路へ戻るまでを飛ばす（減速と誘導路を待たずに待機の形にする） */
+    skipTaxi() {
+      if (gmode !== 'land' && gmode !== 'taxi') return false;
+      gmode = 'stand'; gv = 0; spdK = 1; spdWant = 1;
+      Object.assign(st, { x: RWY.x, y: RWY.y, z: 3, h: RWY.h, ground: true, wall: false });
+      levelAttitude(); st.cue = '「加速」で離陸できます';
+      mates.forEach(h => { h.userData.shown = false; });   // 並びの位置へそのまま置く
+      return true;
+    },
     groundMode() { return gmode; },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },

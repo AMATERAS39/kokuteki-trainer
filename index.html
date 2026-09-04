@@ -75,7 +75,15 @@ svg text{user-select:none}
 .brand .name{flex:1;min-width:0;text-align:center;font-family:var(--display);font-weight:700;font-size:.9375rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .homebtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent);flex:none}
 @media (hover:hover){.homebtn:hover{background:var(--panel)}}
-.brand .name{padding-left:3.25rem}   /* 右側にボタンが 2 つ（更新・メニュー）あるぶん、左に空きを取って中央を保つ */
+/* 戻るボタンは、出ていないときも場所を空けておく（出入りでタイトルやボタンが動かないように）。
+   左は ホーム＋戻る、右は 更新＋メニューで同じ幅になるので、タイトルは中央に来る */
+#backStep[hidden]{display:flex!important;visibility:hidden}   /* 553 行の [hidden]{display:none!important} より強くする */
+.updbtn.gone{visibility:hidden;pointer-events:none}
+/* アプリ版で新しい版が出ているときの帯（更新ボタンの代わり） */
+.updbanner{display:flex;align-items:center;gap:.625rem;margin:0 0 .75rem;background:var(--panel);border:1px solid var(--accent);border-radius:.875rem;padding:.5rem .625rem .5rem .875rem;font-size:.75rem;color:var(--text);line-height:1.35}
+.updbanner b{color:var(--accent)}
+.updbanner span{flex:1;min-width:0}
+.updbanner .btn{margin:0;flex:none;width:auto;height:2.125rem;font-size:.75rem;padding:0 .75rem}
 /* 更新ボタン: 新しい版が待機していると赤い点（.has）。押すと確認中は矢印が回る（.busy） */
 .updbtn{position:relative;width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent);flex:none}
 @media (hover:hover){.updbtn:hover{background:var(--panel)}}
@@ -998,7 +1006,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.55';
+const APP_VER='v03.56';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1052,6 +1060,7 @@ function hudSvg(){
 /* 背景の昼／夜: auto は 5〜7 時を日の出、7〜17 時を昼、17〜19 時を夕焼け、それ以外を夜とする。出題・練習・シミュレーター・見え方の表示時に判定し直す */
 function applyScene(){
   const d=new Date(),t=d.getHours()+d.getMinutes()/60;
+  if(DEMO_ON&&!isFull()){document.body.dataset.scene='day';return}   /* 体験版は昼に固定（夕・夜・自動は完全版） */
   document.body.dataset.scene=settings.scene==='day'||settings.scene==='night'?settings.scene:(t<5?'night':t<7?'dawn':t<17?'day':t<19?'dusk':'night')}
 
 /* 視界 SVG を風防の部分だけ（下のグレアシールドを除く）にして縦を節約する。出題・練習・見え方で共通 */
@@ -1313,12 +1322,12 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=57').then(mod=>{
+  import('./sim3d.js?v=58').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
       ${sel('setForm','編隊',Object.entries(mod.FORMATIONS).map(([k,v])=>[k,(v.n>1?`${v.ja}（${v.n} 機）`:v.ja)+(isFull()||k==='solo'?'':'（完全版）')]),isFull()?form:'solo',isFull()?null:(k=>k!=='solo'))}
-      ${sel('setProps','オブジェクト（山・家・木・塔）',[[1,'あり'],[0,'なし']],props?1:0)}
+      ${sel('setProps','オブジェクト（山・家・木・塔）',[[1,'あり'],[0,'なし'+(isFull()?'':'（完全版）')]],isFull()?(props?1:0):1,isFull()?null:(v=>+v===0))}
       <div class="sethelp">${isFull()?'編隊を選ぶと 2 番機以降が付いてきます。スモークや前方・地上からの視点は横画面で使えます（縦画面は操縦の練習だけの簡素な画面です）。':'体験版でも、操縦桿と方向舵で自分で飛べます。端末を横にすると、自動操縦の演目も見られます。編隊・スモーク・写真・タイヤ・ライトには鍵がかかっています（完全版で外れます）。'}</div>
       <div class="acts"><button class="btn" id="setupSim">はじめる${ic('next','s')}</button></div>`;
     $('#setForm').addEventListener('change',e=>store.set('simForm',e.target.value));
@@ -1539,7 +1548,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=57').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=58').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1560,7 +1569,7 @@ function runSim(opt){applyScene();
       cSel.innerHTML=Object.entries(mod.SMOKE_COLORS).map(([k,v])=>`<option value="${k}"${k===col?' selected':''}>${v.ja}</option>`).join('');
       const paint=()=>{sBtn.classList.toggle('on',sim.smoke);sBtn.setAttribute('aria-pressed',String(sim.smoke))};
       sim.smoke=!!on;
-      sim.h.setProps(store.get('simProps',true));
+      sim.h.setProps(isFull()?store.get('simProps',true):true);   /* 体験版はオブジェクトを消せない */
       sim.h.setSmokeColor(col);sim.h.setSmoke(sim.smoke);paint();
       cSel.addEventListener('change',()=>{store.set('simColor',cSel.value);sim.h.setSmokeColor(cSel.value)});
       /* 編隊は飛びながら変えられる（横画面のアイコン）。図は隊形を点で表したもの */
@@ -1602,7 +1611,7 @@ function runSim(opt){applyScene();
         toast(n===1?'1 番機に戻りました':n+' 番機に乗り換えました')});
       /* 空の切り替え: 設定が「自動」のときだけ。3D は組み立て時の空で作るので、作り直して同じ状態に戻す */
       const skyBtn=$('#simSky');
-      if(settings.scene!=='auto')skyBtn.hidden=true;
+      if(settings.scene!=='auto'||!isFull())skyBtn.hidden=true;   /* 体験版は昼に固定なので、空の切り替えも出さない */
       else skyBtn.addEventListener('click',()=>{
         const order=['day','dusk','night'],cur=document.body.dataset.scene;
         const next=order[(Math.max(0,order.indexOf(cur==='dawn'?'dusk':cur))+1)%order.length];
@@ -1869,12 +1878,15 @@ function renderStats(){
   $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span>${s.n}問 / ${s.n?Math.round(s.c/s.n*100)+'%':'—'} / ${s.n?(s.t/s.n).toFixed(1):'—'} s</span>`}).join('');
 }
 function renderSettingsPage(){
-  const sel=(key,label,opts)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>`<option value="${v}"${String(settings[key])===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
+  /* 体験版で選べないものは、消さずに灰色で見せる */
+  const sel=(key,label,opts,lock)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>{const off=!isFull()&&lock&&lock(v);
+    const cur=(!isFull()&&key==='scene')?'day':settings[key];   /* 体験版の背景は昼で固定して見せる */
+    return `<option value="${v}"${String(cur)===String(v)?' selected':''}${off?' disabled':''}>${t}${off?'（完全版）':''}</option>`}).join('')}</select></label>`;
   $('#settingsPage').innerHTML=`<h3>${ic('settings','s')}設定</h3>
     <div class="setgroup"><h4>表示</h4>
       ${sel('dirLabel','方位の表記',[['alpha','アルファベット'],['kanji','漢字']])}
       ${sel('theme','テーマ',[['auto','自動'],['dark','ダーク'],['light','ライト']])}
-      ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']])}</div>
+      ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']],v=>v!=='day')}</div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>
     ${DEMO_ON&&isFull()&&store.get('key')?`<div class="setgroup"><h4>PC 用コード</h4><div class="setting"><span>PC の Web 版で入力すると全機能版になります</span><code class="pccode">${store.get('key')}</code></div></div>`:''}
@@ -1923,7 +1935,12 @@ async function loadNews(){
   return list;
 }
 async function checkNews(){
-  const items=await loadNews();const n=items.find(i=>i.type==='notice');if(!n)return;
+  const items=await loadNews();
+  /* アプリ版: お知らせの先頭にある更新の版が、この端末の版より新しければ帯で知らせる（更新ボタンの代わり） */
+  if(NATIVE){const u=items.find(i=>i.type==='update');
+    if(u){const uv=String(u.title).split(' ')[0];
+      if(verNum(uv)>verNum(APP_VER)&&store.get('updSeen')!==uv)showUpdBanner(uv)}}
+  const n=items.find(i=>i.type==='notice');if(!n)return;
   latestNotice=n.id;
   if(store.get('newsSeen')!==n.id){menuBtn.classList.add('has');$('#newsDot').hidden=false}
 }
@@ -2195,7 +2212,17 @@ checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews();in
    計測の途中で画面が切り替わらないようにするため。何もしなくても、次に開いたときには新しい版になる */
 let swReg=null,toastId=null,updReady=false;
 function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastId);toastId=setTimeout(()=>{t.hidden=true},ms||2200)}
+if(NATIVE)$('#updBtn').classList.add('gone');   /* アプリ版はストアが更新するので、更新ボタンは使わない（場所は空けておく） */
 function setUpdateReady(){updReady=true;$('#updBtn').classList.add('has')}
+/* アプリ版で新しい版が出ているとき: お知らせの先頭の版と、この端末の版をくらべて、帯で知らせる */
+function verNum(v){const m=/v?(\d+)\.(\d+)/.exec(v||'');return m?(+m[1])*1000+(+m[2]):0}
+function showUpdBanner(ver){
+  if($('#updBanner'))return;
+  const d=document.createElement('div');d.id='updBanner';d.className='updbanner';
+  d.innerHTML=`<span>新しい版 <b>${ver}</b> が出ています。App Store または Google Play で更新できます。</span><button class="btn sm" id="updBanX">閉じる</button>`;
+  document.querySelector('main').prepend(d);
+  $('#updBanX').addEventListener('click',()=>{try{store.set('updSeen',ver)}catch(e){}d.remove()});
+}
 function applyWaiting(){if(swReg&&swReg.waiting){try{sessionStorage.setItem('aat.updated','1')}catch(e){}swReg.waiting.postMessage('SKIP_WAITING');return true}return false}
 if('serviceWorker' in navigator&&!NATIVE&&/^https?:$/.test(location.protocol)){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;

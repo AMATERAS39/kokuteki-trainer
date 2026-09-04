@@ -1068,7 +1068,9 @@ export function mount(container, opt = {}) {
     const yaw = RATE.yaw * inp.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
     if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
     if (pitch) att.multiply(dq.setFromAxisAngle(AX, pitch));
-    if (yaw) att.multiply(dq.setFromAxisAngle(AZ, -yaw));
+    /* 方向舵は、進む向きに対して水平に向きを変える。機体の上下軸で回すと、
+       傾いているときに機首が上下して「傾く動作」に見えるので、世界の上下軸まわりに回す（premultiply） */
+    if (yaw) att.premultiply(dq.setFromAxisAngle(AZ, -yaw));
     /* バンクによる旋回（協調旋回）。世界の上下軸まわりに機体ごと回す。真上・真下付近では効かせない。
        tan(バンク) をそのまま使うと 90 度で符号が裏返り、横倒しの瞬間に方位が逆回りしてガクンとなる。
        実機と同じで、翼が出せる力（荷重倍数）には上限があるので、そこで頭打ちにする。

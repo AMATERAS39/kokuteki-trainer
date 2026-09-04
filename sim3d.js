@@ -1205,6 +1205,15 @@ export function mount(container, opt = {}) {
   }
   function step(dt) {
     st.mode = gmode;
+    /* 曲のイントロを待ってから滑走を始める（主旋律が入るところで浮く） */
+    if (musWait >= 0) {
+      musWait -= dt;
+      st.cue = '曲の頭を待っています';
+      if (musWait <= 0) {
+        musWait = -1;
+        if (gmode === 'stand') { gmode = 'takeoff'; startTakeoff(PROGRAM[step_i] && PROGRAM[step_i].id === 'dtake' ? 'diamond' : 'pairs'); st.cue = '離陸します'; }
+      }
+    }
     /* 全機が浮いて編隊へ移ったら、脚をしまう */
     if (tkOn && gmode === 'fly' && mates.every(h => !h.userData.tk || h.userData.tk.done)) {
       tkOn = false; mates.forEach(h => { h.userData.tk = null; });
@@ -1932,6 +1941,44 @@ export function mount(container, opt = {}) {
     }
   }
 
+  /* ===== 曲（利用者が選んだ手持ちの音楽ファイル）=====
+     アプリは音源を持たない。利用者が自分の端末の曲を選び、その場で鳴らすだけ。
+     曲の頭を調べて「音が大きく立ち上がるところ」（主旋律が入るところ）を見つけ、
+     そこでちょうどタイヤが離れるように滑走を始める */
+  const MUS_ROLL = 9.2;                    // 滑走を始めてから浮くまで（秒）。SPEED*0.9 / 6 のあたり
+  let musBuf = null, musSrc = null, musGainNode = null, musLead = 0, musWait = -1;
+  /* 音の大きさが立ち上がるところを探す。0.05 秒ごとの音量を出し、
+     はじめの静かなところの何倍かを超えた最初の点を「主旋律の入り」とする */
+  function findLead(buf) {
+    const ch = buf.getChannelData(0), sr = buf.sampleRate, step = Math.floor(sr * 0.05);
+    const n = Math.min(Math.floor(buf.length / step), Math.floor(90 / 0.05));   // 先頭 90 秒まで見る
+    const rms = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let a = 0;
+      for (let j = 0; j < step; j += 4) { const v = ch[i * step + j] || 0; a += v * v; }
+      rms[i] = Math.sqrt(a / (step / 4));
+    }
+    let quiet = 0, cnt = 0;
+    for (let i = 0; i < Math.min(n, 80); i++) { quiet += rms[i]; cnt++; }
+    quiet = quiet / Math.max(1, cnt);
+    const thr = Math.max(quiet * 2.6, 0.06);
+    for (let i = 6; i < n - 4; i++) {
+      if (rms[i] > thr && rms[i + 1] > thr && rms[i + 2] > thr) return i * 0.05;
+    }
+    return 0;
+  }
+  function stopMusic() {
+    if (musSrc) { try { musSrc.stop(); } catch (e) {} try { musSrc.disconnect(); } catch (e) {} musSrc = null; }
+  }
+  function playMusic() {
+    if (!actx || !musBuf) return;
+    stopMusic();
+    musSrc = actx.createBufferSource(); musSrc.buffer = musBuf;
+    if (!musGainNode) { musGainNode = actx.createGain(); musGainNode.gain.value = 0.55; musGainNode.connect(actx.destination); }
+    musSrc.connect(musGainNode);
+    musSrc.start(0);
+  }
+
   let running = true, raf = 0, last = performance.now();
   /* 1 フレームの中で何かに失敗しても、次のフレームを必ず要求する（要求をやめると画面が固まって見える）。
      続けて失敗するときは自動操縦を切って水平に戻す */
@@ -2032,6 +2079,7 @@ export function mount(container, opt = {}) {
     /* 自動操縦の入り切り。入れたときは観覧位置の南の空から演技を始める */
     setAuto(on) {
       auto = !!on; oneShot = false;
+      if (!on) { musWait = -1; stopMusic(); }
       if (auto) {
         userForm = formation;
         let f0 = 0;
@@ -2040,6 +2088,15 @@ export function mount(container, opt = {}) {
            飛んでいるときは、これまでどおり空から始める */
         if (!showLoop && gmode === 'stand') {
           formation = PROGRAM[f0].form || userForm;
+          if (musBuf && actx) {                    // 曲を選んであるとき: イントロを待ってから滑走する
+            playMusic();
+            musWait = Math.max(0, musLead - MUS_ROLL);
+            step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
+            st.show = '離陸'; st.desc = '曲の頭を待ち、音が立ち上がるところで離陸します。';
+            st.cue = '曲の頭を待っています'; manPhase = 'gather'; markOn = false;
+            clearSmoke();
+            return;
+          }
           gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs');
           step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
           st.show = '離陸'; st.desc = '2 本の滑走路から 2 機ずつ離陸し、上がってから隊形を組みます。';
@@ -2127,6 +2184,19 @@ export function mount(container, opt = {}) {
       return soundOn;
     },
     soundState() { return soundOn; },
+    /* 利用者が選んだ音楽ファイルを読む。アプリは音源を持たず、選ばれたものをその場で鳴らすだけ。
+       返り値は「主旋律が入るところ（秒）」。地上から演目を始めると、ここでタイヤが離れる */
+    async loadMusic(arrayBuffer) {
+      initAudio();
+      if (!actx) return null;
+      if (actx.state === 'suspended') await actx.resume();
+      musBuf = await actx.decodeAudioData(arrayBuffer);
+      musLead = findLead(musBuf);
+      return { lead: musLead, dur: musBuf.duration };
+    },
+    musicInfo() { return musBuf ? { lead: musLead, dur: musBuf.duration } : null; },
+    setLead(sec) { musLead = Math.max(0, +sec || 0); return musLead; },
+    clearMusic() { stopMusic(); musBuf = null; musLead = 0; musWait = -1; },
     setSmoke(on) { smokeOn = !!on; },
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },

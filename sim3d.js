@@ -42,7 +42,14 @@ export const FORMATIONS = {
   cassiop: { ja: 'カシオペア', n: 5, offs: [[-28, -16, 0], [-14, -16, -12], [14, -16, -12], [28, -16, 0]] },
   diamond: { ja: 'ダイヤモンド', n: 4, offs: [[-16, -16, 0], [16, -16, 0], [0, -32, 0]] },
   arrow:   { ja: 'アローヘッド', n: 4, offs: [[0, -12, 0], [-20, -24, 0], [20, -24, 0]] },
-  finger:  { ja: 'フィンガーチップ', n: 4, offs: [[14, -12, 0], [-14, -12, 0], [28, -24, 0]] }
+  finger:  { ja: 'フィンガーチップ', n: 4, offs: [[14, -12, 0], [-14, -12, 0], [28, -24, 0]] },
+  /* 扇（サンライズ・レインフォールで開くときに使う）。1 番機を要にして、左右と上へ放射状に並ぶ。
+     隊形の倍率を上げると、そのまま扇のように広がる */
+  fan:     { ja: '扇', n: 6, offs: [[-18, -8, 6], [18, -8, 6], [-30, -14, 16], [30, -14, 16], [0, -10, 22]] },
+  /* 階段（チェンジオーバー・ターンの進入）。1 番機がいちばん上で、後ろへ行くほど下がる */
+  steps:   { ja: '階段', n: 5, offs: [[0, -16, -10], [0, -32, -20], [0, -48, -30], [0, -64, -40]] },
+  /* 交互開き（チェンジオーバー・ターンの開き）。1 番機以外が左右へ交互に開く */
+  split:   { ja: '交互開き', n: 5, offs: [[-24, -16, -8], [24, -32, -16], [-40, -48, -24], [40, -64, -32]] }
 };
 /* スモークの色。1 色なら全機同じ、6 色なら 1〜6 番機に順に割り当てる */
 export const SMOKE_COLORS = {
@@ -670,14 +677,14 @@ export function mount(container, opt = {}) {
       desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
     { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200,
-      desc: '縦隊で入り、旋回しながら隊形を組み替えます。傘が開くように見えます。' },
+      desc: '高さの違う 5 機が一列で正面から進入し、先頭以外が一斉に左右へ開きます。そのあと、先頭の旋回に合わせて広めの三角形になり、そろって旋回します。' },
     { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 240,
       desc: '間隔を広げて入り、宙返りの中でデルタ隊形に詰めます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
-    { id: 'bloom', ja: '上向き空中開花（サンライズ）', form: 'delta', alt: 190, entry: 'front',
-      desc: '5 機が上を向いたまま大きく開き、花が咲くように見せます。' },
-    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260, entry: 'front',
-      desc: '開花のあと、雨が降るように機体が降りてきます。' },
+    { id: 'bloom', ja: 'サンライズ', form: 'delta', alt: 190, entry: 'front',
+      desc: 'デルタ隊形のまま正面から進入し、前方で扇のように広がって日の出を表します。' },
+    { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 620, entry: 'front',
+      desc: '極めて高いところから 5 機が真下へ降り、正面の前方で一気に散らばって、煙の筋が五方向へ伸びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'cupid', ja: 'キューピッド', form: 'diamond', alt: 260, entry: 'front', fig: 'cupid',
       desc: '3 機。2 機がハートを描き、描き終えたところへ、もう 1 機が矢になって飛び込みます。地上から見て貫いて見えるよう、ハートの内側ではスモークを切ります。' },
@@ -716,7 +723,8 @@ export function mount(container, opt = {}) {
   const okMan = m => !allowIds || allowIds.indexOf(m.id) >= 0;
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
   let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;
-  let touchDone = false;                   // タッチ・アンド・ゴーで、滑走路に触れたか   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
+  let touchDone = false;                   // タッチ・アンド・ゴーで、滑走路に触れたか
+  let rainOn = false;                      // レインフォールで降りているあいだ（引き起こしを止める）   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
   const GATE = { x: 0, y: 0, z: SHOW.ALT_IN };
   const autoIn = { x: 0, y: 0, r: 0 }, smIn = { x: 0, y: 0, r: 0 };   // smIn: なめらかにしたあとの舵
   /* どこから機体が来るかの目印。門の位置に立てる細い柱（自動操縦で進入しているあいだだけ出す） */
@@ -869,7 +877,7 @@ export function mount(container, opt = {}) {
     const m = PROGRAM[i];
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    e8 = null; touchDone = false; mir = null;
+    e8 = null; touchDone = false; mir = null; joinFast = false;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1045,17 +1053,24 @@ export function mount(container, opt = {}) {
         autoIn.r = 0;
         if (manT > 9) nextManeuver();
         break;
-      case 'bloom':                              // 上向き空中開花: 正面で垂直上昇し、隊形を大きく開く
-        if (st.p < 72 && manT < 7) { autoIn.x = 0; autoIn.y = -1; }
-        else { autoIn.x = clamp(-st.b / 20, -1, 1); autoIn.y = 0.5;
-          formation = 'leaders'; formScale = lerp(1, 3.2, (manT - 7) / 4); }
+      case 'bloom':                              // サンライズ: デルタのまま正面から入り、前方で扇のように開く
+        if (manT < 3) { formation = 'delta'; formScale = 1; holdBank(0); holdPitch(4); }
+        else {                                     // 要から放射状に広がる（日の出）
+          formation = 'fan'; formScale = lerp(1, 4.2, (manT - 3) / 7);
+          holdBank(0); holdPitch(clamp(6 + (manT - 3) * 2.2, 4, 20));
+        }
         autoIn.r = 0;
-        if (manT > 15) nextManeuver();
+        if (manT > 14) nextManeuver();
         break;
-      case 'rain':                               // レインフォール: 輪に入り、真下を向いたところで大きく散開
-        loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; autoIn.r = 0;
-        if (st.p < -50) { formation = 'pyramid'; formScale = lerp(1, 2.6, (loopSum - 200) / 90); }
-        if (loopSum > 360 || manT > 22) nextManeuver();
+      case 'rain':                               // レインフォール: 高いところから真下へ降り、正面前方で五方向へ散開
+        rainOn = true;                             // 降りているあいだは引き起こさない（safety を止める）
+        if (st.p > -84 && manT < 7) { autoIn.x = clamp(-st.b / 20, -1, 1); autoIn.y = 0.9; }   // 機首を真下へ向ける
+        else {                                     // 真下を向いたまま、扇のように散らす
+          autoIn.x = clamp(-st.b / 20, -1, 1); autoIn.y = 0;
+          formation = 'fan'; formScale = lerp(1, 3.6, (manT - 7) / 5);
+        }
+        autoIn.r = 0;
+        if (st.z < 180 || manT > 24) { rainOn = false; nextManeuver(); }
         break;
       case 'byover': {                           // 頭上通過: 見ている人の真上を低く通り抜ける
         const e3 = eyeDir();
@@ -1141,10 +1156,12 @@ export function mount(container, opt = {}) {
         if (manT > 28) nextManeuver();
         break;
       }
-      case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
-        if (manT < 4) { formation = 'trail'; away(460, SHOW.ALT); }
-        else { formation = userForm === 'solo' ? 'delta' : userForm; formScale = lerp(1.9, 1, (manT - 4) / 8); holdBank(52 * turnSign); holdPitch(2); }
-        if (hdgSum > 300 || manT > 20) nextManeuver();
+      case 'change':                             // チェンジオーバー・ターン: 高さの違う一列で入り、一斉に開いて、平行のまま旋回
+        if (manT < 5) { formation = 'steps'; formScale = 1; holdBank(0); holdPitch(0); }        // 進入（先頭がいちばん上）
+        else if (manT < 9) { joinFast = true; formation = 'split'; formScale = 1; holdBank(0); holdPitch(0); }   // 一斉に交互へ開く
+        else { joinFast = false; formation = 'delta'; formScale = 1.7; holdBank(52 * turnSign); holdPitch(2); }  // 平行になって一斉旋回
+        autoIn.r = 0;
+        if (hdgSum > 300 || manT > 30) nextManeuver();
         break;
       case 'turnloop':                           // 360 度ターン & ループ: 1 周旋回してから宙返り
         if (hdgSum < 350) { holdBank(54 * turnSign); holdPitch(0); }
@@ -1153,7 +1170,7 @@ export function mount(container, opt = {}) {
         if (loopSum > 360 || manT > 40) nextManeuver();
         break;
     }
-    safety();   // 墜落と天井の備え（どの課目でも最後に効かせる）
+    if (!rainOn) safety();   // 墜落と天井の備え（レインフォールで降りているあいだは効かせない）
     return autoIn;
   }
 
@@ -1233,6 +1250,7 @@ export function mount(container, opt = {}) {
     st.wall = !auto && (Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL);
     st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, C);
     const touchGo = auto && PROGRAM[step_i] && PROGRAM[step_i].id === 'touch' && manPhase === 'do';
+    if (rainOn && st.z < 140) { rainOn = false; }                    // 低くなったら引き起こしを戻す
     if (auto && manPhase !== 'land' && !touchGo && st.z < 45) { st.z = 45; levelAttitude(); }   // 自動操縦では墜落させない（着陸とタッチ・アンド・ゴーのときは外す）
     if (touchGo) { if (st.z < 3) st.z = 3; }                        // 滑走路に触れても降りない（そのまま上げる）
     else if ((!auto || manPhase === 'land') && st.z <= 3.2) {       // 接地: 着陸とみなして減速に入る
@@ -1267,11 +1285,12 @@ export function mount(container, opt = {}) {
   const fwd2 = new THREE.Vector3(), moFlat = new THREE.Vector3();
   const basePos = new THREE.Vector3(), offNow = new THREE.Vector3(), retFrom = new THREE.Vector3();   // 追従機は「1 番機から見たずれ」で置く
   /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
+  let joinFast = false;                              // 切れのある動きが要る課目では、隊形の移りを速くする
   function startJoin(u) {
     if (!u.from) { u.from = new THREE.Vector3(); u.bow = new THREE.Vector3(); }
     u.from.copy(u.cur); u.k = 0;
     const d = u.from.distanceTo(u.want);
-    u.dur = clamp(d / 18, 8, 34);                    // 近寄る速さが 30 m/s を超えないだけの時間をかける
+    u.dur = joinFast ? clamp(d / 45, 1.2, 3) : clamp(d / 18, 8, 34);   // 近寄る速さが 30 m/s を超えないだけの時間をかける
     const amt = Math.min(90, d * 0.28);
     u.bow.set((u.from.x >= 0 ? 1 : -1) * amt, 0, amt * 0.3);
   }

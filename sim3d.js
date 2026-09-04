@@ -1011,7 +1011,10 @@ export function mount(container, opt = {}) {
     if (Math.abs(st.b) > 60 && st.z < 180 && fwd.z < 0.15) {          // 低くて背面気味: まず翼を水平に戻す
       autoIn.x = clamp(-wrap180(st.b) / 25, -1, 1); autoIn.y = clamp(st.p / 25, -0.2, 0.2); return;
     }
-    if (ahead < 90 || st.z < 70) {                                    // 地面に着きそう: 引き起こす（向き直しは残す）
+    /* 地面に着きそう: 引き起こす（向き直しは残す）。
+       ただし離陸で上がっている最中は効かせない。効かせると、浮いた直後に目いっぱい引いて
+       50 度も機首が上がり、飛び上がるように見える */
+    if ((ahead < 90 || st.z < 70) && !(tkOn && fwd.z > 0.05)) {
       autoIn.x = Math.abs(st.b) > 45 ? clamp(-st.b / 20, -1, 1) : clamp(autoIn.x, -0.5, 0.5);
       autoIn.y = -clamp(0.4 + (90 - Math.min(ahead, st.z)) / 90, 0, 1);
     }
@@ -1443,7 +1446,9 @@ export function mount(container, opt = {}) {
     st.z = Math.min(st.z, C);
     const touchGo = auto && PROGRAM[step_i] && PROGRAM[step_i].id === 'touch' && manPhase === 'do';
     if (rainOn && st.z < 140) { rainOn = false; }                    // 低くなったら引き起こしを戻す
-    if (auto && manPhase !== 'land' && !touchGo && st.z < 45) { st.z = 45; levelAttitude(); }   // 自動操縦では墜落させない（着陸とタッチ・アンド・ゴーのときは外す）
+    /* 自動操縦では墜落させない。ただし着陸・タッチ・アンド・ゴー・離陸の上昇中は外す。
+       離陸で外さないと、タイヤが離れたその瞬間に 45 m へ引き上げられ、空中へ瞬間移動して見える */
+    if (auto && manPhase !== 'land' && !touchGo && !tkOn && st.z < 45) { st.z = 45; levelAttitude(); }
     if (touchGo) { if (st.z < 3) st.z = 3; }                        // 滑走路に触れても着陸あつかいにしない（自動でそのまま上げる）
     else if ((!auto || manPhase === 'land') && st.z <= 3.2) {       // 接地: 着陸とみなして減速に入る
       st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;

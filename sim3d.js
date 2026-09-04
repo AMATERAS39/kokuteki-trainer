@@ -71,13 +71,24 @@ const JOIN_TIME = 14;                             // 隊形を変えるときに
    ALT_MIN より低い課目（クリスマスツリー・ローパスなど）は、そのままの高さで行う */
 const SHOW = { R: 240, ALT: 120, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 220, SIDE: 165, ALT_IN: 170 };
 const ALT_K = 0.78, ALT_MIN = 110;               // 課目ごとの高さにかける係数と、下げない下限（m）
+/* ===== 演目の位置の決まり =====
+   原点 = 立ち位置（GROUND_EYE）、北 = 正面。
+   ・開始位置: 正面から原点へ向かってくる課目は 北 FRONT_START に固定する。
+     それ以外の課目は固定しない（そこまで行く時間がかかる。自然な経路なら変わってよい）
+   ・散開位置: 北 SPREAD_D。サンライズ・レインフォールが開き、タック・クロスが交差する点
+   ・中間位置: 開始位置と散開位置の真ん中（タック・クロスで外へ回し始める点）
+   ・終了位置: 原点を過ぎた 南 END_D、または方角の点 keyPt(方位, 距離) */
+const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
+function keyPt(bearing, dist) {
+  return { x: GROUND_EYE.x + Math.sin(bearing * D) * dist, y: GROUND_EYE.y + Math.cos(bearing * D) * dist };
+}
 /* 正面から向かってくる課目は、遠くから見せ場を作る。
    始める（＝スモークを出す）のは、観覧位置から「もとの壁があったあたり」まで下がった位置。
    進入の門は、その手前でもう向きが合っているように、さらに 500 m 奥へ置く。
    横のずらしは「門で 180 度 向き直さない」ためのもの。大きいと斜めに入ってくるので、
    旋回半径（バンク 52 度で約 290 m）ぶんだけにとどめ、あとは観覧位置へまっすぐ向かわせる */
 const FRONT_START = LIMIT + 120;                 // 課目を始める位置（観覧位置からの距離、m）
-const FRONT_FAR = FRONT_START + 500 - SHOW.GATE, FRONT_SIDE = 150;
+const FRONT_FAR = FRONT_START + 1000 - SHOW.GATE, FRONT_SIDE = 150;   // 門で向き直してから、開始位置までに線へ乗る
 const DIRJA = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
 
 /* CSS 変数（昼／夜の配色）を色として読む。最初に見つかった変数を使う */
@@ -682,13 +693,13 @@ export function mount(container, opt = {}) {
       desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
     { id: 'bloom', ja: 'サンライズ', form: 'fan', alt: 190, entry: 'front', far: 1700,
       desc: '5 機がそろって遠くから進入し、ずっと奥で開き始めて、近づくにつれ放射状に大きく広がります（日の出）。' },
-    { id: 'touch', ja: 'タッチ・アンド・ゴー', form: 'trail', alt: 140, entry: 'front', set: { gear: true },
-      desc: '縦隊で少し間を空けて正面から進入し、滑走路にタイヤをつけて、そのまま上がります。' },
+    { id: 'touch', ja: 'タッチ・アンド・ゴー', form: 'trail', alt: 140, rwy: true, set: { gear: true },
+      desc: '縦隊で間を空け、滑走路に平行に進入して、順にタイヤをつけ、そのまま上がります。' },
     { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'opro', ja: 'オポジット・コンティニュアス・ロール', form: 'pair', alt: 220,
       desc: '2 機が正面の左右から高速で近づき、会場の正面で至近距離をすれ違います。すれ違った直後に機首を上げ、そのまま 3 回転します。' },
-    { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230, side: -1,
-      desc: '2 機がそろって左手から進入し、正面で上下に交差して右手へ抜けます。交差の前後で、それぞれ外側へ回して膨らみます。' },
+    { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230, entry: 'front',
+      desc: '2 機が背面のまま北から進入し、途中で外側へ回して膨らみ、正面で交差します。そのまま進んで、南東と南西へ抜けます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front',
       desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
@@ -702,9 +713,9 @@ export function mount(container, opt = {}) {
     { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300,
       desc: 'ゆっくり背面に入り、そのまま飛んでから戻します。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
-    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200,
+    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200, at: 315,
       desc: '高さの違う 5 機が一列で正面から進入し、先頭以外が一斉に左右へ開きます。そのあと、先頭の旋回に合わせて広めの三角形になり、そろって旋回します。' },
-    { id: 'rain', ja: 'レインフォール', form: 'fan', alt: 620, entry: 'front',
+    { id: 'rain', ja: 'レインフォール', form: 'fan', alt: 900, entry: 'front',
       desc: '極めて高いところから 5 機が真下へ降り、正面の前方で一気に散らばって、煙の筋が五方向へ伸びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200, entry: 'front', far: 900,
@@ -767,41 +778,69 @@ export function mount(container, opt = {}) {
   const SPREAD_RATE = 0.62;                // 1 秒あたり、もとの間隔の何倍ずつ広げるか
   /* サンライズで開き始める位置（散開位置）。観覧位置から、もとの壁があったあたりまでの距離。
      そこまでは平らな三角のまま、スモークを引いて直進する */
-  const BLOOM_AT = 1200;
+  const BLOOM_AT = SPREAD_D;
   let reIn = 0;                            // 進入をやり直した回数（近すぎるところで始めないため）
   let spreadOn = false, spreadT = 0, bloomOut = false;
   /* サンライズの散開。隊形の間隔を広げるのではなく、機体それぞれが実際に旋回して開く。
      外側の 2 機が先に、中央の 2 機がその少しあとに曲がり始め、
      外側は 90 度、中央は 45 度まで、始めの向きからゆるやかに曲がる。1 番機はまっすぐのまま */
   const BLOOM_TURN = 13;                   // 曲がりきるまで（秒）
+  const BLOOM_TURN_V = 6;                  // 鉛直下向きから水平へ（レインフォール）の引き起こし（秒）
+  const RAIN_PULL_Z = 330;                 // レインフォールの散開位置の高さ（ここから引き起こす。終わりは 150 m ほど）
+  let rainDive = false, rainT = 0;         // レインフォール: 押し下げに入ったか、その経過
   const BLOOM_LAG = 1.6;                   // 中央の 2 機が遅れて曲がり始める時間（秒）
   let bloomS = null;
   const bq = new THREE.Quaternion();
-  function startBloom() {
-    bloomS = { t: 0, list: [] };
+  /* vertical = true はレインフォール: 鉛直下向きから、それぞれの水平の向きへ曲がる */
+  function startBloom(vertical, baseH) {
+    bloomS = { t: 0, list: [], vert: !!vertical };
+    const dur = vertical ? BLOOM_TURN_V : BLOOM_TURN;
+    const hb = baseH === undefined ? st.h : baseH;         // 扇の基準の向き（1 番機の向き）
     mates.forEach((holder, i) => {
       if (i >= 4) return;
       const side = (i % 2 === 0) ? -1 : 1;                  // 0・2 が左、1・3 が右
       const outer = i >= 2;                                  // 外側の 2 機
-      bloomS.list[i] = { p: holder.position.clone(), h0: st.h, h: st.h,
-                         ang: (outer ? 90 : 45) * side, delay: outer ? 0 : BLOOM_LAG };
+      const ang = (outer ? 90 : 45) * side, h1 = hb + ang;
+      const v0 = vertical ? new THREE.Vector3(0, 0, -1)
+                          : new THREE.Vector3(Math.sin(hb * D), Math.cos(hb * D), 0);
+      const v1 = new THREE.Vector3(Math.sin(h1 * D), Math.cos(h1 * D), 0);
+      bloomS.list[i] = { p: holder.position.clone(), v0, v1, ang, dur, delay: outer ? 0 : BLOOM_LAG };
     });
   }
+  /* 散った機体を、いまの位置から隊形へ戻す（ふつうの合流にわたす） */
+  function endBloomMates() {
+    mates.forEach((h, i) => { if (i < 4 && bloomS && bloomS.list[i]) {
+      mo.copy(h.position).sub(plane.position).applyQuaternion(qInv.copy(att).invert());
+      h.userData.cur.copy(mo); h.userData.from = null; } });
+    bloomS = null;
+  }
+  const bv = new THREE.Vector3(), bIn = new THREE.Vector3(), bUp = new THREE.Vector3(), bRt = new THREE.Vector3();
   function placeBloom(holder, u, i, dt, emitting, color) {
     const b = bloomS.list[i];
     if (!b) { holder.visible = false; u.shown = false; return; }
-    const tt = Math.max(0, bloomS.t - b.delay), k = clamp(tt / BLOOM_TURN, 0, 1);
+    const tt = Math.max(0, bloomS.t - b.delay), k = clamp(tt / b.dur, 0, 1);
     const e = k * k * (3 - 2 * k);                           // ゆるやかに曲がり始め、ゆるやかに止める
-    b.h = b.h0 + b.ang * e;
+    /* 進む向きは、始めの向き（v0）から終わりの向き（v1）へ回していく。
+       水平なら旋回、鉛直下向きからなら引き起こし。位置は前へ進めるだけ（実際に飛べる動き） */
+    bv.copy(b.v0).lerp(b.v1, e); if (bv.lengthSq() < 1e-6) bv.copy(b.v1); bv.normalize();
     const v = SPEED * spdK;
-    b.p.x += Math.sin(b.h * D) * v * dt;                     // 前へ進むだけ（実際に飛べる動き）
-    b.p.y += Math.cos(b.h * D) * v * dt;
-    /* 傾きは曲がり方から出す（旋回率に見合ったバンク） */
-    const om = (b.ang * D) * (6 * k * (1 - k)) / BLOOM_TURN; // 角速度（rad/s）
-    const bank = Math.atan(v * om / 9.81) / D;
-    bq.setFromAxisAngle(AZ, -b.h * D);
-    bq.multiply(dq.setFromAxisAngle(AY, clamp(bank, -60, 60) * D));
+    b.p.addScaledVector(bv, v * dt);
+    if (bloomS.vert) {
+      /* 引き起こし: 機体の上（揚力の向き）は曲がる内側へ。終わりは上向き */
+      bIn.copy(b.v1).addScaledVector(bv, -b.v1.dot(bv));
+      if (bIn.lengthSq() < 1e-6) bIn.set(0, 0, 1); else bIn.normalize();
+      bUp.copy(bIn).multiplyScalar(1 - e).addScaledVector(AZ, e).normalize();
+    } else {
+      /* 旋回: 傾きは旋回率に見合ったバンクにする */
+      const om = (b.ang * D) * (6 * k * (1 - k)) / b.dur;    // 角速度（rad/s）
+      const bank = clamp(Math.atan(v * om / 9.81), -1.05, 1.05);
+      bRt.crossVectors(bv, AZ).normalize();                  // 右向き
+      bUp.copy(AZ).multiplyScalar(Math.cos(bank)).addScaledVector(bRt, Math.sin(bank)).normalize();
+    }
+    bRt.crossVectors(bv, bUp).normalize(); bUp.crossVectors(bRt, bv).normalize();
+    bq.setFromRotationMatrix(fmat.makeBasis(bRt, bv, bUp));
     holder.position.copy(b.p);
+    if (holder.position.z < 3) holder.position.z = 3;
     turnMate(holder, bq, dt);
     holder.visible = true; u.shown = true;
     if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(bq).add(b.p); emit(emitPos, color); }
@@ -827,7 +866,7 @@ export function mount(container, opt = {}) {
     autoIn.y = -clamp((wantP - st.p) / 10, -1, 1);
     autoIn.r = 0;
   }
-  const holdBank = b => { autoIn.x = clamp((b - st.b) / 18, -1, 1); };
+  const holdBank = b => { autoIn.x = clamp(wrap180(b - st.b) / 18, -1, 1); };   // 背面（180 度）でも境目で暴れない
   /* 旋回半径（バンク 52 度で約 290 m）の内側にある点へは、いくら回り込んでも届かない。
      ぐるぐる回ったまま時間切れになり、課目が観覧位置から離れた場所で始まってしまう。
      目標が近くて大きく外れているときは、いったんまっすぐ飛んで離れ、届く形になってから向き直る */
@@ -842,6 +881,14 @@ export function mount(container, opt = {}) {
   /* 見ている正面の少し先を中心に回る。隊形が組めるまで待つあいだに使う。
      その場で旋回を続けると輪の中心が流れて演技が遠ざかるので、中心を決めて回る。
      中心を正面に置くので、待ち終わったその場所から始めても、演技は目の前で起きる */
+  /* 決めた中心のまわりを回る（dir = +1 で反時計回り、-1 で時計回り）。少し先の点を狙う */
+  function orbitAround(cx, cy, R, z, dir) {
+    const a = Math.atan2(st.y - cy, st.x - cx) + 0.45 * dir;
+    steerTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R, z);
+  }
+  const bearO = () => ((Math.atan2(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y) / D) % 360 + 360) % 360;   // 原点から見た方位
+  const CHG_R = 850;                       // チェンジオーバー・ターンの弧の半径（m）
+  let tkWp = 0, tkT = 0, tkT2 = 0;         // タック・クロスの通過点の番号、背面へ回す経過、外側へ戻す経過（秒）
   function orbitEye(z) {
     const e = eyeDir();
     const cx = e.ex + e.dx * SHOW.GATE, cy = e.ey + e.dy * SHOW.GATE;
@@ -873,6 +920,19 @@ export function mount(container, opt = {}) {
     const sx = e.dy, sy = -e.dx;                                          // 正面から見て右向き
     /* ふつうは機体に近いほうの横から。課目が入る側を決めているとき（side: -1 は左手）はそれに従う */
     const side = m.side || (((st.x - cx) * sx + (st.y - cy) * sy) >= 0 ? 1 : -1);
+    GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);
+    planFace = ((Math.atan2(e.dx, e.dy) / D) % 360 + 360) % 360;
+    if (m.rwy) {                        // 滑走路に平行に進入する（南から北向きに乗る）
+      GATE.x = RWY.x + side * 140; GATE.y = RWY.y - 2400;   // 門は南のずっと遠く。向き直してから線に乗る距離をとる
+      aimX = RWY.x; aimY = RWY.y - 500; planFace = RWY.h;
+      formScale = 6;                                          // 縦隊の間隔は進入のうちに広げておく
+      st.cue = '滑走路に平行に進入'; marker.position.set(GATE.x, GATE.y, 160); markOn = true; return;
+    }
+    if (m.at !== undefined) {           // 決めた方角の点から入る（北西など）
+      const k = keyPt(m.at, m.atR || KEY_R);
+      GATE.x = k.x; GATE.y = k.y; aimX = k.x; aimY = k.y;
+      st.cue = DIRJA[Math.round(m.at / 45) % 8] + 'から進入'; marker.position.set(GATE.x, GATE.y, 160); markOn = true; return;
+    }
     if (m.entry === 'front') {
       /* 正面の遠くから向かってくる課目。門は正面の線から少し横に置く。
          そこから正面の線に乗り直してくるので、まっすぐ向かってくる形になる
@@ -982,7 +1042,7 @@ export function mount(container, opt = {}) {
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
     e8 = null; touchDone = false; touchT = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
-    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null;
+    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1093,7 +1153,7 @@ export function mount(container, opt = {}) {
         /* 隊形が組めるまで待つ。時間で切り上げると、揃わないまま演目が始まってしまう
            （チェンジオーバー・ターンのスモークが出ない、コークスクリューが遠くへ行く、などの元） */
         if (matesReady() || phaseT > 150) {
-          if (m.entry === 'front') { planEntry(m); manPhase = 'in'; phaseT = 0; }
+          if (m.entry === 'front' || m.at !== undefined || m.rwy) { planEntry(m); manPhase = 'in'; phaseT = 0; }
           else { manPhase = 'do'; st.cue = ''; markOn = false; phaseT = 0; }
         }
         safety();
@@ -1111,7 +1171,12 @@ export function mount(container, opt = {}) {
         /* 正面から入る課目は、観覧位置そのものへ向かってまっすぐ飛ぶ。
            少し先（演目の中心）を狙うと、正面の線から斜めにずれたまま突っ込むことになる */
         const eA = eyeDir();
-        const aX = m.entry === 'front' ? eA.ex : aimX, aY = m.entry === 'front' ? eA.ey : aimY;
+        /* 正面から入る課目は、原点そのものではなく「正面の線の 450 m 先」を狙う。
+           原点を狙うと、横にずれた位置からは斜めに向かうだけで線に乗らない（ずれの角度が残る）。
+           線の先を狙えば、線に寄ってから線の上を進む形になる */
+        const alongA = (st.x - eA.ex) * eA.dx + (st.y - eA.ey) * eA.dy;
+        const aX = m.entry === 'front' ? eA.ex + eA.dx * Math.max(-END_D, alongA - 450) : aimX;
+        const aY = m.entry === 'front' ? eA.ey + eA.dy * Math.max(-END_D, alongA - 450) : aimY;
         approach(aX, aY, GATE.z);
         const wantH = ((Math.atan2(aX - st.x, aY - st.y) / D) % 360 + 360) % 360;
         if (m.entry === 'front') {
@@ -1130,11 +1195,18 @@ export function mount(container, opt = {}) {
           if (along < (m.far || FRONT_START) * 0.35 && reIn < 1) {
             reIn++; planEntry(m); manPhase = 'in'; phaseT = 0; safety(); return autoIn;
           }
-          const cone = along * 0.25 + 60;
+          const cone = along * 0.14 + 40;
           if ((along < (m.far || FRONT_START) && side < cone && Math.abs(wrap180(wantH - st.h)) < 25) || phaseT > 45) endEntry();
         } else {
+          if (m.rwy) {                  // 滑走路に平行になった時点が開始位置
+            /* 線の少し先を狙って線に乗せる（原点狙いと同じ理由）。平行になった時点が開始位置 */
+            approach(RWY.x, Math.min(RWY.y - 200, st.y + 450), GATE.z);
+            const par = Math.abs(st.x - RWY.x) < 80 && Math.abs(wrap180(RWY.h - st.h)) < 12 && st.y < RWY.y - 250;
+            if (par || phaseT > 70) endEntry();
+          } else {
           const near = Math.hypot(st.x - aimX, st.y - aimY) < 280 && Math.abs(st.z - GATE.z) < 80;
           if ((near && Math.abs(wrap180(wantH - st.h)) < 50) || phaseT > 30) endEntry();
+          }
         }
       }
       safety();
@@ -1213,35 +1285,35 @@ export function mount(container, opt = {}) {
         holdBank(0); holdPitch(2);                 // 1 番機はまっすぐのまま
         /* 終わりは、1 番機が観覧位置を過ぎて後ろへ抜けたところ。
            開始位置から終わりまで、ずっとスモークを出したままにする */
-        if (alongB < -300 || manT > 70) {
-          /* 開き終わり。散った機体は、いまの位置から隊形へ戻す（ふつうの合流にわたす） */
-          mates.forEach((h, i) => { if (i < 4 && bloomS.list[i]) {
-            mo.copy(h.position).sub(plane.position).applyQuaternion(qInv.copy(att).invert());
-            h.userData.cur.copy(mo); h.userData.from = null; } });
-          bloomS = null;
-          nextManeuver();
-        }
+        if (alongB < -END_D || manT > 70) { endBloomMates(); nextManeuver(); }
         break;
       }
-      case 'rain': {                             // レインフォール: 高いところから真下へ降り、正面前方で五方向へ散開
-        /* 押し下げも引き起こしも、残りの角度に応じてゆるめる。
-           いっぱいに押して急に止めると、煙の筋がカクンと折れる */
-        autoIn.x = clamp(-st.b / 20, -1, 1); autoIn.r = 0;
-        if (st.z > 420) {
-          const need = clamp((st.p + 90) / 30, -0.5, 1);          // 真下（-90 度）まであとどれだけか
-          autoIn.y = need * clamp(manT / 1.5, 0, 1);              // 入りもゆるやかに
-          rainOn = true;                                          // 降りているあいだは引き起こさない
-        } else {
-          rainOn = false;
-          autoIn.y = -clamp((440 - st.z) / 260, 0.25, 1);         // なめらかに引き起こす
+      case 'rain': {                             // レインフォール: サンライズと同じ要領。開始位置が散開位置の真上（鉛直）
+        const alongR = st.y - GROUND_EYE.y;
+        autoIn.r = 0; smokeAll = true;
+        if (!rainDive) {                           // 散開位置の真上まで、高いところを水平に近づく
+          rainOn = false; formScale = 1;
+          steerTo(GROUND_EYE.x, GROUND_EYE.y, GATE.z);
+          if (alongR < SPREAD_D + 170 || manT > 45) { rainDive = true; rainT = 0; }
+          break;
         }
-        /* 真下を向いたら扇の形へ組み替え、そこから時間に比例して広げる（放射状に散る）。
-           サンライズと同じ要領。降り始めた点から、五方向へまっすぐ離れていく */
-        /* 真下を向いたら、そこから時間に比例して広げる（降り始めた点から五方向へまっすぐ散る）。
-           サンライズと同じ要領。5 機そろって降り、開き始めた点からの放射状になる */
-        if (!spreadOn) { formScale = 1; if (st.p < -70) { spreadOn = true; spreadT = 0; } }
-        else { spreadT += dt; formScale = 1 + SPREAD_RATE * spreadT; }
-        if ((st.p > -22 && st.z < 460) || manT > 32) { rainOn = false; nextManeuver(); }
+        rainT += dt;
+        if (!spreadOn) {                           // 押し下げて真下へ。散開位置の高さまで降りる
+          rainOn = true;
+          autoIn.x = clamp(-st.b / 20, -1, 1);
+          const need = clamp((st.p + 90) / 30, -0.5, 1);          // 真下（-90 度）まであとどれだけか
+          autoIn.y = need * clamp(rainT / 1.5, 0, 1);              // 入りもゆるやかに（カクンと折れない）
+          if ((st.p < -80 && st.z < RAIN_PULL_Z) || st.z < RAIN_PULL_Z - 60 || manT > 70) { spreadOn = true; spreadT = 0; startBloom(true, 180); }
+          break;
+        }
+        /* 散開: 4 機はそれぞれの向きへ、1 番機は北南向きへ。どの機体も鉛直下向きから水平へゆるやかに */
+        spreadT += dt; bloomS.t = spreadT;
+        const kr = clamp(spreadT / BLOOM_TURN_V, 0, 1), er = kr * kr * (3 - 2 * kr);
+        steerTo(GROUND_EYE.x, GROUND_EYE.y - 2500, 150);   // 引き起こしの向きは南（北南方向）
+        if (er < 0.35) autoIn.x = clamp(-st.b / 20, -1, 1);   // 立っているうちは翼を水平に
+        holdPitch(-90 + 92 * er);
+        rainOn = er < 0.7;
+        if (spreadT > BLOOM_TURN_V + 4 || manT > 90) { endBloomMates(); rainOn = false; nextManeuver(); }
         break;
       }
       case 'byover': {                           // 頭上通過: 見ている人の真上を低く通り抜ける
@@ -1295,10 +1367,10 @@ export function mount(container, opt = {}) {
         holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12));
         if ((!tkOn && st.z > 180) || manT > 40) nextManeuver();
         break;
-      case 'touch': {                            // タッチ・アンド・ゴー: タイヤをつけて、そのまま自動で上がる
-        formScale = 1.6;                                           // 縦隊の間を少し広くとる
+      case 'touch': {                            // タッチ・アンド・ゴー: 滑走路に平行になったところから降ろし、順にタイヤをつけて上がる
+        formScale = 6;                                             // 縦隊の間隔を広くとる（96 m おき）
         if (!touchDone) {
-          steerTo(RWY.x, RWY.y + 700, -20);                        // 滑走路の上へ降ろす
+          steerTo(RWY.x, RWY.y + 900, -20);                        // 滑走路の上へ降ろす
           if (st.z <= 3.4) { touchDone = true; touchT = 0; st.cue = 'タッチ'; }
         } else if (touchT < TOUCH_RUN) {                           // 少し間を置いてから上げる（接地しているあいだ）
           touchT += dt; holdBank(0); holdPitch(2); st.cue = 'タッチ';
@@ -1314,7 +1386,7 @@ export function mount(container, opt = {}) {
         if (!mir) startMirror();
         const eo = mir, ovx = st.x - eo.ox, ovy = st.y - eo.oy;
         const operp = ovx * eo.dy - ovy * eo.dx;              // 正面から見て右が正
-        const otx = eo.ox + eo.dx * (SHOW.GATE + 140), oty = eo.oy + eo.dy * (SHOW.GATE + 140);
+        const otx = eo.ox + eo.dx * SPREAD_D, oty = eo.oy + eo.dy * SPREAD_D;   // 交差点は散開位置
         if (rollSum <= 0 && Math.abs(operp) > 90) {           // 交差するまで: 正面へ向けてまっすぐ寄せる
           steerTo(otx, oty, GATE.z);
           autoIn.r = 0;
@@ -1325,39 +1397,62 @@ export function mount(container, opt = {}) {
         if (rollSum > 1080 || manT > 30) nextManeuver();      // 3 回転（1080 度）で終わり
         break;
       }
-      case 'tuck': {                             // タック・クロス: 2 機とも左から入り、正面で上下に交差して右へ抜ける
-        if (!mir) { startMirror(); mir.vert = true; mir.z0 = GATE.z; }
-        const et = mir;
-        const tsx = et.dy, tsy = -et.dx;                          // 正面から見て右向き
-        const tcx = et.ox + et.dx * SHOW.GATE, tcy = et.oy + et.dy * SHOW.GATE;
-        const tlat = (st.x - tcx) * tsx + (st.y - tcy) * tsy;     // 正面から見た左右（右が正）
-        /* 左では低く、正面でちょうど真ん中の高さ、右では高く。
-           相手は上下の鏡なので、正面で上下が入れ替わり、交差して見える */
-        const tz = et.z0 + clamp(tlat * 0.34, -90, 90);
-        const ttx = tcx + tsx * 1200, tty = tcy + tsy * 1200;
-        steerTo(ttx, tty, tz);
-        /* 交差の前後は外側へ回して膨らむ。ただし走りの向きに乗ってから
-           （乗る前に回してしまうと、向きを直せないまま遠くへ飛んでいく） */
-        const thw = ((Math.atan2(ttx - st.x, tty - st.y) / D) % 360 + 360) % 360;
-        if (Math.abs(tlat) < 240 && Math.abs(wrap180(thw - st.h)) < 25) autoIn.x = -0.75;
+      case 'tuck': {                             // タック・クロス: 北から背面で入り、中間位置で外へ回して膨らみ、散開位置で交差
+        if (!mir) { startMirror(); mir.dz = 14; tkWp = 0; }    // 相手は正面の線の鏡。交差で当たらないよう 14 m 上
+        const O = GROUND_EYE, MID = (FRONT_START + SPREAD_D) / 2;
+        const alongT = st.y - O.y;
+        /* 通過点: 膨らみ（中間位置と散開位置のあいだ、左へ 240 m）→ 交差（散開位置、線の少し右）→ 南東 */
+        const se = keyPt(135, 900);
+        /* 膨らみの点を近くにすると、通り過ぎてから向き直すことになって輪を描いてしまう（実測）。240 m が落ち着く */
+        const wps = [[O.x - 240, O.y + (MID + SPREAD_D) / 2], [O.x + 12, O.y + SPREAD_D], [se.x, se.y]];
+        if (alongT > MID) {
+          /* 中間位置まで: 2.2 秒で左へ回して背面にし、そのまま南へまっすぐ。
+             背面では舵の効きが逆になり、ふつうの舵取りでは高さも傾きも暴れるので、
+             ここは姿勢を直接決める（背面の直進は、実機でもそのまま飛べる動き）。
+             位置は step() の積分に任せる（向きは南、速さはそのまま） */
+          tkT += dt;
+          const kk = clamp(tkT / 2.2, 0, 1), ee = kk * kk * (3 - 2 * kk);
+          att.setFromAxisAngle(AZ, -180 * D);
+          att.multiply(dq.setFromAxisAngle(AY, -180 * ee * D));
+          readAttitude();
+          st.z += (GATE.z - st.z) * Math.min(1, dt * 0.6);   // 高さは決めた高さへなめらかに
+          autoIn.x = 0; autoIn.y = 0; smIn.x = 0; smIn.y = 0;
+        } else if (tkT2 < 2.4) {
+          /* 中間位置: 外側（左）へ 2.4 秒で回して、背面から左 50 度のバンクへ。
+             ここも姿勢を直接決める。背面（180 度）のままふつうの舵取りに渡すと、
+             向きの読みが 180 度 あいまいになり、逆へ曲がることがある */
+          tkT2 += dt;
+          const k2 = clamp(tkT2 / 2.4, 0, 1), e2 = k2 * k2 * (3 - 2 * k2);
+          att.setFromAxisAngle(AZ, -180 * D);
+          att.multiply(dq.setFromAxisAngle(AY, (-180 + 130 * e2) * D));   // -180 → -50（外側＝左を通る）
+          readAttitude();
+          autoIn.x = 0; autoIn.y = 0; smIn.x = 0; smIn.y = 0;
+        } else {                                   // 外側（左）へ回しながら膨らみ、交差点を通って南東へ
+          const w = wps[Math.min(tkWp, 2)];
+          steerTo(w[0], w[1], GATE.z);
+          if (tkWp < 2 && Math.hypot(w[0] - st.x, w[1] - st.y) < 170) tkWp++;
+        }
         autoIn.r = 0;
-        if (tlat > 560 || manT > 30) nextManeuver();
+        if ((tkWp >= 2 && alongT < -END_D) || manT > 85) nextManeuver();
         break;
       }
-      case 'change':                             // チェンジオーバー・ターン: 高さの違う一列で入り、一斉に開いて、平行のまま旋回
-        /* 階段の隊形が組み上がるまで、まっすぐ進入して待つ。組めたその瞬間から数える。
-           時間で始めると、揃う前に開き出してスモークがちぐはぐになる */
+      case 'change': {                           // チェンジオーバー・ターン: 北西から入り、原点側に凸の弧を描く
+        /* 弧の中心は散開位置の真北。弧のいちばん原点寄りが散開位置になる。
+           北北西（階段の隊形が組めてから）で一斉に開き、北東で終わる */
+        orbitAround(GROUND_EYE.x, GROUND_EYE.y + SPREAD_D + CHG_R, CHG_R, GATE.z, +1);
+        const br = bearO();
         if (chgT < 0) {
-          formation = 'steps'; formScale = 1; holdBank(0); holdPitch(0); autoIn.r = 0;
-          if (matesReady() || manT > 50) { chgT = 0; smokeAll = true; }   // ここから全機いっせいにスモーク
-          break;
+          formation = 'steps'; formScale = 1;
+          if ((matesReady() && (br > 332 || br < 30)) || manT > 55) { chgT = 0; smokeAll = true; }   // 北北西で一斉にスモーク・散開
+        } else {
+          chgT += dt;
+          if (chgT < 3.5) { joinFast = true; formation = 'split'; formScale = 1; }        // 一斉に交互へ開く
+          else { joinFast = false; formation = 'delta'; formScale = 1.7; }               // 平行になって弧を続ける
         }
-        chgT += dt;
-        if (chgT < 3.5) { joinFast = true; formation = 'split'; formScale = 1; holdBank(0); holdPitch(0); }   // 一斉に交互へ開く
-        else { joinFast = false; formation = 'delta'; formScale = 1.7; holdBank(52 * turnSign); holdPitch(2); }  // 平行になって一斉旋回
-        autoIn.r = 0;
-        if (hdgSum > 300 || manT > 45) nextManeuver();
+        holdPitch(1); autoIn.r = 0;
+        if ((chgT > 4 && br > 27 && br < 150) || manT > 80) nextManeuver();               // 北東（弧の東の端）で終わり
         break;
+      }
       case 'turnloop':                           // 360 度ターン & ループ: 1 周旋回してから宙返り
         if (hdgSum < 350) { holdBank(54 * turnSign); holdPitch(0); }
         else { loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; }
@@ -1727,7 +1822,7 @@ export function mount(container, opt = {}) {
     const e = mir, vx = plane.position.x - e.ox, vy = plane.position.y - e.oy;
     const along = vx * e.dx + vy * e.dy;
     holder.position.set(e.ox + e.dx * along - (vx - e.dx * along),
-                        e.oy + e.dy * along - (vy - e.dy * along), plane.position.z);
+                        e.oy + e.dy * along - (vy - e.dy * along), plane.position.z + (e.dz || 0));
     const face = (Math.atan2(e.dx, e.dy) / D);
     const h2 = 2 * face - st.h;                       // 方位を鏡に映す
     mrQ.setFromAxisAngle(AZ, -h2 * D);
@@ -2055,8 +2150,9 @@ export function mount(container, opt = {}) {
         const kf = far * far * (3 - 2 * far);
         if (kf > 0.001) mq.slerp(qFlat, kf);
       }
-      basePos.copy(mp);                  // 遅らせた 1 番機の位置（ここからのずれで置く）
+      basePos.copy(mp);                  // 1 番機の位置（ここからのずれで置く）
       mp.add(mo);
+      if (mp.z < 3) mp.z = 3;            // 地面より下へは置かない（低いところで機首を上げても、後ろの機体がめり込まない）
       if (retT >= 0 && u.ret) {          // 図の終わりの位置から、隊形の位置へ なめらかに戻す
         const k2 = retT / retDur, e2 = k2 * k2 * (3 - 2 * k2);
         /* 混ぜ元は「そのまま飛び続けた位置」。上下の速さは 3 秒で抜き、低くなりすぎないようにする */

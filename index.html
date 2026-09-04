@@ -1006,7 +1006,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.56';
+const APP_VER='v03.57';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1392,10 +1392,12 @@ function runSim(opt){applyScene();
     let r=0;sim.rud.forEach(v=>r+=v);if(k.has('o'))r-=1;if(k.has('p'))r+=1;i.r=Math.max(-1,Math.min(1,r));
     $('#sim').querySelectorAll('[data-r]').forEach(b=>b.classList.toggle('down',Math.sign(i.r)===+b.dataset.r))};
   const setStick=e=>{const rc=stick.getBoundingClientRect();let dx=(e.clientX-(rc.left+rc.width/2))/(rc.width/2),dy=(e.clientY-(rc.top+rc.height/2))/(rc.height/2);const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
-    /* 出題の約束どおり、操縦桿は一度に 1 方向だけ効かせる（倒した量の大きいほうを採り、もう一方は 0 にする）。
-       指で真横に倒したつもりでも前後がわずかに混じるので、そのままだと横転しながら機首が上下し、軌道が螺旋を描いてしまう。
+    /* 操縦桿は 8 方向に倒せる。斜めは 機首上げ下げ と 左右ロール の同時操作になる。
+       倒した向きを 45 度ごとに丸めるので、真横に倒したつもりで前後がわずかに混じっても真横として扱う
+       （丸めないと、横転しながら機首が少しずつ上下して、軌道が螺旋を描いてしまう）。
        絵の操縦桿も同じ値で動かすので、効いている向きがそのまま見える */
-    if(Math.abs(dx)>=Math.abs(dy))dy=0;else dx=0;
+    if(m>.001){const a=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4),r=Math.min(1,m);
+      dx=Math.cos(a)*r;dy=Math.sin(a)*r}
     sim.stickVec={x:dx,y:-dy};
     if(sim.h){if(sim.h.autoState()){sim.h.input.x=0;sim.h.input.y=0}else{sim.h.input.x=dx;sim.h.input.y=-dy}}knob.style.transform=`translate(${(dx*22).toFixed(1)}%,${(dy*22).toFixed(1)}%) rotate(${(dx*18).toFixed(1)}deg)`};
   stick.addEventListener('pointerdown',e=>{if(sim.ptr!==null)return;sim.ptr=e.pointerId;try{stick.setPointerCapture(e.pointerId)}catch(_){}setStick(e);e.preventDefault()});

@@ -686,11 +686,25 @@ export function mount(container, opt = {}) {
     autoIn.r = 0;
   }
   const holdBank = b => { autoIn.x = clamp((b - st.b) / 18, -1, 1); };
-  /* 観覧位置のまわりを回る。隊形が組めるまで待つあいだに使う。
-     その場で旋回を続けると、輪の中心が流れて演技が遠ざかるので、中心を観覧位置に決めて回る */
+  /* 旋回半径（バンク 52 度で約 290 m）の内側にある点へは、いくら回り込んでも届かない。
+     ぐるぐる回ったまま時間切れになり、課目が観覧位置から離れた場所で始まってしまう。
+     目標が近くて大きく外れているときは、いったんまっすぐ飛んで離れ、届く形になってから向き直る */
+  function approach(tx, ty, tz) {
+    const d = Math.hypot(tx - st.x, ty - st.y);
+    const wantH = ((Math.atan2(tx - st.x, ty - st.y) / D) % 360 + 360) % 360;
+    if (d < 420 && Math.abs(wrap180(wantH - st.h)) > 65) {
+      holdBank(0); holdPitch(clamp((tz - st.z) * 0.06, -8, 8)); autoIn.r = 0; return;
+    }
+    steerTo(tx, ty, tz);
+  }
+  /* 見ている正面の少し先を中心に回る。隊形が組めるまで待つあいだに使う。
+     その場で旋回を続けると輪の中心が流れて演技が遠ざかるので、中心を決めて回る。
+     中心を正面に置くので、待ち終わったその場所から始めても、演技は目の前で起きる */
   function orbitEye(z) {
-    const e = eyeDir(), a = Math.atan2(st.y - e.ey, st.x - e.ex) + 0.5;
-    steerTo(e.ex + Math.cos(a) * SHOW.R, e.ey + Math.sin(a) * SHOW.R, z || SHOW.ALT);
+    const e = eyeDir();
+    const cx = e.ex + e.dx * SHOW.GATE, cy = e.ey + e.dy * SHOW.GATE;
+    const a = Math.atan2(st.y - cy, st.x - cx) + 0.5;
+    steerTo(cx + Math.cos(a) * SHOW.R, cy + Math.sin(a) * SHOW.R, z || SHOW.ALT);
   }
   const holdPitch = p2 => { autoIn.y = -clamp((p2 - st.p) / 10, -1, 1); };
   /* いま見ている向き（地上視点なら自分で向けた方向、それ以外は観覧位置から北） */
@@ -862,8 +876,12 @@ export function mount(container, opt = {}) {
       }
       if (manPhase === 'gather') {         // 隊形が組めるまで待つ。観覧位置のまわりを回って待つので、遠くへ流れない
         orbitEye(GATE.z);
-        /* 組めたら、そのまま正面へ寄せる（もう観覧位置のそばにいるので、遠くの門から入り直さない） */
-        if (matesReady() || phaseT > 40) { planEntry(m); manPhase = 'align'; phaseT = 0; }
+        /* 組めたら始める。正面から向かってくる課目だけ、門からの進入をやり直す。
+           それ以外は、正面のまわりを回っているところから そのまま始める（回り込みで時間を使わない） */
+        if (matesReady() || phaseT > 40) {
+          if (m.entry === 'front') { planEntry(m); manPhase = 'in'; phaseT = 0; }
+          else { manPhase = 'do'; st.cue = ''; markOn = false; phaseT = 0; }
+        }
         safety();
         return autoIn;
       }
@@ -873,10 +891,10 @@ export function mount(container, opt = {}) {
       } else if (manPhase === 'in') {
         const e2 = eyeDir(), f2 = ((Math.atan2(e2.dx, e2.dy) / D) % 360 + 360) % 360;
         if (Math.abs(wrap180(f2 - planFace)) > 35) planEntry(m);   // 見ている向きが変わったら、進入路を引き直す
-        steerTo(GATE.x, GATE.y, GATE.z);
+        approach(GATE.x, GATE.y, GATE.z);
         if (Math.hypot(st.x - GATE.x, st.y - GATE.y) < 260 || phaseT > 45) { manPhase = 'align'; phaseT = 0; }
       } else {
-        steerTo(aimX, aimY, GATE.z);
+        approach(aimX, aimY, GATE.z);
         const wantH = ((Math.atan2(aimX - st.x, aimY - st.y) / D) % 360 + 360) % 360;
         if (m.entry === 'front') {
           /* 正面から入る課目は、観覧位置の正面の線に乗ってから始める（横にずれたまま始めると、
@@ -1512,7 +1530,9 @@ export function mount(container, opt = {}) {
         turnMate(holder, mq, dt);
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
       u.shown = true;
-      if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+      /* 隊形の中にいるあいだは、位置を移している最中でもスモークを切らない（チェンジオーバー・ターン）。
+         遠くから合流してくる機体（離れている）は、これまでどおり出さない */
+      if (target && (settled || u.cur.length() < 90) && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;
@@ -1741,6 +1761,8 @@ export function mount(container, opt = {}) {
     groundMode() { return gmode; },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },
+    /* 自動操縦で地上から見るときは、機体を目で追う（演目を見失わないように） */
+    autoGroundFollow() { if (auto && curView === 'ground' && !follow) { follow = true; look.y = 0; look.p = 0; return true; } return false; },
     followState() { return follow; },
     zoomVal() { return zoom; },
     /* 技の一覧（移動のための旋回と正面通過を除く）と、1 つだけ行わせる呼び出し。

@@ -12,7 +12,23 @@
 <link rel="icon" href="icons/favicon-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
-<title>TENRYU</title>
+<title>TENRYU｜航空学生の適性検査トレーニング（方位・姿勢指示器・操縦操作）</title>
+<meta name="description" content="航空自衛隊 航空学生の適性検査を、制限時間つきで反復練習できる Web アプリ。方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目と、操縦操作の見え方を確かめる 3D シミュレーターが入っています。ブラウザでそのまま試せます。">
+<link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TENRYU">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://kokuteki.amaterasu-vocab.com/">
+<meta property="og:title" content="TENRYU｜航空学生の適性検査トレーニング">
+<meta property="og:description" content="方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
+<meta property="og:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TENRYU｜航空学生の適性検査トレーニング">
+<meta name="twitter:description" content="方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
+<meta name="twitter:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ, iOS, Android","inLanguage":"ja","description":"航空自衛隊 航空学生の適性検査（方位・姿勢指示器・方位×姿勢指示器・操縦操作）を反復練習する学習アプリ。操縦操作の見え方を確かめる 3D シミュレーターつき。","offers":{"@type":"Offer","price":"0","priceCurrency":"JPY"}}</script>
 <!-- three.js はこのアプリの中に置く（外の CDN だと、更新のたびに取り直しになり オフラインで 3D が動かない） -->
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
 <style>
@@ -461,6 +477,8 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 .dirlist{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:1rem}
 .dirlist .ab{min-height:3.25rem}
 .dirlist .ab .t{font-size:1rem;font-weight:700}
+.dirlist .ab .lab{font-family:var(--mono);font-size:.75rem;font-weight:700;color:var(--muted)}
+.dirlist .ab.sel .lab{color:var(--accent)}
 .dirgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:1rem}
 .dirgrid .ab .ic{width:1rem;height:1rem;color:var(--muted)}
 .dirgrid .ab .t{font-size:.9375rem;font-weight:700;line-height:1.2}
@@ -721,7 +739,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .figs.heading .fig.top{width:88%}
   .figs.heading .dirlist{margin-top:0;gap:.625rem;grid-template-columns:repeat(2,1fr)}
   .figs.heading .dirlist .ab{min-height:3.75rem}
-  .frames{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+  /* 操縦操作は視界の変化が主役なので、PC でも 3 枚を縦に並べて 1 枚ずつ大きく見せる */
+  .frames{gap:.5rem}
   .gallery .frames{grid-template-columns:1fr}
   .gallery .frame .v{height:calc((100vh - 24rem)/3);max-height:14rem}
   .frame{grid-template-columns:1fr}
@@ -749,6 +768,40 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .about{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}
   .about .card.wide{grid-column:1/-1}
   .dirbtns{grid-template-columns:repeat(7,1fr)}
+}
+/* ===== PC 幅: 訓練画面も 1 画面に収める =====
+   画面が大きいぶん、大事なのは機体の図より選択肢なので、図を伸縮させて選択肢を大きく見せる。
+   スマホの 1 画面化と同じ作り（縦の flex にして、図だけを伸縮させる） */
+@media (min-width:64rem){
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:1rem}
+  body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
+  #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
+  .hero2{flex:0 1 auto;min-height:0;justify-content:center}
+  .hero-jet{flex:0 1 auto;min-height:0;object-fit:contain}
+  .layout{flex:1;min-height:0;align-items:stretch}
+  body[data-view="train"] .layout > .card{min-height:0;display:flex;flex-direction:column}
+  #quiz:not([hidden]),#sim:not([hidden]),#gallery:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
+  #figs{flex:1;min-height:0;display:flex;flex-direction:column}
+  .figs{flex:1;min-height:0;display:flex;flex-direction:column}
+  .fig.wide{flex:1;min-height:0;display:flex;flex-direction:column}
+  .d14{flex:1;min-height:8rem;display:flex;justify-content:center}
+  .d14 img{height:100%!important;width:auto!important;max-width:100%;object-fit:contain}
+  .figs.heading{grid-template-rows:minmax(0,1fr)}
+  .figs.heading > div:first-child{min-height:0;display:flex;flex-direction:column}
+  .fig.top,.answered .fig.top{flex:1;min-height:0;width:100%;display:flex;justify-content:center;transition:none}
+  .fig.top svg{height:100%;width:auto;max-width:100%}
+  .frames{flex:1;min-height:0}
+  .frame{flex:1;min-height:0;grid-template-rows:minmax(0,1fr)}
+  .frame .v{height:100%;min-height:0;display:flex;justify-content:center;border:0}
+  .frame .v svg{height:100%;width:auto;max-width:100%;border-radius:.625rem;border:1px solid var(--line)}
+  /* 選択肢を大きく（PC では選択肢が主役） */
+  .opts .ab{min-height:6.5rem}
+  .opts .ab .inst{width:auto;height:clamp(4rem,13vh,7.5rem);aspect-ratio:1}
+  .opts .ab .lab{font-size:.9375rem}
+  .opts.text .ab{min-height:4rem}
+  .opts.text .ab .t{font-size:1.0625rem}
+  .dirlist .ab{min-height:3.5rem}
+  .dirlist .ab .t{font-size:1.0625rem}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -1009,7 +1062,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.58';
+const APP_VER='v03.59';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1084,7 +1137,7 @@ function render(){
   const figs=$('#figs'),ans=$('#answers');
   if(q.type==='heading'){
     $('#prompt').textContent='機首が向いている方位を 8 方位から選ぶ';
-    const grid=`<div class="dirlist">${DIR_ORDER.map(i=>`<button class="ab" data-dir="${i}"><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
+    const grid=`<div class="dirlist">${DIR_ORDER.map(i=>`<button class="ab" data-dir="${i}"><span class="lab">${i+1}</span><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
     figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北</div></div>${grid}</div>`;
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
@@ -1093,17 +1146,17 @@ function render(){
     if(q.type==='attitude'){
       $('#prompt').textContent='この姿勢に対応する姿勢指示器を選ぶ';
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
-      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst">${E.svgAI(o.bank,o.pitch)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
+      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst">${E.svgAI(o.bank,o.pitch)}</span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     }else{
       $('#prompt').textContent='向きと姿勢の両方に一致する計器（姿勢指示器＋方位指示器）を選ぶ';
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
-      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading,q.mark)}</span><span class="lab">${'ABCD'[i]}</span><span class="mk"></span></button>`).join('')}</div>`;
+      ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading,q.mark)}</span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     }
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else{
     $('#prompt').textContent='①→②→③ の変化から、行われた操作を選ぶ';
     figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,i/2,false,q.hud!==false))}</div></div>`).join('')}</div></div>`;
-    ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${'ABCD'[i]}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
+    ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${i+1}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
   startTimer();
@@ -1325,7 +1378,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=58').then(mod=>{
+  import('./sim3d.js?v=59').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1382,7 +1435,7 @@ function runSim(opt){applyScene();
       <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1" aria-label="方向舵 左"><span class="pl">L</span></button><button class="ab pedal" data-r="1" aria-label="方向舵 右"><span class="pl">R</span></button></div></div>
     </div>
     <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
-    <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で左クリック・右クリック　スモーク スペース</div>
+    <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）、斜めは Q・E・Z・C／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で左クリック・右クリック　スモーク スペース</div>
     <div class="acts row3"><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
   sim={h:null,keys:new Set(),ptr:null,rud:new Map(),wheelDir:0,wheelUntil:0};
   /* 操縦桿（左）: 円の中でドラッグ。上 = 奥（機首下げ）、右 = 右バンク。離すと中央に戻る */
@@ -1390,7 +1443,10 @@ function runSim(opt){applyScene();
   /* PC: 操縦桿は W（奥）/ S（手前）/ A（左）/ D（右）と矢印、マウスホイール奥・手前。方向舵は O（左）/ P（右）と、視界の上での左クリック（左）/ 右クリック（右） */
   const applyInput=()=>{if(!sim||!sim.h)return;const i=sim.h.input,k=sim.keys;
     if(sim.ptr===null){const wheel=sim.wheelUntil>performance.now()?sim.wheelDir:0;
+      /* 斜めは Q（左奥）E（右奥）Z（左手前）C（右手前）。画面の操縦桿を斜めに倒したのと同じ 0.71 ずつにする */
+      const dg=[['q',-1,1],['e',1,1],['z',-1,-1],['c',1,-1]].find(([kk])=>k.has(kk));
       i.x=((k.has('d')||k.has('ArrowRight'))?1:0)-((k.has('a')||k.has('ArrowLeft'))?1:0);i.y=wheel||(((k.has('w')||k.has('ArrowUp'))?1:0)-((k.has('s')||k.has('ArrowDown'))?1:0));
+      if(dg&&!i.x&&!i.y){i.x=dg[1]*0.71;i.y=dg[2]*0.71}
       knob.style.transform=`translate(${i.x*22}%,${-i.y*22}%) rotate(${i.x*18}deg)`}
     let r=0;sim.rud.forEach(v=>r+=v);if(k.has('o'))r-=1;if(k.has('p'))r+=1;i.r=Math.max(-1,Math.min(1,r));
     $('#sim').querySelectorAll('[data-r]').forEach(b=>b.classList.toggle('down',Math.sign(i.r)===+b.dataset.r))};
@@ -1414,7 +1470,7 @@ function runSim(opt){applyScene();
   });
   sim.kd=e=>{if(document.body.dataset.view!=='train'||!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;
     if(k===' '){e.preventDefault();if(sim.toggleSmoke)sim.toggleSmoke();return}   // スペースでスモークの入り切り
-    if(/^Arrow|^[wsadop]$/.test(k)){e.preventDefault();sim.keys.add(k);applyInput()}};
+    if(/^Arrow|^[wsadopqezc]$/.test(k)){e.preventDefault();sim.keys.add(k);applyInput()}};
   /* マウス: 視界の上で左クリック = 左方向舵、右クリック = 右方向舵（押している間）。ホイール奥 = 操縦桿 奥、手前 = 手前（短い入力） */
   /* 視界: ドラッグで視点を動かす（指でもマウスでも）。マウスは動かさずに押しただけなら従来どおり方向舵。2 回叩くと視点を戻す */
   const vw=$('#simView');
@@ -1499,6 +1555,8 @@ function runSim(opt){applyScene();
     vBtn.title='視点: '+it[1]+'（押すと次の視点へ）';vBtn.setAttribute('aria-label','視点: '+it[1])};
   /* 一人称の見せ方: cockpit=機内（計器盤・操縦桿・緑の目盛り）、inst=計器だけ（標準の見え方） */
   const setViewTo=(v,mode)=>{const fp=v==='first';
+    /* 自動操縦で地上から見るときは、機体を目で追う（自分で向けたままだと演技を見失う） */
+    setTimeout(()=>{if(sim&&sim.h&&sim.h.autoGroundFollow&&sim.h.autoGroundFollow()){store.set('simFollow',true);if(sim.paintFollow)sim.paintFollow()}},0);
     if(fp)sim.fpMode=portraitNow()?'inst':(mode||sim.fpMode||'cockpit');
     const inside=fp&&sim.fpMode==='cockpit';
     store.set('simView',v);if(fp)store.set('simFpMode',sim.fpMode);sim.viewName=v;
@@ -1543,7 +1601,8 @@ function runSim(opt){applyScene();
       const nm=$('#showName');if(nm){const t=s.show?(s.cue?`${s.show}｜${s.cue}`:s.show):'';nm.textContent=t;nm.hidden=!t}
       /* 課目が変わったら、その技の説明をしばらく出す */
       if(s.show!==sim.lastShow){sim.lastShow=s.show;const de=$('#trickDesc');
-        if(de){de.textContent=s.desc||'';de.hidden=!s.desc;clearTimeout(sim.descT);
+        const descOn=settings.simDesc!=='off';   /* 字幕解説は設定で切れる */
+        if(de){de.textContent=descOn?(s.desc||''):'';de.hidden=!descOn||!s.desc;clearTimeout(sim.descT);
           if(s.desc)sim.descT=setTimeout(()=>{const x=$('#trickDesc');if(x)x.hidden=true},9000)}}
       if(!$('#sim').classList.contains('autoon'))$('#sim').classList.add('autoon');
     }else{const nm=$('#showName');if(nm&&!nm.hidden)nm.hidden=true;
@@ -1568,7 +1627,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=58').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=59').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1676,6 +1735,7 @@ function runSim(opt){applyScene();
       /* 視点の自動追従: 地上から見るとき、機体を目で追うかどうか */
       const foBtn=$('#simFollow');
       const paintFollow=()=>{const on=sim.h.followState();foBtn.classList.toggle('on',on);foBtn.setAttribute('aria-pressed',String(on))};
+      sim.paintFollow=paintFollow;
       sim.h.setFollow(opt.follow!==undefined?opt.follow:store.get('simFollow',false));paintFollow();
       if(opt.gear)sim.h.setGear(true);
       if(opt.lights!==undefined)sim.h.setLights(opt.lights);
@@ -1700,6 +1760,8 @@ function runSim(opt){applyScene();
           runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
             gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState()});return}
         sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
+        /* 地上から演目を見るときは、機体を目で追う（自分で向けていると演技を見失うため） */
+        if(on&&sim.viewName==='ground'&&!sim.h.followState()){sim.h.setFollow(true);store.set('simFollow',true);paintFollow()}
         if(on){
           if(landFull()){$('#sim').classList.add('uihide');sim.uiHidden=true}   /* 横画面のときだけ、鑑賞のため操作をしまう */
           toast(landFull()?'自動操縦。2 回叩くと一時停止（右下のボタンで操作を出せます）':'自動操縦。2 回叩くと一時停止できます');if(landFull()&&sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
@@ -1906,7 +1968,8 @@ function renderSettingsPage(){
     <div class="setgroup"><h4>表示</h4>
       ${sel('dirLabel','方位の表記',[['alpha','アルファベット'],['kanji','漢字']])}
       ${sel('theme','テーマ',[['auto','自動'],['dark','ダーク'],['light','ライト']])}
-      ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']],v=>v!=='day')}</div>
+      ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']],v=>v!=='day')}
+      ${sel('simDesc','演目の字幕解説',[['on','出す'],['off','出さない']])}</div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>
     ${DEMO_ON&&isFull()&&store.get('key')?`<div class="setgroup"><h4>PC 用コード</h4><div class="setting"><span>PC の Web 版で入力すると全機能版になります</span><code class="pccode">${store.get('key')}</code></div></div>`:''}

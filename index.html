@@ -986,6 +986,11 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="card">
         <h3>3D シミュレーターで操縦する</h3>
         <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方がどう変わるかを確かめます。一人称と三人称を切り替えられます。</div>
+        <ul>
+          <li>端末を横にすると視界が画面いっぱいになり、編隊・スモーク・演目のボタンが出ます。</li>
+          <li>音のボタンで、機体の通過音が鳴ります。近づくと高く、遠ざかると低く聞こえます。</li>
+          <li>音符のボタンで、<b>端末に入っているお手持ちの曲</b>を選べます。曲の頭を調べて、音が大きく立ち上がるところを見つけ、地上から演目を始めるとそこでちょうど離陸します。曲はこの端末の中だけで再生され、どこにも送りません（アプリは音楽を持っていません）。</li>
+        </ul>
         <div class="prow"><button class="btn ghost" id="abSim">シミュレーターを開く</button><button class="btn ghost" id="abGallery">全操作パターンの見え方</button></div>
       </div>
     </div>
@@ -1106,7 +1111,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.72';
+const APP_VER='v03.73';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする

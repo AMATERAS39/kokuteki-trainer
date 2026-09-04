@@ -79,8 +79,11 @@ const ALT_K = 0.78, ALT_MIN = 110;               // 課目ごとの高さにか�
    ・中間位置: 開始位置と散開位置の真ん中（タック・クロスで外へ回し始める点）
    ・終了位置: 原点を過ぎた 南 END_D、または方角の点 keyPt(方位, 距離) */
 const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
-/* 演目の合間の移動。見えない距離（JUMP_FAR）まで離れたら、進入の線の無限遠へ位置だけ移す */
-const JUMP_FAR = 1800, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;
+/* 「無限遠」として使う距離。もとの壁があったところ（原点から南の壁まで）にそろえる。
+   ここまで来たら、演目は終わり・スモークは一斉に切る・次の課目へ位置を移す。
+   本当に遠くまで飛ばすと、着くまでの時間が長すぎる */
+const REAR_END = LIMIT + GROUND_EYE.y;           // 原点から、もとの壁のあった位置まで（m）
+const JUMP_FAR = REAR_END, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;
 function keyPt(bearing, dist) {
   return { x: GROUND_EYE.x + Math.sin(bearing * D) * dist, y: GROUND_EYE.y + Math.cos(bearing * D) * dist };
 }
@@ -652,6 +655,8 @@ export function mount(container, opt = {}) {
   const panelPt = new THREE.Vector3();   // 計器盤の上端を画面へ写すのに使う
   const gEye = new THREE.Vector3(GROUND_EYE.x, GROUND_EYE.y, GROUND_EYE.z + EYE_H);   // 地上の立ち位置（目の高さ）
   let gYaw = 0, gPitch = 0.06;                                     // 地上視点の向き（自分で決めた方向）
+  const SLOW_AIM = 7, SLOW_RATE = 14;      // 瞬間移動のあと、視線をゆっくり向け直す時間（秒）と速さ（度/秒）
+  let slowAim = 0;
   let follow = false;                                              // 機体を目で追うか（切ってあれば向けた方向のまま）
   const gRay = new THREE.Raycaster(), down = new THREE.Vector3(0, 0, -1);
   function gAim() {   // いまの立ち位置から機体の方へ向ける
@@ -979,7 +984,15 @@ export function mount(container, opt = {}) {
     landRun = true;
     if (musBuf && actx && auto) { playMusic(); musCut = Math.max(0.5, musLead - 0.3); }
     formation = 'trail'; formScale = 1;
-    st.show = '着陸'; st.desc = '縦隊に組み替えて、離陸したときと同じ滑走路へ降ります。';
+    /* 2 機ずつ、間をあけて降りる。1・2 番機が先、次に 3・4 番機、最後に 5・6 番機 */
+    landClock = -1;
+    mates.forEach((h, i) => {
+      const u = h.userData;
+      u.ld = { pair: Math.floor((i + 1) / 2), t: 0, wait: Math.floor((i + 1) / 2) * LAND_GAP,
+               step: 0, on: false, done: false, tDown: 0 };
+      u.mh = undefined;
+    });
+    st.show = '着陸'; st.desc = '2 機ずつ、間をあけて滑走路へ降ります。';
     st.cue = '着陸へ入ります';
     if (treeMode) setTreeMode(false);
     gearOn = true; lightsOn = true; applyGear();
@@ -1150,8 +1163,16 @@ export function mount(container, opt = {}) {
            目標の高さを地面より下に取らないと、低いところで水平になって接地しない */
         const lined = (landN ? st.y > fy - 200 : st.y < fy + 200) &&
                       Math.abs(st.x - RWY.x) < 250 && Math.abs(wrap180(lh - st.h)) < 60;
-        if (lined || phaseT > 120) steerTo(RWY.x, RWY.y + 700 * sgn, -30);
-        else approach(fx, fy, 160);
+        /* 接地は滑走路の上（帯は y = -550〜550）。手前で降りきらないよう、
+           滑走路の入口までは高さを保ち、入口を過ぎてから沈める */
+        if (lined || phaseT > 120) {
+          const gate = RWY.y - 480 * sgn;                      // 滑走路の入口（進入する側の端）
+          const past = landN ? st.y > gate : st.y < gate;
+          steerTo(RWY.x, RWY.y + 700 * sgn, past ? -30 : 26);
+        } else approach(fx, fy, 160);
+        /* 降りる組を目で追えるよう、視線はいま降りている組へ向ける */
+        const lp = mates.find(h => h.userData.ld && !h.userData.ld.done && h.userData.ld.on);
+        figAim = lp ? lp.position.clone() : null;
         autoIn.r = 0;
         if (gmode !== 'fly') {               // 接地した。あとは減速して滑走路へ戻る
           auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.desc = '';
@@ -1197,6 +1218,7 @@ export function mount(container, opt = {}) {
           st.x = jx; st.y = jy; st.z = GATE.z;
           att.setFromAxisAngle(AZ, -inH * D); readAttitude();
           hist.length = 0; clearSmoke();
+          slowAim = SLOW_AIM;                    // 地上の視線は、ゆっくり前へ向き直す（追いかけて飛ばない）
           if (opt.onJump) opt.onJump();
           manPhase = 'align'; phaseT = 0;
         }
@@ -1304,7 +1326,7 @@ export function mount(container, opt = {}) {
           spdWant = 1;
           steerTo(GROUND_EYE.x, GROUND_EYE.y - 3000, GATE.z);
           const farE = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
-          if (!smokeNone && (farE > JUMP_FAR || e8.outT > 40)) { smokeNone = true; e8.offT = e8.outT; }
+          if (!smokeNone && (farE > REAR_END || e8.outT > 40)) { smokeNone = true; e8.offT = e8.outT; }   // 壁のあった位置で一斉にスモークオフ
           if (smokeNone && e8.outT > e8.offT + 2) { spdWant = 1; nextManeuver(); }
         }
         if (manT > 150) { spdWant = 1; nextManeuver(); }
@@ -1376,7 +1398,7 @@ export function mount(container, opt = {}) {
            次の課目は進入で位置ごと移すので、ここで組み直す必要はない */
         if (er >= 1) holdBank(0);                       // 引き起こし終わり。あとはまっすぐ
         const farR = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
-        if (farR > JUMP_FAR || manT > 110) { endBloomMates(); rainOn = false; nextManeuver(); }
+        if (farR > REAR_END || manT > 110) { endBloomMates(); rainOn = false; nextManeuver(); }
         break;
       }
       case 'byover': {                           // 頭上通過: 見ている人の真上を低く通り抜ける
@@ -1609,7 +1631,8 @@ export function mount(container, opt = {}) {
     if (musCut >= 0) { musCut -= dt; if (musCut <= 0) { musCut = -1; stopMusic(MUS_FADE); } }
     /* 滑走路に戻ったら、曲を切って離陸の体勢で待つ。「加速」を押されるまで動かない。
        接地したところで自動操縦は切れている（auto = false）ので、待っている印を別に持つ */
-    if (landRun && gmode === 'stand') {
+    if (landClock >= 0) landClock += dt;                    // 1 番機が接地してからの時間（組ごとの間合いに使う）
+    if (landRun && gmode === 'stand' && mates.every(h => !h.userData.ld || h.userData.ld.done)) {
       landRun = false; manPhase = 'do';
       musCut = -1; stopMusic(MUS_FADE);
       st.show = ''; st.desc = ''; st.cue = '「加速」で離陸できます';
@@ -1679,6 +1702,7 @@ export function mount(container, opt = {}) {
     if (auto && manPhase !== 'land' && !touchGo && !tkOn && st.z < 45) { st.z = 45; levelAttitude(); }
     if (touchGo) { if (st.z < 3) st.z = 3; }                        // 滑走路に触れても着陸あつかいにしない（自動でそのまま上げる）
     else if ((!auto || manPhase === 'land') && st.z <= 3.2) {       // 接地: 着陸とみなして減速に入る
+      if (manPhase === 'land' && landClock < 0) landClock = 0;     // ここから、あとの組の出番を数える
       st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
       gearOn = true; applyGear();                                   // 着陸なのでタイヤは出ている
       att.setFromAxisAngle(AZ, -st.h * D); readAttitude();
@@ -2006,6 +2030,77 @@ export function mount(container, opt = {}) {
     /* 自分の円を描くあいだは出す。たどっているあいだは切る（合流したら、ふつうの決まりに返る） */
     if (emitting && color && !e8.chase) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color); }
   }
+  /* 僚機を目標の点へ飛ばす。速さは一定、曲がりは 1 秒あたり `rate` 度まで、高さはなめらかに寄せる。
+     実際に飛べる動き（前へ進むだけ、後退しない）になるので、着陸の進入などに使える。
+     戻り値は目標までの距離 */
+  const fmV = new THREE.Vector3();
+  function flyMateTo(holder, u, tx, ty, tz, dt, spd, rate) {
+    const p = holder.position;
+    const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
+    const want = ((Math.atan2(dx, dy) / D) % 360 + 360) % 360;
+    if (u.mh === undefined) u.mh = want;
+    u.mh = (u.mh + clamp(wrap180(want - u.mh), -(rate || 25) * dt, (rate || 25) * dt) + 360) % 360;
+    p.x += Math.sin(u.mh * D) * spd * dt;
+    p.y += Math.cos(u.mh * D) * spd * dt;
+    p.z += clamp(tz - p.z, -12 * dt, 12 * dt);
+    /* 姿勢: 進む向きへ。曲がっているぶんだけ傾ける */
+    const turn = wrap180(want - u.mh);
+    const bank = clamp(turn * 1.2, -35, 35);
+    fmV.set(0, 0, 0);
+    qa.setFromAxisAngle(AZ, -u.mh * D);
+    qa.multiply(dq.setFromAxisAngle(AY, bank * D));
+    turnMate(holder, qa, dt);
+    holder.visible = true; u.shown = true;
+    return d;
+  }
+  /* ===== 2 機ずつの着陸 =====
+     1・2 番機 → 3・4 番機 → 5・6 番機 の順に、`LAND_GAP` 秒あけて降りる。
+     地上から見る人が、降りる組を順に目で追えるだけの間をとる。
+     出番が来るまでは、滑走路の南で輪を描いて待つ（高さは組ごとに変える） */
+  const LAND_GAP = 18, LAND_HOLD_R = 620;
+  const LAND_TD = 120;                     // 接地する点（滑走路の南端から北へ、m）
+  const LAND_SLOPE = 0.052;                // 進入の勾配（約 3 度）
+  let landClock = -1;                      // 1 番機が接地してからの時間（秒）。-1 はまだ
+  function landMate(holder, u, i, dt) {
+    const L = u.ld;
+    L.t += dt;
+    const rx = ((i + 1) % 2 === 0) ? RWY_X[0] : RWY_X[1];      // 2 本の滑走路に振り分ける
+    /* 出番: 1 番機の組（pair 0）は 1 番機と一緒に降りる。
+       あとの組は、1 番機が接地してから LAND_GAP 秒ずつあけて降りる */
+    /* 1 番機の組は、1 番機が進入に乗って低くなってから一緒に降りる。
+       あとの組は、1 番機が接地してから LAND_GAP 秒ずつあけて降りる */
+    const turn = L.pair === 0
+      ? (landClock >= 0 || (manPhase === 'land' && st.z < 220 && Math.abs(st.x - RWY.x) < 300
+                            && st.y > RWY.y - 1700 && st.y < RWY.y + 700))
+      : (landClock >= 0 && landClock >= (L.pair - 1) * LAND_GAP);
+    if (!turn) {                                               // 出番待ち: 滑走路の南で輪を描く
+      const cx = RWY.x - 40, cy = RWY.y - 1900, z = 260 + L.pair * 90;
+      const a = Math.atan2(holder.position.y - cy, holder.position.x - cx) + 0.4;
+      flyMateTo(holder, u, cx + Math.cos(a) * LAND_HOLD_R, cy + Math.sin(a) * LAND_HOLD_R, z, dt, SPEED * 0.85, 22);
+      return;
+    }
+    if (!L.on) { L.on = true; L.step = 0; }
+    const g = GRID[i + 1], tdY = RWY.y + LAND_TD;              // 接地する点（滑走路の上）
+    if (L.step < 2) {
+      /* 進入: 滑走路の線に乗り、接地する点まで 3 度の勾配で降りる。
+         高さを「接地する点までの距離」から決めるので、手前で降りきってしまわない */
+      const far = Math.max(0, tdY - holder.position.y);
+      const wz = Math.min(300, 3 + far * LAND_SLOPE);
+      const wy = L.step === 0 ? RWY.y - 1400 : tdY;
+      const d = flyMateTo(holder, u, rx, wy, wz, dt, SPEED * 0.9, L.step === 0 ? 22 : 18);
+      /* 進入の線に乗る点まで、きちんと行ってから最終へ移る。
+         「もう北にいるから」で移すと、斜めから滑走路へ突っ込んで、帯を外れる（実測） */
+      if (L.step === 0 && d < 200) L.step = 1;
+      if (L.step === 1 && holder.position.z <= 4 && holder.position.y > RWY.y - 480) { L.step = 2; L.tDown = L.t; }
+      if (holder.position.z < 3) holder.position.z = 3;
+      return;
+    }
+    /* 接地したあと: 滑走して減速し、待機の位置で止まる */
+    const spd = Math.max(12, SPEED * 0.9 * (1 - 0.8 * clamp((L.t - L.tDown) / 7, 0, 1)));
+    const d = flyMateTo(holder, u, RWY.x + g[0], RWY.y + g[1], 3, dt, spd, 12);
+    holder.position.z = 3;
+    if (d < 25) { L.done = true; u.shown = true; }
+  }
   /* 地上では 2 本の滑走路に 2 機ずつ並び、離陸は 2 機ずつ TK_GAP 秒あけて始める。
      浮いて TK_UP まで上がった機体から、ふつうの編隊の置き方に返す（そこで隊形を組み出す） */
   const tgtP = new THREE.Vector3();
@@ -2014,6 +2109,7 @@ export function mount(container, opt = {}) {
      'diamond' = ひし形のまま 4 機が一斉に（ダイヤモンド・テイクオフ） */
   function startTakeoff(kind) {
     tkOn = true;
+    mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; });   // 着陸の段取りは消す
     const dia = kind === 'diamond';
     const offs = FORMATIONS.diamond.offs;                    // [右, 前後, 上]
     mates.forEach((h, i) => {
@@ -2061,6 +2157,7 @@ export function mount(container, opt = {}) {
       const u = holder.userData;
       if (i + 1 >= n) { holder.visible = false; u.shown = false; u.tk = null; return; }
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on0[i + 1] ? cols[(i + 1) % cols.length] : null); return; }
+      if (u.ld && !u.ld.done) { landMate(holder, u, i, dt); return; }   // まだ降りていない組は、空で待つ／降りる
       const g = GRID[i + 1];
       if (gmode === 'land' || gmode === 'taxi') {
         /* 減速中・誘導路のあいだは、1 番機のすぐ後ろに縦に続く。
@@ -2115,6 +2212,7 @@ export function mount(container, opt = {}) {
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
+      if (u.ld && !u.ld.done) { landMate(holder, u, i, dt); return; }   // 2 機ずつの着陸の途中
       if (mir && i === 0) {                                          // 交差する課目の相手
         if (mir.vert) placeTuck(holder, u, dt, emitting, on[1] ? cols[1 % cols.length] : null);
         else placeMirror(holder, u, dt, emitting, on[1] ? cols[1 % cols.length] : null);
@@ -2318,8 +2416,18 @@ export function mount(container, opt = {}) {
       tmp.copy(focus).sub(gEye);
       const wy = Math.atan2(tmp.x, tmp.y), wp = Math.asin(clamp(tmp.z / Math.max(1, tmp.length()), -1, 1));
       const k = 1 - Math.exp(-(dt || 0.016) / 0.45);
-      gYaw += ((wy - gYaw + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
-      gPitch += (wp - gPitch) * k;
+      let dyaw = (wy - gYaw + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+      let dpit = wp - gPitch;
+      if (slowAim > 0) {
+        /* 機体が遠くへ移ったあと: 目で追って飛ぶのではなく、
+           まわりを回っていったかのように、ゆっくり前へ向き直す */
+        slowAim -= dt || 0.016;
+        const lim = SLOW_RATE * D * (dt || 0.016);
+        dyaw = clamp(dyaw, -lim, lim) / Math.max(1e-6, k);
+        dpit = clamp(dpit, -lim, lim) / Math.max(1e-6, k);
+      }
+      gYaw += dyaw * k;
+      gPitch += dpit * k;
     }
     /* 乗っている機体（視点の元）。編隊機が出ていなければ 1 番機に戻す。
        出ているかどうかは userData.shown で見る（「計器」の見せ方では、乗っている機体を消すため） */
@@ -2366,6 +2474,7 @@ export function mount(container, opt = {}) {
   let actx = null, aMaster = null, aNodes = null, soundOn = true;
   let airVol = 0.9, musVol = 0.55;         // 飛行音と曲の大きさ（0〜1）。別々に決められる
   const aPrev = [];                        // 前のコマの距離（ドップラーに使う）
+  const aLast = [];                        // 前のコマの位置（速さを見て、止まっている機体は鳴らさない）
   function makeNoise(ctx) {
     const len = Math.floor(ctx.sampleRate * 2), buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = buf.getChannelData(0);
@@ -2388,13 +2497,22 @@ export function mount(container, opt = {}) {
       const src = actx.createBufferSource(); src.buffer = buf; src.loop = true;
       const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
       const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
-      const pan = actx.createStereoPanner ? actx.createStereoPanner() : null;
+      /* 立体音。耳の形を模した聞こえ方（HRTF）で置くので、イヤホンだと前後左右が分かる。
+         使えない端末では、これまでどおり左右だけの振り分けにする */
+      let pan = null, pan3 = null;
+      if (actx.createPanner) {
+        pan3 = actx.createPanner();
+        pan3.panningModel = 'HRTF'; pan3.distanceModel = 'inverse';
+        pan3.refDistance = 60; pan3.maxDistance = AUD_FAR; pan3.rolloffFactor = 0.9;
+      } else if (actx.createStereoPanner) pan = actx.createStereoPanner();
       const g = actx.createGain(); g.gain.value = 0;
       src.connect(bp); bp.connect(lp);
-      if (pan) { lp.connect(pan); pan.connect(g); } else lp.connect(g);
+      if (pan3) { lp.connect(pan3); pan3.connect(g); }
+      else if (pan) { lp.connect(pan); pan.connect(g); }
+      else lp.connect(g);
       g.connect(aMaster);
       src.start(0);
-      aNodes.push({ src, bp, lp, pan, g });
+      aNodes.push({ src, bp, lp, pan, pan3, g });
       aPrev[k] = null;
     }
   }
@@ -2406,9 +2524,27 @@ export function mount(container, opt = {}) {
   /* ほかの画面を見ているあいだも鳴らさない（戻ってきたら元に戻す） */
   document.addEventListener('visibilitychange', audioHold);
   const aPos = new THREE.Vector3(), aRel = new THREE.Vector3(), aRight = new THREE.Vector3();
+  const aFwd = new THREE.Vector3(), aUp = new THREE.Vector3();
   function updateAudio(dt) {
     if (!soundOn || !actx || !aNodes || !dt) return;
     aRight.set(1, 0, 0).applyQuaternion(cam.quaternion);       // 耳の右向き
+    /* 聞く人の位置と向きを、いまの視点に合わせる（立体音のため） */
+    const li = actx.listener;
+    aFwd.set(0, 0, -1).applyQuaternion(cam.quaternion);
+    aUp.set(0, 1, 0).applyQuaternion(cam.quaternion);
+    if (li.positionX) {
+      const t = actx.currentTime;
+      li.positionX.setTargetAtTime(cam.position.x, t, 0.02);
+      li.positionY.setTargetAtTime(cam.position.y, t, 0.02);
+      li.positionZ.setTargetAtTime(cam.position.z, t, 0.02);
+      li.forwardX.setTargetAtTime(aFwd.x, t, 0.02); li.forwardY.setTargetAtTime(aFwd.y, t, 0.02);
+      li.forwardZ.setTargetAtTime(aFwd.z, t, 0.02);
+      li.upX.setTargetAtTime(aUp.x, t, 0.02); li.upY.setTargetAtTime(aUp.y, t, 0.02);
+      li.upZ.setTargetAtTime(aUp.z, t, 0.02);
+    } else if (li.setPosition) {
+      li.setPosition(cam.position.x, cam.position.y, cam.position.z);
+      li.setOrientation(aFwd.x, aFwd.y, aFwd.z, aUp.x, aUp.y, aUp.z);
+    }
     for (let k = 0; k < aNodes.length; k++) {
       const n = aNodes[k];
       const obj = k === 0 ? plane : mates[k - 1];
@@ -2418,7 +2554,14 @@ export function mount(container, opt = {}) {
       const d = aPos.distanceTo(cam.position);
       /* 大きさ: 近いほど大きい。爆音にならないよう上限を低くする */
       const near = Math.max(0, 1 - d / AUD_FAR);
-      const want = Math.min(0.32, near * near * 0.42) * (gmode === 'fly' || k > 0 ? 1 : 0.5);
+      /* 止まっている機体は音を出さない（滑走路で待っているあいだは静か）。
+         1 番機は地上の速さ、僚機は 1 コマの動きから速さを見る */
+      let spd = SPEED;
+      if (k === 0) spd = gmode === 'fly' ? SPEED * spdK : gv;
+      else if (aLast[k]) spd = aLast[k].distanceTo(obj.position) / dt;
+      if (!aLast[k]) aLast[k] = obj.position.clone(); else aLast[k].copy(obj.position);
+      const run = clamp(spd / 12, 0, 1);                       // 12 m/s より遅いと、だんだん静かに
+      const want = Math.min(0.32, near * near * 0.42) * run;
       n.g.gain.value += (want - n.g.gain.value) * Math.min(1, dt * 6);
       /* ドップラー: 近づいているあいだは高く、遠ざかると低い */
       const prev = aPrev[k]; aPrev[k] = d;
@@ -2430,7 +2573,14 @@ export function mount(container, opt = {}) {
       n.src.playbackRate.value += (rate - n.src.playbackRate.value) * Math.min(1, dt * 8);
       n.bp.frequency.value = 380 * rate + Math.min(220, 26000 / Math.max(60, d));
       n.lp.frequency.value = 900 + 2600 * near;                // 遠いと高い音が届かない
-      if (n.pan) {                                             // 左右の位置
+      if (n.pan3) {                                            // 立体音: 機体のいる場所に音を置く
+        const t = actx.currentTime;
+        if (n.pan3.positionX) {
+          n.pan3.positionX.setTargetAtTime(aPos.x, t, 0.02);
+          n.pan3.positionY.setTargetAtTime(aPos.y, t, 0.02);
+          n.pan3.positionZ.setTargetAtTime(aPos.z, t, 0.02);
+        } else if (n.pan3.setPosition) n.pan3.setPosition(aPos.x, aPos.y, aPos.z);
+      } else if (n.pan) {                                      // 左右だけの振り分け（立体音が使えない端末）
         aRel.copy(aPos).sub(cam.position);
         const side = aRel.dot(aRight) / Math.max(1, aRel.length());
         n.pan.pan.value += (clamp(side, -1, 1) * 0.85 - n.pan.pan.value) * Math.min(1, dt * 6);
@@ -2446,7 +2596,8 @@ export function mount(container, opt = {}) {
      主旋律が入るその瞬間にタイヤが離れるよう、ここから逆算して滑走の開始をためる
      （機首を上げ始めるのは、その 1.5 秒ほど前） */
   const MUS_ROLL = SPEED * 0.9 / 6;
-  let musBuf = null, musSrc = null, musGainNode = null, musLead = 0, musWait = -1;
+  /* 曲の頭（浮くタイミング、秒）。設定で決める。既定は 13.0 秒 */
+  let musBuf = null, musSrc = null, musGainNode = null, musLead = 13, musWait = -1;
   let loopRestart = false;                 // 固定にしたあと、着陸してから離陸で始め直す
   let musCut = -1;                         // 曲を切るまでの残り（秒）。主旋律が入る直前で切る
   let landRun = false;                     // 着陸して滑走路へ戻っているあいだ
@@ -2702,7 +2853,7 @@ export function mount(container, opt = {}) {
       st.show = ''; st.desc = ''; st.cue = '「加速」で離陸できます';
       mates.forEach((h, i) => {
         const u = h.userData, g = GRID[i + 1];
-        u.tk = null; u.from = null; u.shown = false; u.gh = RWY.h;
+        u.tk = null; u.ld = null; u.mh = undefined; u.from = null; u.shown = false; u.gh = RWY.h;
         h.position.set(RWY.x + g[0], RWY.y + g[1], 3);
         h.quaternion.setFromAxisAngle(AZ, -RWY.h * D);
       });
@@ -2771,8 +2922,9 @@ export function mount(container, opt = {}) {
       if (!actx) return null;
       if (actx.state === 'suspended') await actx.resume();
       musBuf = await actx.decodeAudioData(arrayBuffer);
-      musLead = findLead(musBuf);
-      return { lead: musLead, dur: musBuf.duration };
+      const found = findLead(musBuf);
+      if (musLead <= 0) musLead = found;      // 設定がなければ、探した値を使う
+      return { lead: musLead, found, dur: musBuf.duration };
     },
     musicInfo() { return musBuf ? { lead: musLead, dur: musBuf.duration } : null; },
     /* 曲を手で流す・止める（ボタン用） */

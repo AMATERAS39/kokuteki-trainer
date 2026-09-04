@@ -640,7 +640,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .lk{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:.125rem .4rem;white-space:nowrap}
 .demo{margin-top:.5rem;display:flex;align-items:center;gap:.625rem;background:var(--panel);border:1px dashed var(--line2);border-radius:.875rem;padding:.5rem .625rem .5rem .875rem;font-size:.75rem;color:var(--muted);line-height:1.35}
 .demo b{color:var(--accent)}
-.musbtns{display:flex;gap:.375rem}
+.musbtns{display:flex;gap:.375rem;align-items:center}
+.musbtns .unit{font-size:.75rem;color:var(--muted)}
+#musLead{width:4.5rem;height:2.25rem;font-size:.8125rem;text-align:right;padding:0 .5rem;border-radius:.5rem;border:1px solid var(--line2);background:var(--panel);color:var(--text)}
 .musbtns .btn{width:auto;height:2.25rem;font-size:.75rem;padding:0 .75rem;margin:0}
 #musName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:12rem}
 .demo span{flex:1;min-width:0}
@@ -1099,7 +1101,7 @@ const E=window.AAT,$=s=>document.querySelector(s);
 const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aat.'+k,JSON.stringify(v))}catch(e){}}};
 /* 設定の既定値（表示のみ: 方位の表記・テーマ・背景）。version が変わったら保存済みの設定を捨てて既定値に戻す */
 const SETTINGS_VERSION=3;
-const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',simDesc:'off',version:SETTINGS_VERSION});
+const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',simDesc:'off',net:'wifi',version:SETTINGS_VERSION});
 /* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit/sLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ */
 const MODE_DEFAULTS={
   heading:{level:'easy',qCount:20,qLimit:5,sLimit:300,skipExplain:true},
@@ -1135,7 +1137,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.84';
+const APP_VER='v03.85';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1459,7 +1461,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=81').then(mod=>{
+  import('./sim3d.js?v=82').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1752,7 +1754,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=81').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=82').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2003,6 +2005,7 @@ function runSim(opt){applyScene();
         /* ブラウザは操作なしに音を出せない。最初に画面へ触れたときに、音の仕組みを起こす */
         document.addEventListener('pointerdown',()=>{if(sim&&sim.h&&sim.h.soundState())sim.h.setSound(true)},{once:true})}
       /* 設定で登録してある曲を読み込む（地上から演目を始めると流れる） */
+      if(sim.h.setLead)sim.h.setLead(store.get('musLead')??13);
       musGet().then(rec=>{if(rec&&sim&&sim.h)sim.h.loadMusic(rec.buf.slice(0)).catch(()=>{})});
       /* 体験版: 鍵のかかったボタンは、消さずに灰色で出しておく。押すと断りだけ出す。
          捕まえる段で止めるので、そのボタンに付いている本来の処理は動かない */
@@ -2218,11 +2221,14 @@ function renderSettingsPage(){
       ${sel('dirLabel','方位の表記',[['alpha','アルファベット'],['kanji','漢字']])}
       ${sel('theme','テーマ',[['auto','自動'],['dark','ダーク'],['light','ライト']])}
       ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']],v=>v!=='day')}
-      ${sel('simDesc','演目の字幕解説',[['on','出す'],['off','出さない']])}</div>
+      ${sel('simDesc','演目の字幕解説',[['on','出す'],['off','出さない']])}
+      ${sel('net','通信',[['wifi','Wi-Fi のときだけ'],['any','いつでも']])}
+      <div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。携帯の回線では通信しないので、通信量を使いません。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div></div>
     <div class="setgroup"><h4>演目の曲</h4>
       <div class="setting"><span id="musName">選んでいません</span><span class="musbtns"><button class="btn sm" id="musPick">選ぶ</button><button class="btn sm ghost" id="musClear" hidden>取り消す</button></span></div>
       <input type="file" id="musFile" hidden>
-      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリなどから、買った曲のファイル（.mp3 など）を選んでください。</div>
+      <div class="setting"><span>浮くタイミング</span><span class="musbtns"><input type="number" id="musLead" min="0" max="120" step="0.5" value="13"><span class="unit">秒</span></span></div>
+      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。「浮くタイミング」は、曲が始まってから何秒目にタイヤが離れるかです（既定は 13.0 秒）。そこから逆算して、滑走を始めるまでの間をとります。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリなどから、買った曲のファイル（.mp3 など）を選んでください。</div>
     </div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>
@@ -2232,6 +2238,11 @@ function renderSettingsPage(){
   {const nm=$('#musName'),pick=$('#musPick'),clr=$('#musClear'),fi=$('#musFile');
    const paint=rec=>{nm.textContent=rec?rec.name:'選んでいません';clr.hidden=!rec;pick.textContent=rec?'選び直す':'選ぶ'};
    musGet().then(paint);
+   const lead=$('#musLead');
+   lead.value=String(store.get('musLead')??13);
+   if(sim&&sim.h&&sim.h.setLead)sim.h.setLead(+lead.value);
+   lead.addEventListener('change',()=>{const v=Math.max(0,+lead.value||0);lead.value=String(v);
+     store.set('musLead',v);if(sim&&sim.h&&sim.h.setLead)sim.h.setLead(v);toast(`曲が始まって ${v.toFixed(1)} 秒目に浮きます`)});
    pick.addEventListener('click',()=>fi.click());
    clr.addEventListener('click',async()=>{await musDel();if(sim&&sim.h&&sim.h.clearMusic)sim.h.clearMusic();paint(null);toast('曲を取り消しました')});
    fi.addEventListener('change',async()=>{const f=fi.files&&fi.files[0];if(!f)return;fi.value='';
@@ -2240,7 +2251,7 @@ function renderSettingsPage(){
        await musPut(f.name,buf);
        paint({name:f.name});
        if(sim&&sim.h&&sim.h.loadMusic){const info=await sim.h.loadMusic(buf.slice(0));
-         toast(info?`${f.name}: ${info.lead.toFixed(1)} 秒で音が立ち上がります`:'登録しました')}
+         toast(info?`${f.name} を登録しました（${info.lead.toFixed(1)} 秒目に浮きます）`:'登録しました')}
        else toast(f.name+' を登録しました');
      }catch(e){toast('この形式は読み込めませんでした')}});}
   $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()}));
@@ -2289,13 +2300,34 @@ function renderHome(){
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
   $('#modeCards').querySelectorAll('[data-go2]').forEach(b=>b.addEventListener('click',()=>{location.hash='#'+b.dataset.go2}));
 }
+/* ===== 通信の決まり =====
+   既定では、Wi-Fi につながっているときだけ通信する（携帯の通信量を使わない）。
+   端末が回線の種類を教えてくれないとき（iPhone など）は、判断できないので通信してよいことにする。
+   通信を節約する設定（saveData）が入っているときは、どの回線でも通信しない。
+   なお、いちど読み込んだものは端末に残る（service worker）ので、通信しなくてもアプリは動く */
+function netKind(){
+  const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if(!c)return 'unknown';
+  if(c.saveData)return 'save';
+  const ty=c.type;
+  if(ty===undefined)return 'unknown';
+  return (ty==='wifi'||ty==='ethernet'||ty==='none')?'wifi':'cell';
+}
+function netOK(){
+  if(!navigator.onLine)return false;
+  const k=netKind();
+  if(k==='save'||k==='cell')return settings.net==='any';
+  return true;
+}
 /* お知らせ: news.json（利用者が送るお知らせと、版ごとの更新情報）。新しいお知らせが届いたらメニューボタンに赤い点を出し、メニューを開いたら消す */
 let newsItems=null,latestNotice=null;
 async function loadNews(){
   if(newsItems)return newsItems;
   const get=async o=>{const r=await fetch('news.json',o);if(!r.ok)throw 0;return r.json()};
   let d=null;
-  try{d=await get({cache:'no-store'})}catch(e){try{d=await get({})}catch(e2){d=null}}
+  /* Wi-Fi でないときは取りに行かず、端末に残っているものだけを読む */
+  if(netOK()){try{d=await get({cache:'no-store'})}catch(e){try{d=await get({})}catch(e2){d=null}}}
+  else{try{d=await get({cache:'force-cache'})}catch(e){d=null}}
   const list=(d&&Array.isArray(d.items)?d.items:[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id)));
   if(d)newsItems=list;   // 読めなかったときは覚えない（次に開いたときにもう一度試す）
   return list;
@@ -2594,12 +2626,13 @@ if('serviceWorker' in navigator&&!NATIVE&&/^https?:$/.test(location.protocol)){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;
     if(reg.waiting&&navigator.serviceWorker.controller)setUpdateReady();
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)setUpdateReady()})});
-    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{})});
-    setInterval(()=>reg.update().catch(()=>{}),30*60*1000);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&netOK())reg.update().catch(()=>{})});
+    setInterval(()=>{if(netOK())reg.update().catch(()=>{})},30*60*1000);
   }).catch(()=>{}));
   /* 3D モデル（5.6 MB）を、手が空いたときに先に取っておく。オフラインでもシミュレーターと 3D ビューアが動く。
      取ったものは版を上げても消えない入れ物（sw.js の BIG）に入る。通信を節約する設定のときは取らない */
-  const prefetch3D=()=>{const c=navigator.connection;if(c&&(c.saveData||/^(slow-)?2g$/.test(c.effectiveType||'')))return;
+  const prefetch3D=()=>{if(!netOK())return;   // Wi-Fi のときだけ先に取っておく（5.6 MB あるため）
+    const c=navigator.connection;if(c&&/^(slow-)?2g$/.test(c.effectiveType||''))return;
     fetch('./model/t4.glb?v=2',{cache:'force-cache'}).catch(()=>{})};
   if(window.requestIdleCallback)requestIdleCallback(prefetch3D,{timeout:8000});else setTimeout(prefetch3D,5000);
   /* 新しい版が有効になった: 出題中でなければすぐ読み込み直し、出題中なら赤い点を出して更新ボタンを待つ */
@@ -2616,6 +2649,7 @@ $('#updBtn').addEventListener('click',async()=>{
   if(applyWaiting())return;   // 待機中の版を有効化 → controllerchange で再読み込み（回転はそのまま）
   if(updReady){try{sessionStorage.setItem('aat.updated','1')}catch(e){}location.reload();return}   // 有効化済み: 読み込み直すだけ
   if(!navigator.onLine){b.classList.remove('busy');toast('オフラインのため確認できません');return}
+  if(!netOK()){b.classList.remove('busy');toast('Wi-Fi につないでから確認してください（設定で変えられます）');return}
   let checked=false;
   try{if(swReg){await swReg.update();checked=true}}catch(e){}
   const t0=performance.now();

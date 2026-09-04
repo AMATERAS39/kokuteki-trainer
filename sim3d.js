@@ -1972,6 +1972,7 @@ export function mount(container, opt = {}) {
   }
   function playMusic() {
     if (!actx || !musBuf) return;
+    if (actx.state === 'suspended') actx.resume();
     stopMusic();
     musSrc = actx.createBufferSource(); musSrc.buffer = musBuf;
     if (!musGainNode) { musGainNode = actx.createGain(); musGainNode.gain.value = 0.55; musGainNode.connect(actx.destination); }
@@ -2086,7 +2087,7 @@ export function mount(container, opt = {}) {
         for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
         /* 地上で待っているときは、離陸から始める（固定モードのときは空から始める）。
            飛んでいるときは、これまでどおり空から始める */
-        if (!showLoop && gmode === 'stand') {
+        if (gmode === 'stand') {                 // 地上で待っているときは、固定モードでも離陸から始める
           formation = PROGRAM[f0].form || userForm;
           if (musBuf && actx) {                    // 曲を選んであるとき: イントロを待ってから滑走する
             playMusic();

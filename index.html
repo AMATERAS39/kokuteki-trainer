@@ -253,6 +253,24 @@ svg text{user-select:none}
 @media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse),(min-width:64rem) and (orientation:landscape){
   .formwrap .formmenu{position:fixed;right:.5rem;top:.5rem;bottom:.5rem;max-height:none}
 }
+/* 音の調節（飛行音と曲を別々に）。ふつうの一覧と違って 1 列に並べる */
+.sndmenu{grid-template-columns:1fr;width:14rem}
+.sndrow{display:flex;align-items:center;gap:.5rem;padding:.25rem .375rem;font-size:.6875rem;color:var(--text)}
+.sndrow span{width:3.5rem;flex:none}
+.sndrow b{width:2rem;text-align:right;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.sndrow input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.sndnote{font-size:.5625rem;color:var(--muted);padding:.125rem .375rem .25rem;line-height:1.35}
+/* 自動操縦で 10 秒 何も触らなければ、方位計だけ残して消す（演目に見入るため）。
+   出し入れは ゆっくり薄くして、急に消えないようにする */
+.sim .hud,.sim .cross,.sim .showname,.sim .simbar,.sim .ctl,.sim .instrow .inst.ai,.sim .trickdesc{transition:opacity .5s}
+.sim.rest .hud,.sim.rest .cross,.sim.rest .showname,.sim.rest .simbar,.sim.rest .ctl,
+.sim.rest .instrow .inst.ai,.sim.rest .trickdesc{opacity:0;pointer-events:none}
+.sim.rest{cursor:none}
+/* 場面の切り替え: 一瞬白くしてから戻す（通しに入れて滑走路からやり直すとき） */
+.simflash{position:absolute;inset:0;z-index:20;background:#fff;pointer-events:none;opacity:0}
+.simflash.on{animation:simflash .5s ease-out}
+@keyframes simflash{0%{opacity:.9}100%{opacity:0}}
+.sndmenu .sndtog{flex-direction:row;justify-content:center;font-size:.6875rem;padding:.375rem;background:var(--panel);color:var(--text)}
 .trickmenu button{font-size:.625rem;padding:.375rem .25rem;background:var(--panel);color:var(--text)}
 .trickmenu button.off{opacity:.35}
 .formmenu .mclose{grid-column:1/-1;flex-direction:row;justify-content:center;gap:.375rem;background:var(--panel2);color:var(--muted)}
@@ -1081,7 +1099,7 @@ const E=window.AAT,$=s=>document.querySelector(s);
 const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aat.'+k,JSON.stringify(v))}catch(e){}}};
 /* 設定の既定値（表示のみ: 方位の表記・テーマ・背景）。version が変わったら保存済みの設定を捨てて既定値に戻す */
 const SETTINGS_VERSION=3;
-const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',version:SETTINGS_VERSION});
+const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',simDesc:'off',version:SETTINGS_VERSION});
 /* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit/sLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ */
 const MODE_DEFAULTS={
   heading:{level:'easy',qCount:20,qLimit:5,sLimit:300,skipExplain:true},
@@ -1117,7 +1135,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.76';
+const APP_VER='v03.77';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1441,7 +1459,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=73').then(mod=>{
+  import('./sim3d.js?v=74').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1478,13 +1496,20 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"></button>
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button>
-      <button class="iconbtn" id="simSound" aria-label="音" aria-pressed="false" title="音（機体の通過音）"><svg class="ic"><use href="#i-sound"/></svg></button><button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
+      <span class="formwrap"><button class="iconbtn" id="simSound" aria-label="音" aria-pressed="false" title="音（飛行音と曲。押すと大きさを調節できます）"><svg class="ic"><use href="#i-sound"/></svg></button><div class="formmenu sndmenu" id="simSoundMenu" hidden>
+        <button class="mclose" data-close="1"><svg class="ic"><use href="#i-cross"/></svg><span>閉じる</span></button>
+        <button class="sndtog" id="volOff">音を切る</button>
+        <button class="sndtog" id="musPlay">曲を流す</button>
+        <label class="sndrow"><span>飛行音</span><input type="range" id="volAir" min="0" max="100" step="5"><b id="volAirN">90</b></label>
+        <label class="sndrow"><span>曲</span><input type="range" id="volMus" min="0" max="100" step="5"><b id="volMusN">55</b></label>
+        <div class="sndnote">飛行音と曲は同時に流れます。曲は止めるまで繰り返します。</div>
+      </div></span><button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
       <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
       <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（夜は自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
       <button class="iconbtn landscape" id="simFollow" aria-label="機体を目で追う" aria-pressed="false" title="機体を目で追う（地上から見るとき）"><svg class="ic"><use href="#i-follow"/></svg></button>
-      <button class="iconbtn landscape showui" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（もう一度押すと固定）"><svg class="ic"><use href="#i-auto"/></svg></button>
+      <button class="iconbtn landscape showui" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（もう一度押すと通し: 離陸から着陸まで）"><svg class="ic"><use href="#i-auto"/></svg></button>
       <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技を出す"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
@@ -1492,6 +1517,7 @@ function runSim(opt){applyScene();
       <button class="iconbtn showui" id="simUI" aria-label="操作を出す／しまう" title="操作を出す／しまう"><svg class="ic"><use href="#i-ui"/></svg></button>
       <button class="iconbtn showui landscape" id="simSmall" aria-label="画面を小さくする" title="戻る・計測へ進むを出す"><svg class="ic"><use href="#i-vthird"/></svg></button>
       <button class="iconbtn" id="simSkip" aria-label="滑走路へ戻る" title="着陸してから滑走路へ戻るまでを飛ばす" hidden><svg class="ic"><use href="#i-next"/></svg></button>
+      <div class="simflash" id="simFlash" hidden></div>
     </div>
     <div class="instrow" id="instRow">${inst}</div>
     <div class="ctl">
@@ -1695,7 +1721,7 @@ function runSim(opt){applyScene();
       const nm=$('#showName');if(nm){const t=s.show?(s.cue?`${s.show}｜${s.cue}`:s.show):'';nm.textContent=t;nm.hidden=!t}
       /* 課目が変わったら、その技の説明をしばらく出す */
       if(s.show!==sim.lastShow){sim.lastShow=s.show;const de=$('#trickDesc');
-        const descOn=settings.simDesc!=='off';   /* 字幕解説は設定で切れる */
+        const descOn=settings.simDesc==='on';    /* 字幕解説は、はじめは出さない（設定で出せる） */
         if(de){de.textContent=descOn?(s.desc||''):'';de.hidden=!descOn||!s.desc;clearTimeout(sim.descT);
           if(s.desc)sim.descT=setTimeout(()=>{const x=$('#trickDesc');if(x)x.hidden=true},9000)}}
       if(!$('#sim').classList.contains('autoon'))$('#sim').classList.add('autoon');
@@ -1718,10 +1744,11 @@ function runSim(opt){applyScene();
       const m=$('#pauseMsg');if(m&&m.hidden===sim.h.pausedState())m.hidden=!sim.h.pausedState()}
     /* 技の初期設定で入った装備を、ボタンの見た目に映す */
     if(sim.h&&sim.paintGL)sim.paintGL();
+    if(sim.restTick)sim.restTick();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=73').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=74').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1839,6 +1866,18 @@ function runSim(opt){applyScene();
       foBtn.addEventListener('click',()=>{const on=!sim.h.followState();sim.h.setFollow(on);store.set('simFollow',on);paintFollow();
         });
       /* 自動操縦: 入れると編隊が演技をする（地上からの視点で見るためのもの）。操縦桿の操作は効かない */
+      /* 自動操縦のあいだ、10 秒 触らなければ方位計だけにする。触ればすぐ戻る */
+      {const S=$('#sim');let restT=0;
+       const wake=()=>{restT=performance.now();if(S.classList.contains('rest'))S.classList.remove('rest')};
+       ['pointerdown','pointermove','wheel','keydown','touchstart'].forEach(t=>
+         document.addEventListener(t,wake,{passive:true}));
+       wake();
+       sim.restTick=()=>{if(!sim||!sim.h)return;
+         const idle=performance.now()-restT>10000&&sim.h.autoState()&&!sim.h.pausedState();
+         if(idle!==S.classList.contains('rest'))S.classList.toggle('rest',idle)};}
+      const flashSim=()=>{const f=$('#simFlash');if(!f)return;
+        f.hidden=false;f.classList.remove('on');void f.offsetWidth;f.classList.add('on');
+        setTimeout(()=>{f.classList.remove('on');f.hidden=true},520)};
       const aBtn=$('#simAuto');
       const stkH=$('#sim').querySelector('.stkwrap h4');
       const paintAuto=()=>{const on=sim.h.autoState();aBtn.classList.toggle('on',on);aBtn.setAttribute('aria-pressed',String(on));
@@ -1863,34 +1902,35 @@ function runSim(opt){applyScene();
         }
       };
       /* 2 回続けて押すと「固定」: 離着陸を含めず、演目を繰り返す。もう一度 2 回押すと解ける */
-      let aTapT=0;
-      aBtn.addEventListener('click',()=>{const now=performance.now();
-        if(now-aTapT<450){aTapT=0;clearTimeout(sim.hideT);
-          const lp=!sim.h.loopState();sim.h.setLoop(lp,!sim.demo);aBtn.classList.toggle('loop',lp);
-          if(lp&&!sim.h.autoState()){sim.h.setAuto(true);paintAuto();showLabel(sim.h.state.show||'')}
-          if(sim.demo)setProjection(lp);
-          toast(lp?(sim.demo?'固定しました。地上から全部の演目を続けて映します（操作はできません）'
-                          :(sim.h.state.mode==='fly'?'固定しました。いったん着陸し、滑走路で「加速」を待ちます':'固定しました。離陸から始め、演目を繰り返します'))
-                  :'固定を解きました。地上からは離陸で始め、一通り終えたら着陸します');
+      /* 押すたびに順に変わる（視点のボタンと同じ要領）。
+         切 → 自動操縦 → 通し（離陸から着陸まで）→ 切 */
+      const autoStep=()=>{
+        const on=sim.h.autoState(), lp=sim.h.loopState();
+        if(!on){                                   /* 1 回目: 自動操縦 */
+          /* 夜に演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
+          if(document.body.dataset.scene!=='day'){toast('演目は昼の空で行います');
+            runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
+              gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState()});return}
+          sim.h.setAuto(true);paintAuto();showLabel(sim.h.state.show||'');
+          /* 地上から演目を見るときは、機体を目で追う（自分で向けていると演技を見失う） */
+          if(sim.viewName==='ground'&&!sim.h.followState()){sim.h.setFollow(true);store.set('simFollow',true);paintFollow()}
+          if(landFull()){$('#sim').classList.add('uihide');sim.uiHidden=true;   /* 横画面は鑑賞のため操作をしまう */
+            if(sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
+          toast('自動操縦。もう一度押すと通し（離陸から着陸まで）');
           return}
-        aTapT=now;
-        const on=!sim.h.autoState();
-        /* 夜に通しの演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
-        if(on&&document.body.dataset.scene!=='day'){toast('演目は昼の空で行います');
-          runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
-            gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState()});return}
-        sim.h.setAuto(on);paintAuto();showLabel(on?sim.h.state.show:'');
-        /* 地上から演目を見るときは、機体を目で追う（自分で向けていると演技を見失うため） */
-        if(on&&sim.viewName==='ground'&&!sim.h.followState()){sim.h.setFollow(true);store.set('simFollow',true);paintFollow()}
-        if(on){
-          /* 横画面のときだけ、鑑賞のため操作をしまう。ただし少し待ってからしまう。
-             すぐしまうとボタンの位置が動いて、2 回目のタップ（固定）ができないため。
-             自動操縦のボタンだけは、しまったあとも操作一覧の場所に残る（.showui） */
-          clearTimeout(sim.hideT);
-          if(landFull())sim.hideT=setTimeout(()=>{if(sim&&sim.h&&sim.h.autoState()){$('#sim').classList.add('uihide');sim.uiHidden=true}},700);
-          toast(landFull()?'自動操縦。2 回叩くと一時停止（右下のボタンで操作を出せます）':'自動操縦。2 回叩くと一時停止できます');if(landFull()&&sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
-        else{if(sim.projection){sim.h.setLoop(false);aBtn.classList.remove('loop');setProjection(false)}
-          $('#sim').classList.remove('uihide');sim.uiHidden=false;toast('自動操縦を止めました')}});
+        if(!lp){                                   /* 2 回目: 通し */
+          sim.h.setLoop(true,!sim.demo);aBtn.classList.add('loop');
+          if(sim.demo){setProjection(true);toast('固定しました。地上から全部の演目を続けて映します（操作はできません）')}
+          else{if(sim.h.standReset){flashSim();sim.h.standReset()}showLabel('');
+            toast('通しにしました。「加速」で離陸し、演目のあと着陸します')}
+          return}
+        /* 3 回目: 切る */
+        sim.h.setLoop(false,!sim.demo);aBtn.classList.remove('loop');
+        if(sim.projection)setProjection(false);
+        sim.h.setAuto(false);paintAuto();showLabel('');
+        $('#sim').classList.remove('uihide');sim.uiHidden=false;
+        toast('自動操縦を止めました')};
+      aBtn.addEventListener('click',autoStep);
       paintAuto();
       if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
       if(opt.trick!==undefined)setTimeout(()=>{if(sim&&sim.h&&sim.h.runManeuver(opt.trick))showLabel(opt.trickName||'')},60);
@@ -1920,10 +1960,43 @@ function runSim(opt){applyScene();
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
       /* 音: ブラウザの決まりで、押されたその流れの中でしか音を出せない */
-      const soBtn=$('#simSound');
-      if(soBtn){const paintSo=()=>{const on=sim.h.soundState();soBtn.classList.toggle('on',on);soBtn.setAttribute('aria-pressed',String(on))};
-        soBtn.addEventListener('click',()=>{sim.h.setSound(!sim.h.soundState());store.set('simSound',sim.h.soundState());paintSo()});
-        paintSo()}
+      const soBtn=$('#simSound'),soMenu=$('#simSoundMenu');
+      if(soBtn){
+        const paintSo=()=>{const on=sim.h.soundState();soBtn.classList.toggle('on',on);soBtn.setAttribute('aria-pressed',String(on))};
+        sim.paintSo=paintSo;
+        /* 押すと、音の入り切りと大きさの調節を出す */
+        soBtn.addEventListener('click',e=>{e.stopPropagation();
+          soMenu.hidden=!soMenu.hidden;
+          if(!soMenu.hidden){$('#simTrickMenu').hidden=true;$('#simFormMenu').hidden=true;
+            sim.h.setSound(sim.h.soundState());paintSo()}});   /* 押された流れで音の仕組みを起こす */
+        const tog=$('#volOff');
+        const paintTog=()=>{tog.textContent=sim.h.soundState()?'音を切る':'音を入れる'};
+        tog.addEventListener('click',e=>{e.stopPropagation();
+          const on=!sim.h.soundState();sim.h.setSound(on);store.set('simSound',on);paintSo();paintTog()});
+        soMenu.querySelector('[data-close]').addEventListener('click',e=>{e.stopPropagation();soMenu.hidden=true});
+        soMenu.addEventListener('click',e=>e.stopPropagation());
+        /* 大きさ: 飛行音と曲を別々に覚える */
+        const vA=$('#volAir'),vM=$('#volMus'),nA=$('#volAirN'),nM=$('#volMusN');
+        const a0=Math.round((store.get('simVolAir')??.9)*100),m0=Math.round((store.get('simVolMus')??.55)*100);
+        vA.value=a0;nA.textContent=a0;sim.h.setVol('air',a0/100);
+        vM.value=m0;nM.textContent=m0;sim.h.setVol('mus',m0/100);
+        /* 曲を手で流す・止める */
+        {const mb=$('#musPlay');
+         const paintMb=()=>{const has=!!(sim.h.musicInfo&&sim.h.musicInfo());
+           mb.hidden=!has;mb.textContent=(sim.h.musicPlaying&&sim.h.musicPlaying())?'曲を止める':'曲を流す'};
+         mb.addEventListener('click',e=>{e.stopPropagation();
+           if(sim.h.musicPlaying&&sim.h.musicPlaying())sim.h.stopMusicNow();
+           else if(!sim.h.playMusicNow||!sim.h.playMusicNow())toast('設定の「演目の曲」で曲を選んでください');
+           paintMb()});
+         sim.paintMusicBtn=paintMb;paintMb();
+         setInterval(()=>{if(!soMenu.hidden)paintMb()},700);}
+        paintTog();
+        vA.addEventListener('input',()=>{nA.textContent=vA.value;sim.h.setVol('air',vA.value/100);store.set('simVolAir',+vA.value/100)});
+        vM.addEventListener('input',()=>{nM.textContent=vM.value;sim.h.setVol('mus',vM.value/100);store.set('simVolMus',+vM.value/100)});
+        if(store.get('simSound')===false)sim.h.setSound(false);
+        paintSo();paintTog();
+        /* ブラウザは操作なしに音を出せない。最初に画面へ触れたときに、音の仕組みを起こす */
+        document.addEventListener('pointerdown',()=>{if(sim&&sim.h&&sim.h.soundState())sim.h.setSound(true)},{once:true})}
       /* 設定で登録してある曲を読み込む（地上から演目を始めると流れる） */
       musGet().then(rec=>{if(rec&&sim&&sim.h)sim.h.loadMusic(rec.buf.slice(0)).catch(()=>{})});
       /* 体験版: 鍵のかかったボタンは、消さずに灰色で出しておく。押すと断りだけ出す。
@@ -2143,8 +2216,8 @@ function renderSettingsPage(){
       ${sel('simDesc','演目の字幕解説',[['on','出す'],['off','出さない']])}</div>
     <div class="setgroup"><h4>演目の曲</h4>
       <div class="setting"><span id="musName">選んでいません</span><span class="musbtns"><button class="btn sm" id="musPick">選ぶ</button><button class="btn sm ghost" id="musClear" hidden>取り消す</button></span></div>
-      <input type="file" id="musFile" accept="audio/*" hidden>
-      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。</div>
+      <input type="file" id="musFile" hidden>
+      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリなどから、買った曲のファイル（.mp3 など）を選んでください。</div>
     </div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>

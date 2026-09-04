@@ -662,46 +662,48 @@ export function mount(container, opt = {}) {
   /* form: その課目で使う隊形（いまの機数によらず、その数だけ集まる）。
      front: 見ている前方で行う（旋回だけは前方に限らない）。alt: 入る高さ（m） */
   const PROGRAM = [
-    { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
-    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200,
-      desc: '縦隊で入り、旋回しながら隊形を組み替えます。傘が開くように見えます。' },
+    { id: 'dtake', ja: 'ダイヤモンド・テイクオフ', form: 'diamond', front: false, alt: 200,
+      desc: '4 機がひし形の隊形を組んだまま、一斉に滑走を始めて上がります。上がってからも隊形を崩しません。' },
     { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130, entry: 'front',
       desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
     { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front',
       desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
-    { id: 'cupid', ja: 'キューピッド', form: 'diamond', alt: 260, entry: 'front', fig: 'cupid',
-      desc: '3 機。2 機がハートを描き、描き終えたところへ、もう 1 機が矢になって飛び込みます。地上から見て貫いて見えるよう、ハートの内側ではスモークを切ります。' },
-    { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200,
-      desc: '6 機がデルタ隊形のまま横転します。' },
-    { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190,
-      desc: '隊形のまま、正面を低く通り抜けます。' },
+    { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200,
+      desc: '縦隊で入り、旋回しながら隊形を組み替えます。傘が開くように見えます。' },
     { id: 'wide', ja: 'ワイド・トゥ・デルタ・ループ', form: 'delta', alt: 240,
       desc: '間隔を広げて入り、宙返りの中でデルタ隊形に詰めます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
-    { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200,
-      desc: '4 機で、空に数字の 8 を描きます。' },
-    { id: 'byover', ja: '頭上通過', form: 'delta', alt: 120, entry: 'front',
-      desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
-    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190, entry: 'front',
-      desc: '垂直に上昇しながら横転します。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
-    { id: 'star', ja: 'スタークロス', form: 'delta', alt: 260, entry: 'front', fig: 'star',
-      desc: '5 機。デルタ隊形で入って大きく開き、一斉に反転降下して星を描きます。' },
-    { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300,
-      desc: 'ゆっくり背面に入り、そのまま飛んでから戻します。' },
     { id: 'bloom', ja: '上向き空中開花（サンライズ）', form: 'delta', alt: 190, entry: 'front',
       desc: '5 機が上を向いたまま大きく開き、花が咲くように見せます。' },
-    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'rain', ja: 'レインフォール', form: 'delta', alt: 260, entry: 'front',
       desc: '開花のあと、雨が降るように機体が降りてきます。' },
-    { id: 'tree', ja: 'クリスマスツリー・ローパス', form: 'tree', alt: 110, entry: 'front', set: { smoke: true, gear: true, lights: true },
-      desc: '6 機が木の形に組み、列ごとに少し低く並びます。速度を落とし、脚を出してライトを点け、濃いスモークを引きながら頭の上を通り抜けます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'cupid', ja: 'キューピッド', form: 'diamond', alt: 260, entry: 'front', fig: 'cupid',
+      desc: '3 機。2 機がハートを描き、描き終えたところへ、もう 1 機が矢になって飛び込みます。地上から見て貫いて見えるよう、ハートの内側ではスモークを切ります。' },
+    { id: 'star', ja: 'スタークロス', form: 'delta', alt: 260, entry: 'front', fig: 'star',
+      desc: '5 機。デルタ隊形で入って大きく開き、一斉に反転降下して星を描きます。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200,
+      desc: '4 機で、空に数字の 8 を描きます。' },
+    { id: 'half', ja: 'ハーフ・スロー・ロール', form: 'diamond', alt: 300,
+      desc: 'ゆっくり背面に入り、そのまま飛んでから戻します。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190, entry: 'front',
+      desc: '垂直に上昇しながら横転します。' },
     { id: 'cork', ja: 'コーク・スクリュー', form: 'pair', alt: 200, entry: 'front',
       desc: '2 機。1 機がまっすぐ進み、その周りをもう 1 機が背中を内側に向けて回ります。実際の演技では、直進する 5 番機が背面で飛びます。' },
+    { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
+    { id: 'roll', ja: 'デルタ・ロール', form: 'delta', alt: 200,
+      desc: '6 機がデルタ隊形のまま横転します。' },
     { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240,
-      desc: '1 周まわってから、続けて宙返りします。' }
+      desc: '1 周まわってから、続けて宙返りします。' },
+    { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190,
+      desc: '隊形のまま、正面を低く通り抜けます。' },
+    { id: 'tree', ja: 'クリスマスツリー・ローパス', form: 'tree', alt: 110, entry: 'front', set: { smoke: true, gear: true, lights: true },
+      desc: '6 機が木の形に組み、列ごとに少し低く並びます。速度を落とし、脚を出してライトを点け、濃いスモークを引きながら頭の上を通り抜けます。' },
+    { id: 'touch', ja: 'タッチ・アンド・ゴー', form: 'trail', alt: 140, entry: 'front',
+      desc: '縦隊で正面から進入し、滑走路にそっと触れて、そのまま上がります。' }
   ];
   /* 演目の見せ方。once: 地上にいれば離陸から始め、一通り終えたら着陸して終わる。
      loop: 離着陸を含まず、ずっと繰り返す（自動操縦のボタンを 2 回押した「固定」） */
@@ -709,7 +711,8 @@ export function mount(container, opt = {}) {
   let allowIds = null;                     // 見せる課目を絞る（体験版）。null なら全部
   const okMan = m => !allowIds || allowIds.indexOf(m.id) >= 0;
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
-  let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
+  let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;
+  let touchDone = false;                   // タッチ・アンド・ゴーで、滑走路に触れたか   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
   const GATE = { x: 0, y: 0, z: SHOW.ALT_IN };
   const autoIn = { x: 0, y: 0, r: 0 }, smIn = { x: 0, y: 0, r: 0 };   // smIn: なめらかにしたあとの舵
   /* どこから機体が来るかの目印。門の位置に立てる細い柱（自動操縦で進入しているあいだだけ出す） */
@@ -862,7 +865,7 @@ export function mount(container, opt = {}) {
     const m = PROGRAM[i];
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    e8 = null;
+    e8 = null; touchDone = false;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1097,6 +1100,21 @@ export function mount(container, opt = {}) {
         if (past4 < -320 || manT > 34) nextManeuver();
         break;
       }
+      case 'dtake':                              // ダイヤモンド・テイクオフ: ひし形のまま一斉に上がる
+        holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12));
+        if ((!tkOn && st.z > 180) || manT > 40) nextManeuver();
+        break;
+      case 'touch': {                            // タッチ・アンド・ゴー: 滑走路にそっと触れて、そのまま上がる
+        const e7 = eyeDir();
+        if (!touchDone) {
+          steerTo(RWY.x, RWY.y + 700, -20);                        // 滑走路の上へ降ろす
+          if (st.z < 8) { touchDone = true; st.cue = 'タッチ'; }
+        } else {
+          holdBank(0); holdPitch(clamp(14 - st.z / 25, 4, 14));    // 触れたら、そのまま上げる
+        }
+        if ((touchDone && st.z > 160) || manT > 70) nextManeuver();
+        break;
+      }
       case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
         if (manT < 4) { formation = 'trail'; away(460, SHOW.ALT); }
         else { formation = userForm === 'solo' ? 'delta' : userForm; formScale = lerp(1.9, 1, (manT - 4) / 8); holdBank(52 * turnSign); holdPitch(2); }
@@ -1188,8 +1206,10 @@ export function mount(container, opt = {}) {
     const L = auto ? LIMIT + 420 : LIMIT - 4, C = auto ? CEIL + 300 : CEIL;
     st.wall = !auto && (Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL);
     st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, C);
-    if (auto && manPhase !== 'land' && st.z < 45) { st.z = 45; levelAttitude(); }   // 自動操縦では墜落させない（着陸のときは外す）
-    if (!auto && st.z <= 3.2) {                                     // 接地: 着陸とみなして減速に入る
+    const touchGo = auto && PROGRAM[step_i] && PROGRAM[step_i].id === 'touch' && manPhase === 'do';
+    if (auto && manPhase !== 'land' && !touchGo && st.z < 45) { st.z = 45; levelAttitude(); }   // 自動操縦では墜落させない（着陸とタッチ・アンド・ゴーのときは外す）
+    if (touchGo) { if (st.z < 3) st.z = 3; }                        // 滑走路に触れても降りない（そのまま上げる）
+    else if ((!auto || manPhase === 'land') && st.z <= 3.2) {       // 接地: 着陸とみなして減速に入る
       st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
       gearOn = true; applyGear();                                   // 着陸なのでタイヤは出ている
       att.setFromAxisAngle(AZ, -st.h * D); readAttitude();
@@ -1460,11 +1480,18 @@ export function mount(container, opt = {}) {
      浮いて TK_UP まで上がった機体から、ふつうの編隊の置き方に返す（そこで隊形を組み出す） */
   const tgtP = new THREE.Vector3();
   let tkOn = false;                       // 離陸の最中か（全機が編隊へ移るまで true）
-  function startTakeoff() {
+  /* kind: 'pairs' = 2 本の滑走路から 2 機ずつ、TK_GAP 秒おき。
+     'diamond' = ひし形のまま 4 機が一斉に（ダイヤモンド・テイクオフ） */
+  function startTakeoff(kind) {
     tkOn = true;
-    mates.forEach((h, i) => { const g = GRID[i + 1];
-      h.userData.tk = { t: 0, v: 0, x: RWY.x + g[0], y: RWY.y + g[1], z: 3, air: false, done: false,
-                        wait: Math.floor((i + 1) / 2) * TK_GAP };
+    const dia = kind === 'diamond';
+    const offs = FORMATIONS.diamond.offs;                    // [右, 前後, 上]
+    mates.forEach((h, i) => {
+      const g = GRID[i + 1], o = offs[i];
+      const spot = dia ? (o ? [RWY.x + o[0], RWY.y + o[1]] : null) : [RWY.x + g[0], RWY.y + g[1]];
+      if (!spot) { h.userData.tk = null; return; }            // ひし形は 4 機なので、残りは出さない
+      h.userData.tk = { t: 0, v: 0, x: spot[0], y: spot[1], z: 3, air: false, done: false,
+                        wait: dia ? 0 : Math.floor((i + 1) / 2) * TK_GAP };
     });
     gearOn = true; applyGear();
   }
@@ -1872,7 +1899,7 @@ export function mount(container, opt = {}) {
            飛んでいるときは、これまでどおり空から始める */
         if (!showLoop && gmode === 'stand') {
           formation = PROGRAM[f0].form || userForm;
-          gmode = 'takeoff'; startTakeoff();
+          gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs');
           step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
           st.show = '離陸'; st.desc = '2 本の滑走路から 2 機ずつ離陸し、上がってから隊形を組みます。';
           st.cue = '離陸します'; manPhase = 'gather'; markOn = false;
@@ -1918,7 +1945,7 @@ export function mount(container, opt = {}) {
     },
     seatNo() { return seat + 1; },
     /* 待機中に押すと加速して離陸する。飛行中は何もしない */
-    throttle() { if (gmode === 'stand') { gmode = 'takeoff'; startTakeoff(); return true; } return false; },
+    throttle() { if (gmode === 'stand') { gmode = 'takeoff'; startTakeoff('pairs'); return true; } return false; },
     /* 着陸してから滑走路へ戻るまでを飛ばす（減速と誘導路を待たずに待機の形にする） */
     skipTaxi() {
       if (gmode !== 'land' && gmode !== 'taxi') return false;

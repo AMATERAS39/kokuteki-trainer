@@ -446,8 +446,11 @@ export function mount(container, opt = {}) {
       }
     }
     /* 1 番機（操縦している機体）は、上の位置の判定だけで決める。
-       ほかの機体は、隊形ができあがるまでは出さない。できあがったその瞬間に、条件を満たすものが一斉に出す */
-    const ready = matesReady();
+       ほかの機体は、隊形ができあがるまでは出さない。できあがったその瞬間に、条件を満たすものが一斉に出す。
+       「できあがった」は、道引きが終わっているか、全機が 1 番機の近く（200 m 以内）にいるか。
+       ワイド・トゥ・デルタ・ループのように間隔を毎コマ変える課目では、道を引き直し続けるので
+       道引きの進み具合だけで見ると、ずっと未完成の扱いになってスモークが止まってしまう */
+    const ready = matesReady() || mates.every(h => !h.userData.shown || h.userData.cur.length() < 200);
     for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) smokeOnArr[k] = false;
     return smokeOnArr;
   }
@@ -1449,7 +1452,9 @@ export function mount(container, opt = {}) {
     holder.position.copy(e8p);
     turnMate(holder, e8q, dt);
     holder.visible = true; u.shown = true;
-    if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color); }
+    /* 輪を描いているあいだだけ煙を出す。描き終えたら切り、隊形へ戻ってから
+       ふつうの決まり（真後ろに他機がいなければ出す）に返す */
+    if (emitting && x < 1) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color); }
   }
   /* 地上では 2 本の滑走路に 2 機ずつ並び、離陸は 2 機ずつ TK_GAP 秒あけて始める。
      浮いて TK_UP まで上がった機体から、ふつうの編隊の置き方に返す（そこで隊形を組み出す） */

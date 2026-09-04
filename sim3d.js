@@ -804,7 +804,8 @@ export function mount(container, opt = {}) {
     manPhase = 'land'; phaseT = 0; markOn = false;
     /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
        滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
-    if (musBuf && actx && auto) playMusic();
+    landRun = true;
+    if (musBuf && actx && auto) { playMusic(); musCut = Math.max(0.5, musLead - 0.3); }
     formation = 'trail'; formScale = 1;
     st.show = '着陸'; st.desc = '縦隊に組み替えて、離陸したときと同じ滑走路へ降ります。';
     st.cue = '着陸へ入ります';
@@ -1209,6 +1210,7 @@ export function mount(container, opt = {}) {
   /* 地上で待っているところから演目を始める（離陸から）。
      曲を選んであれば、その頭を待ち、音が立ち上がるところでタイヤが離れる */
   function startFromGround() {
+    auto = true; oneShot = false; standWait = false; landRun = false;
     let f0 = 0;
     for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
     formation = PROGRAM[f0].form || userForm;
@@ -1228,8 +1230,16 @@ export function mount(container, opt = {}) {
   }
   function step(dt) {
     st.mode = gmode;
-    /* 固定にしたので着陸した。滑走路で待機に戻ったら、離陸から始め直す */
-    if (loopRestart && gmode === 'stand') { loopRestart = false; startFromGround(); }
+    /* 曲は、主旋律（ギター）が入る直前で切る。着陸して戻るあいだの静かなところだけを流す */
+    if (musCut >= 0) { musCut -= dt; if (musCut <= 0) { musCut = -1; stopMusic(MUS_FADE); } }
+    /* 滑走路に戻ったら、曲を切って離陸の体勢で待つ。「加速」を押されるまで動かない。
+       接地したところで自動操縦は切れている（auto = false）ので、待っている印を別に持つ */
+    if (landRun && gmode === 'stand') {
+      landRun = false; manPhase = 'do';
+      musCut = -1; stopMusic(MUS_FADE);
+      st.show = ''; st.desc = ''; st.cue = '「加速」で離陸できます';
+      if (loopRestart) { loopRestart = false; standWait = true; }
+    }
     /* 曲のイントロを待ってから滑走を始める（主旋律が入るところで浮く） */
     if (musWait >= 0) {
       musWait -= dt;
@@ -1977,9 +1987,14 @@ export function mount(container, opt = {}) {
      アプリは音源を持たない。利用者が自分の端末の曲を選び、その場で鳴らすだけ。
      曲の頭を調べて「音が大きく立ち上がるところ」（主旋律が入るところ）を見つけ、
      そこでちょうどタイヤが離れるように滑走を始める */
-  const MUS_ROLL = 9.2;                    // 滑走を始めてから浮くまで（秒）。SPEED*0.9 / 6 のあたり
+  /* 滑走を始めてからタイヤが離れるまで（秒）。地上の加速は 6 m/s^2 で、SPEED の 9 割で浮く。
+     ここがずれると、主旋律が入る瞬間と浮く瞬間がそろわない（当て推量にせず、動きの決まりから出す） */
+  const MUS_ROLL = SPEED * 0.9 / 6;
   let musBuf = null, musSrc = null, musGainNode = null, musLead = 0, musWait = -1;
   let loopRestart = false;                 // 固定にしたあと、着陸してから離陸で始め直す
+  let musCut = -1;                         // 曲を切るまでの残り（秒）。主旋律が入る直前で切る
+  let landRun = false;                     // 着陸して滑走路へ戻っているあいだ
+  let standWait = false;                   // 滑走路で「加速」を待っている（押されたら演目を始め直す）
   /* 音の大きさが立ち上がるところを探す。0.05 秒ごとの音量を出し、
      はじめの静かなところの何倍かを超えた最初の点を「主旋律の入り」とする */
   function findLead(buf) {
@@ -2134,7 +2149,7 @@ export function mount(container, opt = {}) {
     /* 自動操縦の入り切り。入れたときは観覧位置の南の空から演技を始める */
     setAuto(on) {
       auto = !!on; oneShot = false;
-      if (!on) { musWait = -1; stopMusic(); }
+      if (!on) { musWait = -1; musCut = -1; standWait = false; landRun = false; stopMusic(MUS_FADE); }
       if (auto) {
         userForm = formation;
         let f0 = 0;
@@ -2149,10 +2164,11 @@ export function mount(container, opt = {}) {
     },
     autoState() { return auto; },
     /* 固定（エンドレス）モード。true にすると離着陸を含めず、演目を繰り返す */
-    setLoop(on) {
+    setLoop(on, restart = true) {
       showLoop = !!on;
-      /* 飛んでいるときに固定にしたら、いったん着陸してから離陸で始め直す */
-      if (showLoop && auto && gmode === 'fly') { loopRestart = true; beginLanding(); }
+      /* 飛んでいるときに固定にしたら、いったん着陸してから離陸で始め直す。
+         体験版の投影は操作できないので、そのまま飛ばし続ける（restart = false） */
+      if (showLoop && restart && auto && gmode === 'fly') { loopRestart = true; beginLanding(); }
       else if (!showLoop) loopRestart = false;
       return showLoop;
     },
@@ -2187,7 +2203,13 @@ export function mount(container, opt = {}) {
     },
     seatNo() { return seat + 1; },
     /* 待機中に押すと加速して離陸する。飛行中は何もしない */
-    throttle() { if (gmode === 'stand') { gmode = 'takeoff'; startTakeoff('pairs'); return true; } return false; },
+    /* 「加速」で離陸する。自動操縦で曲を選んであるときは、曲を頭から流し直し、
+       主旋律が入るところでちょうどタイヤが離れるように滑走を始める */
+    throttle() {
+      if (gmode !== 'stand') return false;
+      if (auto || standWait) { startFromGround(); return true; }
+      gmode = 'takeoff'; startTakeoff('pairs'); return true;
+    },
     /* 着陸してから滑走路へ戻るまでを飛ばす（減速と誘導路を待たずに待機の形にする） */
     skipTaxi() {
       if (gmode !== 'land' && gmode !== 'taxi') return false;

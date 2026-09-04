@@ -148,7 +148,11 @@ export function mount(container, opt = {}) {
   /* 山: 見え方を学ぶのが目的なので、空間の中の近くに置く。出題の絵と同じく、開始位置の正面やや左に雪山、やや右に塔。
      さらに空間の中に中くらいの山を散らし、壁の外にも遠景の環を置く */
   const mtnMat = new THREE.MeshLambertMaterial({ color: col.mtn }), snowMat = new THREE.MeshLambertMaterial({ color: col.snow });
+  /* 障害物: 山と塔。飛ぶ高さに届くものだけを覚えておき、当たらないように使う。
+     家と木は 15 m ほどなので入れない（滑走路の帯にも置かれない） */
+  const obst = [];
   const mountain = (x, y, hgt, rad, snow) => {
+    obst.push({ x, y, r: rad, h: hgt, flat: false });
     const m = new THREE.Mesh(new THREE.ConeGeometry(rad, hgt, 8), mtnMat); m.rotation.x = Math.PI / 2; m.position.set(x, y, hgt / 2); props.add(m);
     if (snow) { const s = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.28, hgt * 0.28, 8), snowMat); s.rotation.x = Math.PI / 2; s.position.set(x, y, hgt - hgt * 0.14); props.add(s); }
   };
@@ -189,6 +193,7 @@ export function mount(container, opt = {}) {
   for (let i = 0; i < 6; i++) {   // 塔（先端は赤）。最初の 1 本は正面右の目印
     const [x, y] = i === 0 ? [230, 260] : pick(), h = i === 0 ? 120 : 60 + rnd() * 70;
     const t = new THREE.Mesh(new THREE.BoxGeometry(4, 4, h), new THREE.MeshLambertMaterial({ color: 0x8a949e })); t.position.set(x, y, h / 2); props.add(t);
+    obst.push({ x, y, r: 6, h, flat: true });
     const tip = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 6), new THREE.MeshBasicMaterial({ color: 0xff5a4a })); tip.position.set(x, y, h + 3); props.add(tip);
   }
 
@@ -545,6 +550,22 @@ export function mount(container, opt = {}) {
   }, undefined, () => {});
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false })); shadow.position.z = 0.8; world.add(shadow);
 
+  /* その場所にある障害物の高さ。山は円錐なので、中心から離れるほど低くなる。塔は上まで同じ太さ。
+     オブジェクトを消しているとき（props.visible=false）は、当たり判定もしない */
+  function terrainAt(x, y) {
+    if (!props.visible) return 0;
+    let z = 0;
+    for (let i = 0; i < obst.length; i++) {
+      const o = obst[i], dx = x - o.x, dy = y - o.y, d2 = dx * dx + dy * dy;
+      if (d2 > o.r * o.r) continue;
+      const t = o.flat ? o.h : o.h * (1 - Math.sqrt(d2) / o.r);
+      if (t > z) z = t;
+    }
+    return z;
+  }
+  const OBST_CLEAR = 14;        // 障害物の上を通るときに空ける高さ（m）
+  const OBST_LOOK = [3, 6, 9];  // 自動操縦が先を見る時間（秒）
+
   /* ---- 状態と入力 ---- */
   /* 姿勢はクォータニオンで持つ。オイラー角（方位・ピッチ・バンク）だと宙返りの真上・真下で破綻するため。
      h / p / b は表示と計器のために毎フレーム取り出す。機体の軸: 機首 +y、右翼 +x、機体上 +z */
@@ -642,6 +663,8 @@ export function mount(container, opt = {}) {
     { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240,
       desc: '1 周まわってから、続けて宙返りします。' }
   ];
+  let allowIds = null;                     // 見せる課目を絞る（体験版）。null なら全部
+  const okMan = m => !allowIds || allowIds.indexOf(m.id) >= 0;
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
   let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
   const GATE = { x: 0, y: 0, z: SHOW.ALT_IN };
@@ -788,7 +811,12 @@ export function mount(container, opt = {}) {
     if (oneShot) {   // 1 つだけの技なら、水平に戻してから操縦を返す
       manPhase = 'out'; phaseT = 0; st.cue = '水平に戻します'; markOn = false; endCork(); endFigure(); if (treeMode) setTreeMode(false); return;
     }
-    beginManeuver((step_i + 1) % PROGRAM.length);
+    let n = (step_i + 1) % PROGRAM.length;
+    for (let k = 1; k <= PROGRAM.length; k++) {          // 見せない課目は飛ばす
+      const j = (step_i + k) % PROGRAM.length;
+      if (okMan(PROGRAM[j])) { n = j; break; }
+    }
+    beginManeuver(n);
   }
   /* 墜落しないための備え。低いときは、まず翼を水平に戻してから引き起こす
      （背面のまま引くと地面へ向かうので、順番が要る） */
@@ -800,6 +828,13 @@ export function mount(container, opt = {}) {
       const wantH = ((Math.atan2(-st.x, -st.y) / D) % 360 + 360) % 360;
       const e = wrap180(wantH - st.h);
       if (Math.abs(e) > 25) { autoIn.x = clamp(clamp(e * 1.2, -45, 45) - st.b, -22, 22) / 22; }
+    }
+    /* 進む先に山や塔があれば、届く前に機首を上げて越える（当たり判定を避ける） */
+    for (let k = 0; k < OBST_LOOK.length; k++) {
+      const s2 = OBST_LOOK[k];
+      const px = st.x + fwd.x * SPEED * s2, py = st.y + fwd.y * SPEED * s2, pz = st.z + fwd.z * SPEED * s2;
+      const need = terrainAt(px, py) + 70;
+      if (pz < need) { autoIn.y = -clamp((need - pz) / 140, 0.35, 1); autoIn.x = clamp(-st.b / 20, -1, 1); return; }
     }
     const ahead = st.z + fwd.z * SPEED * 6;                           // このまま 6 秒進んだときの高さ
     if (Math.abs(st.b) > 60 && st.z < 180 && fwd.z < 0.15) {          // 低くて背面気味: まず翼を水平に戻す
@@ -1063,6 +1098,11 @@ export function mount(container, opt = {}) {
       att.setFromAxisAngle(AZ, -st.h * D); readAttitude();
     }
     if (st.z < 3) st.z = 3;
+    /* 山や塔に触れそうなときは、その上へ逃がす。ぶつけて墜落にはしない（利用者の指示）。
+       斜面に近づくにつれて少しずつ上がるので、山を越えていくように見える */
+    const tzz = terrainAt(st.x, st.y) + OBST_CLEAR;
+    if (st.z < tzz) { st.z = tzz; st.cue = '山を越えます'; }
+    else if (st.cue === '山を越えます') st.cue = '';
     if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
       Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
       levelAttitude(); hist.length = 0; auto = false; oneShot = false; formScale = 1;
@@ -1659,7 +1699,9 @@ export function mount(container, opt = {}) {
         userForm = formation;
         Object.assign(st, { x: GROUND_EYE.x - 280, y: GROUND_EYE.y - 460, z: SHOW.ALT, h: 25, ground: false, wall: false });
         levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
-        beginManeuver(0);
+        let f0 = 0;
+        for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
+        beginManeuver(f0);
       } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; endCork(); endFigure(); if (treeMode) setTreeMode(false); }
     },
     autoState() { return auto; },
@@ -1702,9 +1744,11 @@ export function mount(container, opt = {}) {
     /* 技の一覧（移動のための旋回と正面通過を除く）と、1 つだけ行わせる呼び出し。
        自分で操縦しているときに技を選ぶと、その技の間だけ自動で飛び、終わると操縦が戻る */
     maneuvers() { const seen = new Set();   // 同じ技が演技の中に何度も出るので、一覧では 1 つにまとめる
-      return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja, desc: m.desc || '' })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
+      return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja, desc: m.desc || '', lock: !okMan(m) })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
+    /* 見せる課目を絞る（体験版）。ids を渡すとその id だけ、null で全部に戻す */
+    setAllowed(ids) { allowIds = (ids && ids.length) ? ids.slice() : null; },
     runManeuver(i) {
-      if (!PROGRAM[i]) return false;
+      if (!PROGRAM[i] || !okMan(PROGRAM[i])) return false;
       if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 120); spdK = 1; spdWant = 1; levelAttitude(); }
       if (!auto) { userForm = formation; oneShot = true; }   // 自分で操縦しているときは、その技だけ行って操縦を返す
       auto = true; beginManeuver(i); return true;

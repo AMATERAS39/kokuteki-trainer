@@ -351,6 +351,8 @@ svg text{user-select:none}
 .gallery .gstep{text-align:center;margin-top:.375rem;font-variant-numeric:tabular-nums}
 .gallery .gexp b{color:var(--text)}
 .gallery .gsel.off{opacity:.35;pointer-events:none}
+.gallery .gsim.off{opacity:.4;pointer-events:none}
+.gallery .ab.lockb{opacity:.4}
 /* 見え方画面は 1 画面に収める: 記録チップを隠し、フレームは画面の高さから逆算 */
 body[data-phase="gallery"] aside{display:none}
 body[data-phase="gallery"]{padding-bottom:.5rem}
@@ -996,7 +998,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.53';
+const APP_VER='v03.54';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1309,7 +1311,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=56').then(mod=>{
+  import('./sim3d.js?v=57').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1535,7 +1537,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=56').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=57').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1545,6 +1547,9 @@ function runSim(opt){applyScene();
       /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。
          鍵をかけるのは 編隊・スモーク・写真・タイヤ・ライト。ボタンは消さずに灰色にして出しておく */
       sim.demo=!isFull();
+      /* 体験版で見せる演目は 5 つ（旋回・キューピッド・スタークロス・クリスマスツリー・ローパス・コークスクリュー）。
+         残りは一覧に灰色で並べ、押すと断りを出す */
+      if(sim.demo)sim.h.setAllowed(['orbit','cupid','star','tree','cork']);
       const demoStop=()=>{if(!sim.demo)return false;toast('体験版では鍵がかかっています。編隊・スモーク・写真・タイヤ・ライトは完全版で使えます');return true};
       sim.h.setCockpit(sim.viewName==='first'&&sim.fpMode==='cockpit');
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
@@ -1676,11 +1681,13 @@ function runSim(opt){applyScene();
       /* 技は空を選ばない。昼以外で選んだときは昼の空で作り直す（クリスマスツリー・ローパスだけそのまま） */
       /* 一覧の先頭に「閉じる」を置く（横画面ではこの一覧が技を出すボタンを覆うため） */
       tMenu.innerHTML=`<button class="mclose" data-close="1"><svg class="ic"><use href="#i-cross"/></svg><span>閉じる</span></button>`
-        +sim.h.maneuvers().map(m=>`<button data-m="${m.i}" data-id="${m.id}"><span>${m.ja}</span></button>`).join('');
+        +sim.h.maneuvers().map(m=>`<button class="${m.lock?'off':''}" data-m="${m.i}" data-id="${m.id}"${m.lock?' data-lock="1"':''}><span>${m.ja}</span></button>`).join('');
       tMenu.querySelector('[data-close]').addEventListener('click',()=>{tMenu.hidden=true});
       const nameEl=$('#showName');
       const showLabel=txt=>{if(!nameEl)return;nameEl.textContent=txt||'';nameEl.hidden=!txt};
-      tMenu.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{tMenu.hidden=true;
+      tMenu.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{
+        if(b.dataset.lock){toast('体験版で見られる演目は 5 つです。ほかは完全版で使えます');return}
+        tMenu.hidden=true;
         const nm=b.textContent.trim(),id=b.dataset.id,idx=+b.dataset.m;
         /* クリスマスツリー・ローパス以外は昼の空で見せる（設定が自動でも、技のあいだは昼） */
         if(id!=='tree'&&document.body.dataset.scene!=='day'){
@@ -1721,15 +1728,19 @@ const GAL_INIT={level:{ja:'水平飛行',b:'水平',s:{bank:0,pitch:0,yaw:0}},rb
   up:{ja:'機首上げ',b:'機首上げ',s:{bank:0,pitch:10,yaw:0}},down:{ja:'機首下げ',b:'機首下げ',s:{bank:0,pitch:-10,yaw:0}}};
 function showGallery(){applyScene();
   setPhase('gallery','見え方');showPane('gallery');
+  /* 体験版: 初期状態は水平飛行だけ、操作は操縦桿だけ、「動きで見る」は鍵。
+     選べないものは消さずに灰色で見せる */
+  const dm=!isFull();
+  if(dm){gal.init='level';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
-  const row=(title,ids,cols)=>`<div class="gsel"><div class="gl">${title}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
+  const row=(title,ids,cols,lock)=>`<div class="gsel${lock?' off':''}"><div class="gl">${title}${lock?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、①からの②③を表示します。${isFull()?'操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。':'体験版で選べるのは操作 1 つずつです。操縦桿と方向舵を組み合わせた見え方は完全版で使えます。'}</div>
-    <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab" data-init="${k}">${v.b}</button>`).join('')}</div></div>
-    ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2)}
+    <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab${dm&&k!=='level'?' lockb':''}" data-init="${k}"${dm&&k!=='level'?' data-lock="1"':''}>${v.b}</button>`).join('')}</div></div>
+    ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
-    <div class="gsim">
-      <h4 class="gsimh">動きで見る</h4>
+    <div class="gsim${dm?' off':''}">
+      <h4 class="gsimh">動きで見る${dm?'（完全版）':''}</h4>
       <div class="sub">同じ操作を動かして確かめます（ここでは操縦できません）。</div>
       <div class="gsimbar">
         <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
@@ -1748,7 +1759,9 @@ function showGallery(){applyScene();
     }
     else{gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group!==grp);gal.sel.push(id)}
     galDraw()}));
-  $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.addEventListener('click',()=>{gal.init=b.dataset.init;galDraw()}));
+  $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.addEventListener('click',()=>{
+    if(b.dataset.lock){toast('体験版では水平飛行からの見え方だけです。ほかの初期状態は完全版で使えます');return}
+    gal.init=b.dataset.init;galDraw()}));
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw();galApply(gal.play?null:0)}));
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{if(gal.view===b.dataset.gv)return;gal.view=b.dataset.gv;galMove()}));
   $('#gPlay').addEventListener('click',galPlay);
@@ -1971,6 +1984,13 @@ const FB_FORM=`
 
 async function renderContact(){
   const page=$('#contactPage');
+  if(!isFull()){        /* 体験版では鍵。項目は残して、完全版で使えることだけ伝える */
+    page.innerHTML=`<h3>ご要望・お問い合わせ</h3>
+      <div class="sub2">この画面は完全版で使えます。体験版では送信できません。</div>
+      <div class="acts"><button class="btn ghost" id="ctBack">戻る</button></div>`;
+    $('#ctBack').addEventListener('click',()=>{location.hash='#home'});
+    return;
+  }
   const m=await fb().catch(()=>null);
   if(!m||!m.CONFIGURED){   /* 置き場所がまだないとき: メールの下書きを開く */
     const sent=store.get('inquiries',[]);

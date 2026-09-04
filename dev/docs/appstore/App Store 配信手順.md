@@ -70,7 +70,8 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
    - データを収集しない（No, we do not collect data）を選ぶ。設定と記録は端末内の localStorage だけで、外部に送らない
 5. 「バージョン情報」: 掲載文は `dev/docs/appstore/ストア掲載文.md` から貼る
 6. スクリーンショット: **用意済み**。`dev/docs/appstore/screenshots/iphone-6.9/`（縦 1320×2868 が 7 枚 ＋ 横 2868×1320 が 2 枚）と `ipad-13/`（横 2752×2064・4 枚）をそのまま上げる。
-   この 2 サイズだけでよい（ほかの画面サイズには Apple がこれを縮小して使う）。1 サイズにつき 1〜10 枚、縦横は混ぜてよい。
+   1 サイズにつき 1〜10 枚、縦横は混ぜてよい。
+   枠が「iPhone 6.5"ディスプレイ」「iPad Pro 12.9"ディスプレイ」で出てきたときは、`iphone-6.5/`（縦 1284×2778・横 2778×1284）と `ipad-12.9/`（2732×2048）を上げる。中身は同じで寸法だけ違う。
    iPad に対応させない場合は `patch-ios.js` に `TARGETED_DEVICE_FAMILY=1` を足して iPhone 専用にし、iPad のぶんは上げない
 
 ## 4. 提出

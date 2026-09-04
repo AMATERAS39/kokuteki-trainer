@@ -885,6 +885,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-light" viewBox="0 0 24 24"><circle cx="9" cy="12" r="4"/><path d="M13 9l8-3M13 12h8M13 15l8 3"/></symbol>
 <symbol id="i-ui" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h2M7 17h2"/></symbol>
 <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5h3.5L8 6h8l1.5 2.5H21v11H3z"/><circle cx="12" cy="13.5" r="3.6"/></symbol>
+<symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
 <symbol id="i-smoke" viewBox="0 0 24 24"><path d="M2.6 6.4l7 3.2-7 3.2 1.7-3.2z" style="fill:currentColor;stroke:none"/><path d="M8.6 17.6c2.2 0 2.2-2.8 4.4-2.8s2.2 2.8 4.4 2.8 2.2-2.8 4.4-2.8"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="m12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81zM12 3L2 12h3v8h6v-6h2v6h6v-8h3"/></symbol>
@@ -1104,7 +1105,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.70';
+const APP_VER='v03.71';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1428,7 +1429,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=68').then(mod=>{
+  import('./sim3d.js?v=69').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1465,7 +1466,7 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"></button>
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button>
-      <button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
+      <button class="iconbtn" id="simSound" aria-label="音" aria-pressed="false" title="音（機体の通過音）"><svg class="ic"><use href="#i-sound"/></svg></button><button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
       <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
@@ -1707,7 +1708,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=68').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=69').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1900,6 +1901,11 @@ function runSim(opt){applyScene();
       tBtn.addEventListener('click',e=>{e.stopPropagation();tMenu.hidden=!tMenu.hidden;fMenu.hidden=true});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
+      /* 音: ブラウザの決まりで、押されたその流れの中でしか音を出せない */
+      const soBtn=$('#simSound');
+      if(soBtn){const paintSo=()=>{const on=sim.h.soundState();soBtn.classList.toggle('on',on);soBtn.setAttribute('aria-pressed',String(on))};
+        soBtn.addEventListener('click',()=>{sim.h.setSound(!sim.h.soundState());store.set('simSound',sim.h.soundState());paintSo()});
+        paintSo()}
       /* 体験版: 鍵のかかったボタンは、消さずに灰色で出しておく。押すと断りだけ出す。
          捕まえる段で止めるので、そのボタンに付いている本来の処理は動かない */
       if(sim.demo){

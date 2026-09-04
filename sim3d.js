@@ -1858,6 +1858,80 @@ export function mount(container, opt = {}) {
     sky.position.copy(cam.position);
   }
 
+  /* ===== 音 =====
+     戦闘機の爆音ではなく、速めの航空機が通り過ぎるときのような音にする。
+     雑音を帯域で削って「シャーッ」という風切り音を作り、機体ごとに
+     距離で大きさを、近づく・遠ざかるで高さを変える（ドップラー）。
+     ブラウザは操作なしに音を出せないので、入り切りのボタンが押されたときに作る */
+  const AUD_FAR = 1500;                    // ここより遠いと聞こえない（m）
+  const AUD_SPD = 340;                     // 音の速さ（m/s）
+  let actx = null, aMaster = null, aNodes = null, soundOn = false;
+  const aPrev = [];                        // 前のコマの距離（ドップラーに使う）
+  function makeNoise(ctx) {
+    const len = Math.floor(ctx.sampleRate * 2), buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let a = 0, b = 0;
+    for (let i = 0; i < len; i++) {        // 低いほうを持ち上げた雑音（そのままだと耳につく）
+      const w = Math.random() * 2 - 1;
+      a = 0.99 * a + 0.06 * w; b = 0.72 * b + 0.28 * w;
+      d[i] = Math.max(-1, Math.min(1, a * 2.6 + b * 0.5));
+    }
+    return buf;
+  }
+  function initAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (actx || !AC) return;
+    actx = new AC();
+    aMaster = actx.createGain(); aMaster.gain.value = 0.9; aMaster.connect(actx.destination);
+    const buf = makeNoise(actx);
+    aNodes = [];
+    for (let k = 0; k < mates.length + 1; k++) {
+      const src = actx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
+      const pan = actx.createStereoPanner ? actx.createStereoPanner() : null;
+      const g = actx.createGain(); g.gain.value = 0;
+      src.connect(bp); bp.connect(lp);
+      if (pan) { lp.connect(pan); pan.connect(g); } else lp.connect(g);
+      g.connect(aMaster);
+      src.start(0);
+      aNodes.push({ src, bp, lp, pan, g });
+      aPrev[k] = null;
+    }
+  }
+  const aPos = new THREE.Vector3(), aRel = new THREE.Vector3(), aRight = new THREE.Vector3();
+  function updateAudio(dt) {
+    if (!soundOn || !actx || !aNodes || !dt) return;
+    aRight.set(1, 0, 0).applyQuaternion(cam.quaternion);       // 耳の右向き
+    for (let k = 0; k < aNodes.length; k++) {
+      const n = aNodes[k];
+      const obj = k === 0 ? plane : mates[k - 1];
+      const shown = k === 0 ? plane.visible || curView === 'first' : (mates[k - 1] && mates[k - 1].userData.shown);
+      if (!obj || !shown) { n.g.gain.value += (0 - n.g.gain.value) * 0.2; aPrev[k] = null; continue; }
+      aPos.copy(obj.position);
+      const d = aPos.distanceTo(cam.position);
+      /* 大きさ: 近いほど大きい。爆音にならないよう上限を低くする */
+      const near = Math.max(0, 1 - d / AUD_FAR);
+      const want = Math.min(0.32, near * near * 0.42) * (gmode === 'fly' || k > 0 ? 1 : 0.5);
+      n.g.gain.value += (want - n.g.gain.value) * Math.min(1, dt * 6);
+      /* ドップラー: 近づいているあいだは高く、遠ざかると低い */
+      const prev = aPrev[k]; aPrev[k] = d;
+      let rate = 1;
+      if (prev != null) {
+        const vr = (prev - d) / dt;                            // 近づく速さ（m/s）
+        rate = clamp(1 + vr / AUD_SPD, 0.72, 1.45);
+      }
+      n.src.playbackRate.value += (rate - n.src.playbackRate.value) * Math.min(1, dt * 8);
+      n.bp.frequency.value = 380 * rate + Math.min(220, 26000 / Math.max(60, d));
+      n.lp.frequency.value = 900 + 2600 * near;                // 遠いと高い音が届かない
+      if (n.pan) {                                             // 左右の位置
+        aRel.copy(aPos).sub(cam.position);
+        const side = aRel.dot(aRight) / Math.max(1, aRel.length());
+        n.pan.pan.value += (clamp(side, -1, 1) * 0.85 - n.pan.pan.value) * Math.min(1, dt * 6);
+      }
+    }
+  }
+
   let running = true, raf = 0, last = performance.now();
   /* 1 フレームの中で何かに失敗しても、次のフレームを必ず要求する（要求をやめると画面が固まって見える）。
      続けて失敗するときは自動操縦を切って水平に戻す */
@@ -1871,6 +1945,7 @@ export function mount(container, opt = {}) {
       renderer.render(world, cam);
       drawStick();
       tellPanel();
+      updateAudio(dt);
       st.err = 0;
     } catch (e) {
       st.err = (st.err || 0) + 1;
@@ -2043,12 +2118,22 @@ export function mount(container, opt = {}) {
     setProps(on) { props.visible = !!on; },   // オブジェクト（山・民家・木・塔）の出し入れ
     setFormation(f) { if (FORMATIONS[f]) { formation = f; userForm = f; } },   // 飛びながら変えられる。合流は placeMates がなめらかにする
     formation() { return formation; },
+    /* 音の入り切り。ブラウザの決まりで、操作された流れの中でしか音を出せないので、
+       入れたときに作る。切ったときは鳴らさない（作ったものは残す） */
+    setSound(on) {
+      soundOn = !!on;
+      if (soundOn) { initAudio(); if (actx && actx.state === 'suspended') actx.resume(); }
+      else if (aNodes) aNodes.forEach(n => { n.g.gain.value = 0; });
+      return soundOn;
+    },
+    soundState() { return soundOn; },
     setSmoke(on) { smokeOn = !!on; },
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },
     level() { levelAttitude(); st.ground = false; if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 60); spdK = 1; } },
     home() { gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1; Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },
-    dispose() { running = false; cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); cv.remove(); }
+    dispose() { running = false; cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); cv.remove();
+      if (actx) { try { aNodes && aNodes.forEach(n => n.src.stop()); actx.close(); } catch (e) {} actx = null; aNodes = null; } }
   };
 }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

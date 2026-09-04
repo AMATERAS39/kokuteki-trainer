@@ -708,6 +708,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .gallery .frame .v{height:calc((100vh - 24rem)/3);max-height:14rem}
   .frame{grid-template-columns:1fr}
   .frame .n{order:2;text-align:center;margin-top:.375rem;font-size:.8125rem}
+  /* 見え方は 1 列（番号は左、視界は右）。出題と同じ「番号を下」にすると、
+     並べ替えのせいで視界が 1.25rem の列に入って潰れる（大きいタブレットで起きる） */
+  .gallery .frame .n{order:0;text-align:left;margin-top:0}
   .segs{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
   .seg{margin-top:1.25rem}
   .ops .ab{min-height:3.5rem}.ops .ab .t{font-size:.75rem}
@@ -972,7 +975,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.46';
+const APP_VER='v03.47';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで

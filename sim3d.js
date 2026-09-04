@@ -556,6 +556,7 @@ export function mount(container, opt = {}) {
   const N_MAX = 4;                     // 旋回に使える荷重倍数の上限（4 G）。横倒しでも旋回が暴れないようにする
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
   let curView = view, seat = 0;   // seat: 0=1 番機、1〜5=2〜6 番機（視点だけ移る）
+  let inCockpit = true;           // 一人称の見せ方。true=機内（計器盤と操縦桿が見える）、false=計器だけ（外がそのまま見える）
   let paused = false;             // 演目の一時停止（画面を 2 回叩く）
   /* 見回し（ドラッグ量）。一人称は首の向き、三人称は機体のまわりの位置。視点を変えると中央に戻す */
   const look = { y: 0, p: 0 };
@@ -1464,7 +1465,7 @@ export function mount(container, opt = {}) {
      onState（1 コマ遅れ）で渡すと、見回したときに計器が遅れてついてくる */
   function tellPanel() {
     if (!opt.onPanel) return;
-    if (curView !== 'first') { opt.onPanel(null); return; }
+    if (curView !== 'first' || !inCockpit) { opt.onPanel(null); return; }
     cockpit.updateWorldMatrix(true, false);
     panelPt.set(0, 3.32, -0.29).applyMatrix4(cockpit.matrixWorld).project(cam);
     opt.onPanel(panelPt.z > 1 ? null : { x: (panelPt.x + 1) / 2, y: (1 - panelPt.y) / 2 });
@@ -1472,7 +1473,7 @@ export function mount(container, opt = {}) {
 
   /* 操縦桿を本編の上に重ねて描く（一人称のときだけ） */
   function drawStick() {
-    if (curView !== 'first') return;
+    if (curView !== 'first' || !inCockpit) return;
     cockpit.updateWorldMatrix(true, false);
     stickHolder.matrix.copy(cockpit.matrixWorld);
     oCam.fov = cam.fov; oCam.aspect = cam.aspect; oCam.updateProjectionMatrix();
@@ -1486,7 +1487,8 @@ export function mount(container, opt = {}) {
   function setView(v) {
     curView = v; look.y = 0; look.p = 0; const out = v !== 'first';
     seatMeshes.forEach(m => { m.visible = out; });
-    cockpit.visible = !out;
+    cockpit.visible = !out && inCockpit;
+    plane.visible = !(!out && !inCockpit);   /* 計器だけの見せ方では機体そのものも消す（外がそのまま見える） */
     baseFov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; applyFov(); camPos.set(0, 0, 0);
     /* 煙の太さ: 一人称はすぐ近くを通るので控えめに、それ以外（特に地上）は遠くでも見えるように */
     const near1 = v === 'first';
@@ -1500,6 +1502,9 @@ export function mount(container, opt = {}) {
 
   return {
     input, state: st, setView,
+    /* 一人称の見せ方を変える。切ると機内が消えて、外の景色がそのまま見える（縦画面はいつもこちら） */
+    setCockpit(on) { inCockpit = !!on; const first = curView === 'first';
+      cockpit.visible = first && inCockpit; plane.visible = !(first && !inCockpit); }, cockpitOn() { return inCockpit; },
     /* 画面のドラッグで視点を動かす（度）。一人称は首、三人称は機体のまわり */
     addLook(dy, dp) { look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },

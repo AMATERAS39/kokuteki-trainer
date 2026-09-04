@@ -353,11 +353,16 @@ export function mount(container, opt = {}) {
   const SMOKE_N = SMOKE_MAX * 6;
   const smokeGeo = new THREE.BufferGeometry();
   const sPos = new Float32Array(SMOKE_N * 3), sCol = new Float32Array(SMOKE_N * 3), sBirth = new Float32Array(SMOKE_N), sSize = new Float32Array(SMOKE_N).fill(1);
+  /* 消えるまでの時間は粒ごとに持つ。図を描く課目（キューピッド・スタークロス・レターエイト）は、
+     描き終わるまで最初の線が消えないように、その課目のあいだだけ長い寿命で出す */
+  const sLife = new Float32Array(SMOKE_N).fill(SMOKE_LIFE);
+  let lifeNow = SMOKE_LIFE;
   sBirth.fill(-1e6);
   smokeGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
   smokeGeo.setAttribute('acolor', new THREE.BufferAttribute(sCol, 3));
   smokeGeo.setAttribute('birth', new THREE.BufferAttribute(sBirth, 1));
   smokeGeo.setAttribute('asize', new THREE.BufferAttribute(sSize, 1));
+  smokeGeo.setAttribute('alife', new THREE.BufferAttribute(sLife, 1));
   const smokeMat = new THREE.ShaderMaterial({
     /* 遠くの煙は、そのままだと画面では細く薄くなって見えない（地上から見るキューピッドなど）。
        200 m より遠いところでは、離れるほど 太さと濃さを増す（uFarS / uFarA）。
@@ -367,9 +372,9 @@ export function mount(container, opt = {}) {
     uniforms: { uTime: { value: 0 }, uLife: { value: SMOKE_LIFE }, uMinPx: { value: 10 }, uMaxPx: { value: 90 },
                 uFarS: { value: 0.8 }, uFarA: { value: 1.2 } },
     transparent: true, depthWrite: false,
-    vertexShader: `attribute vec3 acolor; attribute float birth; attribute float asize; uniform float uTime, uLife, uMinPx, uMaxPx, uFarS, uFarA;
+    vertexShader: `attribute vec3 acolor; attribute float birth; attribute float asize; attribute float alife; uniform float uTime, uLife, uMinPx, uMaxPx, uFarS, uFarA;
       varying vec3 vC; varying float vA;
-      void main(){ float age = (uTime - birth) / uLife; vA = clamp(1.0 - age, 0.0, 1.0); vA *= sqrt(vA);
+      void main(){ float age = (uTime - birth) / max(1.0, alife); vA = clamp(1.0 - age, 0.0, 1.0); vA *= sqrt(vA);
         vC = acolor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
         float far = clamp((-mv.z - 200.0) / 800.0, 0.0, 1.0);      // 200 m から 1 km で 0 → 1
         vA = clamp(vA * (1.0 + uFarA * far), 0.0, 1.0);
@@ -395,7 +400,7 @@ export function mount(container, opt = {}) {
       const j = smokeBoost ? 2.5 : 0;
       sPos[i * 3] = pos.x + (Math.random() - 0.5) * j; sPos[i * 3 + 1] = pos.y + (Math.random() - 0.5) * j; sPos[i * 3 + 2] = pos.z + (Math.random() - 0.5) * j;
       sCol[i * 3] = smokeCol.r; sCol[i * 3 + 1] = smokeCol.g; sCol[i * 3 + 2] = smokeCol.b;
-      sBirth[i] = clock; sSize[i] = smokeBoost ? 2.4 : 1;
+      sBirth[i] = clock; sSize[i] = smokeBoost ? 2.4 : 1; sLife[i] = lifeNow;
     }
   }
   function clearSmoke() { sBirth.fill(-1e6); smokeGeo.attributes.birth.needsUpdate = true; }
@@ -492,10 +497,10 @@ export function mount(container, opt = {}) {
   }
   /* 脚とライトは別々に出し入れできる。昼以外はライトを自動で点けておく（手で消せる）。
      ローパスのあいだは両方出し、終わったら手で決めていた状態に戻す */
-  let gearOn = false, lightsOn = scene !== 'day', treeMode = false;
+  let gearOn = false, lightsOn = scene !== 'day', treeMode = false, treeLit = false;   // treeLit: ローパスのライトを点けたか（正面を向いてから）
   function applyGear() {
     gearSets.forEach(g => { g.visible = gearOn || treeMode; });
-    lightSets.forEach(L => { L.visible = lightsOn || treeMode; });
+    lightSets.forEach(L => { L.visible = lightsOn || (treeMode && treeLit); });   // ローパスのライトは、正面を向いてから点ける
     shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });   // 蜃気楼は地上から見たときだけ
   }
   /* 「一人称（計器）」の見せ方では、乗っている機体そのものを消す（風防の外がそのまま見える）。
@@ -508,6 +513,7 @@ export function mount(container, opt = {}) {
   }
   function setTreeMode(on) {
     treeMode = !!on;
+    if (!treeMode) treeLit = false;
     smokeBoost = treeMode; spdWant = treeMode ? 0.6 : 1;
     applyGear();
   }
@@ -657,6 +663,12 @@ export function mount(container, opt = {}) {
     autoIn.r = 0;
   }
   const holdBank = b => { autoIn.x = clamp((b - st.b) / 18, -1, 1); };
+  /* 観覧位置のまわりを回る。隊形が組めるまで待つあいだに使う。
+     その場で旋回を続けると、輪の中心が流れて演技が遠ざかるので、中心を観覧位置に決めて回る */
+  function orbitEye(z) {
+    const e = eyeDir(), a = Math.atan2(st.y - e.ey, st.x - e.ex) + 0.5;
+    steerTo(e.ex + Math.cos(a) * SHOW.R, e.ey + Math.sin(a) * SHOW.R, z || SHOW.ALT);
+  }
   const holdPitch = p2 => { autoIn.y = -clamp((p2 - st.p) / 10, -1, 1); };
   /* いま見ている向き（地上視点なら自分で向けた方向、それ以外は観覧位置から北） */
   function eyeDir() {
@@ -759,9 +771,15 @@ export function mount(container, opt = {}) {
     const m = PROGRAM[i];
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
+    e8 = null;
+    lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
-    if (m.front !== false && (curView === 'ground' || !oneShot)) { planEntry(m); manPhase = 'in'; }
+    /* 技をひとつだけ選んだときも、見ている正面へ回り込んでから行う（どの視点でも同じ）。
+       演技は地上から見るためのものなので、目の前で行わないと課目の形が分からない */
+    if (((FORMATIONS[formation] || {}).n || 1) > 1 && !matesReady()) {   // 隊形が要る課目は、組んでから進入する
+      manPhase = 'gather'; phaseT = 0; st.cue = '隊形を組みます'; markOn = false;
+    } else if (m.front !== false) { planEntry(m); manPhase = 'in'; }
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
     else { manPhase = 'do'; st.cue = ''; markOn = false; }
   }
@@ -805,6 +823,13 @@ export function mount(container, opt = {}) {
         if ((Math.abs(st.b) < 12 && Math.abs(st.p) < 8 && st.z > 120) || phaseT > 10) {
           auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.cue = ''; st.desc = ''; formation = userForm; formScale = 1;
         }
+        return autoIn;
+      }
+      if (manPhase === 'gather') {         // 隊形が組めるまで待つ。観覧位置のまわりを回って待つので、遠くへ流れない
+        orbitEye(GATE.z);
+        /* 組めたら、そのまま正面へ寄せる（もう観覧位置のそばにいるので、遠くの門から入り直さない） */
+        if (matesReady() || phaseT > 40) { planEntry(m); manPhase = 'align'; phaseT = 0; }
+        safety();
         return autoIn;
       }
       if (manPhase === 'climb') {          // 技に要る高さまで、まっすぐ上げる
@@ -859,10 +884,21 @@ export function mount(container, opt = {}) {
         formation = 'delta'; formScale = lerp(2.4, 1, loopSum / 320);
         if (loopSum > 360 || manT > 20) nextManeuver();
         break;
-      case 'eight':                              // レター・エイト: 右へ 1 周、左へ 1 周で 8 の字
-        holdBank((hdgSum < 360 ? 56 : -56) * turnSign); holdPitch(0);
-        if (hdgSum > 720 || manT > 60) nextManeuver();
+      case 'eight': {                            // レター・エイト: 3 機が片方の輪、離れた 1 機がもう片方の輪
+        if (!e8) {
+          if (!matesReady() && manT < 26) { orbitEye(GATE.z); break; }   // 集まるまで観覧位置のまわりを回って待つ
+          const sg = turnSign, br = 56 * D;
+          const nE = Math.min(N_MAX, 1 / Math.max(Math.abs(Math.cos(br)), 1 / N_MAX));
+          const w = (9.81 / (SPEED * Math.max(.2, spdK))) * nE * Math.sin(br);      // 旋回の角速度（rad/s）
+          const R = clamp(SPEED / Math.max(0.02, w), 120, 600);                     // 輪の半径（m）
+          const a = (st.h - sg * 90) * D;
+          e8 = { s: sg, R, h0: st.h, z: st.z, t0: hdgSum, solo: Math.min(2, mates.length - 1),
+                 cx: st.x + R * Math.sin(a), cy: st.y + R * Math.cos(a), done: false };   // もう片方の輪の中心
+        }
+        holdBank(56 * turnSign); holdPitch(0);
+        if (hdgSum - e8.t0 > 360 || manT > 55) nextManeuver();
         break;
+      }
       case 'vert':                               // バーティカル・クライム・ロール: 垂直に上げながら横転
         if (st.p < 70 && manT < 8) { autoIn.x = 0; autoIn.y = -1; }
         else if (rollSum < 360 && st.z < 1200) { autoIn.x = 1; autoIn.y = 0; }
@@ -898,7 +934,7 @@ export function mount(container, opt = {}) {
       }
       case 'cupid': case 'star': {               // 描き物: 2 番機以降が図を描き、1 番機は図のそばを回る
         if (!fig) {
-          if (!matesReady() && manT < 26) { holdBank(28); holdPitch(0); break; }   // 集まるまで ゆっくり回って待つ
+          if (!matesReady() && manT < 26) { orbitEye(GATE.z); break; }   // 集まるまで観覧位置のまわりを回って待つ
           beginFigure(m.fig);
         }
         fig.t += dt;
@@ -911,6 +947,11 @@ export function mount(container, opt = {}) {
       case 'tree': {                             // クリスマスツリー・ローパス: 減速・脚出し・ライト・濃い煙で頭上を低く抜ける
         if (!treeMode) setTreeMode(true);
         const e6 = eyeDir();
+        /* ライトは、観覧位置の正面を向いてから点ける（回り込んでいる途中で点けない） */
+        if (!treeLit) {
+          const bear6 = ((Math.atan2(e6.ex - st.x, e6.ey - st.y) / D) % 360 + 360) % 360;
+          if (Math.abs(wrap180(bear6 - st.h)) < 30) { treeLit = true; applyGear(); }
+        }
         steerTo(e6.ex - e6.dx * 700, e6.ey - e6.dy * 700, m.alt || 110);
         holdBank(clamp(st.b + autoIn.x * 22, -12, 12));                   // 隊形を保つため、傾きは小さく
         const past6 = (st.x - e6.ex) * e6.dx + (st.y - e6.ey) * e6.dy;
@@ -918,7 +959,7 @@ export function mount(container, opt = {}) {
         break;
       }
       case 'cork': {                             // コークスクリュー: 1 番機はまっすぐ、2 番機がその周りを回る
-        if (corkT < 0 && !matesReady() && manT < 20) { holdBank(0); holdPitch(0); break; }   // 2 番機が付くまで待つ
+        if (corkT < 0 && !matesReady() && manT < 20) { orbitEye(GATE.z); break; }   // 2 番機が付くまで、観覧位置のまわりを回って待つ
         const e4 = eyeDir();
         steerTo(e4.ex - e4.dx * 700, e4.ey - e4.dy * 700, m.alt || 200);
         holdBank(clamp(st.b + autoIn.x * 22, -16, 16));   // 1 番機はほぼ水平のまま、向きだけ少し直す
@@ -1058,6 +1099,9 @@ export function mount(container, opt = {}) {
      道すじへ寄せるのに最大 8 秒（blend）かかるので、煙を出し始めるのはそのあと。
      乗り切らないうちに煙を出すと、寄せている途中の曲がった線が描かれ、形が崩れる
      （利用者「スタークロスの形が不完全」「ハートの形」） */
+  /* 図を描く課目は、描き終わるまで最初の線が消えないようにする（秒）。
+     粒の入れ物は 1 機あたり 1400 個・毎秒 25 個なので、56 秒までなら足りる */
+  const FIG_LIFE = { cupid: 46, star: 30, eight: 44 };
   const FIGS = { cupid: { dur: 36, n: 3, s: 15, d: 640, z: 600 }, star: { dur: 18, n: 5, s: 15, d: 520, z: 560 } };
   const HEART_END = 0.64;                          // ハートを描く 2 機は、ここまでで道すじを飛び終える
   const STAR_IN = 0.47, STAR_OUT = 0.89, STAR_R = 16;   // スタークロス: 線を引く区間（この間に頂点から頂点へ飛ぶ）と、星の大きさ（単位）
@@ -1200,6 +1244,11 @@ export function mount(container, opt = {}) {
   }
   const CORK_R = 26, CORK_T = 3.6, CORK_LAG = 0.15;   // 回る半径（m）・1 周の時間（秒）・少し後ろ（秒）
   let corkBlend = 3;                               // 輪に乗るまでにかける時間（遠さで決める）
+  /* レター・エイト: 3 機が片方の輪を描くあいだ、離れた 1 機がもう片方の輪を描く。
+     離れる機体は式で置く（ねじらずに 8 の字を描かせるため）。E8_SPAN は、
+     1 番機が何度まわるあいだに輪を描き終えるか。残りの旋回で隊形へ戻る */
+  const E8_SPAN = 300, E8_EASE = 0.2;
+  let e8 = null;
   function recordHistory(dt) {
     histT += dt;
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
@@ -1231,6 +1280,43 @@ export function mount(container, opt = {}) {
     exSt.q = h0.q;
     return exSt;
   }
+  /* レター・エイトで離れる 1 機。1 番機の回った角 th に合わせて、反対側の輪の上を進ませる。
+     速さは輪の上の進み方で決まる（sin で滑らかに増減させるので、急な変化にならない）。
+     輪を描き終えたら、残りの旋回のあいだに隊形の位置へ寄せる */
+  const e8p = new THREE.Vector3(), e8q = new THREE.Quaternion(), e8s = new THREE.Vector3();
+  function placeEight(holder, u, i, dt, emitting, color) {
+    const th = clamp(hdgSum - e8.t0, 0, 360), s = e8.s;
+    const x = Math.min(1, th / E8_SPAN);
+    const ph = 360 * (x - E8_EASE * Math.sin(2 * Math.PI * x) / (2 * Math.PI));   // 輪の上の位置（度）
+    const rate = (360 / E8_SPAN) * (1 - E8_EASE * Math.cos(2 * Math.PI * x));     // 1 番機に対する進み方
+    const hd = e8.h0 - s * ph;                                                    // 機首の向き
+    const a = (hd - s * 90) * D;
+    e8p.set(e8.cx - e8.R * Math.sin(a), e8.cy - e8.R * Math.cos(a), e8.z);
+    const bk = -s * clamp(56 * rate, 25, 72);
+    e8q.setFromAxisAngle(AZ, -hd * D);
+    e8q.multiply(dq.setFromAxisAngle(AY, bk * D));
+    const off0 = FORMATIONS[formation].offs[i] || [0, -32, 0];
+    if (th < 24) {                                 // 出だし: 隊形の位置から輪の上へ、滑らかに離れる
+      const k0 = th / 24, e0 = k0 * k0 * (3 - 2 * k0);
+      e8s.set(off0[0], off0[1], off0[2]).applyQuaternion(att).add(plane.position);
+      e8p.lerpVectors(e8s, e8p, e0);
+      e8q.slerp(att, 1 - e0);
+    }
+    if (x >= 1) {                                  // 輪は描き終えた。隊形の位置へ寄せる
+      const k = clamp((th - E8_SPAN) / Math.max(1, 360 - E8_SPAN), 0, 1), e = k * k * (3 - 2 * k);
+      e8s.set(off0[0], off0[1], off0[2]).applyQuaternion(att).add(plane.position);
+      e8p.lerp(e8s, e);
+      e8q.slerp(att, e);
+      if (k >= 1) {                                // 隊形に戻った。ここから先はふつうの置き方に返す
+        e8.done = true;
+        u.cur.set(off0[0], off0[1], off0[2]); u.from = null;
+      }
+    }
+    holder.position.copy(e8p);
+    turnMate(holder, e8q, dt);
+    holder.visible = true; u.shown = true;
+    if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color); }
+  }
   function placeMates(dt) {
     if (gmode !== 'fly') { mates.forEach(h => { h.visible = false; h.userData.shown = false; }); return; }
     if (retT >= 0) { retT += dt; if (retT >= retDur) { retT = -1; mates.forEach(h => { h.userData.ret = null; }); } }
@@ -1242,6 +1328,7 @@ export function mount(container, opt = {}) {
     if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
+      if (e8 && !e8.done && i === e8.solo) { placeEight(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }
       /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
       if (fig) {
         if (i >= fig.n) { holder.visible = false; u.shown = false; return; }
@@ -1385,7 +1472,7 @@ export function mount(container, opt = {}) {
       u.shown = true;
       if (target && settled && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
-    if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; }
+    if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;
   }
 

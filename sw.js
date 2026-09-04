@@ -1,10 +1,10 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v03.69';
+const CACHE = 'aat-v03.70';
 /* 大きくて変わらないもの（3D モデル）は、版を上げても消さない入れ物に置く。
    ここを消してしまうと、更新のたびに 5.6 MB を取り直すことになり、オフラインで 3D が動かなくなる */
 const BIG = 'aat-big-v1';
 const BIG_RE = /\/model\/|\.glb($|\?)/;
-const ASSETS = ['./', './index.html', './engine.js?v=38', './viewer.js?v=5', './feedback.js?v=1', './sim3d.js?v=67',
+const ASSETS = ['./', './index.html', './engine.js?v=38', './viewer.js?v=5', './feedback.js?v=1', './sim3d.js?v=68',
   './vendor/three/three.module.js', './vendor/three/addons/loaders/GLTFLoader.js', './vendor/three/addons/controls/OrbitControls.js', './vendor/three/addons/utils/BufferGeometryUtils.js', './manifest.webmanifest', './privacy.html', './news.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './img/t4-top.webp', './img/hero.webp?v=3',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),

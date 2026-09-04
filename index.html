@@ -266,9 +266,19 @@ svg text{user-select:none}
 @media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse),(min-width:64rem) and (orientation:landscape){
   body[data-view="train"][data-phase="sim"]{height:100dvh;padding:0;overflow:hidden}
   body[data-phase="sim"] .hdr,body[data-phase="sim"] .modebar,body[data-phase="sim"] .foot,
-  body[data-phase="sim"] .sim .pchint,body[data-phase="sim"] .sim h4,body[data-phase="sim"] .stick .lb{display:none}
+  body[data-phase="sim"] .sim h4,body[data-phase="sim"] .stick .lb{display:none}
+  /* キーボードで操作できる場所なので、凡例は消さずに左上へ小さく重ねる（PC だけ。指の端末では出さない） */
+  body[data-phase="sim"] .sim .pchint{display:none}
+  @media (pointer:fine){
+    body[data-phase="sim"] .sim .pchint{display:block;position:absolute;left:.5rem;top:.5rem;margin:0;z-index:4;
+      max-width:22rem;padding:.375rem .5rem;border-radius:.5rem;background:rgba(11,16,23,.62);
+      font-size:.6875rem;line-height:1.45;color:var(--muted);pointer-events:none}
+  }
   body[data-view="train"][data-phase="sim"] .app{padding:0;max-width:none}
   body[data-view="train"][data-phase="sim"] .layout{margin:0;flex:1;min-height:0}
+  /* シミュレーターのあいだは脇の「解き方のメモ・記録」を出さない。
+     出していると 1 列の grid の 2 段目に入り、視界が画面の上半分だけになる */
+  body[data-view="train"][data-phase="sim"] aside{display:none}
   body[data-view="train"][data-phase="sim"] .layout > .card{padding:0;border:0;border-radius:0;background:transparent}
   body[data-view="train"][data-phase="sim"] #sim:not([hidden]){flex:1;min-height:0}
   .sim{position:relative;height:100dvh}
@@ -489,6 +499,9 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 .dirlist .ab{min-height:3.25rem}
 .dirlist .ab .t{font-size:1rem;font-weight:700}
 .dirlist .ab .lab{font-family:var(--mono);font-size:.75rem;font-weight:700;color:var(--muted)}
+/* 解き方のメモ: 1 行 1 事の箇条書き */
+ul.tips{margin:.375rem 0 0;padding-left:1.1em;font-size:.8125rem;line-height:1.6;color:var(--muted)}
+ul.tips li{margin:.125rem 0}
 .dirlist .ab.sel .lab{color:var(--accent)}
 .dirgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:1rem}
 .dirgrid .ab .ic{width:1rem;height:1rem;color:var(--muted)}
@@ -617,6 +630,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .demo .btn{margin:0;flex:none;width:auto;height:2.125rem;font-size:.75rem;padding:0 .75rem;white-space:nowrap}
 /* 鍵のかかったボタン（体験版）。押せることは押せるが、押すと完全版の案内を出す */
 .iconbtn.lock{opacity:.45}
+/* 自動操縦を 2 回押した「固定」（離着陸なしで繰り返す）。枠を太くして、固定だと分かるようにする */
+.iconbtn.loop{box-shadow:inset 0 0 0 .125rem var(--accent)}
 #buyPage ul{margin:.5rem 0 0;padding-left:1.2em;font-size:.875rem;line-height:1.7;color:var(--muted)}
 #buyPage .acts{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
 #buyPage a.btn{text-decoration:none}
@@ -1019,7 +1034,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
     </main>
     <aside>
-      <div class="card side"><h3>解き方のメモ</h3><p class="tips" id="tips"></p></div>
+      <div class="card side"><h3>解き方のメモ</h3><ul class="tips" id="tips"></ul></div>
       <div class="card side">
         <div class="h3row"><h3>記録</h3><button class="reset" id="reset"><svg class="ic xs"><use href="#i-reset"/></svg>リセット</button></div>
         <div class="rec" id="record"></div>
@@ -1082,7 +1097,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.61';
+const APP_VER='v03.62';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1306,7 +1321,7 @@ function enterMode(m,sub){
   setBack(sub==='practice'||sub==='sim'?pendingBack:null);pendingBack=null;
   mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);clearInterval(sessTimerId);
   $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
-  $('#tips').textContent=TIPS[m];$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
+  $('#tips').innerHTML=TIPS[m].map(t=>`<li>${t}</li>`).join('');$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
   if(m==='control'&&!sub){showChooser();return}
   if(m==='control'&&sub==='sim'){startSim();return}
   if(m==='control'&&sub==='gallery'){showGallery();return}
@@ -1406,7 +1421,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=59').then(mod=>{
+  import('./sim3d.js?v=60').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1529,6 +1544,19 @@ function runSim(opt){applyScene();
     clearTimeout(sim.holdT);const he={clientX:e.clientX,clientY:e.clientY};
     sim.holdT=setTimeout(()=>{if(sim&&sim.look&&sim.look.moved<=8)holdAt(he)},620);   /* 長押し */
     if(e.pointerType==='mouse'){sim.rud.set('mouse',e.button===2?1:-1);applyInput()}});
+  /* PC: ボタンを押していなくても、カーソルを動かすと視線が変わる（マウスのときだけ）。
+     操縦桿のまわりと、体験版の投影中は動かさない */
+  vw.addEventListener('mousemove',e=>{
+    if(!sim||!sim.h||sim.projection)return;
+    if(e.buttons)return;                       // ドラッグ中は下の pointermove が受け持つ
+    if(matchMedia('(pointer:coarse)').matches)return;
+    if(nearStick(e))return;
+    const L=sim.mouse;sim.mouse={x:e.clientX,y:e.clientY};
+    if(!L)return;
+    const dx=e.clientX-L.x,dy=e.clientY-L.y;
+    if(Math.abs(dx)>60||Math.abs(dy)>60)return;   // 画面の外から戻ってきたときは飛ばさない
+    sim.h.addLook(-dx*0.18,-dy*0.18);
+  });
   vw.addEventListener('pointermove',e=>{
     if(sim&&sim.pts.has(e.pointerId)){sim.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
       if(sim.pinch&&sim.pts.size>=2){setZoom(sim.pinch.z*pinchDist()/Math.max(1,sim.pinch.d));return}}
@@ -1659,7 +1687,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=59').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=60').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1786,7 +1814,32 @@ function runSim(opt){applyScene();
         const lb={t:on?(g?'前':'上'):'奥',b:on?(g?'後ろ':'下'):'手前',l:'左',r:'右'};
         Object.entries(lb).forEach(([k,v])=>{const e=$('#sim').querySelector('.stick .lb.'+k);if(e)e.textContent=v})};
       sim.paintAuto=paintAuto;
-      aBtn.addEventListener('click',()=>{const on=!sim.h.autoState();
+      /* 体験版の「固定」は、地上から全演目をずっと映すだけの形にする（操作はできない）。
+         見せる課目の制限を外し、オブジェクトを消し、操作をしまって、地上視点で機体を目で追う */
+      const setProjection=on=>{
+        if(!sim||!sim.h)return;
+        sim.projection=on;
+        $('#sim').classList.toggle('uihide',on);sim.uiHidden=on;
+        if(on){
+          sim.h.setAllowed(null);sim.h.setProps(false);
+          if(sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground');
+          sim.h.setFollow(true);if(sim.paintFollow)sim.paintFollow();
+        }else{
+          sim.h.setAllowed(['orbit','cupid','star','tree','cork']);sim.h.setProps(true);
+        }
+      };
+      /* 2 回続けて押すと「固定」: 離着陸を含めず、演目を繰り返す。もう一度 2 回押すと解ける */
+      let aTapT=0;
+      aBtn.addEventListener('click',()=>{const now=performance.now();
+        if(now-aTapT<450){aTapT=0;
+          const lp=!sim.h.loopState();sim.h.setLoop(lp);aBtn.classList.toggle('loop',lp);
+          if(lp&&!sim.h.autoState()){sim.h.setAuto(true);paintAuto();showLabel(sim.h.state.show||'')}
+          if(sim.demo)setProjection(lp);
+          toast(lp?(sim.demo?'固定しました。地上から全部の演目を続けて映します（操作はできません）':'固定しました。離着陸なしで演目を繰り返します')
+                  :'固定を解きました。地上からは離陸で始め、一通り終えたら着陸します');
+          return}
+        aTapT=now;
+        const on=!sim.h.autoState();
         /* 夜に通しの演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
         if(on&&document.body.dataset.scene!=='day'){toast('演目は昼の空で行います');
           runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
@@ -1797,7 +1850,8 @@ function runSim(opt){applyScene();
         if(on){
           if(landFull()){$('#sim').classList.add('uihide');sim.uiHidden=true}   /* 横画面のときだけ、鑑賞のため操作をしまう */
           toast(landFull()?'自動操縦。2 回叩くと一時停止（右下のボタンで操作を出せます）':'自動操縦。2 回叩くと一時停止できます');if(landFull()&&sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
-        else{$('#sim').classList.remove('uihide');sim.uiHidden=false;toast('自動操縦を止めました')}});
+        else{if(sim.projection){sim.h.setLoop(false);aBtn.classList.remove('loop');setProjection(false)}
+          $('#sim').classList.remove('uihide');sim.uiHidden=false;toast('自動操縦を止めました')}});
       paintAuto();
       if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
       if(opt.trick!==undefined)setTimeout(()=>{if(sim&&sim.h&&sim.h.runManeuver(opt.trick))showLabel(opt.trickName||'')},60);
@@ -2047,11 +2101,12 @@ function renderSettingsPage(){
     <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
   $('#settingsPage').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()}));
 }
+/* 解き方のメモ。1 行 1 事で箇条書きにする（長い文がつながっていると、解いている最中に読めない） */
 const TIPS={
-  heading:'まず N マークの向きを確認し、そこから機首が時計回りに何度回っているかを 45° 刻みで読む。45°=北東、90°=東、180°=南。機首は N と同じ向きにはならない。',
-  attitude:'視点は常に南。画面の奥が北、手前が南、右が東、左が西。機首上げ → 水平線が下がり空が広がる。機首下げ → 地面が広がる。バンクは機首の向きに対して右翼が下がれば右バンク（水平線が右上がり）。機首がこちらを向くと左右が逆に見えるので注意。真上・真下は腹面／背面が見える。',
-  combo:'まず機首の向き（奥・手前・右・左）で方位を決め、次に上向きか下向きかでピッチを決める。方位指示器は現在の方位が上に来る（数字は 10 の位まで: 3=030°, 12=120°）。',
-  control:'操縦桿を右に倒す → 機体が右に傾き景色は左に傾く。奥に倒す → 機首が下がり水平線が上がる。手前に引く → 上昇し水平線が下がる。右方向舵を踏む → 水平のまま右を向き景色が左へ流れる。選択肢は①→②、②→③の順。'
+  heading:['N マークの向きをまず見る','そこから機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','機首が N と同じ向きになることはない'],
+  attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
+  combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','数字は 10 の位まで（3＝030°、12＝120°）'],
+  control:['操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 水平のまま右を向き、景色が左へ流れる','選択肢は ①→② と ②→③ の順に見る']
 };
 const KBD={heading:'1〜8 で方位（北から時計回り）、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 

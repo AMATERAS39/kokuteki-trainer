@@ -14,6 +14,14 @@ const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速�
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
 const GROUND_EYE = { x: 90, y: -120, z: 0 };     // 地上から見るときの立ち位置（滑走路の東側）
 const EYE_H = 1.6;                               // 目の高さ（人の背丈）
+/* 滑走路は 2 本。2 機ずつ並んで離陸するため。1 本目は原点（x=0）、2 本目は西側。
+   地上では 1〜6 番機が 2 本に 2 機ずつ、3 列で並ぶ（GRID は 1 番機の位置からのずれ） */
+const RWY2 = -100;
+const RWY_X = [0, RWY2];
+const GRID = [[0, 0], [RWY2, 0], [0, -46], [RWY2, -46], [0, -92], [RWY2, -92]];
+const TK_GAP = 7;                                // 2 機ずつの離陸の間隔（秒）
+const TK_ANG = 9;                                // 浮いたあとの上昇角（度）
+const TK_UP = 70;                                // この高さまで上がったら編隊へ寄せる（m）
 
 /* 編隊。ブルーインパルスの隊形にならう（名前と並びの出典: wporep.com のブルーインパルス編隊飛行の一覧）。
    offs は先頭機（操作する機体）から見た 2 番機以降の位置 [右, 前後, 上]（m）。前後が負なら後ろ。
@@ -123,10 +131,17 @@ export function mount(container, opt = {}) {
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.MeshLambertMaterial({ map: gridTexture(hex(col.earth), lineCol) }));
   ground.material.map.repeat.set(14, 14); ground.material.map.offset.set(0.5, 0.5);   // 原点が格子の交点に来る
   world.add(ground);
-  const runway = new THREE.Mesh(new THREE.PlaneGeometry(48, 1100), new THREE.MeshLambertMaterial({ color: night ? 0x3a3f46 : 0x5d6470 })); runway.position.z = 0.3; world.add(runway);
-  const dash = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.6, 24), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }), 22), m4 = new THREE.Matrix4();
-  for (let i = 0; i < 22; i++) { m4.makeTranslation(0, -525 + i * 50, 0.6); dash.setMatrixAt(i, m4); } world.add(dash);
-  [[0, -560], [0, 560]].forEach(([x, y], i) => { const th = new THREE.Mesh(new THREE.PlaneGeometry(48, 14), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 })); th.position.set(x, y, 0.6); world.add(th); });
+  /* 滑走路は 2 本（2 機ずつ離陸するため）。地上視点の立ち位置あてのレイキャストで使うので、1 つの入れ物にまとめる */
+  const runway = new THREE.Group(); world.add(runway);
+  const rwMat = new THREE.MeshLambertMaterial({ color: night ? 0x3a3f46 : 0x5d6470 });
+  const lineMat = new THREE.MeshBasicMaterial({ color: 0xf2f2f2 });
+  const m4 = new THREE.Matrix4();
+  RWY_X.forEach(rx => {
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(48, 1100), rwMat); strip.position.set(rx, 0, 0.3); runway.add(strip);
+    const dash = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.6, 24), lineMat, 22);
+    for (let i = 0; i < 22; i++) { m4.makeTranslation(rx, -525 + i * 50, 0.6); dash.setMatrixAt(i, m4); } runway.add(dash);
+    [-560, 560].forEach(y => { const th = new THREE.Mesh(new THREE.PlaneGeometry(48, 14), lineMat); th.position.set(rx, y, 0.6); runway.add(th); });
+  });
 
   /* 壁: 半透明の格子の板。ここまでは自由に飛べる。
      いつも出ていると景色が枠に囲まれて見えるので、近づいた壁だけを濃くする（WALL_FADE より遠いと透明）。
@@ -166,7 +181,7 @@ export function mount(container, opt = {}) {
   }
 
   /* 民家・木・塔（インスタンス描画）。滑走路の帯は空ける */
-  const free = (x, y) => !(Math.abs(x) < 90 && Math.abs(y) < 640);
+  const free = (x, y) => !(Math.abs(y) < 640 && RWY_X.some(rx => Math.abs(x - rx) < 90));
   const pick = () => { for (;;) { const x = -LIMIT + 60 + rnd() * (LIMIT * 2 - 120), y = -LIMIT + 60 + rnd() * (LIMIT * 2 - 120); if (free(x, y)) return [x, y]; } };
   const NH = 260, houses = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), NH);
   const roofGeo = new THREE.ConeGeometry(1, 1, 4); roofGeo.rotateX(Math.PI / 2); roofGeo.rotateZ(Math.PI / 4);
@@ -663,6 +678,9 @@ export function mount(container, opt = {}) {
     { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240,
       desc: '1 周まわってから、続けて宙返りします。' }
   ];
+  /* 演目の見せ方。once: 地上にいれば離陸から始め、一通り終えたら着陸して終わる。
+     loop: 離着陸を含まず、ずっと繰り返す（自動操縦のボタンを 2 回押した「固定」） */
+  let showLoop = false;
   let allowIds = null;                     // 見せる課目を絞る（体験版）。null なら全部
   const okMan = m => !allowIds || allowIds.indexOf(m.id) >= 0;
   let auto = false, oneShot = false, step_i = 0, manT = 0, rollSum = 0, loopSum = 0, hdgSum = 0, prevH = 0, userForm = 'solo';
@@ -738,6 +756,17 @@ export function mount(container, opt = {}) {
     const hand = Math.abs(rel) < 22 ? '正面' : (rel > 0 ? '右手' : '左手');
     st.cue = `${hand}（${DIRJA[Math.round(bear / 45) % 8]}）から進入`;
     marker.position.set(GATE.x, GATE.y, 160); markOn = true;
+  }
+  /* 演目の終わり: 縦隊に組み替えて滑走路へ降りる。
+     滑走路の南 1100 m・高さ 160 m の点へ回り込んでから、接地点へ向かって降ろす。
+     接地は step() のふつうの判定（z <= 3.2）に任せる（そこから減速・誘導路・待機まで既にある） */
+  function beginLanding() {
+    manPhase = 'land'; phaseT = 0; markOn = false;
+    formation = 'trail'; formScale = 1;
+    st.show = '着陸'; st.desc = '縦隊に組み替えて、離陸したときと同じ滑走路へ降ります。';
+    st.cue = '着陸へ入ります';
+    if (treeMode) setTreeMode(false);
+    gearOn = true; lightsOn = true; applyGear();
   }
   /* 図を終える。機体は散らばった位置にいるので、そこからの相対位置を覚えて、隊形へ寄り直させる */
   let retT = -1, retDur = 12;                      // 図のあと、隊形へ戻すのにかける時間（距離で決める）
@@ -830,6 +859,8 @@ export function mount(container, opt = {}) {
       const j = (step_i + k) % PROGRAM.length;
       if (okMan(PROGRAM[j])) { n = j; break; }
     }
+    /* 通しの演目は、一周したら着陸して終わる（固定モードのときは、そのまま繰り返す） */
+    if (!showLoop && auto && !oneShot && n <= step_i) { beginLanding(); return; }
     beginManeuver(n);
   }
   /* 墜落しないための備え。低いときは、まず翼を水平に戻してから引き起こす
@@ -847,7 +878,9 @@ export function mount(container, opt = {}) {
     for (let k = 0; k < OBST_LOOK.length; k++) {
       const s2 = OBST_LOOK[k];
       const px = st.x + fwd.x * SPEED * s2, py = st.y + fwd.y * SPEED * s2, pz = st.z + fwd.z * SPEED * s2;
-      const need = terrainAt(px, py) + 70;
+      const ter2 = terrainAt(px, py);
+      if (ter2 <= 0) continue;                   // 平地は地面の手当て（このあと）に任せる
+      const need = ter2 + 70;
       if (pz < need) { autoIn.y = -clamp((need - pz) / 140, 0.35, 1); autoIn.x = clamp(-st.b / 20, -1, 1); return; }
     }
     const ahead = st.z + fwd.z * SPEED * 6;                           // このまま 6 秒進んだときの高さ
@@ -873,6 +906,20 @@ export function mount(container, opt = {}) {
           auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.cue = ''; st.desc = ''; formation = userForm; formScale = 1;
         }
         return autoIn;
+      }
+      if (manPhase === 'land') {           // 着陸: 滑走路の南から進入して降ろす
+        const fx = RWY.x, fy = RWY.y - 1100;                    // 進入を始める点（滑走路の南）
+        /* 滑走路の線に乗っていれば、あとはまっすぐ降ろす。
+           目標の高さを地面より下に取らないと、低いところで水平になって接地しない */
+        const lined = st.y > fy - 200 && Math.abs(st.x - RWY.x) < 250 && Math.abs(wrap180(RWY.h - st.h)) < 60;
+        if (lined || phaseT > 120) steerTo(RWY.x, RWY.y + 700, -30);
+        else approach(fx, fy, 160);
+        autoIn.r = 0;
+        if (gmode !== 'fly') {               // 接地した。あとは減速して滑走路へ戻る
+          auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.desc = '';
+          formation = userForm; formScale = 1;
+        } else if (phaseT > 120) { auto = false; oneShot = false; manPhase = 'do'; st.show = ''; }
+        return autoIn;                        // 地面回避（safety）は呼ばない。呼ぶと降りられない
       }
       if (manPhase === 'gather') {         // 隊形が組めるまで待つ。観覧位置のまわりを回って待つので、遠くへ流れない
         orbitEye(GATE.z);
@@ -1072,6 +1119,11 @@ export function mount(container, opt = {}) {
   }
   function step(dt) {
     st.mode = gmode;
+    /* 全機が浮いて編隊へ移ったら、脚をしまう */
+    if (tkOn && gmode === 'fly' && mates.every(h => !h.userData.tk || h.userData.tk.done)) {
+      tkOn = false; mates.forEach(h => { h.userData.tk = null; });
+      if (!treeMode) { gearOn = false; applyGear(); }
+    }
     if (gmode !== 'fly') { groundStep(dt); return; }
     /* 自動操縦の舵は、目標へ 0.55 秒の時定数で寄せる。
        実機は舵をいきなり一杯には切らないので、そのぶんの緩みを入れる */
@@ -1111,7 +1163,7 @@ export function mount(container, opt = {}) {
     const L = auto ? LIMIT + 420 : LIMIT - 4, C = auto ? CEIL + 300 : CEIL;
     st.wall = !auto && (Math.abs(st.x) > L || Math.abs(st.y) > L || st.z > CEIL);
     st.x = clamp(st.x, -L, L); st.y = clamp(st.y, -L, L); st.z = Math.min(st.z, C);
-    if (auto && st.z < 45) { st.z = 45; levelAttitude(); }          // 自動操縦では墜落させない（最後の砦）
+    if (auto && manPhase !== 'land' && st.z < 45) { st.z = 45; levelAttitude(); }   // 自動操縦では墜落させない（着陸のときは外す）
     if (!auto && st.z <= 3.2) {                                     // 接地: 着陸とみなして減速に入る
       st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
       gearOn = true; applyGear();                                   // 着陸なのでタイヤは出ている
@@ -1120,8 +1172,8 @@ export function mount(container, opt = {}) {
     if (st.z < 3) st.z = 3;
     /* 山や塔に触れそうなときは、その上へ逃がす。ぶつけて墜落にはしない（利用者の指示）。
        斜面に近づくにつれて少しずつ上がるので、山を越えていくように見える */
-    const tzz = terrainAt(st.x, st.y) + OBST_CLEAR;
-    if (st.z < tzz) { st.z = tzz; st.cue = '山を越えます'; }
+    const ter = terrainAt(st.x, st.y);          // 0 なら平地。平地で持ち上げると着陸できなくなる
+    if (ter > 0 && st.z < ter + OBST_CLEAR) { st.z = ter + OBST_CLEAR; st.cue = '山を越えます'; }
     else if (st.cue === '山を越えます') st.cue = '';
     if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
       Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
@@ -1377,17 +1429,83 @@ export function mount(container, opt = {}) {
     holder.visible = true; u.shown = true;
     if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color); }
   }
+  /* 地上では 2 本の滑走路に 2 機ずつ並び、離陸は 2 機ずつ TK_GAP 秒あけて始める。
+     浮いて TK_UP まで上がった機体から、ふつうの編隊の置き方に返す（そこで隊形を組み出す） */
+  const tgtP = new THREE.Vector3();
+  let tkOn = false;                       // 離陸の最中か（全機が編隊へ移るまで true）
+  function startTakeoff() {
+    tkOn = true;
+    mates.forEach((h, i) => { const g = GRID[i + 1];
+      h.userData.tk = { t: 0, v: 0, x: RWY.x + g[0], y: RWY.y + g[1], z: 3, air: false, done: false,
+                        wait: Math.floor((i + 1) / 2) * TK_GAP };
+    });
+    gearOn = true; applyGear();
+  }
+  function rollMate(holder, u, i, dt, emitting, color) {
+    const t = u.tk;
+    t.t += dt;
+    if (t.t >= t.wait) {
+      if (!t.air) {                                   // 滑走
+        t.v = Math.min(SPEED, t.v + 6 * dt);
+        t.y += t.v * dt;
+        if (t.v >= SPEED * 0.9) t.air = true;         // 浮く
+      } else {                                        // 上昇
+        t.y += t.v * Math.cos(TK_ANG * D) * dt;
+        t.z += t.v * Math.sin(TK_ANG * D) * dt;
+        if (t.z > TK_UP) {                            // ここから編隊へ寄せる
+          t.done = true; u.from = null;
+          qa.copy(att).invert();
+          mo.set(t.x, t.y, t.z).sub(plane.position).applyQuaternion(qa);
+          u.cur.copy(mo);
+        }
+      }
+    }
+    holder.position.set(t.x, t.y, t.z);
+    qa.setFromAxisAngle(AZ, -RWY.h * D);
+    if (t.air) qa.multiply(dq.setFromAxisAngle(AX, TK_ANG * D));
+    turnMate(holder, qa, dt);
+    holder.visible = true; u.shown = true;
+    /* 滑走・上昇のあいだはスモークを出さない（隊形が整ってから出す） */
+  }
+  /* 地上にいるあいだの並べ方。着陸してきた機体は、その場から並びへ滑らかに寄せる */
+  function groundMates(dt, emitting, cols) {
+    const n = FORMATIONS[formation].n;
+    mates.forEach((holder, i) => {
+      const u = holder.userData;
+      if (i + 1 >= n) { holder.visible = false; u.shown = false; u.tk = null; return; }
+      if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }
+      const g = GRID[i + 1];
+      tgtP.set(RWY.x + g[0], RWY.y + g[1], 3);
+      qa.setFromAxisAngle(AZ, -RWY.h * D);
+      if (!u.shown) { holder.position.copy(tgtP); holder.quaternion.copy(qa); }
+      else { holder.position.lerp(tgtP, 1 - Math.exp(-dt / 1.2)); turnMate(holder, qa, dt); }
+      holder.visible = true; u.shown = true;
+      u.from = null;                                  // 飛び立つときに道を引き直す
+    });
+  }
   function placeMates(dt) {
-    if (gmode !== 'fly') { mates.forEach(h => { h.visible = false; h.userData.shown = false; }); return; }
+    if (gmode !== 'fly') {
+      const f0 = FORMATIONS[formation], on0 = smokers(), cols0 = SMOKE_COLORS[smokeColor].c;
+      const emit0 = smokeOn && smokeT >= SMOKE_DT;
+      if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
+      groundMates(dt, emit0, cols0);
+      if (emit0) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
+      smokeMat.uniforms.uTime.value = clock;
+      return;
+    }
     if (retT >= 0) { retT += dt; if (retT >= retDur) { retT = -1; mates.forEach(h => { h.userData.ret = null; }); } }
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     /* 演目の合間（進入・高度取り・水平に戻す）は煙を切る。旋回は演目の一部なので出す */
     const between = auto && manPhase !== 'do';
-    const emitting = smokeOn && smokeT >= SMOKE_DT && !between;
+    /* 隊形を組んでいる最中は出さない（離陸して集まってくるあいだ）。
+       隊形の中で位置を入れ替えているだけのとき（1 番機の近くにいる）は、切らずに出し続ける */
+    const forming = tkOn || mates.some(h => h.userData.shown && h.userData.cur && h.userData.cur.length() > 130);
+    const emitting = smokeOn && smokeT >= SMOKE_DT && !between && !forming;
     if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
     if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
+      if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }   // まだ滑走・上昇の途中
       if (e8 && !e8.done && i === e8.solo) { placeEight(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }
       /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
       if (fig) {
@@ -1717,16 +1835,29 @@ export function mount(container, opt = {}) {
     setAuto(on) {
       auto = !!on; oneShot = false;
       if (auto) {
-        gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1;
         userForm = formation;
-        Object.assign(st, { x: GROUND_EYE.x - 280, y: GROUND_EYE.y - 460, z: SHOW.ALT, h: 25, ground: false, wall: false });
-        levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
         let f0 = 0;
         for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
+        /* 地上で待っているときは、離陸から始める（固定モードのときは空から始める）。
+           飛んでいるときは、これまでどおり空から始める */
+        if (!showLoop && gmode === 'stand') {
+          formation = PROGRAM[f0].form || userForm;
+          gmode = 'takeoff'; startTakeoff();
+          step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
+          st.show = '離陸'; st.desc = '2 本の滑走路から 2 機ずつ離陸し、上がってから隊形を組みます。';
+          st.cue = '離陸します'; manPhase = 'gather'; markOn = false;
+          clearSmoke();
+          return;
+        }
+        gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1;
+        Object.assign(st, { x: GROUND_EYE.x - 280, y: GROUND_EYE.y - 460, z: SHOW.ALT, h: 25, ground: false, wall: false });
+        levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
         beginManeuver(f0);
       } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; endCork(); endFigure(); if (treeMode) setTreeMode(false); }
     },
     autoState() { return auto; },
+    /* 固定（エンドレス）モード。true にすると離着陸を含めず、演目を繰り返す */
+    setLoop(on) { showLoop = !!on; }, loopState() { return showLoop; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
     setGear(on) { gearOn = !!on; applyGear(); }, gearState() { return gearOn; },
     /* 一人称のとき、機内の計器盤の上端が画面のどこに来るか（0〜1 の割合）。
@@ -1757,7 +1888,7 @@ export function mount(container, opt = {}) {
     },
     seatNo() { return seat + 1; },
     /* 待機中に押すと加速して離陸する。飛行中は何もしない */
-    throttle() { if (gmode === 'stand') { gmode = 'takeoff'; return true; } return false; },
+    throttle() { if (gmode === 'stand') { gmode = 'takeoff'; startTakeoff(); return true; } return false; },
     groundMode() { return gmode; },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },

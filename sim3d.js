@@ -83,7 +83,9 @@ const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
    ここまで来たら、演目は終わり・スモークは一斉に切る・次の課目へ位置を移す。
    本当に遠くまで飛ばすと、着くまでの時間が長すぎる */
 const REAR_END = LIMIT + GROUND_EYE.y;           // 原点から、もとの壁のあった位置まで（m）
-const JUMP_FAR = 1000, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;   // JUMP_FAR: ここまで離れたら位置を移してよい
+/* JUMP_FAR: ここまで離れたら位置を移してよい。1000 m にすると、離陸して上がりきった直後（原点から 1 km ほど）に
+   目の前で移ってしまい、瞬間移動が見える（実測）。壁のあった距離まで離れてからにする */
+const JUMP_FAR = REAR_END, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;
 /* ===== 演目の正面 =====
    正面は北に固定しない。課目ごとに、いまの機体がいる方角に最も近い東西南北を正面に選ぶ
    （そちらから入ってくれば、無限遠への回り込みが短い）。
@@ -1656,6 +1658,7 @@ export function mount(container, opt = {}) {
   }
   function step(dt) {
     st.mode = gmode;
+    st.waiting = musWait >= 0;               // 曲の頭に合わせて滑走を待っているあいだ
     /* 曲は、主旋律（ギター）が入る直前で切る。着陸して戻るあいだの静かなところだけを流す */
     if (musCut >= 0) { musCut -= dt; if (musCut <= 0) { musCut = -1; stopMusic(MUS_FADE); } }
     /* 滑走路に戻ったら、曲を切って離陸の体勢で待つ。「加速」を押されるまで動かない。
@@ -2546,10 +2549,14 @@ export function mount(container, opt = {}) {
     }
   }
   /* 止めているあいだは音を出さない（機体の音も曲も）。動かしたら元に戻す */
+  /* 別のアプリへ移って戻ると、音の仕組みは止まったまま（suspended）か、iPhone では「割り込まれた」
+     （interrupted）になる。どちらも「動いていない」として起こし直す。起こせるのは操作の流れの中だけなので、
+     触れたときにも呼ぶ（wakeAudio） */
   function audioHold() {
     if (!actx) return;
-    try { if (paused || document.hidden) actx.suspend(); else actx.resume(); } catch (e) {}
+    try { if (paused || document.hidden) actx.suspend(); else if (actx.state !== 'running') actx.resume(); } catch (e) {}
   }
+  function wakeAudio() { if (actx && !paused && !document.hidden && actx.state !== 'running') { try { actx.resume(); } catch (e) {} } }
   /* ほかの画面を見ているあいだも鳴らさない（戻ってきたら元に戻す） */
   document.addEventListener('visibilitychange', audioHold);
   const aPos = new THREE.Vector3(), aRel = new THREE.Vector3(), aRight = new THREE.Vector3();
@@ -2674,7 +2681,7 @@ export function mount(container, opt = {}) {
   /* 曲を頭から流す。前の曲が鳴っていたら短く絞ってから重ねる */
   function playMusic() {
     if (!actx || !musBuf) return;
-    if (actx.state === 'suspended') actx.resume();
+    if (actx.state !== 'running') actx.resume();
     stopMusic(MUS_FADE);
     const src = actx.createBufferSource(); src.buffer = musBuf;
     /* 止めるまで繰り返す。ただし頭のイントロは一度だけで、
@@ -2931,11 +2938,12 @@ export function mount(container, opt = {}) {
        入れたときに作る。切ったときは鳴らさない（作ったものは残す） */
     setSound(on) {
       soundOn = !!on;
-      if (soundOn) { initAudio(); if (actx && actx.state === 'suspended') actx.resume(); }
+      if (soundOn) { initAudio(); if (actx && actx.state !== 'running') actx.resume(); }
       else if (aNodes) aNodes.forEach(n => { n.g.gain.value = 0; });
       return soundOn;
     },
     soundState() { return soundOn; },
+    wakeAudio() { wakeAudio(); },
     /* 飛行音と曲の大きさ（0〜1）。飛行音と曲は同時に鳴るので、別々に決められるようにする */
     setVol(kind, v) {
       const x = clamp(+v || 0, 0, 1);
@@ -2949,7 +2957,7 @@ export function mount(container, opt = {}) {
     async loadMusic(arrayBuffer) {
       initAudio();
       if (!actx) return null;
-      if (actx.state === 'suspended') await actx.resume();
+      if (actx.state !== 'running') await actx.resume().catch(() => {});
       musBuf = await actx.decodeAudioData(arrayBuffer);
       const found = findLead(musBuf);
       if (musLead <= 0) musLead = found;      // 設定がなければ、探した値を使う

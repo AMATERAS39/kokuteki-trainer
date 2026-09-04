@@ -73,7 +73,8 @@ function gridTexture(base, line, alpha = 1, fill = true) {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
 
-export function mount(container, { onState, view = 'first' } = {}) {
+export function mount(container, opt = {}) {
+  const { onState, view = 'first' } = opt;   /* opt そのものも使う（onPanel は tellPanel が読む） */
   const scene = document.body.dataset.scene || 'day', night = scene === 'night', dim = scene === 'dawn' || scene === 'dusk';
   const col = {
     skyTop: cssColor(['--ck-sky-top', '--ck-sky', '--sky'], '#2f86e0'), skyHz: cssColor(['--ck-sky-hz', '--ck-sky', '--sky'], '#b4dcf7'),
@@ -552,6 +553,7 @@ export function mount(container, { onState, view = 'first' } = {}) {
   }
   function levelAttitude() { att.setFromAxisAngle(AZ, -st.h * D); readAttitude(); }
   readAttitude();
+  const N_MAX = 4;                     // 旋回に使える荷重倍数の上限（4 G）。横倒しでも旋回が暴れないようにする
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
   let curView = view, seat = 0;   // seat: 0=1 番機、1〜5=2〜6 番機（視点だけ移る）
   let paused = false;             // 演目の一時停止（画面を 2 回叩く）
@@ -973,10 +975,14 @@ export function mount(container, { onState, view = 'first' } = {}) {
     if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
     if (pitch) att.multiply(dq.setFromAxisAngle(AX, pitch));
     if (yaw) att.multiply(dq.setFromAxisAngle(AZ, -yaw));
-    /* バンクによる旋回（協調旋回）。世界の上下軸まわりに機体ごと回す。真上・真下付近では効かせない */
+    /* バンクによる旋回（協調旋回）。世界の上下軸まわりに機体ごと回す。真上・真下付近では効かせない。
+       tan(バンク) をそのまま使うと 90 度で符号が裏返り、横倒しの瞬間に方位が逆回りしてガクンとなる。
+       実機と同じで、翼が出せる力（荷重倍数）には上限があるので、そこで頭打ちにする。
+       浅いバンクでは 1/cos ＝ tan と同じ動き、90 度では最大のまま向きが変わらず、通り過ぎても連続する */
     readAttitude();
     if (Math.abs(st.p) < 70) {
-      const turn = clamp((9.81 / (SPEED * spdK)) * Math.tan(st.b * D) / D, -30, 30) * dt * D;
+      const br = st.b * D, nEff = Math.min(N_MAX, 1 / Math.max(Math.abs(Math.cos(br)), 1 / N_MAX));
+      const turn = clamp((9.81 / (SPEED * spdK)) * nEff * Math.sin(br) / D, -30, 30) * dt * D;
       if (turn) att.premultiply(dq.setFromAxisAngle(AZ, -turn));
     }
     att.normalize(); readAttitude();

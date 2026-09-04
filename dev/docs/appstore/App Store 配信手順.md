@@ -100,6 +100,14 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 - `PLAY_URL` と同様に App Store の URL を `index.html` に足し、「全機能版について」の画面に両方を並べる
 - 版を上げるたびに Xcode の Build 番号を上げて再提出する。Web 版と違い、審査があるので即時反映はできない
 
+## 6.5 版（バージョン）の決まり
+
+App Store に出す版は、アプリの中に出している版（`index.html` の `APP_VER`）と同じにする。
+`codemagic.yaml` のビルドが `APP_VER` を読んで `agvtool new-marketing-version` に渡すので、
+**Web 版を上げてからビルドすれば、ストアの版と端末に出る版はいつでもそろう**（v03.50 → App Store 3.50）。
+Apple は版を数の並びで比べる。小数点以下は 2 桁の通し番号（`.49` → `.50`）なので、上げていけば必ず大きくなる。
+ビルド番号（`CFBundleVersion`）は Codemagic の通し番号をそのまま使う。
+
 ## 7. いまの状態と残っていること
 
 済み

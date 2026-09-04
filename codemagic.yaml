@@ -46,9 +46,18 @@ workflows:
         script: |
           cd mobile
           npx capacitor-assets generate --ios --assetPath assets
-      - name: ビルド番号を入れる（Codemagic の通し番号を使う）
+      - name: 版とビルド番号を入れる（版はアプリの中の表示と同じにする）
         script: |
           cd mobile/ios/App
+          # App Store に出す版は、アプリの中に出している版（index.html の APP_VER）と同じにする。
+          # v03.50 → 3.50。Apple は数の並びで比べるので、桁を落とさなければ次の版のほうが大きくなる
+          VER=$(node -e "const s=require('fs').readFileSync('../../../index.html','utf8');const m=s.match(/APP_VER='v([0-9.]+)'/);if(!m){process.exit(1)}console.log(m[1].split('.').map(x=>String(parseInt(x,10))).join('.'))") || VER=""
+          if [ -n "$VER" ]; then
+            echo "App Store に出す版: $VER"
+            agvtool new-marketing-version "$VER" || echo "版を入れられませんでした（既定のまま進みます）"
+          else
+            echo "APP_VER を読めませんでした（版は既定のまま）"
+          fi
           agvtool new-version -all "${BUILD_NUMBER:-1}" || echo "agvtool で入れられませんでした（既定の番号のまま進みます）"
       - name: 署名の設定
         script: |

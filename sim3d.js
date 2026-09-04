@@ -83,9 +83,23 @@ const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
    ここまで来たら、演目は終わり・スモークは一斉に切る・次の課目へ位置を移す。
    本当に遠くまで飛ばすと、着くまでの時間が長すぎる */
 const REAR_END = LIMIT + GROUND_EYE.y;           // 原点から、もとの壁のあった位置まで（m）
-const JUMP_FAR = REAR_END, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;
-function keyPt(bearing, dist) {
-  return { x: GROUND_EYE.x + Math.sin(bearing * D) * dist, y: GROUND_EYE.y + Math.cos(bearing * D) * dist };
+const JUMP_FAR = 1000, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;   // JUMP_FAR: ここまで離れたら位置を移してよい
+/* ===== 演目の正面 =====
+   正面は北に固定しない。課目ごとに、いまの機体がいる方角に最も近い東西南北を正面に選ぶ
+   （そちらから入ってくれば、無限遠への回り込みが短い）。
+   演目の形は正面に対して同じなので、位置はすべて「前へ何 m・右へ何 m」で表し、ここで世界の座標に直す */
+let showFr = 0;                                  // 演目の正面（0 北・90 東・180 南・270 西）
+function frU() { return { dx: Math.sin(showFr * D), dy: Math.cos(showFr * D) }; }
+function showPt(fwd, right) {                    // 正面に対して 前へ fwd・右へ right の点
+  const u = frU();
+  return { x: GROUND_EYE.x + u.dx * fwd + u.dy * right, y: GROUND_EYE.y + u.dy * fwd - u.dx * right };
+}
+function showLocal(x, y) {                       // 世界の点を「前へ・右へ」に直す
+  const u = frU(), vx = x - GROUND_EYE.x, vy = y - GROUND_EYE.y;
+  return { along: vx * u.dx + vy * u.dy, side: vx * u.dy - vy * u.dx };
+}
+function keyPt(bearing, dist) {                  // 正面から見た方位（0 = 正面、90 = 右手）
+  return showPt(Math.cos(bearing * D) * dist, Math.sin(bearing * D) * dist);
 }
 /* 正面から向かってくる課目は、遠くから見せ場を作る。
    始める（＝スモークを出す）のは、観覧位置から「もとの壁があったあたり」まで下がった位置。
@@ -924,11 +938,14 @@ export function mount(container, opt = {}) {
          自分で向きを決めて見ているとき（追従なし・自動操縦なし）だけ、見ている向きを正面にする */
       /* 演目の場所は、決まった立ち位置（滑走路の東）と北向きで決める。
          歩いた先を基準にすると、開始位置・散開位置・終了位置が動いてしまう */
-      if (follow || auto) return { ex: GROUND_EYE.x, ey: GROUND_EYE.y, dx: 0, dy: 1 };
+      if (follow || auto) { const u = frU(); return { ex: GROUND_EYE.x, ey: GROUND_EYE.y, dx: u.dx, dy: u.dy }; }
+      /* 自分で向きを決めて見ているときも、演目の原点は立ち位置ではなく決まった座標（GROUND_EYE）。
+         視点に合わせると、歩いた先で演目の位置が動いてしまう */
       const a = gYaw - look.y;
-      return { ex: gEye.x, ey: gEye.y, dx: Math.sin(a), dy: Math.cos(a) };
+      return { ex: GROUND_EYE.x, ey: GROUND_EYE.y, dx: Math.sin(a), dy: Math.cos(a) };
     }
-    return { ex: GROUND_EYE.x, ey: GROUND_EYE.y, dx: 0, dy: 1 };
+    const u0 = frU();
+    return { ex: GROUND_EYE.x, ey: GROUND_EYE.y, dx: u0.dx, dy: u0.dy };
   }
   /* 技に入る前の進入路を決める。見ている正面の少し先を中心に、近いほうの横から入って正面を横切る。
      入る場所は文（st.cue）と地上の柱で知らせる */
@@ -947,7 +964,8 @@ export function mount(container, opt = {}) {
       st.cue = '滑走路に平行に進入'; marker.position.set(GATE.x, GATE.y, 160); markOn = true; return;
     }
     if (m.at !== undefined) {           // 決めた方角の点から入る（北西など）。atN で北へずらせる
-      const k = keyPt(m.at, m.atR || KEY_R); if (m.atN) k.y += m.atN;
+      const k = keyPt(m.at, m.atR || KEY_R);
+      if (m.atN) { const u = frU(); k.x += u.dx * m.atN; k.y += u.dy * m.atN; }   // 前へずらす
       GATE.x = k.x; GATE.y = k.y; aimX = k.x; aimY = k.y;
       st.cue = DIRJA[Math.round(m.at / 45) % 8] + 'から進入'; marker.position.set(GATE.x, GATE.y, 160); markOn = true; return;
     }
@@ -1065,6 +1083,13 @@ export function mount(container, opt = {}) {
     reIn = 0;
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null;
     const m = PROGRAM[i];
+    /* 正面を選ぶ: 機体がいる方角（進入の点の方角ぶんをずらして）に最も近い東西南北。
+       そちらから入ってくれば回り込みが短い。滑走路を使う課目と離陸は選ばない（滑走路は北向き） */
+    if (auto && !oneShot && !m.rwy && m.id !== 'dtake' && m.front !== false) {
+      const b = ((Math.atan2(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y) / D) % 360 + 360) % 360;
+      const want = b - (m.at !== undefined ? m.at : 0);
+      showFr = ((Math.round(want / 90) * 90) % 360 + 360) % 360;
+    }
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
     e8 = null; touchDone = false; touchT = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
@@ -1074,9 +1099,10 @@ export function mount(container, opt = {}) {
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
     /* 技をひとつだけ選んだときも、見ている正面へ回り込んでから行う（どの視点でも同じ）。
        演技は地上から見るためのものなので、目の前で行わないと課目の形が分からない */
-    if (((FORMATIONS[formation] || {}).n || 1) > 1 && !matesReady()) {   // 隊形が要る課目は、組んでから進入する
+    const gated = m.entry === 'front' || m.at !== undefined || m.rwy;
+    if (((FORMATIONS[formation] || {}).n || 1) > 1 && !matesReady() && !gated) {   // 隊形が要る課目は、組んでから始める
       manPhase = 'gather'; phaseT = 0; st.cue = '隊形を組みます'; markOn = false;
-    } else if (m.front !== false) { planEntry(m); manPhase = 'in'; }
+    } else if (m.front !== false) { planEntry(m); manPhase = 'in'; }   // 門のある課目は、離れながら隊形を組む（待たない）
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
     else { manPhase = 'do'; st.cue = ''; markOn = false; }
   }
@@ -1204,14 +1230,15 @@ export function mount(container, opt = {}) {
         let inH, jx, jy;
         if (m.rwy) { inH = RWY.h; jx = RWY.x; jy = RWY.y - JUMP_RWY; }
         else if (m.at !== undefined) {
-          inH = m.inH !== undefined ? m.inH : ((Math.atan2(GROUND_EYE.x - GATE.x, GROUND_EYE.y - GATE.y) / D) % 360 + 360) % 360;
+          inH = m.inH !== undefined ? (m.inH + showFr) % 360
+                                    : ((Math.atan2(GROUND_EYE.x - GATE.x, GROUND_EYE.y - GATE.y) / D) % 360 + 360) % 360;
           jx = GATE.x - Math.sin(inH * D) * JUMP_AT; jy = GATE.y - Math.cos(inH * D) * JUMP_AT;
         } else {
           inH = (planFace + 180) % 360;
           jx = GROUND_EYE.x - Math.sin(inH * D) * JUMP_FRONT; jy = GROUND_EYE.y - Math.cos(inH * D) * JUMP_FRONT;
         }
         if (dO < JUMP_FAR) steerTo(st.x + fwd.x * 2000, st.y + fwd.y * 2000, GATE.z);   // まず離れる
-        else if (Math.abs(wrap180(inH - st.h)) > 8) {                                    // 向きを合わせる
+        else if (Math.abs(wrap180(inH - st.h)) > 8 || (!matesReady() && phaseT < 60)) {   // 向きを合わせ、隊形が組めるのを待ってから移す
           holdBank(clamp(wrap180(inH - st.h) * 1.4, -45, 45));
           holdPitch(clamp((GATE.z - st.z) * 0.12, -15, 15));
         } else {                                                                          // 位置だけ移す
@@ -1324,7 +1351,7 @@ export function mount(container, opt = {}) {
           /* 円を描き終えた。x 軸を負の向き（南）へ進み、後方の点まで行って一斉にスモークを切る */
           e8.outT += dt;
           spdWant = 1;
-          steerTo(GROUND_EYE.x, GROUND_EYE.y - 3000, GATE.z);
+          { const ep = showPt(-3000, 0); steerTo(ep.x, ep.y, GATE.z); }
           const farE = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
           if (!smokeNone && (farE > REAR_END || e8.outT > 40)) { smokeNone = true; e8.offT = e8.outT; }   // 壁のあった位置で一斉にスモークオフ
           if (smokeNone && e8.outT > e8.offT + 2) { spdWant = 1; nextManeuver(); }
@@ -1365,14 +1392,14 @@ export function mount(container, opt = {}) {
         break;
       }
       case 'rain': {                             // レインフォール: サンライズと同じ要領。開始位置が散開位置の真上（鉛直）
-        const alongR = st.y - GROUND_EYE.y;
+        const alongR = showLocal(st.x, st.y).along;
         autoIn.r = 0; smokeAll = true;
         if (!rainDive) {
           /* 南から北へ、高いところを水平に散開位置の真上まで。
              押し下げて降りると、引き起こしは来た向きへ戻る（押した側に背中が向くため）。
              南から来れば、引き起こしで南（原点の側）へ抜ける。北から来て捻らずに降りると北へ抜けてしまう */
           rainOn = false; formScale = 1;
-          steerTo(GROUND_EYE.x, GROUND_EYE.y + SPREAD_D + 800, GATE.z);
+          { const rp = showPt(SPREAD_D + 800, 0); steerTo(rp.x, rp.y, GATE.z); }
           if (alongR > SPREAD_D - 170 || manT > 60) { rainDive = true; rainT = 0; }
           break;
         }
@@ -1383,13 +1410,13 @@ export function mount(container, opt = {}) {
           autoIn.x = st.p > -60 ? clamp(-st.b / 20, -1, 1) : 0;
           const need = clamp((st.p + 90) / 30, -0.5, 1);          // 真下（-90 度）まであとどれだけか
           autoIn.y = need * clamp(rainT / 1.5, 0, 1);              // 入りもゆるやかに（カクンと折れない）
-          if ((st.p < -80 && st.z < RAIN_PULL_Z) || st.z < RAIN_PULL_Z - 60 || manT > 80) { spreadOn = true; spreadT = 0; startBloom(true, 180); }
+          if ((st.p < -80 && st.z < RAIN_PULL_Z) || st.z < RAIN_PULL_Z - 60 || manT > 80) { spreadOn = true; spreadT = 0; startBloom(true, (showFr + 180) % 360); }
           break;
         }
         /* 散開: 4 機はそれぞれの向きへ、1 番機は北南向きへ。どの機体も鉛直下向きから水平へゆるやかに */
         spreadT += dt; bloomS.t = spreadT;
         const kr = clamp(spreadT / BLOOM_TURN_V, 0, 1), er = kr * kr * (3 - 2 * kr);
-        steerTo(GROUND_EYE.x, GROUND_EYE.y - 2500, 150);   // 引き起こしの向きは南（原点の側へ抜ける）
+        { const rq = showPt(-2500, 0); steerTo(rq.x, rq.y, 150); }   // 引き起こしの向きは後ろ（原点の側へ抜ける）
         if (st.p < -60) autoIn.x = 0;                       // 立っているうちは横の舵を打たない（捻れない）
         holdPitch(-90 + 92 * er);
         rainOn = er < 0.7;
@@ -1471,8 +1498,7 @@ export function mount(container, opt = {}) {
            相手は正面の線の鏡（西から東向き）。原点と散開位置の中間で交差し、
            交差の瞬間から機首上げ 30 度と連続ロール。そのまま東・西の無限遠へ */
         if (!mir) { startMirror(); mir.dz = 14; }
-        const Oo = GROUND_EYE, crossY = Oo.y + SPREAD_D / 2;
-        const east = st.x - Oo.x;                              // 原点から見た東の距離（正が東）
+        const east = showLocal(st.x, st.y).side;               // 正面から見て右の距離（正が右）
         if (east < 60) oproX = true;
         if (!oproX) {                                          // 交差まで: 線に沿って西向きに高速で、水平を保ったまま
           if (oproZ < 0) oproZ = st.z;
@@ -1492,13 +1518,14 @@ export function mount(container, opt = {}) {
       case 'tuck': {                             // タック・クロス: 北から背面で入り、中間位置で外へ回して膨らみ、散開位置で交差
         if (!mir) { startMirror(); mir.dz = 14; tkWp = 0; }    // 相手は正面の線の鏡。交差で当たらないよう 14 m 上
         const O = GROUND_EYE, CROSS_D = SPREAD_D / 2;      // 交差は散開位置と原点の中間
-        const alongT = st.y - O.y;
+        const TL = showLocal(st.x, st.y), alongT = TL.along;
         /* 通過点: 膨らみ（散開位置と交差点のあいだ、左へ 110 m）→ 交差（線の少し右） */
         /* 散開位置から交差点まで 300 m しかないので、膨らみは小さく（線の 60 m 西）、交差点は線の 8 m 東。
            大きく膨らませると曲がりきれず、交差せずにすれ違うだけになる（実測） */
         /* 交差点は線の 40 m 東に置く。膨らみからそこへ向かう向きが南東（約 140 度）になり、そのまま進めば線を横切って南東へ抜ける。
            捕まえる半径を小さくすると通り過ぎてから戻ろうとして輪になる（実測）ので 110 m のまま */
-        const wps = [[O.x - 60, O.y + CROSS_D + 130], [O.x + 40, O.y + CROSS_D]];
+        const w0 = showPt(CROSS_D + 130, -60), w1 = showPt(CROSS_D, 40);
+        const wps = [[w0.x, w0.y], [w1.x, w1.y]];
         if (alongT > SPREAD_D) {
           /* 散開位置まで: 2.2 秒で左へ回して背面にし、そのまま南へまっすぐ。
              背面では舵の効きが逆になり、ふつうの舵取りでは高さも傾きも暴れるので、
@@ -1506,11 +1533,13 @@ export function mount(container, opt = {}) {
              位置は step() の積分に任せる（向きは南、速さはそのまま） */
           tkT += dt;
           const kk = clamp(tkT / 2.2, 0, 1), ee = kk * kk * (3 - 2 * kk);
-          att.setFromAxisAngle(AZ, -180 * D);
+          att.setFromAxisAngle(AZ, -((showFr + 180) % 360) * D);   // 正面から原点へ向かう向き
           att.multiply(dq.setFromAxisAngle(AY, -180 * ee * D));
           readAttitude();
           st.z += (GATE.z - st.z) * Math.min(1, dt * 0.6);   // 高さは決めた高さへなめらかに
-          st.x += (O.x - 30 - st.x) * Math.min(1, dt * 0.8);  // 線の 30 m 西を通る（相手は鏡で 30 m 東。真上に重ならない）
+          { /* 線の 30 m 左を通る（相手は鏡で 30 m 右。真上に重ならない） */
+            const u = frU(), e = (TL.side + 30) * Math.min(1, dt * 0.8);
+            st.x -= u.dy * e; st.y += u.dx * e; }
           autoIn.x = 0; autoIn.y = 0; smIn.x = 0; smIn.y = 0;
         } else if (tkT2 < 1.2) {
           /* 散開位置: 外側へ 1.2 秒で回して、背面から右 50 度のバンクへ（南向きでは西へ膨らむ）。
@@ -1518,12 +1547,12 @@ export function mount(container, opt = {}) {
              向きの読みが 180 度 あいまいになり、逆へ曲がることがある */
           tkT2 += dt;
           const k2 = clamp(tkT2 / 1.2, 0, 1), e2 = k2 * k2 * (3 - 2 * k2);
-          att.setFromAxisAngle(AZ, -180 * D);
-          att.multiply(dq.setFromAxisAngle(AY, (180 - 130 * e2) * D));    // 180 → +50（右バンク = 南向きでは西へ膨らむ）
+          att.setFromAxisAngle(AZ, -((showFr + 180) % 360) * D);
+          att.multiply(dq.setFromAxisAngle(AY, (180 - 130 * e2) * D));    // 180 → +50（右バンク = 左（外側）へ膨らむ）
           readAttitude();
           autoIn.x = 0; autoIn.y = 0; smIn.x = 0; smIn.y = 0;
         } else if (tkWp < 2) {                     // 膨らんで、散開位置と原点の中間で交差する
-          if (tkWp === 0 && st.y < wps[0][1] + 40) tkWp = 1;   // 膨らみの点を通り過ぎていたら飛ばす（戻ると輪になる）
+          if (tkWp === 0 && alongT < CROSS_D + 130 + 40) tkWp = 1;   // 膨らみの点を通り過ぎていたら飛ばす（戻ると輪になる）
           const w = wps[tkWp];
           steerTo(w[0], w[1], GATE.z);
           if (Math.hypot(w[0] - st.x, w[1] - st.y) < 110) tkWp++;
@@ -1539,7 +1568,7 @@ export function mount(container, opt = {}) {
         /* 北を x、東を y とした平面で下に凸の曲線。頂点は散開位置と原点の中間（北 300 m）。
            階段の一列で頂点へ向かい、頂点で交互に開いてデルタになり、整った速度ベクトルのまま南東へ。
            捻れないよう、舵は頂点で 1 回だけ切る */
-        const Oc = GROUND_EYE, vx = Oc.x, vy = Oc.y + SPREAD_D / 2;
+        const Oc = GROUND_EYE, vp = showPt(SPREAD_D / 2, 0), vx = vp.x, vy = vp.y;
         const dOc = Math.hypot(st.x - Oc.x, st.y - Oc.y);
         if (chgT < 0) {
           formation = 'steps'; formScale = 1;
@@ -2873,7 +2902,7 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y,
+      return { ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };
     },

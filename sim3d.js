@@ -1510,8 +1510,11 @@ export function mount(container, opt = {}) {
     });
   }
   function placeMates(dt) {
-    if (gmode !== 'fly') {
-      const f0 = FORMATIONS[formation], on0 = smokers(), cols0 = SMOKE_COLORS[smokeColor].c;
+    /* 接地して減速しているあいだ（land）は、ふつうの編隊の置き方に任せる。
+       追従機は 1 番機の通った道をたどるので、同じところへ順に降りてくる。
+       勝手に待機位置へ行かせない。並べるのは誘導路に入ってから、または「滑走路へ戻る」を押したとき */
+    if (gmode === 'taxi' || gmode === 'stand' || gmode === 'takeoff') {
+      const on0 = smokers(), cols0 = SMOKE_COLORS[smokeColor].c;
       const emit0 = smokeOn && smokeT >= SMOKE_DT;
       if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
       groundMates(dt, emit0, cols0, on0);

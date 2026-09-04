@@ -691,6 +691,10 @@ export function mount(container, opt = {}) {
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'vert', ja: 'バーティカル・クライム・ロール', form: 'pair', alt: 190, entry: 'front',
       desc: '垂直に上昇しながら横転します。' },
+    { id: 'opro', ja: 'オポジット・コンティニュアス・ロール', form: 'pair', alt: 220,
+      desc: '2 機が正面の左右から高速で近づき、至近距離ですれ違います。すれ違うその瞬間に、それぞれ外側へ回しながら高度を上げます。' },
+    { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230,
+      desc: '2 機が背面のまま左右から寄り、会場の近くでそれぞれ外側へ回して大きく膨らみ、正面ですれ違います。' },
     { id: 'cork', ja: 'コーク・スクリュー', form: 'pair', alt: 200, entry: 'front',
       desc: '2 機。1 機がまっすぐ進み、その周りをもう 1 機が背中を内側に向けて回ります。実際の演技では、直進する 5 番機が背面で飛びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
@@ -865,7 +869,7 @@ export function mount(container, opt = {}) {
     const m = PROGRAM[i];
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    e8 = null; touchDone = false;
+    e8 = null; touchDone = false; mir = null;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1113,6 +1117,28 @@ export function mount(container, opt = {}) {
           holdBank(0); holdPitch(clamp(14 - st.z / 25, 4, 14));    // 触れたら、そのまま上げる
         }
         if ((touchDone && st.z > 160) || manT > 70) nextManeuver();
+        break;
+      }
+      case 'opro': {                             // オポジット・コンティニュアス・ロール: 左右から寄って交差し、外側へ回しながら上がる
+        if (!mir) startMirror();
+        const eo = mir, ovx = st.x - eo.ox, ovy = st.y - eo.oy;
+        const operp = ovx * eo.dy - ovy * eo.dx;              // 正面から見て右が正
+        steerTo(eo.ox + eo.dx * (SHOW.GATE + 140), eo.oy + eo.dy * (SHOW.GATE + 140), GATE.z);
+        if (Math.abs(operp) < 240) {                          // 交差の前後: 外側へ回し続け、上げる
+          autoIn.x = operp >= 0 ? 1 : -1; autoIn.y = -0.4; autoIn.r = 0;
+        }
+        if (manT > 26) nextManeuver();
+        break;
+      }
+      case 'tuck': {                             // タック・クロス: 背面で寄り、会場の近くで外へ膨らんで正面で交差
+        if (!mir) startMirror();
+        const et = mir, tvx = st.x - et.ox, tvy = st.y - et.oy;
+        const tperp = tvx * et.dy - tvy * et.dx;
+        steerTo(et.ox + et.dx * (SHOW.GATE + 140), et.oy + et.dy * (SHOW.GATE + 140), GATE.z);
+        if (Math.abs(tperp) > 280) { holdBank(180); holdPitch(0); }        // 遠いうちは背面で寄る
+        else { autoIn.x = tperp >= 0 ? 0.85 : -0.85; holdPitch(1); }        // 近づいたら外側へ回して膨らむ
+        autoIn.r = 0;
+        if (manT > 28) nextManeuver();
         break;
       }
       case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
@@ -1406,6 +1432,26 @@ export function mount(container, opt = {}) {
      1 番機が何度まわるあいだに輪を描き終えるか。残りの旋回で隊形へ戻る */
   const E8_SPAN = 300, E8_EASE = 0.2;
   let e8 = null;
+  /* 左右から寄って交差する課目（オポジット・コンティニュアス・ロール、タック・クロス）。
+     相手の機体は、見ている正面の線について 1 番機を鏡に映した位置・向きに置く。
+     こうすると必ず正面で交差し、ロールの向きも自然に逆になる */
+  let mir = null;
+  function startMirror() { const e = eyeDir(); mir = { ox: e.ex, oy: e.ey, dx: e.dx, dy: e.dy }; }
+  const mrQ = new THREE.Quaternion();
+  function placeMirror(holder, u, dt, emitting, color) {
+    const e = mir, vx = plane.position.x - e.ox, vy = plane.position.y - e.oy;
+    const along = vx * e.dx + vy * e.dy;
+    holder.position.set(e.ox + e.dx * along - (vx - e.dx * along),
+                        e.oy + e.dy * along - (vy - e.dy * along), plane.position.z);
+    const face = (Math.atan2(e.dx, e.dy) / D);
+    const h2 = 2 * face - st.h;                       // 方位を鏡に映す
+    mrQ.setFromAxisAngle(AZ, -h2 * D);
+    mrQ.multiply(dq.setFromAxisAngle(AX, st.p * D));
+    mrQ.multiply(dq.setFromAxisAngle(AY, -st.b * D));  // 傾きは逆向き
+    turnMate(holder, mrQ, dt);
+    holder.visible = true; u.shown = true;
+    if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mrQ).add(holder.position); emit(emitPos, color); }
+  }
   function recordHistory(dt) {
     histT += dt;
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
@@ -1564,6 +1610,7 @@ export function mount(container, opt = {}) {
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
+      if (mir && i === 0) { placeMirror(holder, u, dt, emitting, on[1] ? cols[1 % cols.length] : null); return; }   // 左右から交差する課目の相手
       if (e8 && !e8.done && i === e8.solo) { placeEight(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }
       /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
       if (fig) {

@@ -998,7 +998,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.54';
+const APP_VER='v03.55';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1193,6 +1193,8 @@ function setBack(target){
 }
 function paintBack(){
   const b=$('#backStep');if(!b)return;
+  const h=location.hash||'#home';
+  if(h==='#home'||h==='#'){b.hidden=true;return}   /* ホームは最初の画面なので、戻るボタンは出さない */
   const to=backTo?'#about':prevHash;
   b.hidden=!to;
 }

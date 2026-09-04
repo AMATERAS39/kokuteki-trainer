@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const D = Math.PI / 180;
-export const LIMIT = 1500;                       // 壁までの距離（原点から、m）
+export const LIMIT = 1800;                       // 壁までの距離（原点から、m）。壁は近づくまで見えない（place で薄くする）
+const WALL_FADE = 400;                           // 壁が見えはじめる距離（m）。これより遠いと透明
 export const CEIL = 3000;                        // 天井（m）。宙返りができる高さを取る
 export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
@@ -50,8 +51,12 @@ const SMOKE_DT = 0.04;
 /* 編隊に入るとき・抜けるときの位置（先頭機から見て後ろの遠く）。ここから所定の位置へ 4 秒かけて寄る */
 const ENTRY = [[-170, -620, 40], [170, -620, 40], [-250, -800, -30], [250, -800, -30], [0, -960, 60]];
 const JOIN_TIME = 14;                             // 隊形を変えるときにかける時間（秒）。ゆっくり出て ゆっくり入る
-/* 自動操縦（地上から見るための演技）。観覧位置のまわりを回り、正面を通過し、宙返りをする */
-const SHOW = { R: 330, ALT: 150, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 300, SIDE: 220, ALT_IN: 220 };
+/* 自動操縦（地上から見るための演技）。観覧位置のまわりを回り、正面を通過し、宙返りをする。
+   距離と高さは、地上から見て機体の姿勢が読み取れる近さにする（2026-09-04 に一段近く・低くした）。
+   ALT_MIN より低い課目（クリスマスツリー・ローパスなど）は、そのままの高さで行う */
+const SHOW = { R: 240, ALT: 120, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 220, SIDE: 165, ALT_IN: 170 };
+const ALT_K = 0.78, ALT_MIN = 110;               // 課目ごとの高さにかける係数と、下げない下限（m）
+const FRONT_FAR = 650, FRONT_SIDE = 320;         // 正面から向かってくる課目の、進入の門までの距離と横のずらし（m）
 const DIRJA = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
 
 /* CSS 変数（昼／夜の配色）を色として読む。最初に見つかった変数を使う */
@@ -123,13 +128,17 @@ export function mount(container, opt = {}) {
   for (let i = 0; i < 22; i++) { m4.makeTranslation(0, -525 + i * 50, 0.6); dash.setMatrixAt(i, m4); } world.add(dash);
   [[0, -560], [0, 560]].forEach(([x, y], i) => { const th = new THREE.Mesh(new THREE.PlaneGeometry(48, 14), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 })); th.position.set(x, y, 0.6); world.add(th); });
 
-  /* 壁: 半透明の格子の板。ここまでは自由に飛べる */
-  const wallTex = gridTexture('', night ? '#ff8f7a' : '#ff6b57', 0.9, false); wallTex.repeat.set(6, 1);
+  /* 壁: 半透明の格子の板。ここまでは自由に飛べる。
+     いつも出ていると景色が枠に囲まれて見えるので、近づいた壁だけを濃くする（WALL_FADE より遠いと透明）。
+     壁ごとに濃さが違うので、材料は 1 枚ずつ持たせる */
+  const wallTex = gridTexture('', night ? '#ff8f7a' : '#ff6b57', 0.9, false); wallTex.repeat.set(7, 1);
   const wallMat = new THREE.MeshBasicMaterial({ map: wallTex, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
   const wallGeo = new THREE.PlaneGeometry(LIMIT * 2, 500);
   const walls = [];
   [[0, LIMIT, 'x'], [0, -LIMIT, 'x'], [LIMIT, 0, 'y'], [-LIMIT, 0, 'y']].forEach(([x, y, ax]) => {
-    const w = new THREE.Mesh(wallGeo, wallMat); w.position.set(x, y, 250);
+    const w = new THREE.Mesh(wallGeo, wallMat.clone()); w.position.set(x, y, 250);
+    w.userData.n = ax === 'x' ? 'y' : 'x';        // この壁が立っている軸（x の壁は y = ±LIMIT にある）
+    w.userData.v = ax === 'x' ? y : x;            // その軸での位置
     if (ax === 'x') w.rotation.x = Math.PI / 2; else { w.rotation.x = Math.PI / 2; w.rotation.y = Math.PI / 2; }
     world.add(w); walls.push(w);
   });
@@ -489,6 +498,14 @@ export function mount(container, opt = {}) {
     lightSets.forEach(L => { L.visible = lightsOn || treeMode; });
     shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });   // 蜃気楼は地上から見たときだけ
   }
+  /* 「一人称（計器）」の見せ方では、乗っている機体そのものを消す（風防の外がそのまま見える）。
+     乗り換えているときに消すのは、乗っている機体。1 番機は編隊の一員として出したままにする。
+     編隊機の表示は placeMates が毎コマ決め直すので、ここでは消すだけにする（毎コマ呼ぶ） */
+  function applyBody() {
+    const hide = curView === 'first' && !inCockpit;
+    plane.visible = !(hide && seat === 0);
+    if (hide && seat > 0 && mates[seat - 1]) mates[seat - 1].visible = false;
+  }
   function setTreeMode(on) {
     treeMode = !!on;
     smokeBoost = treeMode; spdWant = treeMode ? 0.6 : 1;
@@ -657,13 +674,13 @@ export function mount(container, opt = {}) {
       /* 正面の遠くから向かってくる課目。門は正面の線から少し横に置く。
          そこから正面の線に乗り直してくるので、まっすぐ向かってくる形になる
          （線の上に門を置くと、門で 180 度 向き直すことになり、正面から外れる） */
-      GATE.x = clamp(e.ex + e.dx * (SHOW.GATE + 900) + sx * side * 420, -W, W);
-      GATE.y = clamp(e.ey + e.dy * (SHOW.GATE + 900) + sy * side * 420, -W, W);
+      GATE.x = clamp(e.ex + e.dx * (SHOW.GATE + FRONT_FAR) + sx * side * FRONT_SIDE, -W, W);
+      GATE.y = clamp(e.ey + e.dy * (SHOW.GATE + FRONT_FAR) + sy * side * FRONT_SIDE, -W, W);
     } else {                            // 近いほうの横から入って、正面を横切る
       GATE.x = clamp(cx + sx * side * SHOW.SIDE, -W, W);
       GATE.y = clamp(cy + sy * side * SHOW.SIDE, -W, W);
     }
-    GATE.z = m.alt || SHOW.ALT_IN;
+    GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
     aimX = cx; aimY = cy;
     const bear = ((Math.atan2(GATE.x - e.ex, GATE.y - e.ey) / D) % 360 + 360) % 360;
     const face = ((Math.atan2(e.dx, e.dy) / D) % 360 + 360) % 360;
@@ -743,7 +760,7 @@ export function mount(container, opt = {}) {
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
-    GATE.z = m.alt || SHOW.ALT_IN;
+    GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
     if (m.front !== false && (curView === 'ground' || !oneShot)) { planEntry(m); manPhase = 'in'; }
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
     else { manPhase = 'do'; st.cue = ''; markOn = false; }
@@ -826,7 +843,7 @@ export function mount(container, opt = {}) {
         break;
       }
       case 'pass':                               // 観覧位置の正面を低めに通り抜ける
-        away(700, SHOW.ALT - 40);
+        away(520, SHOW.ALT - 30);
         if (manT > m.t) nextManeuver();
         break;
       case 'loop':                               // デルタ・ループ: 正面で引き起こし、輪を描く
@@ -915,7 +932,7 @@ export function mount(container, opt = {}) {
         break;
       }
       case 'change':                             // チェンジオーバー・ターン: 縦隊で入り、正面で組み替えて大きく旋回
-        if (manT < 4) { formation = 'trail'; away(600, SHOW.ALT); }
+        if (manT < 4) { formation = 'trail'; away(460, SHOW.ALT); }
         else { formation = userForm === 'solo' ? 'delta' : userForm; formScale = lerp(1.9, 1, (manT - 4) / 8); holdBank(52 * turnSign); holdPitch(2); }
         if (hdgSum > 300 || manT > 20) nextManeuver();
         break;
@@ -979,9 +996,12 @@ export function mount(container, opt = {}) {
     /* バンクによる旋回（協調旋回）。世界の上下軸まわりに機体ごと回す。真上・真下付近では効かせない。
        tan(バンク) をそのまま使うと 90 度で符号が裏返り、横倒しの瞬間に方位が逆回りしてガクンとなる。
        実機と同じで、翼が出せる力（荷重倍数）には上限があるので、そこで頭打ちにする。
-       浅いバンクでは 1/cos ＝ tan と同じ動き、90 度では最大のまま向きが変わらず、通り過ぎても連続する */
+       浅いバンクでは 1/cos ＝ tan と同じ動き、90 度では最大のまま向きが変わらず、通り過ぎても連続する。
+       **自分で操縦しているあいだは効かせない**。出題の約束は「操縦桿右 → 右バンク → 景色は左へ傾く」
+       「方向舵右 → 右を向く → 景色は左へ流れる」で、操縦桿を倒しただけで景色が横へ流れると、
+       方向舵の見え方と混ざって覚えられない。演技（自動操縦）は目標へ向かうのに旋回が要るので、そちらだけ残す */
     readAttitude();
-    if (Math.abs(st.p) < 70) {
+    if (auto && Math.abs(st.p) < 70) {
       const br = st.b * D, nEff = Math.min(N_MAX, 1 / Math.max(Math.abs(Math.cos(br)), 1 / N_MAX));
       const turn = clamp((9.81 / (SPEED * spdK)) * nEff * Math.sin(br) / D, -30, 30) * dt * D;
       if (turn) att.premultiply(dq.setFromAxisAngle(AZ, -turn));
@@ -1375,7 +1395,13 @@ export function mount(container, opt = {}) {
     if (treeMode && (++shimN % 3) === 0) drawShimmer();
     shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });
     rotation();
-    walls.forEach(w => { w.visible = !auto; });   // 技の途中は壁の枠を出さない
+    /* 壁は、近づいた面だけを濃くする（遠い壁は出さない）。技の途中はどの壁も出さない */
+    walls.forEach(w => {
+      const d = Math.abs((w.userData.n === 'x' ? cam.position.x : cam.position.y) - w.userData.v);
+      const a = 0.55 * clamp(1 - d / WALL_FADE, 0, 1);
+      w.material.opacity = a;
+      w.visible = !auto && a > 0.01;
+    });
     marker.visible = markOn && curView === 'ground' && !follow;   // 進入の目印は、地上から自分で向きを決めているときだけ
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
     /* 操縦桿を入力に合わせて傾ける（自動操縦のときは入力が 0 なので中立のまま） */
@@ -1407,9 +1433,14 @@ export function mount(container, opt = {}) {
       gYaw += ((wy - gYaw + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
       gPitch += (wp - gPitch) * k;
     }
-    /* 乗っている機体（視点の元）。編隊機が出ていなければ 1 番機に戻す */
-    const seatObj = (seat > 0 && mates[seat - 1] && mates[seat - 1].visible) ? mates[seat - 1] : plane;
+    /* 乗っている機体（視点の元）。編隊機が出ていなければ 1 番機に戻す。
+       出ているかどうかは userData.shown で見る（「計器」の見せ方では、乗っている機体を消すため） */
+    const seatObj = (seat > 0 && mates[seat - 1] && mates[seat - 1].userData.shown) ? mates[seat - 1] : plane;
     if (seatObj === plane && seat > 0) seat = 0;
+    /* 計器盤と操縦桿の位置は、乗っている機体のものを使う。
+       cockpit を 1 番機に付けたままだと、乗り換えたときに計器が 1 番機の上に出てしまう */
+    if (cockpit.parent !== seatObj) seatObj.add(cockpit);
+    applyBody();
     seatQ.copy(seatObj.quaternion); seatR.makeRotationFromQuaternion(seatQ);
     seatMeshes.forEach(m => { m.visible = !(curView === 'first' && seatObj === plane); });
     mates.forEach((h, i) => { const sm = h.userData.seats; if (sm) sm.forEach(m => { m.visible = !(curView === 'first' && seatObj === h); }); });
@@ -1488,7 +1519,7 @@ export function mount(container, opt = {}) {
     curView = v; look.y = 0; look.p = 0; const out = v !== 'first';
     seatMeshes.forEach(m => { m.visible = out; });
     cockpit.visible = !out && inCockpit;
-    plane.visible = !(!out && !inCockpit);   /* 計器だけの見せ方では機体そのものも消す（外がそのまま見える） */
+    applyBody();   /* 計器だけの見せ方では、乗っている機体そのものも消す（外がそのまま見える） */
     baseFov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; applyFov(); camPos.set(0, 0, 0);
     /* 煙の太さ: 一人称はすぐ近くを通るので控えめに、それ以外（特に地上）は遠くでも見えるように */
     const near1 = v === 'first';
@@ -1504,7 +1535,7 @@ export function mount(container, opt = {}) {
     input, state: st, setView,
     /* 一人称の見せ方を変える。切ると機内が消えて、外の景色がそのまま見える（縦画面はいつもこちら） */
     setCockpit(on) { inCockpit = !!on; const first = curView === 'first';
-      cockpit.visible = first && inCockpit; plane.visible = !(first && !inCockpit); }, cockpitOn() { return inCockpit; },
+      cockpit.visible = first && inCockpit; applyBody(); }, cockpitOn() { return inCockpit; },
     /* 画面のドラッグで視点を動かす（度）。一人称は首、三人称は機体のまわり */
     addLook(dy, dp) { look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },
@@ -1539,7 +1570,7 @@ export function mount(container, opt = {}) {
       if (auto) {
         gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1;
         userForm = formation;
-        Object.assign(st, { x: GROUND_EYE.x - 380, y: GROUND_EYE.y - 620, z: SHOW.ALT, h: 25, ground: false, wall: false });
+        Object.assign(st, { x: GROUND_EYE.x - 280, y: GROUND_EYE.y - 460, z: SHOW.ALT, h: 25, ground: false, wall: false });
         levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
         beginManeuver(0);
       } else { formation = userForm; formScale = 1; st.show = ''; st.cue = ''; markOn = false; step_i = 0; manPhase = 'do'; endCork(); endFigure(); if (treeMode) setTreeMode(false); }
@@ -1569,7 +1600,7 @@ export function mount(container, opt = {}) {
     nextSeat() {
       for (let k = 1; k <= mates.length + 1; k++) {
         const n = (seat + k) % (mates.length + 1);
-        if (n === 0 || (mates[n - 1] && mates[n - 1].visible)) { seat = n; camPos.set(0, 0, 0); return seat + 1; }
+        if (n === 0 || (mates[n - 1] && mates[n - 1].userData.shown)) { seat = n; camPos.set(0, 0, 0); return seat + 1; }
       }
       return seat + 1;
     },

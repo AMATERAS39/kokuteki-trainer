@@ -228,6 +228,8 @@ svg text{user-select:none}
 }
 .trickmenu button{font-size:.625rem;padding:.375rem .25rem;background:var(--panel);color:var(--text)}
 .trickmenu button.off{opacity:.35}
+.formmenu .mclose{grid-column:1/-1;flex-direction:row;justify-content:center;gap:.375rem;background:var(--panel2);color:var(--muted)}
+.formmenu .mclose .ic{width:1rem;height:1rem;color:var(--muted)}
 .formmenu button.sel{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text)}
 @media (orientation:portrait){.formwrap.landscape{display:none}}
 @media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse){.simbar .portrait{display:none}}
@@ -282,6 +284,9 @@ svg text{user-select:none}
     justify-content:flex-end;flex-wrap:wrap;max-width:min(21rem,54%);gap:.375rem;margin:0;z-index:5}
   body[data-view="train"][data-phase="sim"] .simbar select{min-height:2rem;height:2rem;font-size:.6875rem;background:rgba(28,38,50,.85)}
   body[data-view="train"][data-phase="sim"] .iconbtn{width:2.4rem;height:2.4rem;background:rgba(28,38,50,.85)}
+  /* 入っているボタン（スモーク・ライト・自動操縦など）は、シミュレーターの中でもオレンジで塗る。
+     上の 1 行のほうが .iconbtn.on より強いので、そのままだと背景が暗いまま・字も暗いままで、入り切りが見分けられない */
+  body[data-view="train"][data-phase="sim"] .iconbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
   /* 自動操縦（鑑賞）のときは操作ボタンをしまい、右下の小さなボタンで出し入れする。
      縦画面はふつうの学習モードなので、しまわない（この決まりは横画面のときだけ） */
   body[data-view="train"][data-phase="sim"] .sim .showui{display:inline-flex;opacity:.75}
@@ -757,7 +762,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-update" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M5.463 4.433A9.96 9.96 0 0 1 12 2c5.523 0 10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228zm13.074 15.134A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772z"/></symbol>
 <symbol id="i-level" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><circle cx="12" cy="12" r="1.4" style="fill:currentColor;stroke:none"/></symbol>
 <symbol id="i-trick" viewBox="0 0 24 24"><path d="M9.5 6.4h11M9.5 12h11M9.5 17.6h11"/><path d="M4.3 3.4l.95 1.95 2.15.3-1.55 1.5.36 2.13L4.3 8.27 2.39 9.28l.36-2.13L1.2 5.65l2.15-.3z" style="fill:currentColor;stroke:none"/><circle cx="4.3" cy="12" r="1.15" style="fill:currentColor;stroke:none"/><circle cx="4.3" cy="17.6" r="1.15" style="fill:currentColor;stroke:none"/></symbol>
-<symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" style="stroke-dasharray:2.4 2.6"/><path d="M12 1.6l2.7 5h-5.4z" style="fill:currentColor;stroke:none"/><path d="M9.2 15.4l2.8-6 2.8 6-2.8-1.4z" style="fill:currentColor;stroke:none"/></symbol>
+<symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" style="stroke-dasharray:2.4 2.6"/><path d="M12 1.6l2.7 5h-5.4z" style="fill:currentColor;stroke:none"/><path d="M8.9 16.2L12 7.9l3.1 8.3M10.1 13.6h3.8"/></symbol>
 <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3.2-6.4"/><path d="M20 4v5h-5"/><path d="M9.4 15.2l2.6-5.6 2.6 5.6-2.6-1.3z" style="fill:currentColor;stroke:none"/></symbol>
 <symbol id="i-vinst" viewBox="0 0 24 24"><rect x="2.4" y="4.6" width="19.2" height="14.8" rx="2.4"/><path d="M2.4 12.4h19.2"/><circle cx="17" cy="16" r="2.6"/><path d="M17 14.6v1.4h1.1"/></symbol>
 <symbol id="i-vfirst" viewBox="0 0 24 24"><path d="M2.8 17.4c1.7-6.6 4.8-9.8 9.2-9.8s7.5 3.2 9.2 9.8z"/><circle cx="12" cy="14.2" r="1.7" style="fill:currentColor;stroke:none"/></symbol>
@@ -978,7 +983,7 @@ const DEMO_ON=false;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.49';
+const APP_VER='v03.50';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 const qMax=()=>{const c=MS().qCount;return isFull()?c:(c>0?Math.min(c,DEMO.qCount):DEMO.qCount)};   // 体験版は 10 問まで
@@ -1286,7 +1291,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=55').then(mod=>{
+  import('./sim3d.js?v=56').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1340,7 +1345,7 @@ function runSim(opt){applyScene();
     <div class="ctl">
       <div class="stkwrap"><h4>操縦桿</h4><div class="stick" id="stick"><span class="lb t">奥</span><span class="lb b">手前</span><span class="lb l">左</span><span class="lb r">右</span>
         <svg class="grip" id="knob" viewBox="-40 -60 80 120" aria-hidden="true"><circle class="plain" cx="0" cy="0" r="26" fill="#8a939e" stroke="#3a424c" stroke-width="3"/><g class="col"><ellipse cx="0" cy="44" rx="22" ry="8" fill="#0d1116" opacity=".7"/><rect x="-5" y="-4" width="10" height="46" rx="4" fill="#8a939e"/><path d="M-14,-50 h28 a10,10 0 0 1 10,10 v34 a10,10 0 0 1 -10,10 h-28 a10,10 0 0 1 -10,-10 v-34 a10,10 0 0 1 10,-10z" fill="#14171b" stroke="#3a424c" stroke-width="2"/><rect x="-10" y="-42" width="8" height="8" rx="2" fill="#c0392b"/><rect x="2" y="-42" width="8" height="8" rx="2" fill="#5b6570"/><rect x="-9" y="-26" width="18" height="4" rx="2" fill="#3a424c"/><rect x="-9" y="-16" width="18" height="4" rx="2" fill="#3a424c"/></g></svg></div></div>
-      <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1"><span class="pl">左</span></button><button class="ab pedal" data-r="1"><span class="pl">右</span></button></div></div>
+      <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1" aria-label="方向舵 左"><span class="pl">L</span></button><button class="ab pedal" data-r="1" aria-label="方向舵 右"><span class="pl">R</span></button></div></div>
     </div>
     <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
     <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で左クリック・右クリック　スモーク スペース</div>
@@ -1508,7 +1513,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=55').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=56').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1540,7 +1545,14 @@ function runSim(opt){applyScene();
         `<button data-f="${k}" title="${v.ja}"><svg class="ic fmi" viewBox="0 0 24 24">${dots(v)}</svg><span>${v.ja}</span></button>`).join('');
       fMenu.querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.f);fMenu.hidden=true}));
       fBtn.addEventListener('click',e=>{e.stopPropagation();fMenu.hidden=!fMenu.hidden});
-      document.addEventListener('click',e=>{if(!fMenu.hidden&&!e.target.closest('.formwrap'))fMenu.hidden=true});
+      /* メニューの外を触ったら閉じる。横画面では技の一覧が画面の右いっぱいに出てボタンを覆うので、
+         ボタンをもう一度押しても閉じられない。3D の画面は click を作らないことがあるので pointerdown で見る。
+         閉じたその 1 回は 3D へ渡さない（2 回叩く＝一時停止 と重ならないように） */
+      const closeMenus=e=>{const t=$('#simTrickMenu');
+        if(fMenu.hidden&&(!t||t.hidden))return;
+        if(e.target.closest('.formwrap'))return;
+        fMenu.hidden=true;if(t)t.hidden=true;e.stopPropagation()};
+      document.addEventListener('pointerdown',closeMenus,true);
       setForm(store.get('simForm','solo'));
       /* タイヤとライト: 手で出し入れする。昼以外はライトが自動で点いている */
       const gBtn=$('#simGear'),lBtn=$('#simLight');
@@ -1636,7 +1648,10 @@ function runSim(opt){applyScene();
       /* 技: 自分で操縦しているときでも、選んだ技をひとつだけ自動で行う（終わると操縦が戻る） */
       const tBtn=$('#simTrickBtn'),tMenu=$('#simTrickMenu');
       /* 技は空を選ばない。昼以外で選んだときは昼の空で作り直す（クリスマスツリー・ローパスだけそのまま） */
-      tMenu.innerHTML=sim.h.maneuvers().map(m=>`<button data-m="${m.i}" data-id="${m.id}"><span>${m.ja}</span></button>`).join('');
+      /* 一覧の先頭に「閉じる」を置く（横画面ではこの一覧が技を出すボタンを覆うため） */
+      tMenu.innerHTML=`<button class="mclose" data-close="1"><svg class="ic"><use href="#i-cross"/></svg><span>閉じる</span></button>`
+        +sim.h.maneuvers().map(m=>`<button data-m="${m.i}" data-id="${m.id}"><span>${m.ja}</span></button>`).join('');
+      tMenu.querySelector('[data-close]').addEventListener('click',()=>{tMenu.hidden=true});
       const nameEl=$('#showName');
       const showLabel=txt=>{if(!nameEl)return;nameEl.textContent=txt||'';nameEl.hidden=!txt};
       tMenu.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{tMenu.hidden=true;

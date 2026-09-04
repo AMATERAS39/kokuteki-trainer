@@ -328,6 +328,8 @@ svg text{user-select:none}
   body[data-view="train"][data-phase="sim"] .sim.uihide .ctl{display:none}
   body[data-view="train"][data-phase="sim"] .sim.uihide .simbar > :not(.showui){display:none}
   body[data-view="train"][data-phase="sim"] .sim.uihide .showui{opacity:1}
+  /* 自動操縦のボタンは、操作をしまったあとも操作一覧の場所に残す（もう一度押すと固定になる） */
+  body[data-view="train"][data-phase="sim"] .sim #simAuto.showui{opacity:1}
   /* 背の低い横画面（スマホ）では、アイコンの列と出し入れボタンを計器の上へ逃がす。
      計器盤の場所を計器に譲るため。もとの bottom より後ろに置くこと（同じ強さなので後ろが勝つ） */
     .sim .hud{font-size:.6875rem}
@@ -641,7 +643,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
     margin:0;z-index:4;padding:.125rem .5rem;border-radius:.5rem;background:rgba(11,16,23,.5);pointer-events:none}
 }
 /* 自動操縦を 2 回押した「固定」（離着陸なしで繰り返す）。枠を太くして、固定だと分かるようにする */
-.iconbtn.loop{box-shadow:inset 0 0 0 .125rem var(--accent)}
+.iconbtn.loop{box-shadow:inset 0 0 0 .1875rem var(--on-accent)}      /* 塗りつぶし（.on）の上でも見えるように濃い色の太枠 */
+.iconbtn.loop:not(.on){box-shadow:inset 0 0 0 .1875rem var(--accent)}
 #buyPage ul{margin:.5rem 0 0;padding-left:1.2em;font-size:.875rem;line-height:1.7;color:var(--muted)}
 #buyPage .acts{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
 #buyPage a.btn{text-decoration:none}
@@ -1114,7 +1117,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.74';
+const APP_VER='v03.75';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1438,7 +1441,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=71').then(mod=>{
+  import('./sim3d.js?v=72').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1481,7 +1484,7 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
       <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（夜は自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
       <button class="iconbtn landscape" id="simFollow" aria-label="機体を目で追う" aria-pressed="false" title="機体を目で追う（地上から見るとき）"><svg class="ic"><use href="#i-follow"/></svg></button>
-      <button class="iconbtn landscape" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（地上から見る）"><svg class="ic"><use href="#i-auto"/></svg></button>
+      <button class="iconbtn landscape showui" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（もう一度押すと固定）"><svg class="ic"><use href="#i-auto"/></svg></button>
       <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技を出す"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
@@ -1718,7 +1721,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=71').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=72').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1862,11 +1865,12 @@ function runSim(opt){applyScene();
       /* 2 回続けて押すと「固定」: 離着陸を含めず、演目を繰り返す。もう一度 2 回押すと解ける */
       let aTapT=0;
       aBtn.addEventListener('click',()=>{const now=performance.now();
-        if(now-aTapT<450){aTapT=0;
+        if(now-aTapT<450){aTapT=0;clearTimeout(sim.hideT);
           const lp=!sim.h.loopState();sim.h.setLoop(lp);aBtn.classList.toggle('loop',lp);
           if(lp&&!sim.h.autoState()){sim.h.setAuto(true);paintAuto();showLabel(sim.h.state.show||'')}
           if(sim.demo)setProjection(lp);
-          toast(lp?(sim.demo?'固定しました。地上から全部の演目を続けて映します（操作はできません）':'固定しました。離着陸なしで演目を繰り返します')
+          toast(lp?(sim.demo?'固定しました。地上から全部の演目を続けて映します（操作はできません）'
+                          :(sim.h.state.mode==='fly'?'固定しました。いったん着陸してから、離陸で始め直します':'固定しました。離陸から始め、演目を繰り返します'))
                   :'固定を解きました。地上からは離陸で始め、一通り終えたら着陸します');
           return}
         aTapT=now;
@@ -1879,7 +1883,11 @@ function runSim(opt){applyScene();
         /* 地上から演目を見るときは、機体を目で追う（自分で向けていると演技を見失うため） */
         if(on&&sim.viewName==='ground'&&!sim.h.followState()){sim.h.setFollow(true);store.set('simFollow',true);paintFollow()}
         if(on){
-          if(landFull()){$('#sim').classList.add('uihide');sim.uiHidden=true}   /* 横画面のときだけ、鑑賞のため操作をしまう */
+          /* 横画面のときだけ、鑑賞のため操作をしまう。ただし少し待ってからしまう。
+             すぐしまうとボタンの位置が動いて、2 回目のタップ（固定）ができないため。
+             自動操縦のボタンだけは、しまったあとも操作一覧の場所に残る（.showui） */
+          clearTimeout(sim.hideT);
+          if(landFull())sim.hideT=setTimeout(()=>{if(sim&&sim.h&&sim.h.autoState()){$('#sim').classList.add('uihide');sim.uiHidden=true}},700);
           toast(landFull()?'自動操縦。2 回叩くと一時停止（右下のボタンで操作を出せます）':'自動操縦。2 回叩くと一時停止できます');if(landFull()&&sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
         else{if(sim.projection){sim.h.setLoop(false);aBtn.classList.remove('loop');setProjection(false)}
           $('#sim').classList.remove('uihide');sim.uiHidden=false;toast('自動操縦を止めました')}});

@@ -802,6 +802,9 @@ export function mount(container, opt = {}) {
      接地は step() のふつうの判定（z <= 3.2）に任せる（そこから減速・誘導路・待機まで既にある） */
   function beginLanding() {
     manPhase = 'land'; phaseT = 0; markOn = false;
+    /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
+       滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
+    if (musBuf && actx && auto) playMusic();
     formation = 'trail'; formScale = 1;
     st.show = '着陸'; st.desc = '縦隊に組み替えて、離陸したときと同じ滑走路へ降ります。';
     st.cue = '着陸へ入ります';
@@ -1203,8 +1206,30 @@ export function mount(container, opt = {}) {
     const W = LIMIT - 30; st.x = clamp(st.x, -W, W); st.y = clamp(st.y, -W, W);
     st.cue = gmode === 'land' ? '着陸しました' : gmode === 'taxi' ? '滑走路へ戻ります' : gmode === 'stand' ? '「加速」で離陸できます' : '加速中';
   }
+  /* 地上で待っているところから演目を始める（離陸から）。
+     曲を選んであれば、その頭を待ち、音が立ち上がるところでタイヤが離れる */
+  function startFromGround() {
+    let f0 = 0;
+    for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
+    formation = PROGRAM[f0].form || userForm;
+    step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
+    st.show = '離陸'; manPhase = 'gather'; markOn = false;
+    clearSmoke();
+    if (musBuf && actx) {                      // 曲を選んであるとき: イントロを待ってから滑走する
+      playMusic();
+      musWait = Math.max(0, musLead - MUS_ROLL);
+      st.desc = '曲の頭を待ち、音が立ち上がるところで離陸します。';
+      st.cue = '曲の頭を待っています';
+      return;
+    }
+    gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs');
+    st.desc = '2 本の滑走路から 2 機ずつ離陸し、上がってから隊形を組みます。';
+    st.cue = '離陸します';
+  }
   function step(dt) {
     st.mode = gmode;
+    /* 固定にしたので着陸した。滑走路で待機に戻ったら、離陸から始め直す */
+    if (loopRestart && gmode === 'stand') { loopRestart = false; startFromGround(); }
     /* 曲のイントロを待ってから滑走を始める（主旋律が入るところで浮く） */
     if (musWait >= 0) {
       musWait -= dt;
@@ -1908,6 +1933,13 @@ export function mount(container, opt = {}) {
       aPrev[k] = null;
     }
   }
+  /* 止めているあいだは音を出さない（機体の音も曲も）。動かしたら元に戻す */
+  function audioHold() {
+    if (!actx) return;
+    try { if (paused || document.hidden) actx.suspend(); else actx.resume(); } catch (e) {}
+  }
+  /* ほかの画面を見ているあいだも鳴らさない（戻ってきたら元に戻す） */
+  document.addEventListener('visibilitychange', audioHold);
   const aPos = new THREE.Vector3(), aRel = new THREE.Vector3(), aRight = new THREE.Vector3();
   function updateAudio(dt) {
     if (!soundOn || !actx || !aNodes || !dt) return;
@@ -1947,6 +1979,7 @@ export function mount(container, opt = {}) {
      そこでちょうどタイヤが離れるように滑走を始める */
   const MUS_ROLL = 9.2;                    // 滑走を始めてから浮くまで（秒）。SPEED*0.9 / 6 のあたり
   let musBuf = null, musSrc = null, musGainNode = null, musLead = 0, musWait = -1;
+  let loopRestart = false;                 // 固定にしたあと、着陸してから離陸で始め直す
   /* 音の大きさが立ち上がるところを探す。0.05 秒ごとの音量を出し、
      はじめの静かなところの何倍かを超えた最初の点を「主旋律の入り」とする */
   function findLead(buf) {
@@ -1967,17 +2000,38 @@ export function mount(container, opt = {}) {
     }
     return 0;
   }
-  function stopMusic() {
-    if (musSrc) { try { musSrc.stop(); } catch (e) {} try { musSrc.disconnect(); } catch (e) {} musSrc = null; }
+  const MUS_VOL = 0.55, MUS_FADE = 0.6;     // 曲の大きさと、絞る・戻すのにかける時間（秒）
+  function stopMusic(fade) {
+    const src = musSrc, g = musGainNode;
+    musSrc = null; musGainNode = null;
+    if (!src) return;
+    if (fade && actx && g) {                 // ぶつ切りにせず、短く絞ってから止める
+      const t = actx.currentTime;
+      try {
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + fade);
+      } catch (e) {}
+      try { src.stop(t + fade + 0.05); } catch (e) {}
+      setTimeout(() => { try { src.disconnect(); g.disconnect(); } catch (e) {} }, (fade + 0.3) * 1000);
+      return;
+    }
+    try { src.stop(); } catch (e) {}
+    try { src.disconnect(); g && g.disconnect(); } catch (e) {}
   }
+  /* 曲を頭から流す。前の曲が鳴っていたら短く絞ってから重ねる */
   function playMusic() {
     if (!actx || !musBuf) return;
     if (actx.state === 'suspended') actx.resume();
-    stopMusic();
-    musSrc = actx.createBufferSource(); musSrc.buffer = musBuf;
-    if (!musGainNode) { musGainNode = actx.createGain(); musGainNode.gain.value = 0.55; musGainNode.connect(actx.destination); }
-    musSrc.connect(musGainNode);
-    musSrc.start(0);
+    stopMusic(MUS_FADE);
+    const src = actx.createBufferSource(); src.buffer = musBuf;
+    const g = actx.createGain();
+    const t = actx.currentTime;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(MUS_VOL, t + MUS_FADE);
+    src.connect(g); g.connect(actx.destination);
+    src.start(0);
+    musSrc = src; musGainNode = g;
   }
 
   let running = true, raf = 0, last = performance.now();
@@ -2085,26 +2139,8 @@ export function mount(container, opt = {}) {
         userForm = formation;
         let f0 = 0;
         for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
-        /* 地上で待っているときは、離陸から始める（固定モードのときは空から始める）。
-           飛んでいるときは、これまでどおり空から始める */
-        if (gmode === 'stand') {                 // 地上で待っているときは、固定モードでも離陸から始める
-          formation = PROGRAM[f0].form || userForm;
-          if (musBuf && actx) {                    // 曲を選んであるとき: イントロを待ってから滑走する
-            playMusic();
-            musWait = Math.max(0, musLead - MUS_ROLL);
-            step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
-            st.show = '離陸'; st.desc = '曲の頭を待ち、音が立ち上がるところで離陸します。';
-            st.cue = '曲の頭を待っています'; manPhase = 'gather'; markOn = false;
-            clearSmoke();
-            return;
-          }
-          gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs');
-          step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
-          st.show = '離陸'; st.desc = '2 本の滑走路から 2 機ずつ離陸し、上がってから隊形を組みます。';
-          st.cue = '離陸します'; manPhase = 'gather'; markOn = false;
-          clearSmoke();
-          return;
-        }
+        /* 地上で待っているときは、固定モードでも離陸から始める */
+        if (gmode === 'stand') { startFromGround(); return; }
         gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1;
         Object.assign(st, { x: GROUND_EYE.x - 280, y: GROUND_EYE.y - 460, z: SHOW.ALT, h: 25, ground: false, wall: false });
         levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke();
@@ -2113,7 +2149,14 @@ export function mount(container, opt = {}) {
     },
     autoState() { return auto; },
     /* 固定（エンドレス）モード。true にすると離着陸を含めず、演目を繰り返す */
-    setLoop(on) { showLoop = !!on; }, loopState() { return showLoop; },
+    setLoop(on) {
+      showLoop = !!on;
+      /* 飛んでいるときに固定にしたら、いったん着陸してから離陸で始め直す */
+      if (showLoop && auto && gmode === 'fly') { loopRestart = true; beginLanding(); }
+      else if (!showLoop) loopRestart = false;
+      return showLoop;
+    },
+    loopState() { return showLoop; },
     setZoom(z) { zoom = clamp(z, 1, 6); applyFov(); return zoom; },   // 1〜6 倍
     setGear(on) { gearOn = !!on; applyGear(); }, gearState() { return gearOn; },
     /* 一人称のとき、機内の計器盤の上端が画面のどこに来るか（0〜1 の割合）。
@@ -2128,8 +2171,8 @@ export function mount(container, opt = {}) {
     /* 演目の最中か（通しの自動操縦か、ひとつだけの技） */
     showing() { return auto || oneShot; },
     /* 一時停止（演目を止めて眺める）。止めていても見回し・拡大・視点の切り替えはできる */
-    setPaused(on) { paused = !!on; last = performance.now(); return paused; },
-    togglePause() { paused = !paused; last = performance.now(); return paused; },
+    setPaused(on) { paused = !!on; last = performance.now(); audioHold(); return paused; },
+    togglePause() { paused = !paused; last = performance.now(); audioHold(); return paused; },
     pausedState() { return paused; },
     /* いまの景色を絵にする（操作ボタンは 3D の外にあるので写らない）。
        描いた直後に読み出す（そうしないと空の絵になる） */

@@ -804,10 +804,14 @@ export function mount(container, opt = {}) {
       const side = (i % 2 === 0) ? -1 : 1;                  // 0・2 が左、1・3 が右
       const outer = i >= 2;                                  // 外側の 2 機
       const ang = (outer ? 90 : 45) * side, h1 = hb + ang;
+      /* 弧の長さは同じでも、曲がる角が大きいほど弦（開いた点からの直線距離）は短くなる。
+         その比（(θ/2)/sin(θ/2)）だけ速くすると、機首の先端がひとつの弧に並ぶ＝扇の形になる */
+      const th2 = Math.abs(ang) * D / 2;
+      const vk = th2 > 1e-3 ? th2 / Math.sin(th2) : 1;
       const v0 = vertical ? new THREE.Vector3(0, 0, -1)
                           : new THREE.Vector3(Math.sin(hb * D), Math.cos(hb * D), 0);
       const v1 = new THREE.Vector3(Math.sin(h1 * D), Math.cos(h1 * D), 0);
-      bloomS.list[i] = { p: holder.position.clone(), v0, v1, ang, dur, delay: outer ? 0 : BLOOM_LAG };
+      bloomS.list[i] = { p: holder.position.clone(), v0, v1, ang, dur, vk, delay: outer ? 0 : BLOOM_LAG };
     });
   }
   /* 散った機体を、いまの位置から隊形へ戻す（ふつうの合流にわたす） */
@@ -826,7 +830,7 @@ export function mount(container, opt = {}) {
     /* 進む向きは、始めの向き（v0）から終わりの向き（v1）へ回していく。
        水平なら旋回、鉛直下向きからなら引き起こし。位置は前へ進めるだけ（実際に飛べる動き） */
     bv.copy(b.v0).lerp(b.v1, e); if (bv.lengthSq() < 1e-6) bv.copy(b.v1); bv.normalize();
-    const v = SPEED * spdK;
+    const v = SPEED * spdK * (b.vk || 1);
     b.p.addScaledVector(bv, v * dt);
     if (bloomS.vert) {
       /* 引き起こし: 機体の上（揚力の向き）は曲がる内側へ。終わりは上向き */
@@ -1346,7 +1350,12 @@ export function mount(container, opt = {}) {
         if (st.p < -60) autoIn.x = 0;                       // 立っているうちは横の舵を打たない（捻れない）
         holdPitch(-90 + 92 * er);
         rainOn = er < 0.7;
-        if (spreadT > BLOOM_TURN_V + 4 || manT > 90) { endBloomMates(); rainOn = false; nextManeuver(); }
+        /* 散開したあとは、1 番機も僚機も進路を保ったまま無限遠まで飛ぶ。
+           見えない距離まで離れてから終える（そこで編隊に戻しても、遠すぎて見えない）。
+           次の課目は進入で位置ごと移すので、ここで組み直す必要はない */
+        if (er >= 1) holdBank(0);                       // 引き起こし終わり。あとはまっすぐ
+        const farR = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
+        if (farR > JUMP_FAR || manT > 110) { endBloomMates(); rainOn = false; nextManeuver(); }
         break;
       }
       case 'byover': {                           // 頭上通過: 見ている人の真上を低く通り抜ける

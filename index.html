@@ -378,6 +378,13 @@ svg text{user-select:none}
 .gallery .gsimbar .btn{height:2.75rem;font-size:.875rem}
 .gallery .gmove{margin-top:.5rem}
 .gallery .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%}
+/* 解説の中の「この問題の見え方」（操縦操作・完全版だけ） */
+.fbsim{margin-top:.75rem;border-top:1px solid var(--line);padding-top:.625rem}
+.fbsim .fbsimh{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.8125rem;font-weight:700;color:var(--muted)}
+.fbsim .fbsimh .btn{width:auto;height:2rem;font-size:.75rem;padding:0 .75rem;margin:0}
+.fbsim .gfp{margin-top:.5rem}
+.fbsim .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%;max-height:34vh;max-height:34dvh;width:auto;margin:0 auto}
+.fbsim .gstep{margin-top:.25rem;font-size:.75rem}
 .gallery .gtp{margin-top:0}
 .gallery .gstep{text-align:center;margin-top:.375rem;font-variant-numeric:tabular-nums}
 .gallery .gexp b{color:var(--text)}
@@ -806,6 +813,14 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .opts.text .ab .t{font-size:1.0625rem}
   .dirlist .ab{min-height:3.5rem}
   .dirlist .ab .t{font-size:1.0625rem}
+  /* 操縦操作は視界の変化が主役なので、左に 3 枚を縦に大きく並べ、右に選択肢を置く */
+  #quiz.control{display:grid;grid-template-columns:1fr 20rem;grid-template-rows:auto auto minmax(0,1fr) auto;
+    column-gap:1.25rem;align-content:stretch}
+  #quiz.control .qhead,#quiz.control .prompt,#quiz.control .fb{grid-column:1/-1}
+  #quiz.control #figs{grid-column:1;grid-row:3;min-height:0}
+  #quiz.control #answers{grid-column:2;grid-row:3;align-self:start}
+  #quiz.control .opts.text{margin-top:0}
+  #quiz.control .opts.text .ab{min-height:4.5rem}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -997,6 +1012,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="fb" id="feedback">
         <div class="fbh"><div class="t" id="fbTitle"></div><div class="s" id="fbTime"></div></div>
         <ul id="explain"></ul>
+        <div class="fbsim" id="fbSim" hidden></div>
         <button class="btn" id="next">次の問題<svg class="ic s"><use href="#i-next"/></svg></button>
       </div>
       <div class="kbd" id="kbd"><svg class="ic s"><use href="#i-keyboard"/></svg><span id="kbdText"></span></div>
@@ -1066,7 +1082,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.60';
+const APP_VER='v03.61';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1137,7 +1153,9 @@ function render(){
   const inPractice=phase==='practice';
   $('#qno').textContent=inPractice?`練習 ${PRACTICE_N-practiceLeft+1} / ${PRACTICE_N}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount);
   $('#qcard').classList.remove('answered');
+  $('#quiz').classList.toggle('control',q.type==='control');   /* PC では視界を大きく見せるための印 */
   $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
+  fbSimStop();const fbs=$('#fbSim');if(fbs){fbs.hidden=true;fbs.innerHTML=''}
   const figs=$('#figs'),ans=$('#answers');
   if(q.type==='heading'){
     $('#prompt').textContent='機首が向いている方位を 8 方位から選ぶ';
@@ -1200,6 +1218,7 @@ function finish(g,timedOut){
   freezeFigs();
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'check':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
+  fbSimShow();
   $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。「次へ」で次の問題に進みます。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
   if(inPractice&&practiceLeft===0)$('#next').innerHTML=(backTo==='about'?'説明に戻る':'計測を始める')+ic('next','s');
   else if(session&&session.ended)$('#next').textContent='結果を見る';
@@ -1957,6 +1976,45 @@ function galApply(t){
   const se=$('#gstep');
   if(se)se.textContent=gal.play?`${'①②③'[Math.round(u)]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`
     :'スタートを押すと、①→②→③の見え方が動きで分かります';
+}
+/* ===== 解説の中の見え方（操縦操作・完全版）=====
+   その問題の ①→②③ を、そのまま動かして見せる。図は 1 度だけ描き、
+   あとは姿勢の入れ物（.ck-att / .ck-yaw）を毎コマ動かす（「動きで見る」と同じ作り） */
+let fbRaf=0,fbT0=0,fbPlaying=false;
+function fbSimApply(t){
+  const sv=$('#fbSim')&&$('#fbSim').querySelector('svg');
+  if(!sv||!q||!q.frames)return;
+  let u=0,seg=0,rest=t,done=false;
+  for(const s2 of GAL_SEQ){const d=s2.hold||s2.move;
+    if(rest<=d){const k2=rest/d;u=s2.move?seg+k2*k2*(3-2*k2):seg;done=true;break}
+    rest-=d;if(s2.move)seg++;}
+  if(!done)u=2;
+  const i=Math.min(1,Math.floor(u)),k=u-i,f=q.frames;
+  const A=f[i],B=f[Math.min(2,i+1)];
+  const st={bank:A.bank+(B.bank-A.bank)*k,pitch:A.pitch+(B.pitch-A.pitch)*k,yaw:A.yaw+(B.yaw-A.yaw)*k};
+  const prog=Math.min(1,t/GAL_DUR);
+  const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw');
+  if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
+  if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0) scale(${(1+E.CK.grow*prog).toFixed(3)})`);
+  const lb=$('#fbSimStep');
+  if(lb)lb.textContent=`${'①②③'[Math.round(u)]} のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`;
+}
+function fbSimStop(){fbPlaying=false;cancelAnimationFrame(fbRaf);fbRaf=0}
+function fbSimStart(){fbPlaying=true;fbT0=performance.now();
+  const step=now=>{if(!fbPlaying)return;fbSimApply(((now-fbT0)/1000)%GAL_DUR);fbRaf=requestAnimationFrame(step)};
+  cancelAnimationFrame(fbRaf);fbRaf=requestAnimationFrame(step)}
+function fbSimShow(){
+  const box=$('#fbSim');if(!box)return;
+  fbSimStop();
+  if(!(q&&q.type==='control'&&q.frames&&isFull())){box.hidden=true;box.innerHTML='';return}
+  const f=q.frames;
+  box.hidden=false;
+  box.innerHTML=`<div class="fbsimh"><span>この問題の見え方</span><button class="btn ghost" id="fbSimBtn">止める</button></div>
+    <div class="gfp">${E.svgCockpit(f[0].bank,f[0].pitch,f[0].yaw,0,false,q.hud!==false)}</div>
+    <div class="sub gstep" id="fbSimStep"></div>`;
+  $('#fbSimBtn').addEventListener('click',()=>{const b=$('#fbSimBtn');
+    if(fbPlaying){fbSimStop();b.textContent='動かす'}else{fbSimStart();b.textContent='止める'}});
+  fbSimApply(0);fbSimStart();
 }
 function galPlay(){
   gal.play=true;galT0=performance.now();

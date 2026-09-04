@@ -180,6 +180,9 @@ svg text{user-select:none}
 .sim .view.fp .cross{display:block}   /* 照準は一人称のときだけ */
 .sim.nohud .view.fp .cross{display:none}   /* 計器だけの見せ方では緑の目盛りを出さない */
 .sim .view.fp .cross{top:29%}   /* 一人称は視線を 16° 下げているので、水平時の水平線の位置に合わせる */
+/* 縦画面は「操縦操作の見え方」を確かめる画面なので、出題の視界と同じように、
+   計器だけの見せ方でも 水平線とピッチの目盛り（照準）を出す */
+@media (orientation:portrait){.sim.nohud .view.fp .cross{display:block}}
 .sim .inst svg{height:100%;width:100%;display:block}
 .sim .landback,.sim .showui{display:none}   /* 横画面（視界いっぱい）のときだけ出す */
 .sim .pausemsg{position:absolute;left:50%;top:.5rem;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:.375rem;white-space:nowrap;z-index:6}
@@ -1006,7 +1009,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.57';
+const APP_VER='v03.58';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1424,7 +1427,17 @@ function runSim(opt){applyScene();
   const pinchDist=()=>{const[a,b]=[...sim.pts.values()];return Math.hypot(a.x-b.x,a.y-b.y)};
   /* 横画面（視界いっぱい）では拡大縮小しない。操縦中に指が触れて勝手に拡大するのを防ぐ */
   const landFull=()=>matchMedia('(orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse)').matches;
-  vw.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;e.preventDefault();
+  /* 操縦しているときは、画面の左下（操縦桿のまわり）で視点を動かさない。
+     操縦桿を掴みそこねた指が視点を回してしまい、操縦の邪魔になるため。
+     自動操縦のときは操縦桿を使わないので、どこを触っても視点を動かせる */
+  const nearStick=e=>{const k=$('#stick');
+    if(!k||k.offsetParent===null||(sim.h&&sim.h.autoState()))return false;
+    const r=k.getBoundingClientRect();if(!r.width)return false;
+    const m=Math.max(28,r.width*0.45);
+    return e.clientX<=r.right+m&&e.clientY>=r.top-m};
+  vw.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;
+    if(nearStick(e))return;
+    e.preventDefault();
     sim.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(sim.pts.size>=2){sim.look=null;sim.pinch={d:pinchDist(),z:sim.h?sim.h.zoomVal():1};return}   /* 指 2 本で拡大縮小 */
     sim.look={id:e.pointerId,x:e.clientX,y:e.clientY,moved:0};
@@ -1501,9 +1514,14 @@ function runSim(opt){applyScene();
     const nx=L[(i+1)%L.length];setViewTo(nx[0],nx[3]);toast(nx[1]+'にしました')});
   /* 端末を縦にしたら、一人称は計器だけの見せ方に戻す */
   sim.mqP=matchMedia('(orientation:portrait)');
-  sim.onOri=()=>{if(sim&&sim.h&&sim.mqP.matches&&sim.viewName==='first'&&sim.fpMode!=='inst')setViewTo('first','inst')};
+  /* 縦画面は出題と同じ「一人称（計器）」に固定し、オブジェクトも必ず出す（見え方を確かめる画面のため）。
+     横画面は、視点も オブジェクトの有無も、選んだとおりにする */
+  sim.onOri=()=>{if(!sim||!sim.h)return;
+    if(sim.mqP.matches){if(sim.viewName!=='first'||sim.fpMode!=='inst')setViewTo('first','inst');sim.h.setProps(true)}
+    else sim.h.setProps(isFull()?store.get('simProps',true):true)};
   sim.mqP.addEventListener('change',sim.onOri);
   setViewTo(sim.viewName,sim.fpMode);
+  sim.onOri();
   $('#simBack').addEventListener('click',()=>{location.hash='#train/control'});
   $('#simBack2').addEventListener('click',()=>{location.hash='#train/control'});
   /* 操作をしまう／出す。自動操縦を入れると自動でしまう（鑑賞のため）。押せばいつでも戻せる */

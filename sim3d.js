@@ -921,6 +921,8 @@ export function mount(container, opt = {}) {
   const CHG_R = 850;                       // チェンジオーバー・ターンの弧の半径（m）
   let tkWp = 0, tkT = 0, tkT2 = 0;         // タック・クロスの通過点の番号、背面へ回す経過、外側へ戻す経過（秒）
   let oproX = false, oproUp = false, oproZ = -1;   // オポジット: 交差したか、機首を上げ終えたか、進入の高さ
+  let rollBoost = 1;                       // 横転の速さの倍率（オポジットの連続ロールで上げる）
+  const OPRO_ROLL = 2.2;                   // オポジットの連続ロールの速さ（ふつうの 2.2 倍 = 132 度/秒）
   let noTurn = false;                      // 連続ロールのあいだ、傾きで向きを変えない
   let smokeNone = false;                   // 課目の終わりに、全機いっせいにスモークを切る
   function orbitEye(z) {
@@ -1095,7 +1097,7 @@ export function mount(container, opt = {}) {
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
     e8 = null; touchDone = false; touchT = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
-    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; oproX = false; oproUp = false; oproZ = -1; noTurn = false; smokeNone = false;
+    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; oproX = false; oproUp = false; oproZ = -1; noTurn = false; smokeNone = false; rollBoost = 1;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1508,13 +1510,16 @@ export function mount(container, opt = {}) {
           holdBank(0);                                          // 進入の線には乗せてあるので、舵で向きを直さない（水平のまま）
           holdPitch(clamp((oproZ - st.z) * 0.1, -3, 3));       // 高さもそのまま
           autoIn.r = 0;
-        } else {                                               // 交差の瞬間から: 機首上げ 30 度、そのまま連続ロール
+        } else {                                               // 交差の瞬間から: 機首上げ 30 度と、高速の連続ロール
           noTurn = true;                                       // 回しているあいだ、傾きで向きを変えない（進路が流れない）
-          if (st.p < 28 && !oproUp) { autoIn.x = 0; autoIn.y = -0.8; }        // まず機首を 30 度へ
-          else { oproUp = true; autoIn.x = 1; autoIn.y = 0; }                   // 舵を中立にして回す（引き続けると進路が流れる）
+          rollBoost = OPRO_ROLL;                               // 交差した直後から速く回す
+          /* まず機首を 30 度へ（いっぱいに引いて約 1 秒）。回しながら引くと、舵の向きが回って
+             機首が上がらない（実測: 機首が ±8 度で振れるだけ）。上がったら舵を中立にして速く回す */
+          if (st.p < 28 && !oproUp) { autoIn.x = 0; autoIn.y = -1; }
+          else { oproUp = true; autoIn.x = 1; autoIn.y = 0; }
           autoIn.r = 0;
         }
-        if (east < -1500 || manT > 60) { spdWant = 1; nextManeuver(); }   // 西の無限遠で終わり
+        if (east < -1500 || manT > 60) { spdWant = 1; rollBoost = 1; nextManeuver(); }   // 左の無限遠で終わり
         break;
       }
       case 'tuck': {                             // タック・クロス: 北から背面で入り、中間位置で外へ回して膨らみ、散開位置で交差
@@ -1693,7 +1698,7 @@ export function mount(container, opt = {}) {
       smIn.x += (want.x - smIn.x) * kk; smIn.y += (want.y - smIn.y) * kk; smIn.r += (want.r - smIn.r) * kk;
       inp = smIn;
     }
-    const roll = RATE.roll * inp.x * dt * D;        // 機首軸(+y): 右に倒すと右バンク
+    const roll = RATE.roll * rollBoost * inp.x * dt * D;   // 機首軸(+y): 右に倒すと右バンク。rollBoost は課目で速く回すとき
     const pitch = -RATE.pitch * inp.y * dt * D;     // 翼軸(+x): 手前に引くと機首上げ
     const yaw = RATE.yaw * inp.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
     if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));

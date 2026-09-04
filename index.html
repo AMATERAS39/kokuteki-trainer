@@ -1135,7 +1135,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.81';
+const APP_VER='v03.82';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1459,7 +1459,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=78').then(mod=>{
+  import('./sim3d.js?v=79').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1704,7 +1704,9 @@ function runSim(opt){applyScene();
     $('#sim').classList.toggle('uihide',on);sim.uiHidden=on});
   $('#simSkip').addEventListener('click',()=>{if(sim.h&&sim.h.skipTaxi())toast('滑走路に戻りました')});
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
-  $('#simHome').addEventListener('click',()=>{if(sim.h)sim.h.home()});
+  /* 初期位置に戻す: 地上から見ているときは、視点（立ち位置と向き）を原点へ戻す。それ以外は機体を戻す */
+  $('#simHome').addEventListener('click',()=>{if(!sim.h)return;
+    if(sim.viewName==='ground'&&sim.h.groundReset){sim.h.groundReset();toast('視点を原点に戻しました')}else sim.h.home()});
   $('#simGo').addEventListener('click',()=>{location.hash='#train/control/measure'});
   /* 計器と読み取り値の更新（毎フレーム） */
   const ais=[...$('#sim').querySelectorAll('.inst.ai svg')],his=[...$('#sim').querySelectorAll('.inst.hi svg')],K=E.CK.aiK,f=x=>`${x>0?'+':''}${Math.round(x)}°`;
@@ -1750,13 +1752,13 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=78').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=79').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
         el.style.setProperty('--ix',(sp.x*100).toFixed(2)+'%');el.style.setProperty('--iy',(sp.y*100).toFixed(2)+'%');
         if(!el.classList.contains('haspanel'))el.classList.add('haspanel')};
-      sim.h=mod.mount($('#simView'),{onState,view,onPanel});$('#simLoad').remove();applyInput();
+      sim.h=mod.mount($('#simView'),{onState,view,onPanel,onJump:()=>{if(sim&&sim.flashSim)sim.flashSim()}});$('#simLoad').remove();applyInput();
       /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。
          鍵をかけるのは 編隊・スモーク・写真・タイヤ・ライト。ボタンは消さずに灰色にして出しておく */
       sim.demo=!isFull();
@@ -1880,6 +1882,7 @@ function runSim(opt){applyScene();
       const flashSim=()=>{const f=$('#simFlash');if(!f)return;
         f.hidden=false;f.classList.remove('on');void f.offsetWidth;f.classList.add('on');
         setTimeout(()=>{f.classList.remove('on');f.hidden=true},520)};
+      sim.flashSim=flashSim;
       const aBtn=$('#simAuto');
       const stkH=$('#sim').querySelector('.stkwrap h4');
       const paintAuto=()=>{const on=sim.h.autoState();aBtn.classList.toggle('on',on);aBtn.setAttribute('aria-pressed',String(on));

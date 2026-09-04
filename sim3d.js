@@ -424,10 +424,32 @@ export function mount(container, opt = {}) {
     }
   }
   function clearSmoke() { sBirth.fill(-1e6); smokeGeo.attributes.birth.needsUpdate = true; }
-  /* 同じ左右の位置に後続がいる機体は煙を出さない（後ろの機体が煙の中を飛ぶため）。単機なら先頭機が出す */
+  /* 誰が煙を出すか。表の隊形ではなく、**そのときの位置**で決める。
+     自分の真後ろ（左右がそろい、高さもそろい、進む向きの後ろ）に他機がいる機体は出さない
+     （後ろの機体が煙の中を飛ぶため）。合流してくる機体が真後ろに着く、その瞬間まではオンのまま。
+     隊形が変わって最後の 1 機が入った瞬間に、条件を満たす機体が一斉にオンになる。
+     0 = 1 番機、1〜 = 編隊機（隠れている機体は数えない） */
+  const smokeOnArr = [], smQ = new THREE.Quaternion(), smV = new THREE.Vector3();
+  const SM_SIDE = 7, SM_UP = 5, SM_BACK = 160;   // 左右・上下のそろい（m）と、後ろを見る距離（m）
   function smokers() {
-    const offs = [[0, 0, 0], ...FORMATIONS[formation].offs];
-    return offs.map((o, i) => !!o && !offs.some((q, j) => q && j !== i && Math.abs(q[0] - o[0]) < 6 && q[1] < o[1] - 2 && Math.abs(q[2] - o[2]) < 4));
+    const n = mates.length + 1;
+    smokeOnArr.length = 0;
+    for (let k = 0; k < n; k++) smokeOnArr[k] = true;
+    const list = [{ k: 0, p: plane.position, q: att }];
+    mates.forEach((h, i) => { if (h.userData.shown) list.push({ k: i + 1, p: h.position, q: h.quaternion }); });
+    for (const a of list) {
+      smQ.copy(a.q).invert();
+      for (const b of list) {
+        if (a === b) continue;
+        smV.copy(b.p).sub(a.p).applyQuaternion(smQ);        // 自分から見た相手の位置（機首が +y）
+        if (Math.abs(smV.x) < SM_SIDE && Math.abs(smV.z) < SM_UP && smV.y < -2 && smV.y > -SM_BACK) { smokeOnArr[a.k] = false; break; }
+      }
+    }
+    /* 1 番機（操縦している機体）は、上の位置の判定だけで決める。
+       ほかの機体は、隊形ができあがるまでは出さない。できあがったその瞬間に、条件を満たすものが一斉に出す */
+    const ready = matesReady();
+    for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) smokeOnArr[k] = false;
+    return smokeOnArr;
   }
 
   /* タイヤ（脚）はモデルに入っているもの（landing = 主脚、front_gear = 前脚）を出し入れする。
@@ -1465,15 +1487,16 @@ export function mount(container, opt = {}) {
     if (t.air) qa.multiply(dq.setFromAxisAngle(AX, TK_ANG * D));
     turnMate(holder, qa, dt);
     holder.visible = true; u.shown = true;
-    /* 滑走・上昇のあいだはスモークを出さない（隊形が整ってから出す） */
+    /* 浮いたあとは、真後ろに他機がいなければ出す（滑走中は出さない） */
+    if (emitting && t.air && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(qa).add(holder.position); emit(emitPos, color); }
   }
   /* 地上にいるあいだの並べ方。着陸してきた機体は、その場から並びへ滑らかに寄せる */
-  function groundMates(dt, emitting, cols) {
+  function groundMates(dt, emitting, cols, on0) {
     const n = FORMATIONS[formation].n;
     mates.forEach((holder, i) => {
       const u = holder.userData;
       if (i + 1 >= n) { holder.visible = false; u.shown = false; u.tk = null; return; }
-      if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }
+      if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on0[i + 1] ? cols[(i + 1) % cols.length] : null); return; }
       const g = GRID[i + 1];
       /* 減速中・誘導路のあいだは 1 番機の後ろに続く。待機位置へ先回りさせると、
          接地の瞬間に僚機が居なくなって見える */
@@ -1491,7 +1514,7 @@ export function mount(container, opt = {}) {
       const f0 = FORMATIONS[formation], on0 = smokers(), cols0 = SMOKE_COLORS[smokeColor].c;
       const emit0 = smokeOn && smokeT >= SMOKE_DT;
       if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
-      groundMates(dt, emit0, cols0);
+      groundMates(dt, emit0, cols0, on0);
       if (emit0) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
       smokeMat.uniforms.uTime.value = clock;
       return;
@@ -1500,15 +1523,12 @@ export function mount(container, opt = {}) {
     const f = FORMATIONS[formation], on = smokers(), cols = SMOKE_COLORS[smokeColor].c;
     /* 演目の合間（進入・高度取り・水平に戻す）は煙を切る。旋回は演目の一部なので出す */
     const between = auto && manPhase !== 'do';
-    /* 隊形を組んでいる最中は出さない（離陸して集まってくるあいだ）。
-       隊形の中で位置を入れ替えているだけのとき（1 番機の近くにいる）は、切らずに出し続ける */
-    const forming = tkOn || mates.some(h => h.userData.shown && h.userData.cur && h.userData.cur.length() > 130);
-    const emitting = smokeOn && smokeT >= SMOKE_DT && !between && !forming;
+    const emitting = smokeOn && smokeT >= SMOKE_DT && !between;
     if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
     if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
-      if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }   // まだ滑走・上昇の途中
+      if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
       if (e8 && !e8.done && i === e8.solo) { placeEight(holder, u, i, dt, emitting, cols[(i + 1) % cols.length]); return; }
       /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
       if (fig) {
@@ -1651,9 +1671,8 @@ export function mount(container, opt = {}) {
         turnMate(holder, mq, dt);
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
       u.shown = true;
-      /* 隊形の中にいるあいだは、位置を移している最中でもスモークを切らない（チェンジオーバー・ターン）。
-         遠くから合流してくる機体（離れている）は、これまでどおり出さない */
-      if (target && (settled || u.cur.length() < 90) && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+      /* 出すかどうかは位置で決めてある（真後ろに他機がいなければ出す）。隊形を移している最中も切らない */
+      if (target && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
     });
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;

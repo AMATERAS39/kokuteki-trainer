@@ -215,6 +215,55 @@ export function mount(container, opt = {}) {
   pad(TAXI_X + 24, 24, TAXI_X / 2, TAXI_N); cl(TAXI_X, 0.8, TAXI_X / 2, TAXI_N);
   pad(240, 300, GROUND_EYE.x + 110, GROUND_EYE.y);                                   // 駐機場（原点の東側、弧を含む）
   STANDS.forEach(sd => { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 26), twLine); m.position.set(sd.x, sd.y, 0.5); m.rotation.z = -sd.h * D; runway.add(m); });
+  /* 滑走路の標識（空港のもの）: 縁の線、しきい線（ピアノキー）、番号（36R / 36L と 18L / 18R）、接地帯の帯、目標点の太い帯 */
+  const wm = (w, h, x, y, rot) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), lineMat); p.position.set(x, y, 0.62); if (rot) p.rotation.z = rot; runway.add(p); };
+  const rwNumTex = txt => { const c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d');
+    g.clearRect(0, 0, 256, 256); g.fillStyle = '#f2f2f2'; g.font = 'bold 150px "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(txt, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const rwNum = (txt, x, y, flip) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: rwNumTex(txt), transparent: true }));
+    p.position.set(x, y, 0.62); if (flip) p.rotation.z = Math.PI; runway.add(p); };
+  RWY_X.forEach((rx, ri) => {
+    wm(0.9, 1100, rx - 23.5, 0); wm(0.9, 1100, rx + 23.5, 0);                          // 縁の線
+    [-1, 1].forEach(sg => {                                                            // 両端
+      const y0 = sg * 545;                                                             // しきい線: 4 本ずつ 2 組
+      [-19, -14, -9, -4, 4, 9, 14, 19].forEach(dx => wm(1.8, 30, rx + dx, y0 - sg * 15));
+      rwNum(sg < 0 ? (ri === 0 ? '36R' : '36L') : (ri === 0 ? '18L' : '18R'), rx, y0 - sg * 50, sg > 0);   // 番号（北向き 360 度 → 36。東が R）
+      [150, 450].forEach(dd => { [-1, 1].forEach(sd => { wm(1.8, 22, rx + sd * 12, y0 - sg * dd); wm(1.8, 22, rx + sd * 16, y0 - sg * dd); }); });   // 接地帯
+      [-1, 1].forEach(sd => wm(4, 45, rx + sd * 10, y0 - sg * 300));                   // 目標点（太い帯、しきいから 300 m）
+    });
+  });
+  /* 誘導路の縁の線（黄の 2 本）と、滑走路の手前の停止線 */
+  const ym = (w, h, x, y) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), twLine); p.position.set(x, y, 0.55); runway.add(p); };
+  [-11, 11].forEach(dx => ym(0.5, TAXI_N - TAXI_END, TAXI_X + dx, (TAXI_N + TAXI_END) / 2));
+  [-11, 11].forEach(dy => { ym(TAXI_X - RWY2 - 60, 0.5, (TAXI_X + RWY2) / 2 + 30, TAXI_S + dy); ym(TAXI_X - 60, 0.5, TAXI_X / 2 + 30, TAXI_N + dy); });
+  RWY_X.forEach(rx => { [TAXI_S, TAXI_N].forEach(yy => { ym(1.2, 24, rx + 34, yy); ym(1.2, 24, rx + 36.5, yy); }); });   // 停止線（滑走路の縁から 10 m 東）
+  /* 灯火: 滑走路の縁（白）、しきい（緑）と末端（赤）、進入灯（南、白の列と横棒）、誘導路の縁（青）と中心線（緑）。
+     夜は明るく、昼は控えめに。点（Points）で描く */
+  {
+    const pos = [], col = [];
+    const L = (x, y, c, z = 0.6) => { pos.push(x, y, z); col.push(c[0], c[1], c[2]); };
+    const W = [1, 0.95, 0.85], G = [0.2, 1, 0.4], R = [1, 0.25, 0.2], B = [0.35, 0.55, 1], Y = [1, 0.85, 0.3];
+    RWY_X.forEach(rx => {
+      for (let y = -550; y <= 550; y += 60) { L(rx - 27, y, W); L(rx + 27, y, W); }         // 縁
+      for (let x = -22; x <= 22; x += 4) { L(rx + x, -562, G); L(rx + x, 562, R); }          // しきい（南）と末端（北）
+      for (let y = -600; y >= -900; y -= 30) { L(rx, y, W); if (y % 150 === 0) for (let x = -15; x <= 15; x += 5) if (x) L(rx + x, y, W); }   // 進入灯（中心の列と横棒）
+      for (let y = -930; y >= -1200; y -= 30) L(rx, y, W);                                   // 進入灯の延長
+    });
+    for (let y = TAXI_END; y <= TAXI_N; y += 30) { L(TAXI_X - 14, y, B); L(TAXI_X + 14, y, B); }
+    for (let y = TAXI_END; y <= TAXI_N; y += 15) L(TAXI_X, y, G);
+    for (let x = RWY2 + 30; x < TAXI_X; x += 30) { L(x, TAXI_S - 14, B); L(x, TAXI_S + 14, B); L(x, TAXI_S, G); }
+    for (let x = 30; x < TAXI_X; x += 30) { L(x, TAXI_N - 14, B); L(x, TAXI_N + 14, B); L(x, TAXI_N, G); }
+    STANDS.forEach(sd => L(sd.x, sd.y + 14, Y));                                           // 駐機の目印
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    lg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const lc = document.createElement('canvas'); lc.width = lc.height = 32; const lgc = lc.getContext('2d');
+    const grd = lgc.createRadialGradient(16, 16, 0, 16, 16, 16); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.35, 'rgba(255,255,255,0.8)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    lgc.fillStyle = grd; lgc.fillRect(0, 0, 32, 32);
+    const ltex = new THREE.CanvasTexture(lc);
+    const lm = new THREE.PointsMaterial({ size: night ? 3.2 : 1.6, map: ltex, vertexColors: true, transparent: true, opacity: night ? 1 : 0.7, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending });
+    const lights = new THREE.Points(lg, lm); lights.frustumCulled = false; world.add(lights);
+  }
 
   /* 壁: 半透明の格子の板。ここまでは自由に飛べる。
      いつも出ていると景色が枠に囲まれて見えるので、近づいた壁だけを濃くする（WALL_FADE より遠いと透明）。
@@ -1764,7 +1813,11 @@ export function mount(container, opt = {}) {
     const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
     const want = d > 3 ? ((Math.atan2(dx, dy) / D) % 360 + 360) % 360 : gp.hEnd;
     let e = wrap180(want - gp.h);
-    if (gp.turnDir && Math.abs(e) > 90) e = gp.turnDir * Math.abs(e);   // 向き直りは決めた側へ回る（隣の機から離れる側）
+    /* 向き直り（駐機を出る最初の区間だけ）は決めた側へ回る（隣の機から離れる側）。
+       2 つ目以降の区間にまで効かせると、角で少し行き過ぎたとき（差 91 度）に逆へ 270 度回ってしまい、
+       輪を描いて隣の車線の機にぶつかった（実測: 0 m） */
+    if (gp.turnDir && gp.idx > 0) gp.turnDir = 0;
+    if (gp.turnDir && Math.abs(e) > 90) e = gp.turnDir * Math.abs(e);
     gp.h = (gp.h + clamp(e, -TAXI_TURN * dt, TAXI_TURN * dt) + 360) % 360;
     /* 向きが大きく違うとき（駐機からの向き直り）はごく遅く回る。回る輪が小さくなり、隣の機（34 m）に寄らない（実測: 5 m/s だと 8 m まで寄った） */
     let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 5 : (last ? Math.min(TAXI_V, d * 0.5) : TAXI_V);
@@ -1787,10 +1840,11 @@ export function mount(container, opt = {}) {
   }
   let gPath = null, gEnd = 'stand';
   function taxiTo(points, endMode, hEnd) { gPath = { pts: points, idx: 0, v: gv, h: st.h, hEnd }; gEnd = endMode; gmode = 'taxi'; }
-  /* 駐機 k → 外の点 → 誘導路 → 南の取り付け → 滑走路の並び（gx, gy）に北向きで */
-  function pathOut(k, gx, gy) { const o = standOut(k); return [[o.x, o.y], [TAXI_X, o.y], [TAXI_X, TAXI_S], [gx, TAXI_S], [gx, gy]]; }
-  /* 滑走路の北端 → 出口を東へ → 誘導路を南へ → 駐機 k の外の点 → 駐機 k（機首は原点へ） */
-  function pathIn(k) { const o = standOut(k), sd = STANDS[k]; return [[RWY.x, TAXI_N], [TAXI_X, TAXI_N], [TAXI_X, o.y], [o.x, o.y], [sd.x, sd.y]]; }
+  /* 地上の道は南北・東西の線だけ（斜めに進まない。曲がり角は 12 m の輪でなめらかに）。
+     駐機 k → 東へ誘導路まで → 南へ取り付けまで → 西へ滑走路まで → 北へ並び（gx, gy） */
+  function pathOut(k, gx, gy) { const sd = STANDS[k]; return [[TAXI_X, sd.y], [TAXI_X, TAXI_S], [gx, TAXI_S], [gx, gy]]; }
+  /* 滑走路の北端 → 出口を東へ → 誘導路を南へ → 西へ駐機 k（着いてから機首を原点へ） */
+  function pathIn(k) { const sd = STANDS[k]; return [[RWY.x, TAXI_N], [TAXI_X, TAXI_N], [TAXI_X, sd.y], [sd.x, sd.y]]; }
   let taxiFrom = null;                     // 着陸後、1 番機が誘導路へ入り始めた点（追従機はここまで道をたどり、そこから自分の道へ）
   function groundStep(dt) {
     const turnRate = 26 * Math.min(1, gv / 12);                       // 止まりかけでは曲がらない
@@ -2470,12 +2524,16 @@ export function mount(container, opt = {}) {
       if (u.gp) {
         u.gp.wait -= dt;
         if (u.gp.wait <= 0) {
-          /* 前方 45 m（進む向きの前、横 20 m 以内）に他の機体がいれば止まって待つ */
+          /* 前方 45 m の自分の車線（横 9 m 以内）に、先に出た機（1 番機か、番号の若い機）がいれば止まって待つ。
+             横 20 m まで見て、あとから出た機も待っていたら、合流で互いに待ち合って動けなくなった（実測） */
           u.gp.hold = false;
           { const hx = Math.sin(u.gp.h * D), hy = Math.cos(u.gp.h * D);
-            const near = (px, py) => { const dx = px - holder.position.x, dy = py - holder.position.y; const a = dx * hx + dy * hy, b = Math.abs(dx * hy - dy * hx); return a > 2 && a < 45 && b < 20; };
+            /* 車線の前方 45 m（横 9 m 以内）か、すぐ近く 26 m 以内（後ろ以外）。角を曲がった先で待っている機に、曲がりながら
+               ぶつかることがあった（実測: 2 m）ので、近くは向きを問わず待つ */
+            const near = (px, py) => { const dx = px - holder.position.x, dy = py - holder.position.y; const a = dx * hx + dy * hy, b = Math.abs(dx * hy - dy * hx);
+              return (a > 2 && a < 45 && b < 9) || (a > -6 && Math.hypot(dx, dy) < 26); };
             if (near(plane.position.x, plane.position.y)) u.gp.hold = true;
-            mates.forEach(o => { if (o !== holder && o.userData.shown && near(o.position.x, o.position.y)) u.gp.hold = true; }); }
+            mates.forEach((o, j) => { if (j < i && o.userData.shown && near(o.position.x, o.position.y)) u.gp.hold = true; }); }
           const done = driveOn(holder.position, u.gp, dt); u.gh = u.gp.h;
           if (done) { u.parked = true; u.gp = null; }
         }

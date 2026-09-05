@@ -290,13 +290,20 @@ export function mount(container, opt = {}) {
   /* 障害物: 山と塔。飛ぶ高さに届くものだけを覚えておき、当たらないように使う。
      家と木は 15 m ほどなので入れない（滑走路の帯にも置かれない） */
   const obst = [];
+  /* 山は空港と、滑走路の延長線（離陸・着陸の通り道）には置かない。
+     空港の箱: x −180〜420、y −720〜720（滑走路 1・2、誘導路、駐機場）。通り道: x −180〜60、y ±4500。
+     以前は正面左の雪山（−260, 320, 半径 260）が滑走路 2 の北半分に掛かり、遠景の環の 1 つ（南、270 度）が
+     着陸の延長線上（x ≒ 0、y ≒ −2500）にあって、進入中の機が「山を越えます」で 200 → 395 m へ持ち上がった（実測） */
+  const hitsRect = (x, y, r, x0, y0, x1, y1) => { const cx = Math.max(x0, Math.min(x1, x)), cy = Math.max(y0, Math.min(y1, y)); return (x - cx) ** 2 + (y - cy) ** 2 < r * r; };
+  const hitsAirport = (x, y, r) => hitsRect(x, y, r, -180, -720, 420, 720) || hitsRect(x, y, r, -180, -4500, 60, 4500);
   const mountain = (x, y, hgt, rad, snow) => {
+    if (hitsAirport(x, y, rad)) return;
     obst.push({ x, y, r: rad, h: hgt, flat: false });
     const m = new THREE.Mesh(new THREE.ConeGeometry(rad, hgt, 8), mtnMat); m.rotation.x = Math.PI / 2; m.position.set(x, y, hgt / 2); props.add(m);
     if (snow) { const s = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.28, hgt * 0.28, 8), snowMat); s.rotation.x = Math.PI / 2; s.position.set(x, y, hgt - hgt * 0.14); props.add(s); }
   };
-  mountain(-260, 320, 420, 260, true);                     // 正面左の雪山（開始位置から約 800 m）
-  mountain(-520, 700, 300, 220, false); mountain(120, 900, 340, 240, true); mountain(560, 520, 260, 200, false);
+  mountain(-700, 420, 420, 260, true);                     // 正面左の雪山（v04.20: −260, 320 から西へ。滑走路 2 に掛かっていた）
+  mountain(-520, 760, 300, 220, false); mountain(420, 1060, 340, 240, true); mountain(760, 560, 260, 200, false);   // v04.20: 北の雪山と東の山も通り道・空港から外へ
   /* 空間の中の山は 8 つ（12 から減らした。多すぎて見え方の目印が埋もれる、との利用者の指摘）。遠景の環も 24 → 16 */
   [[-900, -300], [900, -100], [-700, 1100], [800, 1150], [1100, 800], [-500, -1000], [1150, -1150], [-1250, 100]]
     .forEach(([x, y], i) => mountain(x, y, 180 + (i % 4) * 60, 140 + (i % 3) * 50, i % 4 === 3));
@@ -725,7 +732,10 @@ export function mount(container, opt = {}) {
     mates.forEach((h, i) => {
       const g = gearSets[i + 1], L = lightSets[i + 1]; if (!g) return;
       const u = h.userData;
-      g.visible = gShow || mateOnGround(u);
+      const gv2 = gShow || mateOnGround(u);
+      if (u.gearVis !== undefined && u.gearVis !== gv2 && seat === i + 1) gearSound(gv2);   // その機に乗っているときは、その機の脚の音
+      u.gearVis = gv2;
+      g.visible = gv2;
       /* ライト: 着陸のあいだは自分の進入で点ける（接地点の手前 1.8 km）。それ以外は全体の指示に従う（地上では消す） */
       if (landRun && !u.ground && !u.parked && h.position.z > 6 && (LAND_TD_Y - h.position.y) < 1800 && (LAND_TD_Y - h.position.y) > -50) u.lampOn = true;
       if (L) L.visible = (lightsOn && !landRun && !mateOnGround(u)) || (treeMode && treeLit) || !!(u.tk && !u.tk.done) || !!u.lampOn;
@@ -738,7 +748,7 @@ export function mount(container, opt = {}) {
   let landCfg = false;                     // 着陸体制（タイヤ・ライトを出した）。このあいだはスモークを入れない       // タイヤの出し入れの音を鳴らすための、前の状態と鳴らした回数（確かめ用）
   function applyGear() {
     const gShow = gearOn || treeMode;
-    if (gearPrev !== null && gShow !== gearPrev) gearSound(gShow);   // 出し入れが切り替わったときだけ鳴らす
+    if (gearPrev !== null && gShow !== gearPrev && seat === 0) gearSound(gShow);   // 出し入れが切り替わったときだけ鳴らす（1 番機に乗っているとき）
     gearPrev = gShow;
     if (gearSets[0]) gearSets[0].visible = gShow;
     if (lightSets[0]) lightSets[0].visible = lightsOn || (treeMode && treeLit);   // ローパスのライトは、正面を向いてから点ける
@@ -1917,7 +1927,10 @@ export function mount(container, opt = {}) {
     gp.h = (gp.h + clamp(e, -TAXI_TURN * dt, TAXI_TURN * dt) + 360) % 360;
     /* 向きが大きく違うとき（駐機からの向き直り）はごく遅く回る。回る輪が小さくなり、隣の機（34 m）に寄らない */
     /* 角は 4 m/s（輪の半径 9.5 m）。角の手前 30 m から落とす（12 m/s のまま曲がると半径 29 m になり、滑走路の縁近く 18 m まで膨らんだ。実測） */
-    let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 4 : (last ? Math.min(TAXI_V, dEnd * 0.5) : (len - s0 < 30 ? V_TURN : (gp.fast && gp.idx === 0 ? 20 : TAXI_V)));
+    /* いまの速さから V_TURN まで落とすのに要る距離（減速 6 m/s²）+ 弧に入る点（角の手前 R_TURN）+ 余裕。
+       弧に入る点で落ちきっていないと弧の入りが遅れ、線を越えてから戻る（実測: 20 m/s で 6 m はみ出た） */
+    const brake = (gp.v * gp.v - V_TURN * V_TURN) / (2 * 6) + R_TURN + 4;
+    let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 4 : (last ? Math.min(TAXI_V, dEnd * 0.5) : (len - s0 < Math.max(30, brake) ? V_TURN : (gp.fast && gp.idx === 0 ? 20 : TAXI_V)));
     if (gp.hold) vmax = 0;                                          // 前に機体がいる: 止まって待つ（合流や並びでぶつからない）
     /* 滑走路を横切る線（東西の区間）: 滑走路の縁の手前 CROSS_GAP の停止線で、その滑走路が空くまで待つ。
        もう縁の内側にいるときは待たない（滑走路の上に止まらない） */
@@ -1963,18 +1976,24 @@ export function mount(container, opt = {}) {
   /* 滑走路の北端 → 出口を東へ → 誘導路を南へ → 西へ駐機 k（着いてから機首を原点へ） */
   /* 着陸後: 中ほどの出口（EXIT_Y）を東へ → 誘導路を南へ → 西へ駐機 k（着いてから機首を原点へ）。
      北端まで走ってから出ると滑走路を 34〜47 秒ふさぎ、同じ滑走路の次の機（32 秒後）が前の機の離脱前に接地した（実測） */
-  function pathIn(k, rwx) { const sd = STANDS[k]; return [[RWY.x + (rwx || 0), EXIT_Y], [TAXI_X, EXIT_Y], [TAXI_X, sd.y], [sd.x, sd.y]]; }
+  /* fromY: 止まった位置の y。中ほどの出口（EXIT_Y）を過ぎて止まったら（長く降りたとき）、戻らずに北の出口（TAXI_N）から出る。
+     以前は 387 m で止まったあと出口 240 m へ向き直そうとして、輪を描いてから南へ戻った（実測） */
+  function pathIn(k, rwx, fromY) { const sd = STANDS[k], ey = (fromY !== undefined && fromY > EXIT_Y - 25) ? TAXI_N : EXIT_Y;
+    return [[RWY.x + (rwx || 0), ey], [TAXI_X, ey], [TAXI_X, sd.y], [sd.x, sd.y]]; }
   let taxiFrom = null;                     // 着陸後、1 番機が誘導路へ入り始めた点（追従機はここまで道をたどり、そこから自分の道へ）
   function groundStep(dt) {
+    let drove = false;                                                 // driveOn で位置を進めたか（二重に進めない）
     const turnRate = 26 * Math.min(1, gv / 12);                       // 止まりかけでは曲がらない
     if (gmode === 'land') {
       gv = Math.max(0, gv - 8 * dt);                                  // 減速
       st.h = (st.h + input.r * turnRate * dt + 360) % 360;
-      if (gv <= 0.5) { gv = 0; taxiFrom = { x: st.x, y: st.y }; taxiTo(pathIn(0), 'apron', STANDS[0].h); gPath.fast = true; lightsOn = false; applyGear(); }   // 止まったら誘導路を通って駐機へ（滑走路の上は 20 m/s で出る）
+      if (gv <= 0.5) { gv = 0; taxiFrom = { x: st.x, y: st.y }; taxiTo(pathIn(0, 0, st.y), 'apron', STANDS[0].h); gPath.fast = true; lightsOn = false; applyGear(); }   // 止まったら誘導路を通って駐機へ（滑走路の上は 20 m/s で出る）
     } else if (gmode === 'taxi') {
       if (!gPath) { gv = 0; gmode = gEnd; }
       else {
-        const done = driveOn(st, gPath, dt); gv = gPath.v; st.h = gPath.h;
+        /* driveOn が位置を進める。下の共通の積分は行わない（以前は二重に進めていて、誘導路の 1 番機だけ 2 倍の速さ
+           （20 m/s の指示で 40 m/s）になり、角の手前で落としきれず 61 m ふくらんだ。実測。追従機は driveOn だけなので正しかった） */
+        const done = driveOn(st, gPath, dt); gv = gPath.v; st.h = gPath.h; drove = true;
         if (done) { gmode = gEnd; gPath = null; st.cue = ''; }
       }
     } else if (gmode === 'takeoff') {
@@ -1991,7 +2010,7 @@ export function mount(container, opt = {}) {
     att.setFromAxisAngle(AZ, -st.h * D);
     if (rotP > 0.01) att.multiply(dq.setFromAxisAngle(AX, rotP * D));
     readAttitude();
-    st.x += Math.sin(st.h * D) * gv * dt; st.y += Math.cos(st.h * D) * gv * dt;
+    if (!drove) { st.x += Math.sin(st.h * D) * gv * dt; st.y += Math.cos(st.h * D) * gv * dt; }
     st.z = 3;
     const W = LIMIT - 30; st.x = clamp(st.x, -W, W); st.y = clamp(st.y, -W, W);
     st.cue = gmode === 'land' ? '着陸しました' : gmode === 'taxi' ? (gEnd === 'apron' ? '駐機場へ戻ります' : '滑走路へ進みます')
@@ -2710,7 +2729,7 @@ export function mount(container, opt = {}) {
         placeReplay(holder, u, i, dt, false, null);
         if (taxiFrom && Math.abs(holder.position.y - taxiFrom.y) < 20 && Math.abs(holder.position.x - taxiFrom.x - (u.rwx || 0)) < 20) {
           u.pfDone = true; u.parked = false; u.ground = true; u.lampOn = false;   // 誘導路へ入る: ライトを消す
-          u.gp = { pts: pathIn(i + 1, u.rwx || 0), idx: 0, v: TAXI_V, h: u.gh !== undefined ? u.gh : RWY.h, hEnd: STANDS[i + 1].h, wait: 0, fast: true };
+          u.gp = { pts: pathIn(i + 1, u.rwx || 0, holder.position.y), idx: 0, v: TAXI_V, h: u.gh !== undefined ? u.gh : RWY.h, hEnd: STANDS[i + 1].h, wait: 0, fast: true };
         }
         return;
       }
@@ -3032,7 +3051,8 @@ export function mount(container, opt = {}) {
      雑音を帯域で削って「シャーッ」という風切り音を作り、機体ごとに
      距離で大きさを、近づく・遠ざかるで高さを変える（ドップラー）。
      ブラウザは操作なしに音を出せないので、入り切りのボタンが押されたときに作る */
-  const AUD_FAR = 1500;                    // ここより遠いと聞こえない（m）
+  const AUD_FAR = 3000;                    // ここより遠いと聞こえない（m）。v04.20: 1500 → 3000（進入中の追従機が聞こえるように）
+  const AUD_HALF = 260;                    // この距離で半分の大きさ（m）。1/(1 + d/AUD_HALF) で減らす
   const AUD_SPD = 340;                     // 音の速さ（m/s）
   let actx = null, aMaster = null, aNodes = null, soundOn = true;
   /* タイヤの出し入れの機械音（一人称のときだけ。外から見ている人には届かない音）。
@@ -3112,35 +3132,46 @@ export function mount(container, opt = {}) {
     }
     return buf;
   }
+  /* 機ごとの飛行音の一組（雑音 → 帯域 → 低域 → 立体音 → 大きさ）。
+     立体音は向きだけに使い、距離による減りは updateAudio の側で決める（rolloffFactor 0）。
+     以前は立体音の側でも inverse（60 m 基準）で減らしていて、1 km 先の機は 0.07 倍 × こちらの減りでほぼ無音だった */
+  let aNoiseBuf = null;
+  function addANode() {
+    if (!aNoiseBuf) aNoiseBuf = makeNoise(actx);
+    const src = actx.createBufferSource(); src.buffer = aNoiseBuf; src.loop = true;
+    const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
+    const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
+    /* 立体音。耳の形を模した聞こえ方（HRTF）で置くので、イヤホンだと前後左右が分かる。
+       使えない端末では、これまでどおり左右だけの振り分けにする */
+    let pan = null, pan3 = null;
+    if (actx.createPanner) {
+      pan3 = actx.createPanner();
+      pan3.panningModel = 'HRTF'; pan3.distanceModel = 'linear';
+      pan3.refDistance = 1; pan3.maxDistance = AUD_FAR * 10; pan3.rolloffFactor = 0;
+    } else if (actx.createStereoPanner) pan = actx.createStereoPanner();
+    const g = actx.createGain(); g.gain.value = 0;
+    src.connect(bp); bp.connect(lp);
+    if (pan3) { lp.connect(pan3); pan3.connect(g); }
+    else if (pan) { lp.connect(pan); pan.connect(g); }
+    else lp.connect(g);
+    g.connect(aMaster);
+    src.start(0);
+    aNodes.push({ src, bp, lp, pan, pan3, g });
+    aPrev[aNodes.length - 1] = null;
+  }
+  /* 機の数だけ音の組をそろえる。音の仕組みは最初に画面へ触れたときに作るが、そのとき 2〜6 番機のモデルがまだ
+     読めていないことがある（以前はその場合 1 番機の音しか作られず、ほかの機はずっと無音だった） */
+  function ensureANodes() {
+    if (!actx || !aNodes) return;
+    while (aNodes.length < mates.length + 1) addANode();
+  }
   function initAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (actx || !AC) return;
     actx = new AC();
     aMaster = actx.createGain(); aMaster.gain.value = airVol; aMaster.connect(actx.destination);
-    const buf = makeNoise(actx);
     aNodes = [];
-    for (let k = 0; k < mates.length + 1; k++) {
-      const src = actx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
-      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
-      /* 立体音。耳の形を模した聞こえ方（HRTF）で置くので、イヤホンだと前後左右が分かる。
-         使えない端末では、これまでどおり左右だけの振り分けにする */
-      let pan = null, pan3 = null;
-      if (actx.createPanner) {
-        pan3 = actx.createPanner();
-        pan3.panningModel = 'HRTF'; pan3.distanceModel = 'inverse';
-        pan3.refDistance = 60; pan3.maxDistance = AUD_FAR; pan3.rolloffFactor = 0.9;
-      } else if (actx.createStereoPanner) pan = actx.createStereoPanner();
-      const g = actx.createGain(); g.gain.value = 0;
-      src.connect(bp); bp.connect(lp);
-      if (pan3) { lp.connect(pan3); pan3.connect(g); }
-      else if (pan) { lp.connect(pan); pan.connect(g); }
-      else lp.connect(g);
-      g.connect(aMaster);
-      src.start(0);
-      aNodes.push({ src, bp, lp, pan, pan3, g });
-      aPrev[k] = null;
-    }
+    ensureANodes();
   }
   /* 止めているあいだは音を出さない（機体の音も曲も）。動かしたら元に戻す */
   /* 別のアプリへ移って戻ると、音の仕組みは止まったまま（suspended）か、iPhone では「割り込まれた」
@@ -3157,6 +3188,7 @@ export function mount(container, opt = {}) {
   const aFwd = new THREE.Vector3(), aUp = new THREE.Vector3();
   function updateAudio(dt) {
     if (!soundOn || !actx || !aNodes || !dt) return;
+    ensureANodes();
     aRight.set(1, 0, 0).applyQuaternion(cam.quaternion);       // 耳の右向き
     /* 聞く人の位置と向きを、いまの視点に合わせる（立体音のため） */
     const li = actx.listener;
@@ -3183,7 +3215,8 @@ export function mount(container, opt = {}) {
       aPos.copy(obj.position);
       const d = aPos.distanceTo(cam.position);
       /* 大きさ: 近いほど大きい。爆音にならないよう上限を低くする */
-      const near = Math.max(0, 1 - d / AUD_FAR);
+      /* 機ごとに、その機までの距離で決める。1 番機が止まっても、飛んでいる機の音は残る */
+      const near = d >= AUD_FAR ? 0 : 1 / (1 + d / AUD_HALF) * Math.min(1, (AUD_FAR - d) / 500);
       /* 止まっている機体は音を出さない（滑走路で待っているあいだは静か）。
          1 番機は地上の速さ、僚機は 1 コマの動きから速さを見る */
       let spd = SPEED;
@@ -3191,7 +3224,7 @@ export function mount(container, opt = {}) {
       else if (aLast[k]) spd = aLast[k].distanceTo(obj.position) / dt;
       if (!aLast[k]) aLast[k] = obj.position.clone(); else aLast[k].copy(obj.position);
       const run = clamp(spd / 12, 0, 1);                       // 12 m/s より遅いと、だんだん静かに
-      const want = Math.min(0.32, near * near * 0.42) * run;
+      const want = Math.min(0.32, near * 0.42) * run;
       n.g.gain.value += (want - n.g.gain.value) * Math.min(1, dt * 6);
       /* ドップラー: 近づいているあいだは高く、遠ざかると低い */
       const prev = aPrev[k]; aPrev[k] = d;
@@ -3575,7 +3608,7 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { gear: gearOn, lights: lightsOn, landCfg, xwait: gPath ? !!gPath.xwait : false, lineup: st.lineup, gIdx: gPath ? gPath.idx : -1, pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, parked: !!h.userData.parked, on: !!h.userData.shown, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      return { gear: gearOn, lights: lightsOn, landCfg, aud: aNodes ? aNodes.map(n => +n.g.gain.value.toFixed(3)) : null, seat, xwait: gPath ? !!gPath.xwait : false, lineup: st.lineup, gIdx: gPath ? gPath.idx : -1, pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, parked: !!h.userData.parked, on: !!h.userData.shown, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                gearM: mates.map((h, i) => gearSets[i + 1] ? +gearSets[i + 1].visible : -1),
@@ -3642,6 +3675,7 @@ export function mount(container, opt = {}) {
     /* 展示飛行モードの長さ（秒）と並び。並びは課目 id の配列、null ならおまかせ */
     setShowLen(sec) { showLen = Math.max(120, +sec || SHOW_LEN_DEFAULT); return showLen; },
     setProgram(ids) { customProg = Array.isArray(ids) && ids.length ? ids.slice() : null; },
+    terrain(x, y) { return terrainAt(x, y); },
     smokeGap(reset) { const r = gapMax.slice(); if (reset) gapMax.length = 0; return r; },
     smokeCount() { let n = 0; for (let i = 0; i < sBirth.length; i++) if (clock - sBirth[i] < sLife[i]) n++; return n; },   // 生きている煙の粒の数（確かめ用）
     programList() { return PROGRAM.map(m => ({ id: m.id, ja: m.ja, role: ROLE[m.id] || '' })).filter(m => m.role); },

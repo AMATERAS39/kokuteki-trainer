@@ -20,6 +20,7 @@ const RWY2 = -100;
 const RWY_X = [0, RWY2];
 const GRID = [[0, 0], [RWY2, 0], [0, -46], [RWY2, -46], [0, -92], [RWY2, -92]];
 const TK_GAP = 7;                                // 2 機ずつの離陸の間隔（秒）
+const DIA_GAP = 0.7;                             // ダイヤモンド・テイクオフの、機体ごとのわずかな時間差（秒）
 const TK_ANG = 9;                                // 浮いたあとの上昇角（度）
 const TK_UP = 70;                                // この高さまで上がったら編隊へ寄せる（m）
 
@@ -418,6 +419,9 @@ export function mount(container, opt = {}) {
   const SMOKE_N = SMOKE_MAX * 6;
   const smokeGeo = new THREE.BufferGeometry();
   const sPos = new Float32Array(SMOKE_N * 3), sCol = new Float32Array(SMOKE_N * 3), sBirth = new Float32Array(SMOKE_N), sSize = new Float32Array(SMOKE_N).fill(1);
+  /* 粒ごとの流れる速さ（m/s）。ふつうの煙は 0 でその場に残る。
+     地上での点検のときだけ、後ろへ流れて消えるように速さを持たせる */
+  const sVel = new Float32Array(SMOKE_N * 3);
   /* 消えるまでの時間は粒ごとに持つ。図を描く課目（キューピッド・スタークロス・レターエイト）は、
      描き終わるまで最初の線が消えないように、その課目のあいだだけ長い寿命で出す */
   const sLife = new Float32Array(SMOKE_N).fill(SMOKE_LIFE);
@@ -428,6 +432,7 @@ export function mount(container, opt = {}) {
   smokeGeo.setAttribute('birth', new THREE.BufferAttribute(sBirth, 1));
   smokeGeo.setAttribute('asize', new THREE.BufferAttribute(sSize, 1));
   smokeGeo.setAttribute('alife', new THREE.BufferAttribute(sLife, 1));
+  smokeGeo.setAttribute('avel', new THREE.BufferAttribute(sVel, 3));
   const smokeMat = new THREE.ShaderMaterial({
     /* 遠くの煙は、そのままだと画面では細く薄くなって見えない（地上から見るキューピッドなど）。
        200 m より遠いところでは、離れるほど 太さと濃さを増す（uFarS / uFarA）。
@@ -437,10 +442,12 @@ export function mount(container, opt = {}) {
     uniforms: { uTime: { value: 0 }, uLife: { value: SMOKE_LIFE }, uMinPx: { value: 10 }, uMaxPx: { value: 90 },
                 uFarS: { value: 0.8 }, uFarA: { value: 1.2 } },
     transparent: true, depthWrite: false,
-    vertexShader: `attribute vec3 acolor; attribute float birth; attribute float asize; attribute float alife; uniform float uTime, uLife, uMinPx, uMaxPx, uFarS, uFarA;
+    vertexShader: `attribute vec3 acolor; attribute vec3 avel; attribute float birth; attribute float asize; attribute float alife; uniform float uTime, uLife, uMinPx, uMaxPx, uFarS, uFarA;
       varying vec3 vC; varying float vA;
       void main(){ float age = (uTime - birth) / max(1.0, alife); vA = clamp(1.0 - age, 0.0, 1.0); vA *= sqrt(vA);
-        vC = acolor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vC = acolor;
+        /* 流れる速さを持つ粒は、時間ぶんだけ動かす（地上の点検の煙が後ろへ流れる） */
+        vec4 mv = modelViewMatrix * vec4(position + avel * max(0.0, uTime - birth), 1.0);
         float far = clamp((-mv.z - 200.0) / 800.0, 0.0, 1.0);      // 200 m から 1 km で 0 → 1
         vA = clamp(vA * (1.0 + uFarA * far), 0.0, 1.0);
         /* 太さ: 出た直後から少しずつ広がる。遠いほど画面では細くなるので、下限を決めて
@@ -457,7 +464,8 @@ export function mount(container, opt = {}) {
   let sHead = 0, smokeT = 0, clock = 0;
   const smokeCol = new THREE.Color(), emitPos = new THREE.Vector3();
   let smokeBoost = false;                          // 濃い煙（ローパス）。3 粒を少し散らして、大きめに出す
-  function emit(pos, colorHex) {
+  /* vel を渡すと、その粒は出たあと流れて消える（地上での点検）。life で消えるまでの時間を変える */
+  function emit(pos, colorHex, vel, life) {
     smokeCol.set(smokeBoost ? '#ffffff' : colorHex);   // ローパスの煙は白
     const n = smokeBoost ? 3 : 1;
     for (let k = 0; k < n; k++) {
@@ -465,10 +473,19 @@ export function mount(container, opt = {}) {
       const j = smokeBoost ? 2.5 : 0;
       sPos[i * 3] = pos.x + (Math.random() - 0.5) * j; sPos[i * 3 + 1] = pos.y + (Math.random() - 0.5) * j; sPos[i * 3 + 2] = pos.z + (Math.random() - 0.5) * j;
       sCol[i * 3] = smokeCol.r; sCol[i * 3 + 1] = smokeCol.g; sCol[i * 3 + 2] = smokeCol.b;
-      sBirth[i] = clock; sSize[i] = smokeBoost ? 2.4 : 1; sLife[i] = lifeNow;
+      sVel[i * 3] = vel ? vel.x : 0; sVel[i * 3 + 1] = vel ? vel.y : 0; sVel[i * 3 + 2] = vel ? vel.z : 0;
+      sBirth[i] = clock; sSize[i] = smokeBoost ? 2.4 : 1; sLife[i] = life || lifeNow;
     }
   }
   function clearSmoke() { sBirth.fill(-1e6); smokeGeo.attributes.birth.needsUpdate = true; }
+  /* 地上での点検: 機体の後ろへ吹き出して流れる煙。止まっていても、その場にとどまらない */
+  const chkV = new THREE.Vector3(), chkP = new THREE.Vector3();
+  function checkSmoke(pos, q, colorHex, dt) {
+    if (Math.random() > Math.min(1, dt * 30)) return;      // 1 秒に 30 粒ほど
+    chkV.set((Math.random() - 0.5) * 3, -(16 + Math.random() * 8), 1.5 + Math.random() * 2).applyQuaternion(q);
+    chkP.set(0, -6.9, -0.3).applyQuaternion(q).add(pos);
+    emit(chkP, colorHex, chkV, 2.4);
+  }
   /* 誰が煙を出すか。表の隊形ではなく、**そのときの位置**で決める。
      自分の真後ろ（左右がそろい、高さもそろい、進む向きの後ろ）に他機がいる機体は出さない
      （後ろの機体が煙の中を飛ぶため）。合流してくる機体が真後ろに着く、その瞬間まではオンのまま。
@@ -926,6 +943,8 @@ export function mount(container, opt = {}) {
   }
   const bearO = () => ((Math.atan2(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y) / D) % 360 + 360) % 360;   // 原点から見た方位
   const CHG_R = 850;                       // チェンジオーバー・ターンの弧の半径（m）
+  const DTAKE_R = 520;                     // ダイヤモンド・テイクオフのあと、原点のまわりを回る輪の半径（m）
+  let dtT = -1;                            // その一周の経過（秒）。-1 はまだ上がっている途中
   let tkWp = 0, tkT = 0, tkT2 = 0;         // タック・クロスの通過点の番号、背面へ回す経過、外側へ戻す経過（秒）
   let oproX = false, oproUp = false, oproZ = -1;   // オポジット: 交差したか、機首を上げ終えたか、進入の高さ
   let rollBoost = 1;                       // 横転の速さの倍率（オポジットの連続ロールで上げる）
@@ -1109,7 +1128,7 @@ export function mount(container, opt = {}) {
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
     e8 = null; touchDone = false; touchT = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
-    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; oproX = false; oproUp = false; oproZ = -1; noTurn = false; smokeNone = false; rollBoost = 1;
+    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; oproX = false; oproUp = false; oproZ = -1; noTurn = false; smokeNone = false; rollBoost = 1;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1226,6 +1245,8 @@ export function mount(container, opt = {}) {
         return autoIn;                        // 地面回避（safety）は呼ばない。呼ぶと降りられない
       }
       if (manPhase === 'gather') {         // 隊形が組めるまで待つ。観覧位置のまわりを回って待つので、遠くへ流れない
+        /* 離陸の最中は、回らずまっすぐ上がる（回ると離陸そのものが不自然に見える） */
+        if (tkOn) { holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12)); autoIn.r = 0; safety(); return autoIn; }
         orbitEye(GATE.z);
         /* 組めたら始める。正面から向かってくる課目だけ、門からの進入をやり直す。
            それ以外は、正面のまわりを回っているところから そのまま始める（回り込みで時間を使わない） */
@@ -1495,9 +1516,18 @@ export function mount(container, opt = {}) {
         if (past4 < -320 || manT > 34) nextManeuver();
         break;
       }
-      case 'dtake':                              // ダイヤモンド・テイクオフ: ひし形のまま一斉に上がる
-        holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12));
-        if ((!tkOn && st.z > 180) || manT > 40) nextManeuver();
+      case 'dtake':                              // ダイヤモンド・テイクオフ: ひし形のまま、わずかな時間差で上がる
+        if (tkOn || st.z < 150) {                  // 全機が上がるまでは、まっすぐ上昇
+          holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12));
+          if (manT > 60) nextManeuver();
+          break;
+        }
+        /* 全機が上がった。ここから追従機も一斉にスモークを出し、原点のまわりを一周する */
+        if (dtT < 0) { dtT = 0; hdgSum = 0; prevH = st.h; }
+        dtT += dt;
+        smokeAll = true;
+        orbitAround(GROUND_EYE.x, GROUND_EYE.y, DTAKE_R, GATE.z, turnSign >= 0 ? 1 : -1);
+        if (hdgSum > 355 || manT > 120) nextManeuver();
         break;
       case 'touch': {                            // タッチ・アンド・ゴー: 滑走路に平行になったところから降ろし、順にタイヤをつけて上がる
         formScale = 6;                                             // 縦隊の間隔を広くとる（96 m おき）
@@ -2170,8 +2200,10 @@ export function mount(container, opt = {}) {
       const g = GRID[i + 1], o = offs[i];
       const spot = dia ? (o ? [RWY.x + o[0], RWY.y + o[1]] : null) : [RWY.x + g[0], RWY.y + g[1]];
       if (!spot) { h.userData.tk = null; return; }            // ひし形は 4 機なので、残りは出さない
+      /* ダイヤモンドは、先頭 → 中列 2 機 → 最後尾 の順に、わずかな時間差で滑走を始める。
+         2 本の滑走路から上がるときは、2 機ずつ TK_GAP 秒あけて */
       h.userData.tk = { t: 0, v: 0, x: spot[0], y: spot[1], z: 3, air: false, done: false,
-                        wait: dia ? 0 : Math.floor((i + 1) / 2) * TK_GAP };
+                        wait: dia ? (i < 2 ? DIA_GAP : DIA_GAP * 2) : Math.floor((i + 1) / 2) * TK_GAP };
     });
     gearOn = true; lightsOn = true; applyGear();   // 離陸中はタイヤとライトを出す
   }
@@ -2251,8 +2283,18 @@ export function mount(container, opt = {}) {
       const on0 = smokers(), cols0 = SMOKE_COLORS[smokeColor].c;
       const emit0 = smokeOn && smokeT >= SMOKE_DT;
       if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
+      /* 離陸を待っているあいだは、後ろへ吹き出して流れる煙で点検する（その場にとどまらない）。
+         滑走を始めたら止める（そこからは飛んでいる煙にする） */
+      if (smokeOn && gmode === 'stand' && auto) {
+        checkSmoke(plane.position, att, cols0[0], dt);
+        const nChk = FORMATIONS[formation].n;
+        mates.forEach((h, i) => { if (i + 1 < nChk && h.userData.shown) checkSmoke(h.position, h.quaternion, cols0[(i + 1) % cols0.length], dt); });
+        smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true;
+        smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true;
+        smokeGeo.attributes.alife.needsUpdate = true; smokeGeo.attributes.avel.needsUpdate = true;
+      }
       groundMates(dt, emit0, cols0, on0);
-      if (emit0) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
+      if (emit0) { smokeGeo.attributes.avel.needsUpdate = true; smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
       smokeMat.uniforms.uTime.value = clock;
       return;
     }
@@ -2261,6 +2303,7 @@ export function mount(container, opt = {}) {
     /* 演目の合間（進入・高度取り・水平に戻す）は煙を切る。旋回は演目の一部なので出す */
     const between = auto && manPhase !== 'do';
     const emitting = smokeOn && smokeT >= SMOKE_DT && !between;
+    if (emitting) smokeGeo.attributes.avel.needsUpdate = true;   // 飛んでいる煙は速さ 0（点検の粒を使い回しても流れない）
     if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
     if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {

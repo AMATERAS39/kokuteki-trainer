@@ -29,6 +29,7 @@ const STAND_R = 110;
 const STANDS = [45, 63, 81, 99, 117, 135].map(b => ({ b, x: GROUND_EYE.x + Math.sin(b * D) * STAND_R, y: GROUND_EYE.y + Math.cos(b * D) * STAND_R, h: (b + 180) % 360 }));
 const standOut = k => ({ x: STANDS[k].x + Math.sin(STANDS[k].b * D) * 50, y: STANDS[k].y + Math.cos(STANDS[k].b * D) * 50 });   // 駐機の外の点（原点と反対側）
 const TAXI_X = 270, TAXI_N = 590, TAXI_S = -600, TAXI_END = -640;
+const EXIT_Y = 240;                              // 着陸後の出口（減速して止まる y = +70〜+170 のすぐ先）。ここから誘導路へ出て、滑走路を早く空ける
 const LAND_FAR = 3600;                           // 着陸の最終進入を始める距離（滑走路の南、延長線上）
 const TAXI_V = 12, TAXI_TURN = 24;               // 地上の速さ（m/s）と曲がる速さ（度/秒）
 const TK_GAP = 7;                                // 2 機ずつの離陸の間隔（秒）
@@ -98,7 +99,7 @@ const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
 const REAR_END = LIMIT + GROUND_EYE.y;           // 原点から、もとの壁のあった位置まで（m）
 /* 曲の折り返しと頭（秒）。演目の長さを「曲 2 周ぶん」に合わせるのに使う */
 const MUS_LOOP_END_S = 238, MUS_LEAD_S = 13, LAND_TIME = 130;
-const STRIP_END = 550;                           // 滑走路の帯の端（y = ±550）
+const STRIP_END = 650;                           // 滑走路の帯の端（y = ±650）。南の取り付け（-600）と北の出口（590）が側面に付く
 const LAND_TD_Y = -STRIP_END + 450;              // 接地する点（y = -100）。帯の入口から 450 m 入ったところ、止まるまで 650 m ある
 const LAND_SLOPE = 0.052;                        // 進入の勾配（約 3 度）
 /* JUMP_FAR: ここまで離れたら位置を移してよい。1000 m にすると、離陸して上がりきった直後（原点から 1 km ほど）に
@@ -200,10 +201,11 @@ export function mount(container, opt = {}) {
   const lineMat = new THREE.MeshBasicMaterial({ color: 0xf2f2f2 });
   const m4 = new THREE.Matrix4();
   RWY_X.forEach(rx => {
-    const strip = new THREE.Mesh(new THREE.PlaneGeometry(48, 1100), rwMat); strip.position.set(rx, 0, 0.3); runway.add(strip);
-    const dash = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.6, 24), lineMat, 22);
-    for (let i = 0; i < 22; i++) { m4.makeTranslation(rx, -525 + i * 50, 0.6); dash.setMatrixAt(i, m4); } runway.add(dash);
-    [-560, 560].forEach(y => { const th = new THREE.Mesh(new THREE.PlaneGeometry(48, 14), lineMat); th.position.set(rx, y, 0.6); runway.add(th); });
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(48, STRIP_END * 2), rwMat); strip.position.set(rx, 0, 0.3); runway.add(strip);
+    const nd = Math.floor(STRIP_END * 2 / 50);
+    const dash = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.6, 24), lineMat, nd);
+    for (let i = 0; i < nd; i++) { m4.makeTranslation(rx, -STRIP_END + 25 + i * 50, 0.6); dash.setMatrixAt(i, m4); } runway.add(dash);
+    [-STRIP_END - 10, STRIP_END + 10].forEach(y => { const th = new THREE.Mesh(new THREE.PlaneGeometry(48, 14), lineMat); th.position.set(rx, y, 0.6); runway.add(th); });
   });
   /* 誘導路と駐機場（滑走路より少し暗い。中心線は黄色）。駐機場は原点を含む */
   const twMat = new THREE.MeshLambertMaterial({ color: night ? 0x30353b : 0x4b525b });
@@ -212,7 +214,8 @@ export function mount(container, opt = {}) {
   const cl = (w, h, x, y) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), twLine); p.position.set(x, y, 0.5); runway.add(p); };
   pad(24, TAXI_N - TAXI_END + 24, TAXI_X, (TAXI_N + TAXI_END) / 2); cl(0.8, TAXI_N - TAXI_END, TAXI_X, (TAXI_N + TAXI_END) / 2);
   pad(TAXI_X - RWY2 + 24, 24, (TAXI_X + RWY2) / 2, TAXI_S); cl(TAXI_X - RWY2, 0.8, (TAXI_X + RWY2) / 2, TAXI_S);
-  pad(TAXI_X + 24, 24, TAXI_X / 2, TAXI_N); cl(TAXI_X, 0.8, TAXI_X / 2, TAXI_N);
+  pad(TAXI_X - RWY2 + 24, 24, (TAXI_X + RWY2) / 2, TAXI_N); cl(TAXI_X - RWY2, 0.8, (TAXI_X + RWY2) / 2, TAXI_N);   // 北の出口も滑走路 2 まで
+  pad(TAXI_X - RWY2 + 24, 24, (TAXI_X + RWY2) / 2, EXIT_Y); cl(TAXI_X - RWY2, 0.8, (TAXI_X + RWY2) / 2, EXIT_Y);   // 中ほどの出口（着陸後はここから）
   pad(240, 300, GROUND_EYE.x + 110, GROUND_EYE.y);                                   // 駐機場（原点の東側、弧を含む）
   STANDS.forEach(sd => { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 26), twLine); m.position.set(sd.x, sd.y, 0.5); m.rotation.z = -sd.h * D; runway.add(m); });
   /* 滑走路の標識（空港のもの）: 縁の線、しきい線（ピアノキー）、番号（36R / 36L と 18L / 18R）、接地帯の帯、目標点の太い帯 */
@@ -223,9 +226,9 @@ export function mount(container, opt = {}) {
   const rwNum = (txt, x, y, flip) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: rwNumTex(txt), transparent: true }));
     p.position.set(x, y, 0.62); if (flip) p.rotation.z = Math.PI; runway.add(p); };
   RWY_X.forEach((rx, ri) => {
-    wm(0.9, 1100, rx - 23.5, 0); wm(0.9, 1100, rx + 23.5, 0);                          // 縁の線
+    wm(0.9, STRIP_END * 2, rx - 23.5, 0); wm(0.9, STRIP_END * 2, rx + 23.5, 0);      // 縁の線
     [-1, 1].forEach(sg => {                                                            // 両端
-      const y0 = sg * 545;                                                             // しきい線: 4 本ずつ 2 組
+      const y0 = sg * (STRIP_END - 5);                                                 // しきい線: 4 本ずつ 2 組
       [-19, -14, -9, -4, 4, 9, 14, 19].forEach(dx => wm(1.8, 30, rx + dx, y0 - sg * 15));
       rwNum(sg < 0 ? (ri === 0 ? '36R' : '36L') : (ri === 0 ? '18L' : '18R'), rx, y0 - sg * 50, sg > 0);   // 番号（北向き 360 度 → 36。東が R）
       [150, 450].forEach(dd => { [-1, 1].forEach(sd => { wm(1.8, 22, rx + sd * 12, y0 - sg * dd); wm(1.8, 22, rx + sd * 16, y0 - sg * dd); }); });   // 接地帯
@@ -235,7 +238,7 @@ export function mount(container, opt = {}) {
   /* 誘導路の縁の線（黄の 2 本）と、滑走路の手前の停止線 */
   const ym = (w, h, x, y) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), twLine); p.position.set(x, y, 0.55); runway.add(p); };
   [-11, 11].forEach(dx => ym(0.5, TAXI_N - TAXI_END, TAXI_X + dx, (TAXI_N + TAXI_END) / 2));
-  [-11, 11].forEach(dy => { ym(TAXI_X - RWY2 - 60, 0.5, (TAXI_X + RWY2) / 2 + 30, TAXI_S + dy); ym(TAXI_X - 60, 0.5, TAXI_X / 2 + 30, TAXI_N + dy); });
+  [-11, 11].forEach(dy => { ym(TAXI_X - RWY2 - 60, 0.5, (TAXI_X + RWY2) / 2 + 30, TAXI_S + dy); ym(TAXI_X - RWY2 - 60, 0.5, (TAXI_X + RWY2) / 2 + 30, TAXI_N + dy); ym(TAXI_X - RWY2 - 60, 0.5, (TAXI_X + RWY2) / 2 + 30, EXIT_Y + dy); });
   RWY_X.forEach(rx => { [TAXI_S, TAXI_N].forEach(yy => { ym(1.2, 24, rx + 34, yy); ym(1.2, 24, rx + 36.5, yy); }); });   // 停止線（滑走路の縁から 10 m 東）
   /* 灯火: 滑走路の縁（白）、しきい（緑）と末端（赤）、進入灯（南、白の列と横棒）、誘導路の縁（青）と中心線（緑）。
      夜は明るく、昼は控えめに。点（Points）で描く */
@@ -244,15 +247,14 @@ export function mount(container, opt = {}) {
     const L = (x, y, c, z = 0.6) => { pos.push(x, y, z); col.push(c[0], c[1], c[2]); };
     const W = [1, 0.95, 0.85], G = [0.2, 1, 0.4], R = [1, 0.25, 0.2], B = [0.35, 0.55, 1], Y = [1, 0.85, 0.3];
     RWY_X.forEach(rx => {
-      for (let y = -550; y <= 550; y += 60) { L(rx - 27, y, W); L(rx + 27, y, W); }         // 縁
-      for (let x = -22; x <= 22; x += 4) { L(rx + x, -562, G); L(rx + x, 562, R); }          // しきい（南）と末端（北）
-      for (let y = -600; y >= -900; y -= 30) { L(rx, y, W); if (y % 150 === 0) for (let x = -15; x <= 15; x += 5) if (x) L(rx + x, y, W); }   // 進入灯（中心の列と横棒）
-      for (let y = -930; y >= -1200; y -= 30) L(rx, y, W);                                   // 進入灯の延長
+      for (let y = -STRIP_END; y <= STRIP_END; y += 60) { L(rx - 27, y, W); L(rx + 27, y, W); }   // 縁
+      for (let x = -22; x <= 22; x += 4) { L(rx + x, -STRIP_END - 12, G); L(rx + x, STRIP_END + 12, R); }   // しきい（南）と末端（北）
+      for (let y = -STRIP_END - 30; y >= -STRIP_END - 600; y -= 30) { L(rx, y, W); if ((y + STRIP_END) % 150 === 0) for (let x = -15; x <= 15; x += 5) if (x) L(rx + x, y, W); }   // 進入灯（中心の列と横棒）
     });
     for (let y = TAXI_END; y <= TAXI_N; y += 30) { L(TAXI_X - 14, y, B); L(TAXI_X + 14, y, B); }
     for (let y = TAXI_END; y <= TAXI_N; y += 15) L(TAXI_X, y, G);
     for (let x = RWY2 + 30; x < TAXI_X; x += 30) { L(x, TAXI_S - 14, B); L(x, TAXI_S + 14, B); L(x, TAXI_S, G); }
-    for (let x = 30; x < TAXI_X; x += 30) { L(x, TAXI_N - 14, B); L(x, TAXI_N + 14, B); L(x, TAXI_N, G); }
+    for (let x = RWY2 + 30; x < TAXI_X; x += 30) { L(x, TAXI_N - 14, B); L(x, TAXI_N + 14, B); L(x, TAXI_N, G); L(x, EXIT_Y - 14, B); L(x, EXIT_Y + 14, B); L(x, EXIT_Y, G); }
     STANDS.forEach(sd => L(sd.x, sd.y + 14, Y));                                           // 駐機の目印
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -303,7 +305,7 @@ export function mount(container, opt = {}) {
   }
 
   /* 民家・木・塔（インスタンス描画）。滑走路の帯は空ける */
-  const free = (x, y) => !(Math.abs(y) < 640 && RWY_X.some(rx => Math.abs(x - rx) < 90))
+  const free = (x, y) => !(Math.abs(y) < STRIP_END + 90 && RWY_X.some(rx => Math.abs(x - rx) < 90))
     && !(x > -30 && x < TAXI_X + 40 && y > TAXI_END - 40 && y < TAXI_N + 40)      // 基地（駐機場・誘導路・原点のまわり）
     && !(y > TAXI_S - 30 && y < TAXI_S + 30 && x > RWY2 - 30 && x < TAXI_X + 30);   // 南の取り付け
   const pick = () => { for (;;) { const x = -LIMIT + 60 + rnd() * (LIMIT * 2 - 120), y = -LIMIT + 60 + rnd() * (LIMIT * 2 - 120); if (free(x, y)) return [x, y]; } };
@@ -1343,10 +1345,10 @@ export function mount(container, opt = {}) {
           if (far0 > JUMP_FAR || phaseT > 45) {
             st.x = RWY.x; st.y = RWY.y - LAND_FAR; st.z = 3 + (tdY - st.y) * LAND_SLOPE; st.h = RWY.h;
             spdK = 1; spdWant = 1; levelAttitude();
-            seedHistory(30); slowAim = SLOW_AIM; if (opt.onJump) opt.onJump();
+            seedHistory(100); slowAim = SLOW_AIM; if (opt.onJump) opt.onJump();
             landStep = 1; landDesc = 0; landSide = 0;
             gearOn = false; lightsOn = false; applyGear();         // 着陸体制は滑走路の手前 1.8 km で
-            startPath(LAND_LAG);                                   // ここから追従機は道をたどって間隔を広げる
+            spreadOnLine(LAND_LAG);                                // 追従機は後ろに 16 秒ずつ、滑走路 1・2 に交互
             st.cue = '進入';
           }
         } else {
@@ -1679,7 +1681,7 @@ export function mount(container, opt = {}) {
         if (hdgSum > 175 || manT > 90) nextManeuver();   // 原点のまわりを半周
         break;
       case 'touch': {                            // タッチ・アンド・ゴー: 滑走路に平行になったところから降ろし、順にタイヤをつけて上がる
-        if (pathLag <= 0) startPath(TOUCH_LAG);                    // 追従機は 1 番機の道をたどり、同じ位置に接地する
+        if (pathLag <= 0) { seedHistory(60); spreadOnLine(TOUCH_LAG); }   // 追従機は後ろに 9 秒ずつ、滑走路 1・2 に交互に並べ、同じ動きで接地する
         if (touchDone) touchAge += dt;
         if (!touchDone) {
           steerTo(RWY.x, RWY.y + 900, -20);                        // 滑走路の上へ降ろす
@@ -1812,8 +1814,18 @@ export function mount(container, opt = {}) {
     /* 線（前の通過点 → 次の通過点）に沿って進む。狙うのは通過点そのものではなく、
        自分の位置を線に落とした点の LOOK m 先。こうすると線からずれていても短い距離で線に戻り、
        あとは線の上をまっすぐ走る（通過点を狙うと、ずれたぶんが長い斜めの直進になり、滑走路をはみ出した。実測） */
-    const LOOK = 14;
+    const LOOK = 14, R_TURN = 12, V_TURN = 4;              // 角の弧の半径と速さ（弧の上で 19 度/秒 回る）
     if (!gp.start) gp.start = [p.x, p.y];
+    /* 角の弧: 角の手前 R_TURN で回り始め、v / R の速さで向きを変え、次の線の上で回り終える（膨らんで戻すことがない） */
+    if (gp.arc) {
+      const dh = wrap180(gp.arc.to - gp.h), w = (gp.v / R_TURN) / D * dt;
+      gp.h = (gp.h + clamp(dh, -w, w) + 360) % 360;
+      gp.v = gp.v < V_TURN ? Math.min(V_TURN, gp.v + 4 * dt) : Math.max(V_TURN, gp.v - 6 * dt);
+      if (gp.hold) gp.v = Math.max(0, gp.v - 6 * dt);
+      p.x += Math.sin(gp.h * D) * gp.v * dt; p.y += Math.cos(gp.h * D) * gp.v * dt;
+      if (Math.abs(dh) < 0.6) { gp.h = gp.arc.to; gp.arc = null; }
+      return false;
+    }
     const A = gp.idx > 0 ? gp.pts[gp.idx - 1] : gp.start, B = gp.pts[gp.idx], last = gp.idx === gp.pts.length - 1;
     const ax = B[0] - A[0], ay = B[1] - A[1], len = Math.hypot(ax, ay) || 1, ux = ax / len, uy = ay / len;
     const s0 = clamp((p.x - A[0]) * ux + (p.y - A[1]) * uy, 0, len);              // 線に落とした位置（A からの距離）
@@ -1831,11 +1843,15 @@ export function mount(container, opt = {}) {
     gp.h = (gp.h + clamp(e, -TAXI_TURN * dt, TAXI_TURN * dt) + 360) % 360;
     /* 向きが大きく違うとき（駐機からの向き直り）はごく遅く回る。回る輪が小さくなり、隣の機（34 m）に寄らない */
     /* 角は 4 m/s（輪の半径 9.5 m）。角の手前 30 m から落とす（12 m/s のまま曲がると半径 29 m になり、滑走路の縁近く 18 m まで膨らんだ。実測） */
-    let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 4 : (last ? Math.min(TAXI_V, dEnd * 0.5) : (len - s0 < 30 ? 4 : TAXI_V));
+    let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 4 : (last ? Math.min(TAXI_V, dEnd * 0.5) : (len - s0 < 30 ? V_TURN : (gp.fast && gp.idx === 0 ? 20 : TAXI_V)));
     if (gp.hold) vmax = 0;                                          // 前に機体がいる: 止まって待つ（合流や並びでぶつからない）
     gp.v = gp.v < vmax ? Math.min(vmax, gp.v + 4 * dt) : Math.max(vmax, gp.v - 6 * dt);
     p.x += Math.sin(gp.h * D) * gp.v * dt; p.y += Math.cos(gp.h * D) * gp.v * dt;
-    if (!last && len - s0 < 6) gp.idx++;                            // 角の手前 6 m で次の線へ（曲がりは 5 m/s・24 度/秒の小さな輪）
+    if (!last && len - s0 <= R_TURN && gp.v <= V_TURN + 0.5) {       // 角の手前 R_TURN で、次の線の向きへ弧に入る
+      const C = gp.pts[gp.idx + 1];
+      gp.arc = { to: ((Math.atan2(C[0] - B[0], C[1] - B[1]) / D) % 360 + 360) % 360 };
+      gp.idx++;
+    }
     if (last && dEnd < 2.5) {
       gp.v = 0; p.x = B[0]; p.y = B[1];
       if (Math.abs(wrap180(gp.hEnd - gp.h)) < 2) { gp.h = gp.hEnd; return true; }
@@ -1854,15 +1870,21 @@ export function mount(container, opt = {}) {
   /* 地上の道は南北・東西の線だけ（斜めに進まない。曲がり角は 12 m の輪でなめらかに）。
      駐機 k → 東へ誘導路まで → 南へ取り付けまで → 西へ滑走路まで → 北へ並び（gx, gy） */
   function pathOut(k, gx, gy) { const sd = STANDS[k]; return [[TAXI_X, sd.y], [TAXI_X, TAXI_S], [gx, TAXI_S], [gx, gy]]; }
+  /* 取り付けで待つ点（滑走路 1 の東、西向き）。順番待ちの機はここで止まり、前の機が滑走を始めたら滑走路へ */
+  const HOLD_PTS = [[46, TAXI_S], [80, TAXI_S], [114, TAXI_S], [148, TAXI_S]];
+  function pathHold(k, q) { const sd = STANDS[k]; return [[TAXI_X, sd.y], [TAXI_X, TAXI_S], [HOLD_PTS[q][0], TAXI_S]]; }
+  let tkKind = 'pairs';                    // 離陸の種類（並び方）。taxiOut で決める
   /* 滑走路の北端 → 出口を東へ → 誘導路を南へ → 西へ駐機 k（着いてから機首を原点へ） */
-  function pathIn(k) { const sd = STANDS[k]; return [[RWY.x, TAXI_N], [TAXI_X, TAXI_N], [TAXI_X, sd.y], [sd.x, sd.y]]; }
+  /* 着陸後: 中ほどの出口（EXIT_Y）を東へ → 誘導路を南へ → 西へ駐機 k（着いてから機首を原点へ）。
+     北端まで走ってから出ると滑走路を 34〜47 秒ふさぎ、同じ滑走路の次の機（32 秒後）が前の機の離脱前に接地した（実測） */
+  function pathIn(k, rwx) { const sd = STANDS[k]; return [[RWY.x + (rwx || 0), EXIT_Y], [TAXI_X, EXIT_Y], [TAXI_X, sd.y], [sd.x, sd.y]]; }
   let taxiFrom = null;                     // 着陸後、1 番機が誘導路へ入り始めた点（追従機はここまで道をたどり、そこから自分の道へ）
   function groundStep(dt) {
     const turnRate = 26 * Math.min(1, gv / 12);                       // 止まりかけでは曲がらない
     if (gmode === 'land') {
       gv = Math.max(0, gv - 8 * dt);                                  // 減速
       st.h = (st.h + input.r * turnRate * dt + 360) % 360;
-      if (gv <= 0.5) { gv = 0; taxiFrom = { x: st.x, y: st.y }; taxiTo(pathIn(0), 'apron', STANDS[0].h); }   // 止まったら誘導路を通って駐機へ
+      if (gv <= 0.5) { gv = 0; taxiFrom = { x: st.x, y: st.y }; taxiTo(pathIn(0), 'apron', STANDS[0].h); gPath.fast = true; }   // 止まったら誘導路を通って駐機へ（滑走路の上は 20 m/s で出る）
     } else if (gmode === 'taxi') {
       if (!gPath) { gv = 0; gmode = gEnd; }
       else {
@@ -2253,7 +2275,9 @@ export function mount(container, opt = {}) {
      追従機ごとの遅れ（u.lag）は、いまの間隔から少しずつ広げる（LAG_RATE 秒/秒 = 先頭の 55% の速さで飛んで下がる）。
      一度に目標の遅れへ飛ばすと、道の上を後ろへ瞬間移動する（6 番機は 20 秒 = 1.2 km 後ろへ飛び、
      乗っていると後ろ向きに高速で流れて見えた。実測） */
-  const TOUCH_LAG = 4.0, LAND_LAG = 4.0;   // 60 m/s なら 240 m おき
+  /* 追従の間隔（秒）。滑走路は 1・2 に交互なので、同じ滑走路には 2 機おき（着陸 32 秒、タッチ 18 秒）。
+     着陸: 前の機が接地して減速し（10 秒）、滑走路の上を 20 m/s で北の出口まで出る（20 秒）のに足りる */
+  const TOUCH_LAG = 9.0, LAND_LAG = 18.0;
   const LAG_RATE = 0.45;
   function startPath(lag) {
     const cont = pathLag > 0; pathLag = lag;
@@ -2266,6 +2290,16 @@ export function mount(container, opt = {}) {
       mo.copy(h.position).sub(plane.position).applyQuaternion(qInv.copy(att).invert());
       u.cur.copy(mo); u.from = null; u.lag = undefined; });
   }
+  /* 滑走路の延長線上へ移った直後: 追従機を 1 番機の後ろに lagStep 秒ずつあけて並べる（滑走路 1・2 に交互）。
+     見えない距離で行うので、そのまま道をたどれば、滑走路 1 本につき 1 機ずつ、前の機が出てから次が入る間隔になる */
+  function spreadOnLine(lagStep) {
+    const v = SPEED * spdK;
+    pathLag = lagStep;
+    mates.forEach((h, i) => { const u = h.userData; if (!u.shown) return;
+      const lag = (i + 1) * lagStep; u.lag = lag; u.rwx = ((i + 1) % 2) ? RWY2 : 0; u.pfDone = false; u.parked = false; u.ground = false; u.gp = null;
+      h.position.set(plane.position.x - fwd.x * v * lag + u.rwx, plane.position.y - fwd.y * v * lag, plane.position.z - fwd.z * v * lag);
+      h.quaternion.copy(att); });
+  }
   function placeReplay(holder, u, i, dt, emitting, color) {
     const tgt = (i + 1) * pathLag;
     if (u.lag === undefined) {                                     // いまの間隔から始める（道の上の同じ位置）
@@ -2273,7 +2307,7 @@ export function mount(container, opt = {}) {
     }
     u.lag = Math.min(tgt, u.lag + LAG_RATE * dt);
     const sAt = stateAt(u.lag);
-    holder.position.copy(sAt.p);
+    holder.position.copy(sAt.p); holder.position.x += (u.rwx || 0);   // 滑走路 2 に降りる機は 100 m 西の線
     if (holder.position.z < 3) holder.position.z = 3;
     if (!u.shown) holder.quaternion.copy(sAt.q); else turnMate(holder, sAt.q, dt);
     holder.visible = true; u.shown = true;
@@ -2293,7 +2327,7 @@ export function mount(container, opt = {}) {
   function recordHistory(dt) {
     histT += dt;
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
-    while (hist.length > 2 && hist[0].t < histT - 45) hist.shift();   // 追従が 1 番機の道をたどる（着陸は 5 機 × 5 秒）ぶんまで残す
+    while (hist.length > 2 && hist[0].t < histT - 100) hist.shift();   // 追従が 1 番機の道をたどる（着陸は 5 機 × 16 秒）ぶんまで残す
   }
   const exFwd = new THREE.Vector3(), exPos = new THREE.Vector3(), exSt = { p: exPos, q: null };
   const atSt = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
@@ -2410,7 +2444,7 @@ export function mount(container, opt = {}) {
   const LAND_TOTAL = 66.5;                 // anthem を頭から流し始めてから、最後尾が接地するまで（秒）
   const LAND_LEAD_TD = 83;                 // 延長線上（南 3.6 km）へ移ってから先頭が接地するまで（実測 83.2 秒）
   const LAND_PAIR_GAP = 14;                // 組ごとの接地の間隔（秒）。最後尾は 33 + 14 × 3 = 75 秒
-  const LAND_LAST = LAND_LEAD_TD + 5 * 4.0;   // 先頭の降下開始から最後尾の接地まで（追従 5 機が 4 秒ずつ遅れて同じ位置に接地する）
+  const LAND_LAST = LAND_LEAD_TD + 5 * 18.0;  // 先頭の降下開始から最後尾の接地まで（追従 5 機が 18 秒ずつ遅れて降りる）
   let landMusOn = false;                   // anthem を流し始めたか（着陸で一度だけ）
   let landDesc = -1;
   let landClock = -1;                      // 1 番機が接地してからの時間（秒）。-1 はまだ
@@ -2483,17 +2517,30 @@ export function mount(container, opt = {}) {
     tkOn = true;
     mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; h.userData.rejoin = false; });   // 着陸の段取りと合流の印は消す
     const dia = kind === 'diamond';
-    const offs = FORMATIONS.diamond.offs;                    // [右, 前後, 上]
+    /* 滑走路に並んでいる機（lineSpot）だけ滑走を始める。取り付けで待つ機は、前の機が滑走を始めてから並び、並んでから滑走する（queueStep）。
+       ダイヤモンドは 滑走路 1 本に 2 機ずつ: 先頭 → 両滑走路の前 → 後ろ、とわずかな時間差 */
     mates.forEach((h, i) => {
-      const g = GRID[i + 1], o = offs[i];
-      const spot = dia ? (o ? [RWY.x + o[0], RWY.y + o[1]] : [RWY.x + g[0], RWY.y + g[1]]) : [RWY.x + g[0], RWY.y + g[1]];
-      if (!h.userData.shown && dia && !o) { h.userData.tk = null; return; }   // 並んでいない機は出さない
-      /* ダイヤモンドは、先頭 → 中列 2 機 → 最後尾 の順に、わずかな時間差で滑走を始める。
-         2 本の滑走路から上がるときは、2 機ずつ TK_GAP 秒あけて */
-      h.userData.tk = { t: 0, v: 0, x: spot[0], y: spot[1], z: 3, air: false, done: false,
-                        wait: dia ? (o ? (i < 2 ? DIA_GAP : DIA_GAP * 2) : DIA_GAP * 2 + TK_GAP) : Math.floor((i + 1) / 2) * TK_GAP };
+      const u = h.userData;
+      if (!u.shown || !u.lineSpot || u.queue >= 0) { if (!u.shown) u.tk = null; return; }
+      const wait = dia ? (i === 0 ? DIA_GAP : i === 1 ? DIA_GAP : DIA_GAP * 2) : 0;
+      u.tk = { t: 0, v: 0, x: u.lineSpot[0], y: u.lineSpot[1], z: 3, air: false, done: false, wait };
+      u.ground = false;
     });
     gearOn = true; lightsOn = true; applyGear();   // 離陸中はタイヤとライトを出す
+  }
+  /* 順番待ちの機（queue >= 0）: その滑走路を前に使う機（2 つ前の番号。番号 -1 は 1 番機）が滑走を始めたら、滑走路へ出て並び、並んだら滑走する */
+  const rolling = k => k < 0 ? (gmode === 'takeoff' || gmode === 'fly') : !!(mates[k] && mates[k].userData.tk && mates[k].userData.tk.t >= mates[k].userData.tk.wait);
+  function queueStep() {
+    mates.forEach((h, i) => {
+      const u = h.userData;
+      if (u.queue === undefined || u.queue < 0 || !u.parked || u.gp || u.tk) return;
+      if (!tkOn && gmode !== 'takeoff' && gmode !== 'fly') return;   // 1 番機がまだ待っている
+      const r = (u.queue % 2), prev = i - 2;                       // 使う滑走路（0 = 滑走路 1、1 = 滑走路 2）と、前にその滑走路を使った機
+      if (!rolling(prev)) return;
+      const gx = RWY.x + (r ? RWY2 : 0);
+      u.queue = -1; u.parked = false; u.lineSpot = [gx, RWY.y];
+      u.gp = { pts: [[gx, TAXI_S], [gx, RWY.y]], idx: 0, v: 0, h: u.gh, hEnd: RWY.h, wait: 0 };
+    });
   }
   function rollMate(holder, u, i, dt, emitting, color) {
     const t = u.tk;
@@ -2527,9 +2574,15 @@ export function mount(container, opt = {}) {
   /* 地上にいるあいだの並べ方。着陸してきた機体は、その場から並びへ滑らかに寄せる */
   function groundMates(dt, emitting, cols, on0) {
     const n = FORMATIONS[formation].n;
+    queueStep();
     mates.forEach((holder, i) => {
       const u = holder.userData;
-      if (i + 1 >= n) { holder.visible = false; u.shown = false; u.tk = null; return; }
+      if (i + 1 >= n && !u.ground && !u.gp) { holder.visible = false; u.shown = false; u.tk = null; return; }
+      groundOne(holder, u, i, dt, emitting, on0, cols);
+    });
+  }
+  function groundOne(holder, u, i, dt, emitting, on0, cols) {
+    {
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on0[i + 1] ? cols[(i + 1) % cols.length] : null); return; }
       /* 自分の道（誘導路）を走る。出発は wait 秒あとに（前の機と重ならない） */
       if (u.gp) {
@@ -2539,14 +2592,24 @@ export function mount(container, opt = {}) {
              横 20 m まで見て、あとから出た機も待っていたら、合流で互いに待ち合って動けなくなった（実測） */
           u.gp.hold = false;
           { const hx = Math.sin(u.gp.h * D), hy = Math.cos(u.gp.h * D);
+            /* 自分の止まる点より先にいる機は待つ理由にならない（並びの前の機・待ち位置の前の機。
+               これを見ていたら、8 m 手前で止まったまま並び終えられず、離陸できなかった。実測） */
+            const gpE = u.gp.pts[u.gp.pts.length - 1], dEnd = Math.hypot(gpE[0] - holder.position.x, gpE[1] - holder.position.y);
             /* 車線の前方 45 m（横 9 m 以内）か、すぐ近く 26 m 以内（後ろ以外）。角を曲がった先で待っている機に、曲がりながら
                ぶつかることがあった（実測: 2 m）ので、近くは向きを問わず待つ */
             const near = (px, py) => { const dx = px - holder.position.x, dy = py - holder.position.y; const a = dx * hx + dy * hy, b = Math.abs(dx * hy - dy * hx);
+              if (a > dEnd - 3) return false;
               return (a > 2 && a < 45 && b < 9) || (a > -6 && Math.hypot(dx, dy) < 26); };
             if (near(plane.position.x, plane.position.y)) u.gp.hold = true;
             mates.forEach((o, j) => { if (j < i && o.userData.shown && near(o.position.x, o.position.y)) u.gp.hold = true; }); }
           const done = driveOn(holder.position, u.gp, dt); u.gh = u.gp.h;
-          if (done) { u.parked = true; u.gp = null; }
+          if (done) {
+            u.parked = true; u.gp = null;
+            /* 順番待ちから並んだ機は、そのまま滑走を始める */
+            if (u.lineSpot && u.queue === -1 && (tkOn || gmode === 'takeoff' || gmode === 'fly') && !u.tk) {
+              u.tk = { t: 0, v: 0, x: u.lineSpot[0], y: u.lineSpot[1], z: 3, air: false, done: false, wait: 0.8 }; u.ground = false; tkOn = true;
+            }
+          }
         }
         holder.position.z = 3;
         qa.setFromAxisAngle(AZ, -u.gh * D); if (!u.shown) holder.quaternion.copy(qa); else turnMate(holder, qa, dt);
@@ -2556,9 +2619,9 @@ export function mount(container, opt = {}) {
       /* 着陸のあと: 1 番機の道をたどって降り、1 番機が誘導路へ入った点まで来たら、自分の道で駐機へ */
       if (pathLag > 0 && !u.pfDone) {
         placeReplay(holder, u, i, dt, false, null);
-        if (taxiFrom && holder.position.distanceTo(new THREE.Vector3(taxiFrom.x, taxiFrom.y, 3)) < 20) {
-          u.pfDone = true; u.parked = false;
-          u.gp = { pts: pathIn(i + 1), idx: 0, v: TAXI_V, h: u.gh !== undefined ? u.gh : RWY.h, hEnd: STANDS[i + 1].h, wait: 0 };
+        if (taxiFrom && Math.abs(holder.position.y - taxiFrom.y) < 20 && Math.abs(holder.position.x - taxiFrom.x - (u.rwx || 0)) < 20) {
+          u.pfDone = true; u.parked = false; u.ground = true;
+          u.gp = { pts: pathIn(i + 1, u.rwx || 0), idx: 0, v: TAXI_V, h: u.gh !== undefined ? u.gh : RWY.h, hEnd: STANDS[i + 1].h, wait: 0, fast: true };
         }
         return;
       }
@@ -2581,7 +2644,7 @@ export function mount(container, opt = {}) {
       }
       holder.visible = true; u.shown = true;
       u.from = null;                                  // 飛び立つときに道を引き直す
-    });
+    }
   }
   function placeMates(dt) {
     /* 接地して減速しているあいだ（land）は、ふつうの編隊の置き方に任せる。
@@ -2616,8 +2679,10 @@ export function mount(container, opt = {}) {
     if (emitting) smokeGeo.attributes.avel.needsUpdate = true;   // 飛んでいる煙は速さ 0（点検の粒を使い回しても流れない）
     if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
     if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
+    queueStep();
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
+      if (u.gp || (u.ground && !u.tk)) { groundOne(holder, u, i, dt, emitting, on, cols); return; }   // まだ地上（順番待ち・誘導路）
       if (pathLag > 0 && !u.pfDone) { if (i + 1 < f.n) placeReplay(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); else { holder.visible = false; u.shown = false; } return; }
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
       if (u.ld && !u.ld.done) { landMate(holder, u, i, dt); return; }   // 2 機ずつの着陸の途中
@@ -3378,21 +3443,33 @@ export function mount(container, opt = {}) {
       const n = (auto || standWait) ? 6 : FORMATIONS[formation].n;   // 展示飛行は 6 機とも出す
       const others = k => mates.filter((h, j) => j !== k - 1 && j + 1 < n).map(h => h.position).concat(k === 0 ? [] : [plane.position]);
       gPath.turnDir = pickTurn(st.x, st.y, st.h, others(0));
+      /* 最初の課目がダイヤモンド・テイクオフなら 滑走路 1 本に 2 機ずつ（4 機）、ほかは 1 機ずつ（2 機）。残りは取り付けで順番を待つ */
+      let f0 = 0; for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
+      if (showThru && chunk && chunk.length) f0 = chunk[0];
+      tkKind = PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs';
+      const LINE = tkKind === 'diamond' ? [[RWY2, 0], [0, -34], [RWY2, -34]] : [[RWY2, 0]];   // 並ぶ機の位置（RWY からのずれ）。残りは待つ
       mates.forEach((h, i) => { const u = h.userData; if (i + 1 >= n) return;
-        const g = GRID[i + 1];
-        u.parked = false; u.shown = true; h.visible = true;
-        u.gp = { pts: pathOut(i + 1, RWY.x + g[0], RWY.y + g[1]), idx: 0, v: 0, h: STANDS[i + 1].h, hEnd: RWY.h, wait: (i + 1) * 10,
-                 turnDir: pickTurn(h.position.x, h.position.y, STANDS[i + 1].h, others(i + 1)) }; });
+        u.parked = false; u.shown = true; h.visible = true; u.tk = null; u.ground = true;
+        if (i < LINE.length) {                                     // 滑走路に並ぶ
+          const g = LINE[i]; u.lineSpot = [RWY.x + g[0], RWY.y + g[1]]; u.queue = -1;
+          u.gp = { pts: pathOut(i + 1, u.lineSpot[0], u.lineSpot[1]), idx: 0, v: 0, h: STANDS[i + 1].h, hEnd: RWY.h, wait: (i + 1) * 10,
+                   turnDir: pickTurn(h.position.x, h.position.y, STANDS[i + 1].h, others(i + 1)) };
+        } else {                                                   // 取り付けで順番を待つ
+          const q = i - LINE.length; u.lineSpot = null; u.queue = q;
+          u.gp = { pts: pathHold(i + 1, q), idx: 0, v: 0, h: STANDS[i + 1].h, hEnd: 270, wait: (i + 1) * 10,
+                   turnDir: pickTurn(h.position.x, h.position.y, STANDS[i + 1].h, others(i + 1)) };
+        } });
       return true;
     },
     skipTaxi() {
       if (gmode !== 'land' && gmode !== 'taxi') return false;
-      if (gmode === 'taxi' && gEnd === 'stand') {               // 滑走路へ出る途中: 並びへ飛ばす
+      if (gmode === 'taxi' && gEnd === 'stand') {               // 滑走路へ出る途中: 並び（待つ機は取り付けの待ち位置）へ飛ばす
         gmode = 'stand'; gPath = null; gv = 0;
         Object.assign(st, { x: RWY.x, y: RWY.y, h: RWY.h });
-        const n = 6;
-        mates.forEach((h, i) => { const u = h.userData, g = GRID[i + 1]; u.gp = null; u.parked = true; u.gh = RWY.h;
-          if (i + 1 < n) { h.position.set(RWY.x + g[0], RWY.y + g[1], 3); h.quaternion.setFromAxisAngle(AZ, -RWY.h * D); u.shown = true; h.visible = true; } });
+        mates.forEach((h, i) => { const u = h.userData; if (!u.shown) return; u.gp = null; u.parked = true;
+          const sp = u.lineSpot || (u.queue >= 0 ? HOLD_PTS[u.queue] : null); if (!sp) return;
+          u.gh = u.lineSpot ? RWY.h : 270;
+          h.position.set(sp[0], sp[1], 3); h.quaternion.setFromAxisAngle(AZ, -u.gh * D); });
         st.cue = '「テイクオフ」で離陸できます';
         return true;
       }

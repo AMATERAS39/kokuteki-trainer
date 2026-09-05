@@ -1139,7 +1139,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v03.90';
+const APP_VER='v03.91';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -2233,9 +2233,9 @@ function renderSettingsPage(){
       <div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。携帯の回線では通信しないので、通信量を使いません。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div></div>
     <div class="setgroup"><h4>演目の曲</h4>
       <div class="setting"><span id="musName">選んでいません</span><span class="musbtns"><button class="btn sm" id="musPick">選ぶ</button><button class="btn sm ghost" id="musClear" hidden>取り消す</button></span></div>
-      <input type="file" id="musFile" hidden>
+      <input type="file" id="musFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.aiff,.ogg" hidden>
       <div class="setting"><span>浮くタイミング</span><span class="musbtns"><input type="number" id="musLead" min="0" max="120" step="0.5" value="13"><span class="unit">秒</span></span></div>
-      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。「浮くタイミング」は、曲が始まってから何秒目にタイヤが離れるかです（既定は 13.0 秒）。そこから逆算して、滑走を始めるまでの間をとります。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリなどから、買った曲のファイル（.mp3 など）を選んでください。</div>
+      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。「浮くタイミング」は、曲が始まってから何秒目にタイヤが離れるかです（既定は 13.0 秒）。そこから逆算して、滑走を始めるまでの間をとります。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
     </div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>

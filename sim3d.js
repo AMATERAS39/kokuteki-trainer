@@ -519,7 +519,9 @@ export function mount(container, opt = {}) {
        道引きの進み具合だけで見ると、ずっと未完成の扱いになってスモークが止まってしまう */
     const ready = smokeAll || matesReady() || mates.every(h => !h.userData.shown || h.userData.cur.length() < 200);
     for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) smokeOnArr[k] = false;
-    /* レター・エイト: 合流したら、先頭機と入れ替える（戻った 1 機が円を仕上げる） */
+    /* レター・エイト: 合流するまで先頭機は出し続ける（追いつく 1 機が後ろに入ると「後ろに機体がいる」規則で
+       先頭機が 3.6 秒早く切れ、煙のない間ができた。実測）。合流した瞬間に先頭機と入れ替える（戻った 1 機が円を仕上げる） */
+    if (e8 && !e8.done && !e8.out) smokeOnArr[0] = true;
     if (e8 && e8.done && !e8.out) { smokeOnArr[0] = false; smokeOnArr[e8.solo + 1] = true; }
     /* 前の課目に入っていなかった機体は、合流して次の開始位置に着くまで出さない（smokeAll より優先） */
     for (let k = 1; k < n; k++) if (mates[k - 1].userData.rejoin) smokeOnArr[k] = false;
@@ -1015,7 +1017,7 @@ export function mount(container, opt = {}) {
     if (m.rwy) {                        // 滑走路に平行に進入する（南から北向きに乗る）
       GATE.x = RWY.x + side * 140; GATE.y = RWY.y - 2400;   // 門は南のずっと遠く。向き直してから線に乗る距離をとる
       aimX = RWY.x; aimY = RWY.y - 500; planFace = RWY.h;
-      formScale = 6;                                          // 縦隊の間隔は進入のうちに広げておく
+      formScale = 1;                                          // （追従は 1 番機の道をたどるので、間隔を広げない）
       st.cue = '滑走路に平行に進入'; marker.position.set(GATE.x, GATE.y, 160); markOn = true; return;
     }
     if (m.at !== undefined) {           // 決めた方角の点から入る（北西など）。atN で北へずらせる
@@ -1062,13 +1064,10 @@ export function mount(container, opt = {}) {
        なければ、これまでどおり頭から流して主旋律の直前で切る */
     if (musBuf && actx && auto && anthemIdx() < 0) { playMusic(); musCut = Math.max(0.5, musLead - 0.3); }
     formation = 'trail'; formScale = 1;
-    /* 2 機ずつ、間をあけて降りる。1・2 番機が先、次に 3・4 番機、最後に 5・6 番機 */
+    /* 追従機は 1 番機の道を LAND_LAG 秒ずつ遅れてたどり、同じ位置に接地する（2 機ずつの着陸はやめた） */
     landClock = -1;
-    mates.forEach((h, i) => {
-      const u = h.userData;
-      u.ld = { pair: Math.floor((i + 1) / 2), t: 0, step: 0, on: false, done: false, tDown: 0 };
-      u.mh = undefined;
-    });
+    startPath(LAND_LAG);
+    mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; });
     st.show = '着陸'; st.desc = '2 機ずつ、間をあけて滑走路へ降ります。';
     st.cue = '着陸へ入ります';
     if (treeMode) setTreeMode(false);
@@ -1146,6 +1145,7 @@ export function mount(container, opt = {}) {
       mates.forEach((h, k) => { const u = h.userData; u.rejoin = !u.shown || !pf.offs[k]; }); }
     reIn = 0;
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null; aimLeader = false;
+    if (PROGRAM[i].id !== 'touch') pathLag = 0;
     const m = PROGRAM[i];
     /* 正面を選ぶ: 機体がいる方角（進入の点の方角ぶんをずらして）に最も近い東西南北。
        そちらから入ってくれば回り込みが短い。滑走路を使う課目と離陸は選ばない（滑走路は北向き） */
@@ -1325,7 +1325,8 @@ export function mount(container, opt = {}) {
           auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.desc = '';
           /* まだ降りていない組がいるあいだは、隊形を戻さない。
              戻すと（単機のときなど）僚機が隠され、着陸の段取りごと止まってしまう */
-          formation = mates.some(h => h.userData.ld && !h.userData.ld.done) ? 'trail' : userForm;
+          /* 追従機が道をたどって降りてくるあいだは縦隊のまま（戻すと単機のとき追従機が隠れ、空中で止まる。実測） */
+          formation = (pathLag > 0 && mates.some(h => h.userData.shown && !h.userData.pfDone)) ? 'trail' : userForm;
           formScale = 1;
         } else if (phaseT > 120) { auto = false; oneShot = false; manPhase = 'do'; st.show = ''; }
         return autoIn;                        // 地面回避（safety）は呼ばない。呼ぶと降りられない
@@ -1619,7 +1620,7 @@ export function mount(container, opt = {}) {
         if (hdgSum > 175 || manT > 90) nextManeuver();   // 原点のまわりを半周
         break;
       case 'touch': {                            // タッチ・アンド・ゴー: 滑走路に平行になったところから降ろし、順にタイヤをつけて上がる
-        formScale = 6;                                             // 縦隊の間隔を広くとる（96 m おき）
+        if (pathLag <= 0) startPath(TOUCH_LAG);                    // 追従機は 1 番機の道をたどり、同じ位置に接地する
         if (!touchDone) {
           steerTo(RWY.x, RWY.y + 900, -20);                        // 滑走路の上へ降ろす
           if (st.z <= 3.4) { touchDone = true; touchT = 0; st.cue = 'タッチ'; }
@@ -1629,7 +1630,7 @@ export function mount(container, opt = {}) {
           holdBank(0); holdPitch(clamp(14 - st.z / 25, 4, 14));    // 自動で上がる（「加速」を待たない）
           st.cue = 'ゴー';
         }
-        if ((touchDone && touchT >= TOUCH_RUN && st.z > 160) || manT > 70) { formScale = 1; nextManeuver(); }
+        if ((touchDone && touchT >= TOUCH_RUN && st.z > 160) || manT > 70) { formScale = 1; pathLag = 0; nextManeuver(); }
         break;
       }
       case 'opro': {                             // オポジット・コンティニュアス・ロール
@@ -1776,7 +1777,7 @@ export function mount(container, opt = {}) {
   /* 地上で待っているところから演目を始める（離陸から）。
      曲を選んであれば、その頭を待ち、音が立ち上がるところでタイヤが離れる */
   function startFromGround() {
-    auto = true; oneShot = false; standWait = false; landRun = false;
+    auto = true; oneShot = false; standWait = false; landRun = false; pathLag = 0;
     let f0 = 0;
     for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
     /* 「通し」は、曲 1 曲ぶんのまとまりをひとつ選んで行う（選ぶたびに変わる） */
@@ -1811,7 +1812,8 @@ export function mount(container, opt = {}) {
     if (auto && !oneShot && chunk) showT += dt;             // 演目の長さ（曲 2 周ぶんに合わせるため）
     if (landClock >= 0) landClock += dt;                    // 1 番機が接地してからの時間
     if (landDesc >= 0) landDesc += dt;                      // 先頭の降下開始からの時間（組ごとの出番に使う）
-    if (landRun && gmode === 'stand' && mates.every(h => !h.userData.ld || h.userData.ld.done)) {
+    /* 着陸の終わり: 追従機が全部、道をたどり終えて待機の位置に着いたら（着く前に隊形を戻すと、隠れてしまう。実測） */
+    if (landRun && gmode === 'stand' && mates.every(h => !h.userData.shown || (h.userData.pfDone && h.userData.parked))) {
       landRun = false; manPhase = 'do'; formation = userForm;   // 全機降りたので隊形を戻す
       musCut = -1; stopMusic(MUS_FADE);
       st.show = ''; st.desc = ''; st.cue = '「加速」で離陸できます';
@@ -1894,7 +1896,7 @@ export function mount(container, opt = {}) {
     else if (st.cue === '山を越えます') st.cue = '';
     if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
       Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
-      levelAttitude(); hist.length = 0; auto = false; oneShot = false; formScale = 1;
+      levelAttitude(); auto = false; oneShot = false; formScale = 1;   // 軌跡は消さない（追従機が 1 番機の道をたどって降りてくる）
       manPhase = 'do'; st.cue = ''; markOn = false;
     }
   }
@@ -2126,10 +2128,31 @@ export function mount(container, opt = {}) {
     holder.visible = true; u.shown = true;
     if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mrQ).add(holder.position); emit(emitPos, color); }
   }
+  /* ===== 1 番機の道をそのままたどる（タッチ・アンド・ゴーと着陸）=====
+     追従機 i は「1 番機の (i+1) × pathLag 秒前の状態」に置く。同じ動きをして、同じ位置に接地する。
+     始めの数秒は、いまの位置からなめらかに道へ寄せる（隊形の位置から急に飛ばない）。
+     地上では、1 番機が止まった位置まで来たら道をたどるのをやめ、自分の待機の位置へ走る（重ならない） */
+  let pathLag = 0;                         // 0 なら使わない
+  /* 追従の間隔（秒）。タッチ・アンド・ゴーと着陸で同じ値にする。
+     途中で変えると、追従機が「たどる時刻」を飛ばして道の上を瞬間移動する（実測: 2 → 5 秒で後ろへ 900 m 飛んだ） */
+  const TOUCH_LAG = 4.0, LAND_LAG = 4.0;   // 60 m/s なら 240 m おき
+  function startPath(lag) { const cont = pathLag > 0; pathLag = lag; mates.forEach(h => { if (!cont) h.userData.pfK = 0; h.userData.pfDone = false; h.userData.parked = false; }); }
+  function placeReplay(holder, u, i, dt, emitting, color) {
+    const sAt = stateAt((i + 1) * pathLag);
+    u.pfK = Math.min(1, (u.pfK || 0) + dt / 3);
+    if (!u.shown || u.pfK >= 1) holder.position.copy(sAt.p);
+    else holder.position.lerp(sAt.p, 1 - Math.exp(-dt / 0.6));     // 3 秒かけて道へ寄せる
+    if (holder.position.z < 3) holder.position.z = 3;
+    if (!u.shown) holder.quaternion.copy(sAt.q); else turnMate(holder, sAt.q, dt);
+    holder.visible = true; u.shown = true;
+    if (emitting && color && holder.position.z > 6) { emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, color); }
+    /* 1 番機が止まっていて、その位置まで来たら、道をたどるのをやめる */
+    if (gmode === 'stand' && holder.position.distanceTo(plane.position) < 40) { u.pfDone = true; u.gh = st.h; }
+  }
   function recordHistory(dt) {
     histT += dt;
     hist.push({ t: histT, p: plane.position.clone(), q: att.clone() });
-    while (hist.length > 2 && hist[0].t < histT - 20) hist.shift();   // 後ろの遠く（合流位置）まで届く長さ
+    while (hist.length > 2 && hist[0].t < histT - 45) hist.shift();   // 追従が 1 番機の道をたどる（着陸は 5 機 × 5 秒）ぶんまで残す
   }
   const exFwd = new THREE.Vector3(), exPos = new THREE.Vector3(), exSt = { p: exPos, q: null };
   const atSt = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
@@ -2246,7 +2269,7 @@ export function mount(container, opt = {}) {
   const LAND_TOTAL = 66.5;                 // anthem を頭から流し始めてから、最後尾が接地するまで（秒）
   const LAND_LEAD_TD = 37;                 // 先頭が降下を始めてから接地するまで（接地点 y = -100 で実測 37.1 秒）
   const LAND_PAIR_GAP = 14;                // 組ごとの接地の間隔（秒）。最後尾は 33 + 14 × 3 = 75 秒
-  const LAND_LAST = LAND_LEAD_TD + 3 * LAND_PAIR_GAP - 3.5;   // 先頭の降下開始から最後尾の接地まで（実測 75.4 秒。狙いより 3.5 秒早く着くぶんを引く）
+  const LAND_LAST = LAND_LEAD_TD + 5 * 4.0;   // 先頭の降下開始から最後尾の接地まで（追従 5 機が 4 秒ずつ遅れて同じ位置に接地する）
   let landMusOn = false;                   // anthem を流し始めたか（着陸で一度だけ）
   let landDesc = -1;
   let landClock = -1;                      // 1 番機が接地してからの時間（秒）。-1 はまだ
@@ -2367,6 +2390,7 @@ export function mount(container, opt = {}) {
       const u = holder.userData;
       if (i + 1 >= n) { holder.visible = false; u.shown = false; u.tk = null; return; }
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on0[i + 1] ? cols[(i + 1) % cols.length] : null); return; }
+      if (pathLag > 0 && !u.pfDone) { placeReplay(holder, u, i, dt, false, null); return; }   // 着陸のあと、1 番機の道をたどって降りてくる
       if (u.ld && !u.ld.done) { landMate(holder, u, i, dt); return; }   // まだ降りていない組は、空で待つ／降りる
       const g = GRID[i + 1];
       if (gmode === 'land' || gmode === 'taxi') {
@@ -2393,6 +2417,7 @@ export function mount(container, opt = {}) {
           holder.position.y += Math.cos(u.gh * D) * v * dt;
           holder.position.z = 3;
           qa.setFromAxisAngle(AZ, -u.gh * D); turnMate(holder, qa, dt);
+          u.parked = d < 8;                            // 待機の位置に着いた（着陸の終わりの判定に使う）
         }
       }
       holder.visible = true; u.shown = true;
@@ -2434,6 +2459,7 @@ export function mount(container, opt = {}) {
     if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
+      if (pathLag > 0 && !u.pfDone) { if (i + 1 < f.n) placeReplay(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); else { holder.visible = false; u.shown = false; } return; }
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
       if (u.ld && !u.ld.done) { landMate(holder, u, i, dt); return; }   // 2 機ずつの着陸の途中
       if (mir && i === 0) {                                          // 交差する課目の相手
@@ -3197,7 +3223,7 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      return { pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };

@@ -1786,7 +1786,8 @@ export function mount(container, opt = {}) {
     formation = PROGRAM[f0].form || userForm;
     step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
     st.show = '離陸'; manPhase = 'gather'; markOn = false;
-    clearSmoke();
+    /* 煙は消さない。待機中に出している点検の煙をそのまま続け、滑走を始めるところで止める
+       （ここで消すと、「加速」を押した瞬間に煙が消えて出し直したように見える） */
     if (musBuf && actx) {                      // 曲を選んであるとき: イントロを待ってから滑走する
       playMusic();
       musWait = Math.max(0, musLead - MUS_ROLL);
@@ -2405,7 +2406,9 @@ export function mount(container, opt = {}) {
        勝手に待機位置へ行かせない。並べるのは誘導路に入ってから、または「滑走路へ戻る」を押したとき */
     if (gmode === 'taxi' || gmode === 'stand' || gmode === 'takeoff') {
       const on0 = smokers(), cols0 = SMOKE_COLORS[smokeColor].c;
-      const emit0 = smokeOn && smokeT >= SMOKE_DT;
+      /* 展示飛行の滑走中（takeoff）は煙を出さない。待機中の点検の煙は、加速を始めたところで切れる。
+         上がってからは課目が決める（隊形を組む合間は出さず、課目に入って出す） */
+      const emit0 = smokeOn && smokeT >= SMOKE_DT && !(auto && gmode === 'takeoff');
       if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
       /* 離陸を待っているあいだは、後ろへ吹き出して流れる煙で点検する（その場にとどまらない）。
          滑走を始めたら止める（そこからは飛んでいる煙にする） */
@@ -3222,6 +3225,7 @@ export function mount(container, opt = {}) {
     /* 展示飛行モードの長さ（秒）と並び。並びは課目 id の配列、null ならおまかせ */
     setShowLen(sec) { showLen = Math.max(120, +sec || SHOW_LEN_DEFAULT); return showLen; },
     setProgram(ids) { customProg = Array.isArray(ids) && ids.length ? ids.slice() : null; },
+    smokeCount() { let n = 0; for (let i = 0; i < sBirth.length; i++) if (clock - sBirth[i] < sLife[i]) n++; return n; },   // 生きている煙の粒の数（確かめ用）
     programList() { return PROGRAM.map(m => ({ id: m.id, ja: m.ja, role: ROLE[m.id] || '' })).filter(m => m.role); },
     /* 曲を手で流す・止める（ボタン用） */
     playMusicNow() { if (!musBuf) return false; initAudio(); playMusic(); musCut = -1; return true; },

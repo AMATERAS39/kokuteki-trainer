@@ -86,7 +86,8 @@ const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
 const REAR_END = LIMIT + GROUND_EYE.y;           // 原点から、もとの壁のあった位置まで（m）
 /* 曲の折り返しと頭（秒）。演目の長さを「曲 2 周ぶん」に合わせるのに使う */
 const MUS_LOOP_END_S = 238, MUS_LEAD_S = 13, LAND_TIME = 130;
-const LAND_TD = 120;                             // 接地する点（滑走路の南端から北へ、m）
+const STRIP_END = 550;                           // 滑走路の帯の端（y = ±550）
+const LAND_TD_Y = -STRIP_END + 450;              // 接地する点（y = -100）。帯の入口から 450 m 入ったところ、止まるまで 650 m ある
 const LAND_SLOPE = 0.052;                        // 進入の勾配（約 3 度）
 /* JUMP_FAR: ここまで離れたら位置を移してよい。1000 m にすると、離陸して上がりきった直後（原点から 1 km ほど）に
    目の前で移ってしまい、瞬間移動が見える（実測）。壁のあった距離まで離れてからにする */
@@ -614,8 +615,12 @@ export function mount(container, opt = {}) {
   /* 脚とライトは別々に出し入れできる。昼以外はライトを自動で点けておく（手で消せる）。
      ローパスのあいだは両方出し、終わったら手で決めていた状態に戻す */
   let gearOn = false, lightsOn = false, treeMode = false, treeLit = false;   // ライトは標準でオフ（離着陸・ローパスだけ）   // treeLit: ローパスのライトを点けたか（正面を向いてから）
+  let gearPrev = null, gearSndN = 0;       // タイヤの出し入れの音を鳴らすための、前の状態と鳴らした回数（確かめ用）
   function applyGear() {
-    gearSets.forEach(g => { g.visible = gearOn || treeMode; });
+    const gShow = gearOn || treeMode;
+    if (gearPrev !== null && gShow !== gearPrev) gearSound(gShow);   // 出し入れが切り替わったときだけ鳴らす
+    gearPrev = gShow;
+    gearSets.forEach(g => { g.visible = gShow; });
     lightSets.forEach(L => { L.visible = lightsOn || (treeMode && treeLit); });   // ローパスのライトは、正面を向いてから点ける
     shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });   // 蜃気楼は地上から見たときだけ
   }
@@ -766,7 +771,7 @@ export function mount(container, opt = {}) {
     { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200, at: 45, atR: 1300,
       desc: '高さの違う 5 機が一列で正面から進入し、先頭以外が一斉に左右へ開きます。そのあと、先頭の旋回に合わせて広めの三角形になり、そろって旋回します。' },
     { id: 'rain', ja: 'レインフォール', form: 'fan', alt: 900, at: 180, atR: 1200,
-      desc: '極めて高いところから 5 機が観覧位置の真上へ降り、頭上で一気に散らばって、煙の筋が五方向へ伸びます。' },
+      desc: '極めて高いところから 5 機が真下へ降り、正面の前方で一気に散らばって、煙の筋が五方向へ伸びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200, entry: 'front', far: SPREAD_D / 2,
       desc: '4 機で、空に数字の 8 を描きます。' },
@@ -853,7 +858,6 @@ export function mount(container, opt = {}) {
   const BLOOM_TURN = 13;                   // 曲がりきるまで（秒）
   const BLOOM_TURN_V = 6;                  // 鉛直下向きから水平へ（レインフォール）の引き起こし（秒）
   const RAIN_PULL_Z = 330;                 // レインフォールの散開位置の高さ（ここから引き起こす。終わりは 150 m ほど）
-  const RAIN_PRE = 210;                    // 原点の手前これだけで押し下げを始める（押し下げの弧で前へ進むぶん。380 では散開が 174 m 手前だった）
   let rainDive = false, rainT = 0;         // レインフォール: 押し下げに入ったか、その経過
   const BLOOM_LAG = 0;                     // 中央の 2 機も外側と同時に曲がり始める
   let bloomS = null;
@@ -867,7 +871,7 @@ export function mount(container, opt = {}) {
       if (i >= 4) return;
       const side = (i % 2 === 0) ? -1 : 1;                  // 0・2 が左、1・3 が右
       const outer = i >= 2;                                  // 外側の 2 機
-      const ang = (vertical ? (outer ? 144 : 72) : (outer ? 90 : 45)) * side, h1 = hb + ang;   // 鉛直からの散開は五方に等しく（72 度ずつ）
+      const ang = (outer ? 90 : 45) * side, h1 = hb + ang;
       /* 弧の長さは同じでも、曲がる角が大きいほど弦（開いた点からの直線距離）は短くなる。
          その比（(θ/2)/sin(θ/2)）だけ速くすると、機首の先端がひとつの弧に並ぶ＝扇の形になる */
       const th2 = Math.abs(ang) * D / 2;
@@ -1048,7 +1052,9 @@ export function mount(container, opt = {}) {
   let landStep = 0, landSide = 0;          // 着陸の道すじの段（0〜3）と、通る脇（+1 右 / -1 左）
   function beginLanding() {
     manPhase = 'land'; phaseT = 0; markOn = false;
-    landN = st.y <= RWY.y + 200;             // いま居る側から進入する（回り込みを短くする）
+    /* 進入はいつも南から北向き。向きを選ぶと、南向きのとき接地点が帯の外（y = -860）になり、
+       僚機（いつも北向き）と逆向きに降りることにもなる（実測: 1 番機が (-16, -916) に接地） */
+    landN = true;
     landStep = 0; landSide = 0;
     /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
        滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
@@ -1261,7 +1267,7 @@ export function mount(container, opt = {}) {
            ここは位置と向きを決めて進める（一定の速さ・曲がりは 22 度/秒まで・勾配 3 度で、
            実際に操縦しても再現できる動き）。僚機の着陸と同じ組み立て */
         if (landSide === 0) landSide = st.x >= RWY.x ? 1 : -1;      // 近いほうの脇を通る
-        const tdY = RWY.y + LAND_TD * sgn;
+        const tdY = LAND_TD_Y;
         /* 道すじは、山の環（原点から 2.2 km より外）と近くの山（(-500,-1000)・(700,-900) など）を避けて置く。
            外へ出すと山越えの手当てが働いて持ち上げられ、高いまま滑走路を通り過ぎてしまう（実測: 200 m → 563 m）*/
         const wps = [[RWY.x + 950 * landSide, RWY.y + 200 * sgn, 260],
@@ -1272,7 +1278,10 @@ export function mount(container, opt = {}) {
         const far = Math.max(0, (tdY - st.y) * sgn);
         /* 最終は、接地点までの距離で高さを決める。接地点に近づいたら地面より下を狙って、
            確実に沈める（3 m のまま狙うと、滑走路の上を 4 m で通り過ぎてしまう） */
-        const wz = landStep >= 3 ? (far > 80 ? Math.min(3 + far * LAND_SLOPE, 300) : -25) : w[2];
+        let wz = landStep >= 3 ? (far > 80 ? Math.min(3 + far * LAND_SLOPE, 300) : -25) : w[2];
+        /* 帯に入るまでは 6 m より下げない（手前で接地しない）。帯に入ってから、接地点へ向けて沈める */
+        const inStrip = Math.abs(st.y) < STRIP_END - 30;
+        if (landStep >= 3 && !inStrip) wz = Math.max(wz, 6);
         const dLand = Math.hypot(w[0] - st.x, w[1] - st.y);
         const wantH = ((Math.atan2(w[0] - st.x, w[1] - st.y) / D) % 360 + 360) % 360;
         /* 向きと姿勢だけを決める。進むのは step() のふつうの積分に任せる
@@ -1306,7 +1315,7 @@ export function mount(container, opt = {}) {
           if (landStep === 3) landDesc = 0;                  // 先頭の降下開始
         }
         autoIn.x = 0; autoIn.y = 0; autoIn.r = 0; smIn.x = 0; smIn.y = 0; smIn.r = 0;
-        if (st.z <= 4.5) { st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
+        if (st.z <= 4.5 && inStrip) { st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
           gearOn = true; applyGear(); att.setFromAxisAngle(AZ, -st.h * D); readAttitude();
           if (landClock < 0) landClock = 0; }
         /* 降りる組を目で追えるよう、視線はいま降りている組へ向ける */
@@ -1457,8 +1466,9 @@ export function mount(container, opt = {}) {
                  chase: false, done: false, joinT: -1, out: false,
                  v1: (2 * Math.PI * rS) / (lap * E8_LEAD_AT / 360),
                  cx: sp.x + rS * Math.sin(a), cy: sp.y + rS * Math.cos(a) };
-          figAim = new THREE.Vector3(plane.position.x, plane.position.y, plane.position.z);   // 描き物なので、視線は絵の付け根へ
         }
+        /* 視線は離れた 1 機を追う。合流し終えたら（done）、ふつうの編隊の真ん中へ */
+        { const sh = mates[e8.solo]; figAim = (!e8.done && sh && sh.visible) ? sh.position.clone() : null; }
         const turned = hdgSum - e8.t0;
         if (!e8.out) {
           /* スモークは、合流するまで 3 機が出す。合流したら先頭機と入れ替える（1 機が円を仕上げる） */
@@ -1516,11 +1526,9 @@ export function mount(container, opt = {}) {
           /* 南から北へ、高いところを水平に散開位置の真上まで。
              押し下げて降りると、引き起こしは来た向きへ戻る（押した側に背中が向くため）。
              南から来れば、引き起こしで南（原点の側）へ抜ける。北から来て捻らずに降りると北へ抜けてしまう */
-          /* 後ろから来て、原点の真上を通る線をまっすぐ飛ぶ（狙いは原点のずっと先）。
-             原点の手前 RAIN_PRE で押し下げを始めると、押し下げの弧のぶん前へ進んで、鉛直になるのが真上になる */
           rainOn = false; formScale = 1;
-          { const rp = showPt(1500, 0); steerTo(rp.x, rp.y, GATE.z); }
-          if (alongR > -RAIN_PRE || manT > 60) { rainDive = true; rainT = 0; }
+          { const rp = showPt(SPREAD_D + 800, 0); steerTo(rp.x, rp.y, GATE.z); }
+          if (alongR > SPREAD_D - 170 || manT > 60) { rainDive = true; rainT = 0; }
           break;
         }
         rainT += dt;
@@ -1533,7 +1541,7 @@ export function mount(container, opt = {}) {
           if ((st.p < -80 && st.z < RAIN_PULL_Z) || st.z < RAIN_PULL_Z - 60 || manT > 80) { spreadOn = true; spreadT = 0; startBloom(true, (showFr + 180) % 360); }
           break;
         }
-        /* 散開: 五方へ（1 番機は後ろへ、4 機は 72 度ずつ）。どの機体も鉛直下向きから水平へゆるやかに */
+        /* 散開: 4 機はそれぞれの向きへ、1 番機は後ろへ。どの機体も鉛直下向きから水平へゆるやかに */
         spreadT += dt; bloomS.t = spreadT;
         const kr = clamp(spreadT / BLOOM_TURN_V, 0, 1), er = kr * kr * (3 - 2 * kr);
         { const rq = showPt(-2500, 0); steerTo(rq.x, rq.y, 150); }   // 引き起こしの向きは後ろ（原点の側へ抜ける）
@@ -1564,7 +1572,9 @@ export function mount(container, opt = {}) {
         /* 1 番機は図の下のあたりを ゆっくり回る。目で追う視点は 1 番機を追うので、図も画面に入る */
         const fa = Math.atan2(st.y - figO.y, st.x - figO.x) + 0.5;
         steerTo(figO.x + Math.cos(fa) * 160, figO.y + Math.sin(fa) * 160, Math.max(160, figO.z - 230));
-        if (fig.t >= fig.dur + 1.2) nextManeuver();
+        /* 描き終えて 3 秒は絵を見せ、そのあと視線を機体へ（ゆっくり首を回す）。回し終えるまで課目を続ける */
+        if (fig.t >= fig.dur + 3 && figAim) { figAim = null; slowAim = 6; }
+        if (fig.t >= fig.dur + 9) nextManeuver();
         break;
       }
       case 'tree': {                             // クリスマスツリー・ローパス: 減速・脚出し・ライト・濃い煙で頭上を低く抜ける
@@ -2227,14 +2237,16 @@ export function mount(container, opt = {}) {
      1・2 番機 → 3・4 番機 → 5・6 番機 の順に、`LAND_GAP` 秒あけて降りる。
      地上から見る人が、降りる組を順に目で追えるだけの間をとる。
      出番が来るまでは、滑走路の南で輪を描いて待つ（高さは組ごとに変える） */
-  const LAND_HOLD_R = 620;
+  /* 待機の輪は小さく（半径 160 m）。大きい輪（620 m）だと、輪のどこにいるかで進入までの道のりが 1 km 以上ちがい、
+     接地の時刻が組の中でも 17 秒ずれた（実測）。小さい輪なら道のりの見積もりが当たる */
+  const LAND_HOLD_R = 160;
   /* 先頭（1 番機）が最終の降下を始めてからの時間（秒）。-1 はまだ。
      組ごとの出番はここで決める。先頭の降下開始から最後尾の接地までを LAND_TOTAL 秒にそろえる
      （曲の anthem を頭から流すと、ちょうどそこで終わる長さ）。LAND_AT は実測で合わせた出番の時刻 */
   const LAND_TOTAL = 66.5;                 // anthem を頭から流し始めてから、最後尾が接地するまで（秒）
-  const LAND_LEAD_TD = 33;                 // 先頭が降下を始めてから接地するまで（実測 32.8 秒）
+  const LAND_LEAD_TD = 37;                 // 先頭が降下を始めてから接地するまで（接地点 y = -100 で実測 37.1 秒）
   const LAND_PAIR_GAP = 14;                // 組ごとの接地の間隔（秒）。最後尾は 33 + 14 × 3 = 75 秒
-  const LAND_LAST = LAND_LEAD_TD + 3 * LAND_PAIR_GAP;      // 先頭の降下開始から最後尾の接地まで
+  const LAND_LAST = LAND_LEAD_TD + 3 * LAND_PAIR_GAP - 3.5;   // 先頭の降下開始から最後尾の接地まで（実測 75.4 秒。狙いより 3.5 秒早く着くぶんを引く）
   let landMusOn = false;                   // anthem を流し始めたか（着陸で一度だけ）
   let landDesc = -1;
   let landClock = -1;                      // 1 番機が接地してからの時間（秒）。-1 はまだ
@@ -2248,8 +2260,16 @@ export function mount(container, opt = {}) {
        あとの組は、1 番機が接地してから LAND_GAP 秒ずつあけて降りる */
     /* 出番: 組ごとの「接地させたい時刻」（先頭 + 11 秒 × 組の番号）から、いまの位置から接地点までにかかる時間を
        引いた時刻に最終へ入る。輪のどこにいても接地の時刻がそろう（決めた時刻で出すと、輪の位置で 36〜63 秒ぶれた） */
-    const tdYw = RWY.y + LAND_TD, gy = RWY.y - 1400;
-    const est = (Math.hypot(rx - holder.position.x, gy - holder.position.y) + (tdYw - gy)) / (SPEED * 0.9) + 7;   // +7 秒は曲がりの遅れ（+4 では最後尾が 2.8 秒遅れた）
+    const tdYw = LAND_TD_Y, gy = RWY.y - 1400;
+    /* 道のり ÷ 速さ に、向き直りの時間（進入の点への方位との差 ÷ 22 度/秒）を足す。
+       向き直りを見ないと、輪の反対側を向いている機が 8 秒遅れた（実測） */
+    const brg = ((Math.atan2(rx - holder.position.x, gy - holder.position.y) / D) % 360 + 360) % 360;
+    const turnT = u.mh === undefined ? 4 : Math.abs(wrap180(brg - u.mh)) / 22;
+    /* 降りるのにかかる時間も見る。輪の高さ（最後の組は 440 m）から 12 m/s でしか降りられないので、
+       道のりの時間より長いことがある（見ないと最後の組が 12 秒遅れた。実測） */
+    const pathT = (Math.hypot(rx - holder.position.x, gy - holder.position.y) + (tdYw - gy)) / (SPEED * 0.9);
+    const downT = Math.max(0, holder.position.z - 3) / 12 + 2;
+    const est = Math.max(pathT, downT) + turnT + 1;      // 余裕は小さく（+6 と +2 では最後の組が 7 秒早かった）
     const want = LAND_LEAD_TD + (L.pair + 1) * LAND_PAIR_GAP;
     const turn = landDesc >= 0 && (L.on || landDesc >= want - est);
     if (!turn) {                                               // 出番待ち: 滑走路の南で輪を描く
@@ -2259,7 +2279,7 @@ export function mount(container, opt = {}) {
       return;
     }
     if (!L.on) { L.on = true; L.step = 0; }
-    const g = GRID[i + 1], tdY = RWY.y + LAND_TD;              // 接地する点（滑走路の上）
+    const g = GRID[i + 1], tdY = LAND_TD_Y;              // 接地する点（滑走路の上）
     if (L.step < 2) {
       /* 進入: 滑走路の線に乗り、接地する点まで 3 度の勾配で降りる。
          高さを「接地する点までの距離」から決めるので、手前で降りきってしまわない */
@@ -2270,7 +2290,11 @@ export function mount(container, opt = {}) {
       /* 進入の線に乗る点まで、きちんと行ってから最終へ移る。
          「もう北にいるから」で移すと、斜めから滑走路へ突っ込んで、帯を外れる（実測） */
       if (L.step === 0 && d < 200) L.step = 1;
-      if (L.step === 1 && holder.position.z <= 4 && holder.position.y > RWY.y - 480) { L.step = 2; L.tDown = L.t; }
+      /* 帯（y = -550〜）に入り、滑走路の線に乗る（横ずれ 20 m 未満）までは 6 m より下げない。接地は帯の上でだけ
+         （線に乗る前に降ろすと、帯の脇 x = -31 に降りた。実測） */
+      const inStripM = holder.position.y > -STRIP_END + 30 && Math.abs(holder.position.x - rx) < 20;
+      if (!inStripM && holder.position.z < 6) holder.position.z = 6;
+      if (L.step === 1 && holder.position.z <= 4 && inStripM) { L.step = 2; L.tDown = L.t; }
       if (holder.position.z < 3) holder.position.z = 3;
       return;
     }
@@ -2670,6 +2694,30 @@ export function mount(container, opt = {}) {
   const AUD_FAR = 1500;                    // ここより遠いと聞こえない（m）
   const AUD_SPD = 340;                     // 音の速さ（m/s）
   let actx = null, aMaster = null, aNodes = null, soundOn = true;
+  /* タイヤの出し入れの機械音（一人称のときだけ。外から見ている人には届かない音）。
+     モーターのうなり（帯域を絞った雑音を 1.4 秒、音程を上げ下げ）と、終わりの「ガコン」（低い短い音） */
+  let gearNoise = null;
+  function gearSound(extend) {
+    if (curView !== 'first' || !soundOn || !actx || actx.state !== 'running') return;
+    try {
+      if (!gearNoise) gearNoise = makeNoise(actx);
+      const t = actx.currentTime, dur = 1.4;
+      const src = actx.createBufferSource(); src.buffer = gearNoise; src.loop = true;
+      const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 9;
+      bp.frequency.setValueAtTime(extend ? 520 : 380, t);
+      bp.frequency.linearRampToValueAtTime(extend ? 380 : 520, t + dur);
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.12);
+      g.gain.setValueAtTime(0.35, t + dur - 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp); bp.connect(g); g.connect(aMaster); src.start(t); src.stop(t + dur + 0.05);
+      const o = actx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(95, t + dur);
+      o.frequency.exponentialRampToValueAtTime(48, t + dur + 0.14);
+      const g2 = actx.createGain(); g2.gain.setValueAtTime(0.0001, t + dur - 0.01);
+      g2.gain.exponentialRampToValueAtTime(0.9, t + dur + 0.01); g2.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.16);
+      o.connect(g2); g2.connect(aMaster); o.start(t + dur); o.stop(t + dur + 0.2);
+      gearSndN++;
+    } catch (e) {}
+  }
   let airVol = 0.9, musVol = 0.55;         // 飛行音と曲の大きさ（0〜1）。別々に決められる
   const aPrev = [];                        // 前のコマの距離（ドップラーに使う）
   const aLast = [];                        // 前のコマの位置（速さを見て、止まっている機体は鳴らさない）
@@ -3108,7 +3156,7 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      return { gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };

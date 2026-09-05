@@ -844,7 +844,7 @@ export function mount(container, opt = {}) {
   let manPhase = 'do', phaseT = 0, aimX = 0, aimY = 0, planFace = 0, turnSign = 1;
   let touchDone = false;                   // タッチ・アンド・ゴーで、滑走路に触れたか
   const TOUCH_RUN = 1.4;                   // タッチ・アンド・ゴーで、タイヤをつけているあいだ（秒）
-  let touchT = 0;
+  let touchT = 0, touchAge = 0;            // 接地しているあいだ／接地してからの時間（秒）
   /* 散開（サンライズ・レインフォール）。開き始めた点から放射状に広がるには、
      間隔を「時間に比例して」広げる。比例で広げると、各機はその点からまっすぐ離れていく。
      ゆっくり・速くと変えると線が曲がるので、比例のまま最後まで広げる */
@@ -1145,7 +1145,7 @@ export function mount(container, opt = {}) {
       mates.forEach((h, k) => { const u = h.userData; u.rejoin = !u.shown || !pf.offs[k]; }); }
     reIn = 0;
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null; aimLeader = false;
-    if (PROGRAM[i].id !== 'touch') pathLag = 0;
+    if (PROGRAM[i].id !== 'touch' && pathLag > 0) endPath();
     const m = PROGRAM[i];
     /* 正面を選ぶ: 機体がいる方角（進入の点の方角ぶんをずらして）に最も近い東西南北。
        そちらから入ってくれば回り込みが短い。滑走路を使う課目と離陸は選ばない（滑走路は北向き） */
@@ -1156,7 +1156,7 @@ export function mount(container, opt = {}) {
     }
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    e8 = null; touchDone = false; touchT = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
+    e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
     spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; oproX = false; oproUp = false; oproZ = -1; noTurn = false; smokeNone = false; rollBoost = 1;
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
@@ -1621,6 +1621,7 @@ export function mount(container, opt = {}) {
         break;
       case 'touch': {                            // タッチ・アンド・ゴー: 滑走路に平行になったところから降ろし、順にタイヤをつけて上がる
         if (pathLag <= 0) startPath(TOUCH_LAG);                    // 追従機は 1 番機の道をたどり、同じ位置に接地する
+        if (touchDone) touchAge += dt;
         if (!touchDone) {
           steerTo(RWY.x, RWY.y + 900, -20);                        // 滑走路の上へ降ろす
           if (st.z <= 3.4) { touchDone = true; touchT = 0; st.cue = 'タッチ'; }
@@ -1630,7 +1631,10 @@ export function mount(container, opt = {}) {
           holdBank(0); holdPitch(clamp(14 - st.z / 25, 4, 14));    // 自動で上がる（「加速」を待たない）
           st.cue = 'ゴー';
         }
-        if ((touchDone && touchT >= TOUCH_RUN && st.z > 160) || manT > 70) { formScale = 1; pathLag = 0; nextManeuver(); }
+        /* 最後の追従機（いちばん遅れている機）が接地して上がり終えるまで、まっすぐ上がり続ける。
+           先に次の課目へ移すと、道をたどっている追従機が隊形へ引き戻され、接地できずに終わる（実測: 6 番機） */
+        { let maxLag = 0; mates.forEach(h => { if (h.userData.shown && h.userData.lag !== undefined) maxLag = Math.max(maxLag, h.userData.lag); });
+          if ((touchDone && touchT >= TOUCH_RUN && st.z > 160 && touchAge > maxLag + 5) || manT > 120) { formScale = 1; endPath(); nextManeuver(); } }
         break;
       }
       case 'opro': {                             // オポジット・コンティニュアス・ロール
@@ -2134,14 +2138,30 @@ export function mount(container, opt = {}) {
      地上では、1 番機が止まった位置まで来たら道をたどるのをやめ、自分の待機の位置へ走る（重ならない） */
   let pathLag = 0;                         // 0 なら使わない
   /* 追従の間隔（秒）。タッチ・アンド・ゴーと着陸で同じ値にする。
-     途中で変えると、追従機が「たどる時刻」を飛ばして道の上を瞬間移動する（実測: 2 → 5 秒で後ろへ 900 m 飛んだ） */
+     追従機ごとの遅れ（u.lag）は、いまの間隔から少しずつ広げる（LAG_RATE 秒/秒 = 先頭の 55% の速さで飛んで下がる）。
+     一度に目標の遅れへ飛ばすと、道の上を後ろへ瞬間移動する（6 番機は 20 秒 = 1.2 km 後ろへ飛び、
+     乗っていると後ろ向きに高速で流れて見えた。実測） */
   const TOUCH_LAG = 4.0, LAND_LAG = 4.0;   // 60 m/s なら 240 m おき
-  function startPath(lag) { const cont = pathLag > 0; pathLag = lag; mates.forEach(h => { if (!cont) h.userData.pfK = 0; h.userData.pfDone = false; h.userData.parked = false; }); }
+  const LAG_RATE = 0.45;
+  function startPath(lag) {
+    const cont = pathLag > 0; pathLag = lag;
+    mates.forEach(h => { const u = h.userData; if (!cont) u.lag = undefined; u.pfDone = false; u.parked = false; });
+  }
+  /* 道をたどるのをやめるとき: いまの位置を隊形の相対位置にして、ふつうの合流に渡す（前へ瞬間移動しない） */
+  function endPath() {
+    pathLag = 0;
+    mates.forEach(h => { const u = h.userData; if (!u.shown) return;
+      mo.copy(h.position).sub(plane.position).applyQuaternion(qInv.copy(att).invert());
+      u.cur.copy(mo); u.from = null; u.lag = undefined; });
+  }
   function placeReplay(holder, u, i, dt, emitting, color) {
-    const sAt = stateAt((i + 1) * pathLag);
-    u.pfK = Math.min(1, (u.pfK || 0) + dt / 3);
-    if (!u.shown || u.pfK >= 1) holder.position.copy(sAt.p);
-    else holder.position.lerp(sAt.p, 1 - Math.exp(-dt / 0.6));     // 3 秒かけて道へ寄せる
+    const tgt = (i + 1) * pathLag;
+    if (u.lag === undefined) {                                     // いまの間隔から始める（道の上の同じ位置）
+      u.lag = u.shown ? Math.min(tgt, holder.position.distanceTo(plane.position) / Math.max(20, SPEED * spdK)) : tgt;
+    }
+    u.lag = Math.min(tgt, u.lag + LAG_RATE * dt);
+    const sAt = stateAt(u.lag);
+    holder.position.copy(sAt.p);
     if (holder.position.z < 3) holder.position.z = 3;
     if (!u.shown) holder.quaternion.copy(sAt.q); else turnMate(holder, sAt.q, dt);
     holder.visible = true; u.shown = true;

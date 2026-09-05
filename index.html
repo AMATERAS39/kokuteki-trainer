@@ -12,15 +12,15 @@
 <link rel="icon" href="icons/favicon-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
-<title>TENRYU｜航空学生の適性検査トレーニング（方位・姿勢指示器・操縦操作）</title>
-<meta name="description" content="航空自衛隊 航空学生の適性検査を、制限時間つきで反復練習できる Web アプリ。方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目と、操縦操作の見え方を確かめる 3D シミュレーターが入っています。ブラウザでそのまま試せます。">
+<title>TENRYU | パイロット適性検査トレーニング</title>
+<meta name="description" content="パイロット適性検査（航空自衛隊 航空学生の適性検査）を、制限時間つきで反復練習できるアプリ。方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目と、操縦操作の見え方を確かめる 3D シミュレーターが入っています。ブラウザでそのまま試せます。">
 <link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TENRYU">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://kokuteki.amaterasu-vocab.com/">
-<meta property="og:title" content="TENRYU｜航空学生の適性検査トレーニング">
-<meta property="og:description" content="方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
+<meta property="og:title" content="TENRYU | パイロット適性検査トレーニング">
+<meta property="og:description" content="航空学生の適性検査対策。方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
 <meta property="og:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -345,8 +345,12 @@ svg text{user-select:none}
      縦画面はふつうの学習モードなので、しまわない（この決まりは横画面のときだけ） */
   body[data-view="train"][data-phase="sim"] .sim .showui{display:inline-flex;opacity:.75}
   body[data-view="train"][data-phase="sim"] .sim.uihide .ctl{display:none}
-  body[data-view="train"][data-phase="sim"] .sim.uihide .simbar > :not(.showui){display:none}
+  body[data-view="train"][data-phase="sim"] .sim.uihide .simbar > :not(.showui):not(#simViewBtn){display:none}
   body[data-view="train"][data-phase="sim"] .sim.uihide .showui{opacity:1}
+  /* 視点のスイッチは、操作をしまったあとも残す（整列中は機内から見せるので、外に切り替えられるようにする） */
+  body[data-view="train"][data-phase="sim"] .sim.uihide #simViewBtn{opacity:1}
+  /* 帯（離陸準備・テイクオフなど）が出ているあいだは、アイコンの列を帯の上へ（帯は横いっぱいで、重なると隠れる。実測: 帯 594〜646 px にアイコン 602〜640 px） */
+  body[data-view="train"][data-phase="sim"] .sim.band .simbar{bottom:8.5rem}
   /* 自動操縦のボタンは、操作をしまったあとも操作一覧の場所に残す（もう一度押すと固定になる） */
   body[data-view="train"][data-phase="sim"] .sim #simAuto.showui{opacity:1}
   /* 背の低い横画面（スマホ）では、アイコンの列と出し入れボタンを計器の上へ逃がす。
@@ -777,10 +781,17 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .sim .acts .btn{height:2.75rem}
 }
 
+.fullbtn{display:none}
+/* インストールした窓（PC）: 題名の帯を消して、その場所まで画面にする。帯があった場所では窓をつかんで動かせる。ボタンはつかまない */
+@media (display-mode:window-controls-overlay){
+  .hdr{padding-top:max(env(titlebar-area-height,0px),1.5rem);-webkit-app-region:drag;app-region:drag}
+  .hdr button,.hdr .menulist{-webkit-app-region:no-drag;app-region:no-drag}
+}
 /* ===== PC 幅 ===== */
 @media (min-width:64rem){
   .app{padding:0 2rem}
   .hdr{padding-top:1.5rem;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center}
+  .fullbtn:not([hidden]){display:flex}
   .brand .name{font-size:1.375rem}
   .brand .pwa{display:none}
   .sub{display:block;font-size:.8125rem}
@@ -898,6 +909,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-rudder-right-on" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect class="f" x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M8 20h8"/><path class="f" d="M13 17l4 3-4 3z"/></symbol>
 <symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
 <symbol id="i-update" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M5.463 4.433A9.96 9.96 0 0 1 12 2c5.523 0 10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228zm13.074 15.134A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772z"/></symbol>
 <symbol id="i-level" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><circle cx="12" cy="12" r="1.4" style="fill:currentColor;stroke:none"/></symbol>
 <symbol id="i-trick" viewBox="0 0 24 24"><path d="M9.5 6.4h11M9.5 12h11M9.5 17.6h11"/><path d="M4.3 3.4l.95 1.95 2.15.3-1.55 1.5.36 2.13L4.3 8.27 2.39 9.28l.36-2.13L1.2 5.65l2.15-.3z" style="fill:currentColor;stroke:none"/><circle cx="4.3" cy="12" r="1.15" style="fill:currentColor;stroke:none"/><circle cx="4.3" cy="17.6" r="1.15" style="fill:currentColor;stroke:none"/></symbol>
@@ -934,6 +946,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <button class="homebtn" id="backStep" aria-label="戻る" title="一つ前の画面に戻る" hidden><svg class="ic"><use href="#i-back"/></svg></button>
         <div class="name">TENRYU</div>
         <button class="updbtn" id="updBtn" aria-label="更新"><svg class="ic"><use href="#i-update"/></svg></button>
+        <button class="updbtn fullbtn" id="fullBtn" aria-label="全画面" title="全画面にする（もう一度押すか Esc で戻る）" hidden><svg class="ic"><use href="#i-full"/></svg></button>
         <div class="menu">
           <button class="menubtn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-label="メニュー"><svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="menulist" id="menuList" hidden>
@@ -1140,7 +1153,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.15';
+const APP_VER='v04.16';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1464,7 +1477,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=108').then(mod=>{
+  import('./sim3d.js?v=109').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1501,13 +1514,11 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"></button>
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button>
-      <span class="formwrap"><button class="iconbtn" id="simSound" aria-label="音" aria-pressed="false" title="音（飛行音と曲。押すと大きさを調節できます）"><svg class="ic"><use href="#i-sound"/></svg></button><div class="formmenu sndmenu" id="simSoundMenu" hidden>
+      <span class="formwrap"><button class="iconbtn" id="simSound" aria-label="音" aria-pressed="false" title="音（飛行音と曲の入り切り。大きさは端末の音量と設定で）"><svg class="ic"><use href="#i-sound"/></svg></button><div class="formmenu sndmenu" id="simSoundMenu" hidden>
         <button class="mclose" data-close="1"><svg class="ic"><use href="#i-cross"/></svg><span>閉じる</span></button>
-        <button class="sndtog" id="volOff">音を切る</button>
+        <button class="sndtog" id="volOff">飛行音を切る</button>
         <button class="sndtog" id="musPlay">曲を流す</button>
-        <label class="sndrow"><span>飛行音</span><input type="range" id="volAir" min="0" max="100" step="5"><b id="volAirN">90</b></label>
-        <label class="sndrow"><span>曲</span><input type="range" id="volMus" min="0" max="100" step="5"><b id="volMusN">55</b></label>
-        <div class="sndnote">飛行音と曲は同時に流れます。曲は止めるまで繰り返します。</div>
+        <div class="sndnote">大きさは端末の音量ボタンと、設定の「音」で決めます。</div>
       </div></span><button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
       <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
@@ -1746,11 +1757,18 @@ function runSim(opt){applyScene();
     /* 着陸・地上走行・待機の案内と、離陸ボタン */
     const tk=$('#simTakeoff');
     /* 押したら「もう押せる」見た目にしない。曲に合わせて待っているあいだと加速中は、その旨を出して押せなくする */
-    if(tk){const show=s.mode==='stand'||s.mode==='takeoff'||s.mode==='apron'||s.mode==='taxi'||s.mode==='land';if(tk.hidden===show)tk.hidden=!show;
+    if(tk){const show=s.mode==='stand'||s.mode==='takeoff'||s.mode==='apron'||s.mode==='taxi'||s.mode==='land';if(tk.hidden===show){tk.hidden=!show;$('#sim').classList.toggle('band',show)}
       /* 駐機場では「離陸準備」（誘導路を通って滑走路へ）。誘導路のあいだは「スキップ」。全機が並んだら「テイクオフ」 */
       const txt=s.mode==='apron'?'離陸準備':(s.mode==='taxi'||s.mode==='land')?'誘導路をスキップ':s.mode==='takeoff'?'加速中…':(s.waiting?'待機中…':(s.lineup===false?'整列中…':'テイクオフ'));
       if(tk.textContent!==txt)tk.textContent=txt;
       const dis=s.mode==='takeoff'||!!s.waiting||(s.mode==='stand'&&s.lineup===false);if(tk.disabled!==dis)tk.disabled=dis;tk.classList.toggle('busy',dis)}
+    /* 整列中（滑走路へ入って向きを揃えているあいだ）は、機内から見せる。
+       切り替えは一度だけで、そのあとは視点のスイッチで自由に変えられる */
+    {const lining=s.mode==='stand'&&(s.lineup===false||sim.prevMode!=='stand');   /* 整列中…か、並びに入った瞬間（スキップで即テイクオフでも） */
+      if(lining&&!sim.lineCam){sim.lineCam=true;
+        if(sim.setViewTo&&(sim.viewName!=='first'||(sim.fpMode!=='cockpit'&&!portraitNow())))sim.setViewTo('first','cockpit')}
+      if(s.mode!=='stand'&&s.mode!=='taxi'&&s.mode!=='apron'&&sim.lineCam)sim.lineCam=false;
+      sim.prevMode=s.mode}
     if(s.mode&&s.mode!=='fly'){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
     /* 一時停止の表示。演目が終わったら止めるのをやめる */
     if(sim.h){const pz=sim.h.pausedState();
@@ -1762,7 +1780,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=108').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=109').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1885,7 +1903,10 @@ function runSim(opt){applyScene();
       /* 自動操縦: 入れると編隊が演技をする（地上からの視点で見るためのもの）。操縦桿の操作は効かない */
       /* 自動操縦のあいだ、10 秒 触らなければ方位計だけにする。触ればすぐ戻る */
       {const S=$('#sim');let restT=0;
-       const wake=()=>{restT=performance.now();if(S.classList.contains('rest'))S.classList.remove('rest')};
+       const wake=e=>{
+         /* 端末の音量ボタンや再生キーは操作に数えない（押してもアイコンを出さず、消えるまでの時間も伸ばさない） */
+         if(e&&e.type==='keydown'&&/^(Audio|Media|Volume)/.test(e.key||''))return;
+         restT=performance.now();if(S.classList.contains('rest'))S.classList.remove('rest')};
        ['pointerdown','pointermove','wheel','keydown','touchstart'].forEach(t=>
          document.addEventListener(t,wake,{passive:true}));
        wake();
@@ -1989,16 +2010,13 @@ function runSim(opt){applyScene();
           if(!soMenu.hidden){$('#simTrickMenu').hidden=true;$('#simFormMenu').hidden=true;
             sim.h.setSound(sim.h.soundState());paintSo()}});   /* 押された流れで音の仕組みを起こす */
         const tog=$('#volOff');
-        const paintTog=()=>{tog.textContent=sim.h.soundState()?'音を切る':'音を入れる'};
+        const paintTog=()=>{tog.textContent=sim.h.soundState()?'飛行音を切る':'飛行音を入れる'};
         tog.addEventListener('click',e=>{e.stopPropagation();
           const on=!sim.h.soundState();sim.h.setSound(on);store.set('simSound',on);paintSo();paintTog()});
         soMenu.querySelector('[data-close]').addEventListener('click',e=>{e.stopPropagation();soMenu.hidden=true});
         soMenu.addEventListener('click',e=>e.stopPropagation());
-        /* 大きさ: 飛行音と曲を別々に覚える */
-        const vA=$('#volAir'),vM=$('#volMus'),nA=$('#volAirN'),nM=$('#volMusN');
-        const a0=Math.round((store.get('simVolAir')??.9)*100),m0=Math.round((store.get('simVolMus')??.55)*100);
-        vA.value=a0;nA.textContent=a0;sim.h.setVol('air',a0/100);
-        vM.value=m0;nM.textContent=m0;sim.h.setVol('mus',m0/100);
+        /* 大きさは設定の「音」で決めたものを使う（横画面のアイコンでは変えない。端末の音量ボタンもある） */
+        sim.h.setVol('air',store.get('simVolAir')??.9);sim.h.setVol('mus',store.get('simVolMus')??.55);
         /* 曲を手で流す・止める */
         {const mb=$('#musPlay');
          const paintMb=()=>{const has=!sim.demo&&!!(sim.h.musicInfo&&sim.h.musicInfo());
@@ -2010,8 +2028,6 @@ function runSim(opt){applyScene();
          sim.paintMusicBtn=paintMb;paintMb();
          setInterval(()=>{if(!soMenu.hidden)paintMb()},700);}
         paintTog();
-        vA.addEventListener('input',()=>{nA.textContent=vA.value;sim.h.setVol('air',vA.value/100);store.set('simVolAir',+vA.value/100)});
-        vM.addEventListener('input',()=>{nM.textContent=vM.value;sim.h.setVol('mus',vM.value/100);store.set('simVolMus',+vM.value/100)});
         if(store.get('simSound')===false)sim.h.setSound(false);
         paintSo();paintTog();
         /* ブラウザは操作なしに音を出せない。最初に画面へ触れたときに、音の仕組みを起こす */
@@ -2257,9 +2273,20 @@ function renderSettingsPage(){
       :`<div class="sethelp">お手持ちの曲を展示飛行モードに合わせて流す機能は、完全版で使えます。</div>`}
       <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上入れると、順に流して最後まで行ったら最初へ戻ります（1 曲だけなら、3 分 58 秒で 0 分 13 秒へ戻って繰り返します）。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。「浮くタイミング」は、「テイクオフ」を押してから何秒目にタイヤが離れるかです（既定は 13.5 秒）。曲を登録してあるときは、曲が始まってからの秒数にもなります。そこから逆算して、滑走を始めるまでの間をとります。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
     </div>
+    <div class="setgroup"><h4>音</h4>
+      <label class="setting"><span>飛行音の大きさ</span><span class="musbtns"><input type="range" id="setVolAir" min="0" max="100" step="5"><b id="setVolAirN" class="voln">90</b></span></label>
+      <label class="setting"><span>曲の大きさ</span><span class="musbtns"><input type="range" id="setVolMus" min="0" max="100" step="5"><b id="setVolMusN" class="voln">55</b></span></label>
+      <div class="sethelp">全体の大きさは端末の音量ボタンで決めます。ここでは飛行音と曲のつり合いを決めます。シミュレーターの横画面の音アイコンは、飛行音と曲の入り切りだけです。</div>
+    </div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>
     <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
+  /* 音の大きさ: 飛行音と曲を別々に覚える。シミュレーターが開いていれば、その場で効かせる */
+  {const vA=$('#setVolAir'),vM=$('#setVolMus'),nA=$('#setVolAirN'),nM=$('#setVolMusN');
+   const a0=Math.round((store.get('simVolAir')??.9)*100),m0=Math.round((store.get('simVolMus')??.55)*100);
+   vA.value=a0;nA.textContent=a0;vM.value=m0;nM.textContent=m0;
+   vA.addEventListener('input',()=>{nA.textContent=vA.value;store.set('simVolAir',+vA.value/100);if(sim&&sim.h)sim.h.setVol('air',vA.value/100)});
+   vM.addEventListener('input',()=>{nM.textContent=vM.value;store.set('simVolMus',+vM.value/100);if(sim&&sim.h)sim.h.setVol('mus',vM.value/100)});}
   /* 展示飛行モードの構成: 「自分で選ぶ」のときは、序盤・中盤・終盤・フィナーレの枠に課目を置く */
   {const slots=$('#progSlots');
    const paintSlots=()=>{const custom=settings.showProg==='custom';slots.hidden=!custom;if(!custom){applyShow();return}
@@ -2714,6 +2741,16 @@ if('serviceWorker' in navigator&&!NATIVE&&/^https?:$/.test(location.protocol)){
   });
 }
 try{if(sessionStorage.getItem('aat.updated')){sessionStorage.removeItem('aat.updated');toast('更新しました')}}catch(e){}
+/* PC の全画面: ブラウザで開いているとき（インストールした窓は帯を消してあるので不要）。
+   押すと全画面にし、覚えておく。次に開いたときは、最初に画面へ触れたところで全画面に戻す */
+{const fb=$('#fullBtn');
+ const pcBrowser=()=>matchMedia('(min-width:64rem)').matches&&!matchMedia('(display-mode:standalone),(display-mode:window-controls-overlay),(display-mode:fullscreen)').matches&&!NATIVE&&!!document.fullscreenEnabled;
+ const paintFull=()=>{fb.hidden=!pcBrowser();fb.classList.toggle('on',!!document.fullscreenElement);fb.title=document.fullscreenElement?'全画面をやめる（Esc でも戻る）':'全画面にする（もう一度押すか Esc で戻る）'};
+ fb.addEventListener('click',async()=>{try{if(document.fullscreenElement){await document.exitFullscreen();store.set('pcFull',false)}else{await document.documentElement.requestFullscreen();store.set('pcFull',true)}}catch(e){toast('この環境では全画面にできません')}paintFull()});
+ document.addEventListener('fullscreenchange',paintFull);matchMedia('(min-width:64rem)').addEventListener('change',paintFull);
+ const again=()=>{if(store.get('pcFull')&&pcBrowser()&&!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});document.removeEventListener('pointerdown',again)};
+ document.addEventListener('pointerdown',again);
+ paintFull();}
 $('#updBtn').addEventListener('click',async()=>{
   const b=$('#updBtn');if(b.classList.contains('busy'))return;
   b.classList.add('busy');

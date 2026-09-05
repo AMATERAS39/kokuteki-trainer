@@ -297,10 +297,11 @@ export function mount(container, opt = {}) {
   };
   mountain(-260, 320, 420, 260, true);                     // 正面左の雪山（開始位置から約 800 m）
   mountain(-520, 700, 300, 220, false); mountain(120, 900, 340, 240, true); mountain(560, 520, 260, 200, false);
-  [[-900, -300], [900, -100], [-700, 1100], [800, 1150], [-1100, 600], [1100, 800], [-500, -1000], [700, -900], [-1150, -1000], [1150, -1150], [300, 1300], [-1250, 100]]
+  /* 空間の中の山は 8 つ（12 から減らした。多すぎて見え方の目印が埋もれる、との利用者の指摘）。遠景の環も 24 → 16 */
+  [[-900, -300], [900, -100], [-700, 1100], [800, 1150], [1100, 800], [-500, -1000], [1150, -1150], [-1250, 100]]
     .forEach(([x, y], i) => mountain(x, y, 180 + (i % 4) * 60, 140 + (i % 3) * 50, i % 4 === 3));
-  for (let i = 0; i < 24; i++) {                            // 遠景の環（壁の外）
-    const a = i / 24 * Math.PI * 2 + rnd() * 0.2, r = 2200 + rnd() * 500, hgt = 400 + rnd() * 500;
+  for (let i = 0; i < 16; i++) {                            // 遠景の環（壁の外）
+    const a = i / 16 * Math.PI * 2 + rnd() * 0.2, r = 2200 + rnd() * 500, hgt = 400 + rnd() * 500;
     mountain(r * Math.cos(a), r * Math.sin(a), hgt, 300 + rnd() * 300, hgt > 650);
   }
 
@@ -545,17 +546,38 @@ export function mount(container, opt = {}) {
   const smokeCol = new THREE.Color(), emitPos = new THREE.Vector3();
   let smokeBoost = false;                          // 濃い煙（ローパス）。3 粒を少し散らして、大きめに出す
   /* vel を渡すと、その粒は出たあと流れて消える（地上での点検）。life で消えるまでの時間を変える */
-  function emit(pos, colorHex, vel, life) {
+  /* 煙の粒は 0.04 秒ごとに 1 つ置くが、速い機（レター・エイトの単機 1.55 倍、描き物の寄せなど）や
+     コマ落ちのときは粒の間が開いて点々に見える。機ごと（key: 0 = 1 番機、1〜 = 編隊機）に前の粒の位置を覚え、
+     間が SMOKE_STEP（ふつうの速さの 0.04 秒ぶん = 2.4 m）を超えたら、そのあいだに粒を足して線にする。
+     出し始め（前の粒から 0.6 秒以上・200 m 以上）はつながない（切っていた間を埋めてしまうため） */
+  const SMOKE_STEP = SPEED * SMOKE_DT;
+  const lastEmit = [];                              // key → { x, y, z, t }
+  const gapMax = [];                                // key → 前の粒との最大の間（m。確かめ用）
+  function emit(pos, colorHex, vel, life, key) {
     smokeCol.set(smokeBoost ? '#ffffff' : colorHex);   // ローパスの煙は白
-    const n = smokeBoost ? 3 : 1;
-    for (let k = 0; k < n; k++) {
-      const i = sHead % SMOKE_N; sHead++;
-      const j = smokeBoost ? 2.5 : 0;
-      sPos[i * 3] = pos.x + (Math.random() - 0.5) * j; sPos[i * 3 + 1] = pos.y + (Math.random() - 0.5) * j; sPos[i * 3 + 2] = pos.z + (Math.random() - 0.5) * j;
-      sCol[i * 3] = smokeCol.r; sCol[i * 3 + 1] = smokeCol.g; sCol[i * 3 + 2] = smokeCol.b;
-      sVel[i * 3] = vel ? vel.x : 0; sVel[i * 3 + 1] = vel ? vel.y : 0; sVel[i * 3 + 2] = vel ? vel.z : 0;
-      sBirth[i] = clock; sSize[i] = smokeBoost ? 2.4 : 1; sLife[i] = life || lifeNow;
+    const n = smokeBoost ? 3 : 1, j = smokeBoost ? 2.5 : 0, lf = life || lifeNow, sz = smokeBoost ? 2.4 : 1;
+    const put = (x, y, z, birth) => {
+      for (let k = 0; k < n; k++) {
+        const i = sHead % SMOKE_N; sHead++;
+        sPos[i * 3] = x + (Math.random() - 0.5) * j; sPos[i * 3 + 1] = y + (Math.random() - 0.5) * j; sPos[i * 3 + 2] = z + (Math.random() - 0.5) * j;
+        sCol[i * 3] = smokeCol.r; sCol[i * 3 + 1] = smokeCol.g; sCol[i * 3 + 2] = smokeCol.b;
+        sVel[i * 3] = vel ? vel.x : 0; sVel[i * 3 + 1] = vel ? vel.y : 0; sVel[i * 3 + 2] = vel ? vel.z : 0;
+        sBirth[i] = birth; sSize[i] = sz; sLife[i] = lf;
+      }
+    };
+    if (key !== undefined && !vel) {
+      const L = lastEmit[key];
+      if (L && clock - L.t < 0.6) {
+        const d = Math.hypot(pos.x - L.x, pos.y - L.y, pos.z - L.z);
+        if (d < 200) {
+          if (d > (gapMax[key] || 0)) gapMax[key] = d;
+          const m = Math.ceil(d / SMOKE_STEP) - 1;             // 足す粒の数
+          for (let q = 1; q <= m; q++) { const f = q / (m + 1); put(L.x + (pos.x - L.x) * f, L.y + (pos.y - L.y) * f, L.z + (pos.z - L.z) * f, L.t + (clock - L.t) * f); }
+        }
+      }
+      lastEmit[key] = { x: pos.x, y: pos.y, z: pos.z, t: clock };
     }
+    put(pos.x, pos.y, pos.z, clock);
   }
   function clearSmoke() { sBirth.fill(-1e6); smokeGeo.attributes.birth.needsUpdate = true; }
   /* 地上での点検: 機体の後ろへ吹き出して流れる煙。止まっていても、その場にとどまらない */
@@ -689,16 +711,33 @@ export function mount(container, opt = {}) {
     grp.add(g); grp.add(L); grp.add(Sh); gearSets.push(g); lightSets.push(L); shimmerSets.push(Sh);
     return g;
   }
+  /* 脚は機ごとに決める。地上にいる機（駐機・誘導路・順番待ち）と、自分の離陸がまだ済んでいない機（滑走・上昇の途中）は、
+     全体の指示（gearOn）が「しまう」でも出したままにする。ダイヤモンド テイクオフでは 5・6 番機が後から滑走するので、
+     先頭が脚をしまっても 5・6 番機は滑走が済むまで出している。ライトは自分の滑走・上昇のあいだだけ同じ扱い */
+  const mateOnGround = u => !!(u.ground || u.parked || u.gp || (u.queue !== undefined && u.queue >= 0) || (u.tk && !u.tk.done));
+  function refreshMateGear() {
+    const gShow = gearOn || treeMode, lShow = lightsOn || (treeMode && treeLit);
+    mates.forEach((h, i) => {
+      const g = gearSets[i + 1], L = lightSets[i + 1]; if (!g) return;
+      const u = h.userData;
+      g.visible = gShow || mateOnGround(u);
+      /* ライト: 着陸のあいだは自分の進入で点ける（接地点の手前 1.8 km）。それ以外は全体の指示に従う（地上では消す） */
+      if (landRun && !u.ground && !u.parked && h.position.z > 6 && (LAND_TD_Y - h.position.y) < 1800 && (LAND_TD_Y - h.position.y) > -50) u.lampOn = true;
+      if (L) L.visible = (lightsOn && !landRun && !mateOnGround(u)) || (treeMode && treeLit) || !!(u.tk && !u.tk.done) || !!u.lampOn;
+    });
+  }
   /* 脚とライトは別々に出し入れできる。昼以外はライトを自動で点けておく（手で消せる）。
      ローパスのあいだは両方出し、終わったら手で決めていた状態に戻す */
   let gearOn = false, lightsOn = false, treeMode = false, treeLit = false;   // ライトは標準でオフ（離着陸・ローパスだけ）   // treeLit: ローパスのライトを点けたか（正面を向いてから）
-  let gearPrev = null, gearSndN = 0;       // タイヤの出し入れの音を鳴らすための、前の状態と鳴らした回数（確かめ用）
+  let gearPrev = null, gearSndN = 0;
+  let landCfg = false;                     // 着陸体制（タイヤ・ライトを出した）。このあいだはスモークを入れない       // タイヤの出し入れの音を鳴らすための、前の状態と鳴らした回数（確かめ用）
   function applyGear() {
     const gShow = gearOn || treeMode;
     if (gearPrev !== null && gShow !== gearPrev) gearSound(gShow);   // 出し入れが切り替わったときだけ鳴らす
     gearPrev = gShow;
-    gearSets.forEach(g => { g.visible = gShow; });
-    lightSets.forEach(L => { L.visible = lightsOn || (treeMode && treeLit); });   // ローパスのライトは、正面を向いてから点ける
+    if (gearSets[0]) gearSets[0].visible = gShow;
+    if (lightSets[0]) lightSets[0].visible = lightsOn || (treeMode && treeLit);   // ローパスのライトは、正面を向いてから点ける
+    refreshMateGear();
     shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });   // 蜃気楼は地上から見たときだけ
   }
   /* 「一人称（計器）」の見せ方では、乗っている機体そのものを消す（風防の外がそのまま見える）。
@@ -995,7 +1034,7 @@ export function mount(container, opt = {}) {
     if (holder.position.z < 3) holder.position.z = 3;
     turnMate(holder, bq, dt);
     holder.visible = true; u.shown = true;
-    if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(bq).add(b.p); emit(emitPos, color); }
+    if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(bq).add(b.p); emit(emitPos, color, null, 0, i + 1); }
   }
   let chgT = -1;                           // チェンジオーバー・ターン: 隊形が組めてからの時間（秒）。-1 は待っているあいだ
   let smokeAll = false;                    // この課目のあいだは、隊形を組み替えてもスモークを止めない
@@ -1202,14 +1241,17 @@ export function mount(container, opt = {}) {
      ライトは昼以外なら自動で点ける（夜間の飛行灯）。 */
   function applyPreset(m, full) {
     const set = m.set || { smoke: true };
+    /* 滑走路に降りる課目（タッチ・アンド・ゴー）のタイヤとライトは、ここでは出さない。
+       滑走路が見えていて、その延長線にまっすぐ乗ってから出す（進入の終わり、下の par のところ） */
     if (full) {
       smokeOn = !!set.smoke;
-      gearOn = !!set.gear;
-      lightsOn = !!set.lights;
+      gearOn = m.rwy ? false : !!set.gear;
+      lightsOn = m.rwy ? false : !!set.lights;
+      landCfg = false;
     } else {
       if (set.smoke) smokeOn = true;
-      if (set.gear) gearOn = true;
-      if (set.lights) lightsOn = true;
+      if (set.gear && !m.rwy) gearOn = true;
+      if (set.lights && !m.rwy) lightsOn = true;
     }
     applyGear();
   }
@@ -1355,7 +1397,7 @@ export function mount(container, opt = {}) {
           /* 最終進入: 線に乗ったまま、接地点までの距離で高さを決めて 3 度で降りる。
              滑走路の手前で着陸体制（タイヤ・ライト）に入り、速度を落とす */
           const far = Math.max(0, (tdY - st.y) * sgn);
-          if (far < 1800 && !gearOn) { gearOn = true; lightsOn = true; applyGear(); st.cue = '着陸体制'; }
+          if (far < 1800 && !gearOn) { gearOn = true; lightsOn = true; applyGear(); st.cue = '着陸体制'; landCfg = true; smokeOn = false; }
           spdWant = far < 2400 ? 0.72 : 1;
           let wz = far > 80 ? Math.min(3 + far * LAND_SLOPE, 400) : -25;
           const inStrip = Math.abs(st.y) < STRIP_END - 30;
@@ -1473,6 +1515,8 @@ export function mount(container, opt = {}) {
             /* 線の少し先を狙って線に乗せる（原点狙いと同じ理由）。平行になった時点が開始位置 */
             approach(RWY.x, Math.min(RWY.y - 200, st.y + 450), GATE.z);
             const par = Math.abs(st.x - RWY.x) < 80 && Math.abs(wrap180(RWY.h - st.h)) < 12 && st.y < RWY.y - 250;
+            /* 滑走路の延長線にまっすぐ乗った（滑走路が正面に見えている）ところで着陸体制: タイヤを下ろし、ライトを点ける */
+            if (par && m.set && m.set.gear && !gearOn) { gearOn = true; lightsOn = true; applyGear(); st.cue = '着陸体制'; landCfg = true; smokeOn = false; }
             if (par || phaseT > 70) endEntry();
           } else {
           const near = Math.hypot(st.x - aimX, st.y - aimY) < 280 && (m.at !== undefined || Math.abs(st.z - GATE.z) < 80);
@@ -1810,6 +1854,30 @@ export function mount(container, opt = {}) {
   /* 地上の道すじ: 通過点を順にたどり、最後の点に決めた向き（hEnd）で着く。
      曲がるときは遅く（5 m/s）、まっすぐは TAXI_V。曲がりは TAXI_TURN 度/秒（止まりかけでも向きは直せる）。
      driveOn は 1 番機にも追従機にも使う。返り値は着いたかどうか */
+  /* 滑走路 rx（中心の x）を y = yc で横切ってよいか。ほかの機がその滑走路を使っていて、まだ横切る点を通り過ぎていなければ待つ。
+     使っている＝ 滑走路の上を動いている（滑走・接地後の減速）か、その滑走路へ北向きに進入している（最終進入、手前 4 km まで）。
+     通り過ぎた＝ その機の y が横切る点より 30 m 北にある（滑走はいつも北向き）。待っている機（並んで止まっている）は数えない */
+  const RWY_HALF = 23.5, CROSS_GAP = 11, rwFwd = new THREE.Vector3();   // 停止線は縁から 11 m（描いてある停止線 34〜36.5 m と同じ所）
+  function runwayBusy(rx, yc, selfPos) {
+    const using = (x, y, z, vMove, fwdY) => {
+      if (Math.abs(x - rx) > 60) return false;
+      if (y > yc + 30) return false;                                       // もう横切る点より北
+      if (z < 25 && Math.abs(y) < STRIP_END + 60) return Math.abs(x - rx) <= RWY_HALF + 5 && vMove > 1;   // 滑走路の上（縁の内側）: 動いていれば使用中
+      return z < 400 && y < -STRIP_END && y > -4000 && fwdY > 0.85;         // 南から北向きの最終進入
+    };
+    if (plane.position !== selfPos) {
+      const v = gmode === 'fly' ? SPEED * spdK : gv;
+      rwFwd.copy(AY).applyQuaternion(att);
+      if (using(st.x, st.y, st.z, v, rwFwd.y)) return true;
+    }
+    for (const h of mates) {
+      const u = h.userData; if (!u.shown || h.position === selfPos) continue;
+      const v = u.gp ? u.gp.v : (u.tk && !u.tk.done) ? u.tk.v : (u.parked ? 0 : SPEED);
+      rwFwd.copy(AY).applyQuaternion(h.quaternion);
+      if (using(h.position.x, h.position.y, h.position.z, v, rwFwd.y)) return true;
+    }
+    return false;
+  }
   function driveOn(p, gp, dt) {
     /* 線（前の通過点 → 次の通過点）に沿って進む。狙うのは通過点そのものではなく、
        自分の位置を線に落とした点の LOOK m 先。こうすると線からずれていても短い距離で線に戻り、
@@ -1845,6 +1913,18 @@ export function mount(container, opt = {}) {
     /* 角は 4 m/s（輪の半径 9.5 m）。角の手前 30 m から落とす（12 m/s のまま曲がると半径 29 m になり、滑走路の縁近く 18 m まで膨らんだ。実測） */
     let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 4 : (last ? Math.min(TAXI_V, dEnd * 0.5) : (len - s0 < 30 ? V_TURN : (gp.fast && gp.idx === 0 ? 20 : TAXI_V)));
     if (gp.hold) vmax = 0;                                          // 前に機体がいる: 止まって待つ（合流や並びでぶつからない）
+    /* 滑走路を横切る線（東西の区間）: 滑走路の縁の手前 CROSS_GAP の停止線で、その滑走路が空くまで待つ。
+       もう縁の内側にいるときは待たない（滑走路の上に止まらない） */
+    gp.xwait = false;
+    if (Math.abs(ux) > 0.7) {
+      for (const rx of RWY_X) {
+        const from = A[0] - rx, to = B[0] - rx;
+        if (Math.sign(from) === Math.sign(to) && Math.abs(from) > RWY_HALF && Math.abs(to) > RWY_HALF) continue;   // この区間は横切らない
+        const xStop = rx + Math.sign(from) * (RWY_HALF + CROSS_GAP), sStop = (xStop - A[0]) / ux;
+        if (s0 > sStop + 1) continue;                                                             // 停止線を越えている: 渡り切る
+        if (runwayBusy(rx, A[1], p)) { gp.xwait = true; vmax = Math.min(vmax, Math.max(0, (sStop - s0 - 2) * 0.6)); }
+      }
+    }
     gp.v = gp.v < vmax ? Math.min(vmax, gp.v + 4 * dt) : Math.max(vmax, gp.v - 6 * dt);
     p.x += Math.sin(gp.h * D) * gp.v * dt; p.y += Math.cos(gp.h * D) * gp.v * dt;
     if (!last && len - s0 <= R_TURN && gp.v <= V_TURN + 0.5) {       // 角の手前 R_TURN で、次の線の向きへ弧に入る
@@ -1884,7 +1964,7 @@ export function mount(container, opt = {}) {
     if (gmode === 'land') {
       gv = Math.max(0, gv - 8 * dt);                                  // 減速
       st.h = (st.h + input.r * turnRate * dt + 360) % 360;
-      if (gv <= 0.5) { gv = 0; taxiFrom = { x: st.x, y: st.y }; taxiTo(pathIn(0), 'apron', STANDS[0].h); gPath.fast = true; }   // 止まったら誘導路を通って駐機へ（滑走路の上は 20 m/s で出る）
+      if (gv <= 0.5) { gv = 0; taxiFrom = { x: st.x, y: st.y }; taxiTo(pathIn(0), 'apron', STANDS[0].h); gPath.fast = true; lightsOn = false; applyGear(); }   // 止まったら誘導路を通って駐機へ（滑走路の上は 20 m/s で出る）
     } else if (gmode === 'taxi') {
       if (!gPath) { gv = 0; gmode = gEnd; }
       else {
@@ -1966,7 +2046,10 @@ export function mount(container, opt = {}) {
         if (gmode === 'stand') { gmode = 'takeoff'; startTakeoff(PROGRAM[step_i] && PROGRAM[step_i].id === 'dtake' ? 'diamond' : 'pairs'); st.cue = '離陸します'; }
       }
     }
-    /* 全機が浮いて編隊へ移ったら、脚をしまう */
+    /* 脚は浮いた機から順にしまう。先頭機は自分が 70 m（TK_UP）まで上がったところ。
+       追従機はそれぞれ自分の離陸が済んだところで（refreshMateGear が毎フレーム見ている） */
+    if (tkOn && gmode === 'fly' && gearOn && !treeMode && st.z > TK_UP) { gearOn = false; lightsOn = false; applyGear(); }
+    /* 全機が浮いて編隊へ移ったら、離陸の段取りを閉じる */
     if (tkOn && gmode === 'fly' && mates.every(h => !h.userData.tk || h.userData.tk.done)) {
       tkOn = false; mates.forEach(h => { h.userData.tk = null; });
       if (!treeMode) { gearOn = false; lightsOn = false; applyGear(); }   // 離陸後はタイヤもライトも自動でしまう
@@ -2249,7 +2332,7 @@ export function mount(container, opt = {}) {
     tkQ.multiply(dq.setFromAxisAngle(AY, (180 - st.b) * D));              // 背中も逆（背面になる）
     turnMate(holder, tkQ, dt);
     holder.visible = true; u.shown = true;
-    if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(tkQ).add(holder.position); emit(emitPos, color); }
+    if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(tkQ).add(holder.position); emit(emitPos, color, null, 0, 1); }
   }
   const mrQ = new THREE.Quaternion(), qInv = new THREE.Quaternion();
   function placeMirror(holder, u, dt, emitting, color) {
@@ -2264,7 +2347,7 @@ export function mount(container, opt = {}) {
     mrQ.multiply(dq.setFromAxisAngle(AY, -st.b * D));  // 傾きは逆向き
     turnMate(holder, mrQ, dt);
     holder.visible = true; u.shown = true;
-    if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mrQ).add(holder.position); emit(emitPos, color); }
+    if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mrQ).add(holder.position); emit(emitPos, color, null, 0, 1); }
   }
   /* ===== 1 番機の道をそのままたどる（タッチ・アンド・ゴーと着陸）=====
      追従機 i は「1 番機の (i+1) × pathLag 秒前の状態」に置く。同じ動きをして、同じ位置に接地する。
@@ -2311,7 +2394,7 @@ export function mount(container, opt = {}) {
     if (holder.position.z < 3) holder.position.z = 3;
     if (!u.shown) holder.quaternion.copy(sAt.q); else turnMate(holder, sAt.q, dt);
     holder.visible = true; u.shown = true;
-    if (emitting && color && holder.position.z > 6) { emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, color); }
+    if (emitting && color && holder.position.z > 6) { emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, color, null, 0, i + 1); }
     /* 地上の道へ移るときのために、いまの向き（方位）を持っておく */
     { const f2 = gfw.copy(AY).applyQuaternion(holder.quaternion); u.gh = ((Math.atan2(f2.x, f2.y) / D) % 360 + 360) % 360; }
   }
@@ -2406,7 +2489,7 @@ export function mount(container, opt = {}) {
     turnMate(holder, e8q, dt);
     holder.visible = true; u.shown = true;
     /* 自分の円を描くあいだは出す。たどっているあいだは切る（合流したら、ふつうの決まりに返る） */
-    if (emitting && color && !e8.chase) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color); }
+    if (emitting && color && !e8.chase) { emitPos.set(0, -6.9, -0.3).applyQuaternion(e8q).add(e8p); emit(emitPos, color, null, 0, i + 1); }
   }
   /* 僚機を目標の点へ飛ばす。速さは一定、曲がりは 1 秒あたり `rate` 度まで、高さはなめらかに寄せる。
      実際に飛べる動き（前へ進むだけ、後退しない）になるので、着陸の進入などに使える。
@@ -2526,7 +2609,7 @@ export function mount(container, opt = {}) {
       u.tk = { t: 0, v: 0, x: u.lineSpot[0], y: u.lineSpot[1], z: 3, air: false, done: false, wait };
       u.ground = false;
     });
-    gearOn = true; lightsOn = true; applyGear();   // 離陸中はタイヤとライトを出す
+    gearOn = true; lightsOn = true; applyGear(); landCfg = false;   // 離陸中はタイヤとライトを出す。着陸体制はここで解ける
   }
   /* 順番待ちの機（queue >= 0）: その滑走路を前に使う機（2 つ前の番号。番号 -1 は 1 番機）が滑走を始めたら、滑走路へ出て並び、並んだら滑走する */
   const rolling = k => k < 0 ? (gmode === 'takeoff' || gmode === 'fly') : !!(mates[k] && mates[k].userData.tk && mates[k].userData.tk.t >= mates[k].userData.tk.wait);
@@ -2550,7 +2633,7 @@ export function mount(container, opt = {}) {
         t.v = Math.min(SPEED, t.v + 6 * dt);
         t.y += t.v * dt;
         t.p = clamp((t.v - SPEED * ROT_K) / (SPEED * (0.9 - ROT_K)) * TK_ANG, 0, TK_ANG);   // 機首上げ
-        if (t.v >= SPEED * 0.9) { t.air = true; t.p = TK_ANG; }         // 浮く
+        if (t.v >= SPEED * 0.9) { t.air = true; t.p = TK_ANG; u.parked = false; }   // 浮く（並びで止まっていた印はここで消す。残すと脚をしまえない）
       } else {                                        // 上昇
         t.y += t.v * Math.cos(TK_ANG * D) * dt;
         t.z += t.v * Math.sin(TK_ANG * D) * dt;
@@ -2569,7 +2652,7 @@ export function mount(container, opt = {}) {
     turnMate(holder, qa, dt);
     holder.visible = true; u.shown = true;
     /* 浮いたあとは、真後ろに他機がいなければ出す（滑走中は出さない） */
-    if (emitting && t.air && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(qa).add(holder.position); emit(emitPos, color); }
+    if (emitting && t.air && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(qa).add(holder.position); emit(emitPos, color, null, 0, i + 1); }
   }
   /* 地上にいるあいだの並べ方。着陸してきた機体は、その場から並びへ滑らかに寄せる */
   function groundMates(dt, emitting, cols, on0) {
@@ -2620,7 +2703,7 @@ export function mount(container, opt = {}) {
       if (pathLag > 0 && !u.pfDone) {
         placeReplay(holder, u, i, dt, false, null);
         if (taxiFrom && Math.abs(holder.position.y - taxiFrom.y) < 20 && Math.abs(holder.position.x - taxiFrom.x - (u.rwx || 0)) < 20) {
-          u.pfDone = true; u.parked = false; u.ground = true;
+          u.pfDone = true; u.parked = false; u.ground = true; u.lampOn = false;   // 誘導路へ入る: ライトを消す
           u.gp = { pts: pathIn(i + 1, u.rwx || 0), idx: 0, v: TAXI_V, h: u.gh !== undefined ? u.gh : RWY.h, hEnd: STANDS[i + 1].h, wait: 0, fast: true };
         }
         return;
@@ -2678,7 +2761,7 @@ export function mount(container, opt = {}) {
     const emitting = smokeOn && smokeT >= SMOKE_DT && !between;
     if (emitting) smokeGeo.attributes.avel.needsUpdate = true;   // 飛んでいる煙は速さ 0（点検の粒を使い回しても流れない）
     if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
-    if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length]); }
+    if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length], null, 0, 0); }
     queueStep();
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
@@ -2751,7 +2834,7 @@ export function mount(container, opt = {}) {
         if (emitting && ok) {
           let fc = cols[(i + 1) % cols.length];
           if (smokeColor === 'rainbow') fc = fig.id === 'star' ? '#ffd84d' : (i < 2 ? '#ff7fb6' : '#ffffff');
-          emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, fc);
+          emitPos.set(0, -6.9, -0.3).applyQuaternion(holder.quaternion).add(holder.position); emit(emitPos, fc, null, 0, i + 1);
         }
         return;
       }
@@ -2774,7 +2857,7 @@ export function mount(container, opt = {}) {
           u.cur.set(Math.sin(th) * CORK_R, -CORK_LAG * SPEED, Math.cos(th) * CORK_R);
         }
         turnMate(holder, mq, dt); holder.visible = true; u.shown = true;
-        if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[1 % cols.length]); }
+        if (emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[1 % cols.length], null, 0, 1); }
         return;
       }
       /* どの編隊の変更でも、いまの位置から新しい位置へなめらかに移る。
@@ -2842,7 +2925,7 @@ export function mount(container, opt = {}) {
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
       u.shown = true;
       /* 出すかどうかは位置で決めてある（真後ろに他機がいなければ出す）。隊形を移している最中も切らない */
-      if (target && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length]); }
+      if (target && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length], null, 0, i + 1); }
     });
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;
@@ -3247,7 +3330,7 @@ export function mount(container, opt = {}) {
     if (paused) dt = 0;                       // 一時停止: 時間を進めない（見回しと描き直しは続ける）
     try {
       clock += dt; smokeT += dt;
-      step(dt); place(dt); if (dt) recordHistory(dt); placeMates(dt); aimCamera(dt);
+      step(dt); place(dt); if (dt) recordHistory(dt); placeMates(dt); refreshMateGear(); aimCamera(dt);
       renderer.render(world, cam);
       drawStick();
       tellPanel();
@@ -3427,17 +3510,18 @@ export function mount(container, opt = {}) {
       st.show = ''; st.desc = ''; st.cue = '「離陸準備」で滑走路へ進みます';
       mates.forEach((h, i) => {
         const u = h.userData, sd = STANDS[i + 1];
-        u.tk = null; u.ld = null; u.mh = undefined; u.from = null; u.shown = false; u.gh = sd.h; u.pfDone = false; u.parked = true; u.lag = undefined; u.gp = null;
+        u.tk = null; u.ld = null; u.mh = undefined; u.from = null; u.shown = false; u.gh = sd.h; u.pfDone = false; u.parked = true; u.lag = undefined; u.gp = null; u.lampOn = false;
         h.position.set(sd.x, sd.y, 3);
         h.quaternion.setFromAxisAngle(AZ, -sd.h * D);
       });
-      gearOn = true; applyGear();
+      gearOn = true; applyGear(); landCfg = false;   // 駐機からやり直す: 着陸体制は解ける（スモークを入れられる）
       standWait = true;
       return true;
     },
     /* 駐機場から誘導路を通って滑走路の南端へ進み、離陸の体勢（並び）に入る。追従機は 7 秒ずつ遅れて出発し、自分の並びへ */
     taxiOut() {
       if (gmode !== 'apron') return false;
+      landCfg = false;                                          // 次の離陸へ: 着陸体制は解ける（離陸準備からスモークを出せる）
       taxiTo(pathOut(0, RWY.x, RWY.y), 'stand', RWY.h); st.cue = '滑走路へ進みます';
       if (musBuf && actx) { playMusic(); musCut = -1; }        // 離陸準備で曲を流す（テイクオフで頭から流し直し、浮くタイミングを合わせる）
       const n = (auto || standWait) ? 6 : FORMATIONS[formation].n;   // 展示飛行は 6 機とも出す
@@ -3485,10 +3569,11 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { gear: gearOn, lineup: st.lineup, gIdx: gPath ? gPath.idx : -1, pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, parked: !!h.userData.parked, on: !!h.userData.shown, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      return { gear: gearOn, lights: lightsOn, landCfg, xwait: gPath ? !!gPath.xwait : false, lineup: st.lineup, gIdx: gPath ? gPath.idx : -1, pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, parked: !!h.userData.parked, on: !!h.userData.shown, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
-               mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };
+               gearM: mates.map((h, i) => gearSets[i + 1] ? +gearSets[i + 1].visible : -1),
+               mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown, lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
     },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },
@@ -3551,6 +3636,7 @@ export function mount(container, opt = {}) {
     /* 展示飛行モードの長さ（秒）と並び。並びは課目 id の配列、null ならおまかせ */
     setShowLen(sec) { showLen = Math.max(120, +sec || SHOW_LEN_DEFAULT); return showLen; },
     setProgram(ids) { customProg = Array.isArray(ids) && ids.length ? ids.slice() : null; },
+    smokeGap(reset) { const r = gapMax.slice(); if (reset) gapMax.length = 0; return r; },
     smokeCount() { let n = 0; for (let i = 0; i < sBirth.length; i++) if (clock - sBirth[i] < sLife[i]) n++; return n; },   // 生きている煙の粒の数（確かめ用）
     programList() { return PROGRAM.map(m => ({ id: m.id, ja: m.ja, role: ROLE[m.id] || '' })).filter(m => m.role); },
     /* 曲を手で流す・止める（ボタン用） */
@@ -3559,7 +3645,7 @@ export function mount(container, opt = {}) {
     musicPlaying() { return !!musSrc; },
     setLead(sec) { musLead = Math.max(0, +sec || 0); return musLead; },
     clearMusic() { stopMusic(); musGen++; musDec.clear(); musList = []; musBuf = null; musLead = 0; musWait = -1; },
-    setSmoke(on) { smokeOn = !!on; },
+    setSmoke(on) { if (on && landCfg) return false; smokeOn = !!on; return smokeOn; },
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },
     level() { levelAttitude(); st.ground = false; if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 60); spdK = 1; } },

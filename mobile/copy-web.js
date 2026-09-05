@@ -7,7 +7,7 @@ const fs = require('fs'), path = require('path');
 const ROOT = path.resolve(__dirname, '..'), WWW = path.join(__dirname, 'www');
 
 const FILES = ['index.html', 'engine.js', 'sim3d.js', 'viewer.js', 'feedback.js', 'news.json', 'manifest.webmanifest', 'privacy.html'];
-const DIRS = ['img', 'icons', 'model', 'vendor'];
+const DIRS = ['img', 'icons', 'model', 'vendor', 'snd'];
 
 fs.rmSync(WWW, { recursive: true, force: true });
 fs.mkdirSync(WWW, { recursive: true });

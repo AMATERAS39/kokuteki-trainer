@@ -2700,9 +2700,33 @@ export function mount(container, opt = {}) {
   /* タイヤの出し入れの機械音（一人称のときだけ。外から見ている人には届かない音）。
      モーターのうなり（帯域を絞った雑音を 1.4 秒、音程を上げ下げ）と、終わりの「ガコン」（低い短い音） */
   let gearNoise = null, gearGain = null;
+  /* タイヤの音は録音のクリップ（snd/gear-motor.mp3 = モーターの「ウィーン」、snd/gear-lock.mp3 = 掛け金の「ガチャッ」）。
+     初めて音を使うときに読み込む。読めていないあいだ、または読めなかったときは合成音で代える */
+  const gearClip = { motor: null, lock: null, loading: false };
+  function loadGearClips() {
+    if (gearClip.loading || !actx) return;
+    gearClip.loading = true;
+    const base = new URL('./snd/', import.meta.url);
+    [['motor', 'gear-motor.mp3'], ['lock', 'gear-lock.mp3']].forEach(([k, f]) => {
+      fetch(new URL(f, base)).then(r => r.arrayBuffer()).then(b => actx.decodeAudioData(b))
+        .then(buf => { gearClip[k] = buf; }).catch(() => {});
+    });
+  }
   function gearSound(extend) {
     if (curView !== 'first' || !soundOn || !actx || actx.state !== 'running') return;
     try {
+      if (!gearGain) { gearGain = actx.createGain(); gearGain.gain.value = 1; gearGain.connect(actx.destination); }
+      if (gearClip.motor && gearClip.lock) {
+        /* 録音: モーターを頭から鳴らし、その終わりに掛け金を重ねる（少しだけ手前から） */
+        const t = actx.currentTime, mDur = gearClip.motor.duration;
+        const m = actx.createBufferSource(); m.buffer = gearClip.motor;
+        const mg = actx.createGain(); mg.gain.value = 1.0; m.connect(mg); mg.connect(gearGain); m.start(t);
+        const l = actx.createBufferSource(); l.buffer = gearClip.lock;
+        const lg = actx.createGain(); lg.gain.value = 1.0; l.connect(lg); lg.connect(gearGain); l.start(t + Math.max(0, mDur - 0.08));
+        gearSndN++;
+        return;
+      }
+      loadGearClips();
       if (!gearNoise) gearNoise = makeNoise(actx);
       /* 機内で聞く、電動の脚の音。飛行音の音量とは別に直接出す。
          「ウィーン」: 電動モーターの澄んだ唸り。0.2 秒で回り出し（音程が上がる）、そのまま 1.1 秒回り、0.25 秒で止まる（下がる）。
@@ -2768,6 +2792,7 @@ export function mount(container, opt = {}) {
     if (actx || !AC) return;
     actx = new AC();
     aMaster = actx.createGain(); aMaster.gain.value = airVol; aMaster.connect(actx.destination);
+    loadGearClips();
     const buf = makeNoise(actx);
     aNodes = [];
     for (let k = 0; k < mates.length + 1; k++) {
@@ -3187,7 +3212,7 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      return { audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, gearClip: { motor: gearClip.motor ? +gearClip.motor.duration.toFixed(2) : null, lock: gearClip.lock ? +gearClip.lock.duration.toFixed(2) : null }, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };

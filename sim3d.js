@@ -84,6 +84,10 @@ const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
    ここまで来たら、演目は終わり・スモークは一斉に切る・次の課目へ位置を移す。
    本当に遠くまで飛ばすと、着くまでの時間が長すぎる */
 const REAR_END = LIMIT + GROUND_EYE.y;           // 原点から、もとの壁のあった位置まで（m）
+/* 曲の折り返しと頭（秒）。演目の長さを「曲 2 周ぶん」に合わせるのに使う */
+const MUS_LOOP_END_S = 238, MUS_LEAD_S = 13, LAND_TIME = 130;
+const LAND_TD = 120;                             // 接地する点（滑走路の南端から北へ、m）
+const LAND_SLOPE = 0.052;                        // 進入の勾配（約 3 度）
 /* JUMP_FAR: ここまで離れたら位置を移してよい。1000 m にすると、離陸して上がりきった直後（原点から 1 km ほど）に
    目の前で移ってしまい、瞬間移動が見える（実測）。壁のあった距離まで離れてからにする */
 const JUMP_FAR = REAR_END, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;
@@ -800,6 +804,12 @@ export function mount(container, opt = {}) {
     [0, 6, 4, 16, 11, 21],      // 離陸 → タック・クロス → 旋回 → レインフォール → 旋回 → キューピッド
     [0, 5, 4, 18, 11, 25],      // 離陸 → オポジット → 旋回 → レター・エイト → 旋回 → クリスマスツリー
   ];
+  /* 演目の長さの目安（秒）。曲は「頭から 3 分 58 秒」まで流れ、そのあとは 0 分 13 秒へ戻って繰り返す。
+     1 周目 = 238 秒、2 周目 = 238 - 13 = 225 秒。合わせて 463 秒を、離陸から着陸までの目安にする。
+     まとまりの課目を全部行っても足りなければ 1 つ足し、行き過ぎていれば終盤の課目へ飛ばす */
+  const SHOW_TARGET = (MUS_LOOP_END_S - MUS_LEAD_S) + MUS_LOOP_END_S;
+  const MID_POOL = [15, 16, 18, 19];       // 足すときに使う中盤の課目（チェンジ・レイン・エイト・コーク）
+  let showT = 0;                           // 離陸してからの経過（秒）
   let chunk = null, chunkPos = 0;          // いま行っているまとまりと、その中の位置
   function pickChunk() {
     const list = CHUNKS.map(c => c.filter(i => okMan(PROGRAM[i]))).filter(c => c.length);
@@ -1024,9 +1034,11 @@ export function mount(container, opt = {}) {
      滑走路の南 1100 m・高さ 160 m の点へ回り込んでから、接地点へ向かって降ろす。
      接地は step() のふつうの判定（z <= 3.2）に任せる（そこから減速・誘導路・待機まで既にある） */
   let landN = true;                        // 着陸の向き: true = 北向き（南から進入）
+  let landStep = 0, landSide = 0;          // 着陸の道すじの段（0〜3）と、通る脇（+1 右 / -1 左）
   function beginLanding() {
     manPhase = 'land'; phaseT = 0; markOn = false;
     landN = st.y <= RWY.y + 200;             // いま居る側から進入する（回り込みを短くする）
+    landStep = 0; landSide = 0;
     /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
        滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
     landRun = true;
@@ -1149,7 +1161,18 @@ export function mount(container, opt = {}) {
     /* まとまり（チャンク）で行っているときは、その並びの次へ。終わったら着陸する */
     if (chunk && !oneShot) {
       chunkPos++;
-      if (chunkPos >= chunk.length) { chunk = null; beginLanding(); return; }
+      const last = chunk.length - 1;
+      if (chunkPos >= chunk.length) {
+        /* まとまりを行い終えた。曲 2 周ぶんにまだ間があるなら、中盤の課目を 1 つ足す。
+           着陸そのものに 2 分ほどかかるので、その手前で切り上げる */
+        if (showT < SHOW_TARGET - LAND_TIME - 60) {
+          const pool = MID_POOL.filter(i => okMan(PROGRAM[i]) && !chunk.includes(i));
+          if (pool.length) { chunk = chunk.concat([11, pool[Math.floor(Math.random() * pool.length)]]); beginManeuver(chunk[chunkPos]); return; }
+        }
+        chunk = null; beginLanding(); return;
+      }
+      /* 行き過ぎているときは、終盤の課目へ飛ばす（そこで締めて着陸に入る） */
+      if (chunkPos < last && showT > SHOW_TARGET - LAND_TIME) chunkPos = last;
       beginManeuver(chunk[chunkPos]);
       return;
     }
@@ -1221,26 +1244,53 @@ export function mount(container, opt = {}) {
       }
       if (manPhase === 'land') {           // 着陸: 近いほうの端から進入して降ろす
         const sgn = landN ? 1 : -1;                             // 1 = 北向きに降りる（南から進入）
-        const fx = RWY.x, fy = RWY.y - 700 * sgn;               // 進入を始める点
-        const lh = landN ? RWY.h : (RWY.h + 180) % 360;         // 降りるときの機首の向き
-        /* 滑走路の線に乗っていれば、あとはまっすぐ降ろす。
-           目標の高さを地面より下に取らないと、低いところで水平になって接地しない */
-        const lined = (landN ? st.y > fy - 200 : st.y < fy + 200) &&
-                      Math.abs(st.x - RWY.x) < 250 && Math.abs(wrap180(lh - st.h)) < 60;
-        /* 接地は滑走路の上（帯は y = -550〜550）。手前で降りきらないよう、
-           滑走路の入口までは高さを保ち、入口を過ぎてから沈める */
-        if (lined || phaseT > 120) {
-          const gate = RWY.y - 480 * sgn;                      // 滑走路の入口（進入する側の端）
-          const past = landN ? st.y > gate : st.y < gate;
-          steerTo(RWY.x, RWY.y + 700 * sgn, past ? -30 : 26);
-        } else approach(fx, fy, 160);
+        /* 決まった道すじで降りる（場周経路）。脇を通る → 手前へ回る → 線の上に出る → 最終。
+           舵で狙わせると、点の上を横切るだけで向きが合わず何周しても乗れないので、
+           ここは位置と向きを決めて進める（一定の速さ・曲がりは 22 度/秒まで・勾配 3 度で、
+           実際に操縦しても再現できる動き）。僚機の着陸と同じ組み立て */
+        if (landSide === 0) landSide = st.x >= RWY.x ? 1 : -1;      // 近いほうの脇を通る
+        const tdY = RWY.y + LAND_TD * sgn;
+        /* 道すじは、山の環（原点から 2.2 km より外）と近くの山（(-500,-1000)・(700,-900) など）を避けて置く。
+           外へ出すと山越えの手当てが働いて持ち上げられ、高いまま滑走路を通り過ぎてしまう（実測: 200 m → 563 m）*/
+        const wps = [[RWY.x + 950 * landSide, RWY.y + 200 * sgn, 260],
+                     [RWY.x + 950 * landSide, RWY.y - 1250 * sgn, 200],
+                     [RWY.x, RWY.y - 1700 * sgn, 130],
+                     [RWY.x, tdY + 800 * sgn, 3]];   // 最終は「接地点の先」を狙う（線に乗せるため）
+        const w = wps[Math.min(landStep, 3)];
+        const far = Math.max(0, (tdY - st.y) * sgn);
+        /* 最終は、接地点までの距離で高さを決める。接地点に近づいたら地面より下を狙って、
+           確実に沈める（3 m のまま狙うと、滑走路の上を 4 m で通り過ぎてしまう） */
+        const wz = landStep >= 3 ? (far > 80 ? Math.min(3 + far * LAND_SLOPE, 300) : -25) : w[2];
+        const dLand = Math.hypot(w[0] - st.x, w[1] - st.y);
+        const wantH = ((Math.atan2(w[0] - st.x, w[1] - st.y) / D) % 360 + 360) % 360;
+        /* 向きと姿勢だけを決める。進むのは step() のふつうの積分に任せる
+           （ここで位置まで動かすと、二重に進んで高さも合わなくなる） */
+        const turnMax = (landStep >= 3 ? 12 : 22) * dt;
+        const dHead = clamp(wrap180(wantH - st.h), -turnMax, turnMax);
+        const newH = (st.h + dHead + 360) % 360;
+        const bankL = clamp(wrap180(wantH - st.h) * 1.5, -35, 35);
+        const pitchL = clamp(Math.atan2(wz - st.z, Math.max(60, far || 200)) / D, -9, 7);
+        att.setFromAxisAngle(AZ, -newH * D);
+        att.multiply(dq.setFromAxisAngle(AX, pitchL * D));
+        att.multiply(dq.setFromAxisAngle(AY, bankL * D));
+        readAttitude();
+        /* 線の上の点に着くまでは、次の段へ移らない（時間で移すと、外れたまま最終に入る）。
+           念のための打ち切りは長めにとる */
+        if (landStep < 3 && (dLand < 300 || phaseT > 60 * (landStep + 1))) landStep++;
+        autoIn.x = 0; autoIn.y = 0; autoIn.r = 0; smIn.x = 0; smIn.y = 0; smIn.r = 0;
+        if (st.z <= 4.5) { st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
+          gearOn = true; applyGear(); att.setFromAxisAngle(AZ, -st.h * D); readAttitude();
+          if (landClock < 0) landClock = 0; }
         /* 降りる組を目で追えるよう、視線はいま降りている組へ向ける */
         const lp = mates.find(h => h.userData.ld && !h.userData.ld.done && h.userData.ld.on);
         figAim = lp ? lp.position.clone() : null;
         autoIn.r = 0;
         if (gmode !== 'fly') {               // 接地した。あとは減速して滑走路へ戻る
           auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.desc = '';
-          formation = userForm; formScale = 1;
+          /* まだ降りていない組がいるあいだは、隊形を戻さない。
+             戻すと（単機のときなど）僚機が隠され、着陸の段取りごと止まってしまう */
+          formation = mates.some(h => h.userData.ld && !h.userData.ld.done) ? 'trail' : userForm;
+          formScale = 1;
         } else if (phaseT > 120) { auto = false; oneShot = false; manPhase = 'do'; st.show = ''; }
         return autoIn;                        // 地面回避（safety）は呼ばない。呼ぶと降りられない
       }
@@ -1527,7 +1577,7 @@ export function mount(container, opt = {}) {
         dtT += dt;
         smokeAll = true;
         orbitAround(GROUND_EYE.x, GROUND_EYE.y, DTAKE_R, GATE.z, turnSign >= 0 ? 1 : -1);
-        if (hdgSum > 355 || manT > 120) nextManeuver();
+        if (hdgSum > 175 || manT > 90) nextManeuver();   // 原点のまわりを半周
         break;
       case 'touch': {                            // タッチ・アンド・ゴー: 滑走路に平行になったところから降ろし、順にタイヤをつけて上がる
         formScale = 6;                                             // 縦隊の間隔を広くとる（96 m おき）
@@ -1691,6 +1741,7 @@ export function mount(container, opt = {}) {
     let f0 = 0;
     for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
     /* 「通し」は、曲 1 曲ぶんのまとまりをひとつ選んで行う（選ぶたびに変わる） */
+    showT = 0;
     if (showThru && pickChunk()) f0 = chunk[0]; else chunk = null;
     formation = PROGRAM[f0].form || userForm;
     step_i = f0; manT = 0; hdgSum = 0; prevH = st.h; phaseT = 0; e8 = null;
@@ -1703,9 +1754,12 @@ export function mount(container, opt = {}) {
       st.cue = '曲の頭を待っています';
       return;
     }
-    gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs');
+    /* 曲がなくても、「加速」からタイヤが離れるまでの時間は同じにする（既定 13.5 秒）。
+       そのぶん、滑走を始めるまで待つ（点検の煙を出しながら） */
+    musWait = Math.max(0, musLead - MUS_ROLL);
     st.desc = '2 本の滑走路から 2 機ずつ離陸し、上がってから隊形を組みます。';
-    st.cue = '離陸します';
+    st.cue = musWait > 0 ? '待機中' : '離陸します';
+    if (musWait <= 0) { gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs'); }
   }
   function step(dt) {
     st.mode = gmode;
@@ -1714,9 +1768,10 @@ export function mount(container, opt = {}) {
     if (musCut >= 0) { musCut -= dt; if (musCut <= 0) { musCut = -1; stopMusic(MUS_FADE); } }
     /* 滑走路に戻ったら、曲を切って離陸の体勢で待つ。「加速」を押されるまで動かない。
        接地したところで自動操縦は切れている（auto = false）ので、待っている印を別に持つ */
+    if (auto && !oneShot && chunk) showT += dt;             // 演目の長さ（曲 2 周ぶんに合わせるため）
     if (landClock >= 0) landClock += dt;                    // 1 番機が接地してからの時間（組ごとの間合いに使う）
     if (landRun && gmode === 'stand' && mates.every(h => !h.userData.ld || h.userData.ld.done)) {
-      landRun = false; manPhase = 'do';
+      landRun = false; manPhase = 'do'; formation = userForm;   // 全機降りたので隊形を戻す
       musCut = -1; stopMusic(MUS_FADE);
       st.show = ''; st.desc = ''; st.cue = '「加速」で離陸できます';
       if (loopRestart) { loopRestart = false; standWait = true; }
@@ -2142,8 +2197,6 @@ export function mount(container, opt = {}) {
      地上から見る人が、降りる組を順に目で追えるだけの間をとる。
      出番が来るまでは、滑走路の南で輪を描いて待つ（高さは組ごとに変える） */
   const LAND_GAP = 18, LAND_HOLD_R = 620;
-  const LAND_TD = 120;                     // 接地する点（滑走路の南端から北へ、m）
-  const LAND_SLOPE = 0.052;                // 進入の勾配（約 3 度）
   let landClock = -1;                      // 1 番機が接地してからの時間（秒）。-1 はまだ
   function landMate(holder, u, i, dt) {
     const L = u.ld;
@@ -2179,11 +2232,16 @@ export function mount(container, opt = {}) {
       if (holder.position.z < 3) holder.position.z = 3;
       return;
     }
-    /* 接地したあと: 滑走して減速し、待機の位置で止まる */
-    const spd = Math.max(12, SPEED * 0.9 * (1 - 0.8 * clamp((L.t - L.tDown) / 7, 0, 1)));
+    /* 接地したあと: 滑走して減速し、待機の位置で止まる。
+       速さの下限を残すと、その場で回り続けて着陸が終わらない（実測: 着陸に 450 秒たっても終わらなかった）。
+       0 まで落として、近づくか止まりきったところで終わりにする */
+    const spd = Math.max(0, SPEED * 0.9 * (1 - clamp((L.t - L.tDown) / 9, 0, 1)));
     const d = flyMateTo(holder, u, RWY.x + g[0], RWY.y + g[1], 3, dt, spd, 12);
     holder.position.z = 3;
-    if (d < 25) { L.done = true; u.shown = true; }
+    if (d < 30 || spd <= 0.5) {
+      L.done = true; u.shown = true;
+      qa.setFromAxisAngle(AZ, -RWY.h * D); holder.quaternion.copy(qa); u.gh = RWY.h;   // 滑走路の向きで止める
+    }
   }
   /* 地上では 2 本の滑走路に 2 機ずつ並び、離陸は 2 機ずつ TK_GAP 秒あけて始める。
      浮いて TK_UP まで上がった機体から、ふつうの編隊の置き方に返す（そこで隊形を組み出す） */
@@ -2699,7 +2757,7 @@ export function mount(container, opt = {}) {
      （機首を上げ始めるのは、その 1.5 秒ほど前） */
   const MUS_ROLL = SPEED * 0.9 / 6;
   /* 曲の頭（浮くタイミング、秒）。設定で決める。既定は 13.0 秒 */
-  let musBuf = null, musSrc = null, musGainNode = null, musLead = 13, musWait = -1;
+  let musBuf = null, musSrc = null, musGainNode = null, musLead = 13.5, musWait = -1;
   let loopRestart = false;                 // 固定にしたあと、着陸してから離陸で始め直す
   let musCut = -1;                         // 曲を切るまでの残り（秒）。主旋律が入る直前で切る
   let landRun = false;                     // 着陸して滑走路へ戻っているあいだ
@@ -2725,7 +2783,7 @@ export function mount(container, opt = {}) {
     return 0;
   }
   const MUS_FADE = 0.6;                    // 曲を絞る・戻すのにかける時間（秒）
-  const MUS_LOOP_END = 238;                // 繰り返しの折り返し（3 分 58 秒）。これより短い曲は終わりで折り返す
+  const MUS_LOOP_END = MUS_LOOP_END_S;     // 繰り返しの折り返し（3 分 58 秒）。これより短い曲は終わりで折り返す
   function stopMusic(fade) {
     const src = musSrc, g = musGainNode;
     musSrc = null; musGainNode = null;

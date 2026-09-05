@@ -320,7 +320,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
   /* 空は上（--ck-sky-top）から水平線（--ck-sky-hz）への縦グラデーション。日の出・夕焼けで水平線付近だけ色づく。未定義なら --ck-sky → --sky */
   /* marks: true で目印を描く（雪山の頂と塔の先端にオレンジの輪、①の水平線の位置に破線）。見え方の確認画面用 */
   function svgCockpit(bank, pitch, yaw, progress = 0, marks = false, hud = true) {
-    const id = 'ck' + (++uid), kp = 5, ky = 6, sc = (1 + 0.45 * progress).toFixed(3);
+    const id = 'ck' + (++uid), kp = CK.kp, ky = CK.ky, sc = (1 + CK.grow * progress).toFixed(3);   // 目盛りは動きで見るところ（CK）と同じ
     const mk = marks ? '<circle cx="-90" cy="-72" r="16" fill="none" stroke="#f2a93b" stroke-width="3"/><circle cx="230" cy="-42" r="14" fill="none" stroke="#f2a93b" stroke-width="3"/>' : '';
     const ref = marks ? '<line x1="16" x2="344" y1="108" y2="108" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9"/><text x="20" y="102" font-size="11" font-family="var(--mono)" fill="#f2a93b">①の水平線</text>' : '';
     const mtn = 'M-900,0 ' + PEAKS.map(p => `L${p[0]},${p[1]}`).join(' ') + ' L900,0 Z';

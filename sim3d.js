@@ -2699,25 +2699,40 @@ export function mount(container, opt = {}) {
   let actx = null, aMaster = null, aNodes = null, soundOn = true;
   /* タイヤの出し入れの機械音（一人称のときだけ。外から見ている人には届かない音）。
      モーターのうなり（帯域を絞った雑音を 1.4 秒、音程を上げ下げ）と、終わりの「ガコン」（低い短い音） */
-  let gearNoise = null;
+  let gearNoise = null, gearGain = null;
   function gearSound(extend) {
     if (curView !== 'first' || !soundOn || !actx || actx.state !== 'running') return;
     try {
       if (!gearNoise) gearNoise = makeNoise(actx);
-      const t = actx.currentTime, dur = 1.4;
-      const src = actx.createBufferSource(); src.buffer = gearNoise; src.loop = true;
-      const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 9;
-      bp.frequency.setValueAtTime(extend ? 520 : 380, t);
-      bp.frequency.linearRampToValueAtTime(extend ? 380 : 520, t + dur);
+      /* 飛行音より大きく、機内で聞く音として出す（飛行音の音量とは別に、直接出す）。
+         「ウィーン」: のこぎり波を 1.6 秒かけて上げ下げ（出すときは上がり、しまうときは下がる）。少し揺らして機械らしく
+         「ガコン」: 低い音の短い落ちと、低く絞った雑音の一発。終わりに 2 回（脚が止まる音と扉が閉まる音） */
+      if (!gearGain) { gearGain = actx.createGain(); gearGain.gain.value = 1; gearGain.connect(actx.destination); }
+      const t = actx.currentTime, dur = 1.6;
+      const o = actx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(extend ? 240 : 460, t);
+      o.frequency.linearRampToValueAtTime(extend ? 460 : 240, t + dur);
+      const vib = actx.createOscillator(), vg = actx.createGain(); vib.frequency.value = 11; vg.gain.value = 9;
+      vib.connect(vg); vg.connect(o.frequency);
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800; lp.Q.value = 2;
       const g = actx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.12);
-      g.gain.setValueAtTime(0.35, t + dur - 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      src.connect(bp); bp.connect(g); g.connect(aMaster); src.start(t); src.stop(t + dur + 0.05);
-      const o = actx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(95, t + dur);
-      o.frequency.exponentialRampToValueAtTime(48, t + dur + 0.14);
-      const g2 = actx.createGain(); g2.gain.setValueAtTime(0.0001, t + dur - 0.01);
-      g2.gain.exponentialRampToValueAtTime(0.9, t + dur + 0.01); g2.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.16);
-      o.connect(g2); g2.connect(aMaster); o.start(t + dur); o.stop(t + dur + 0.2);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55, t + 0.15);
+      g.gain.setValueAtTime(0.55, t + dur - 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(lp); lp.connect(g); g.connect(gearGain);
+      vib.start(t); o.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
+      const clunk = at => {
+        const c = actx.createOscillator(); c.type = 'square';
+        c.frequency.setValueAtTime(140, at); c.frequency.exponentialRampToValueAtTime(38, at + 0.16);
+        const cg = actx.createGain(); cg.gain.setValueAtTime(0.0001, at - 0.005);
+        cg.gain.exponentialRampToValueAtTime(1.0, at + 0.008); cg.gain.exponentialRampToValueAtTime(0.0001, at + 0.22);
+        c.connect(cg); cg.connect(gearGain); c.start(at); c.stop(at + 0.25);
+        const n = actx.createBufferSource(); n.buffer = gearNoise;
+        const nf = actx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 420;
+        const ng = actx.createGain(); ng.gain.setValueAtTime(0.0001, at - 0.005);
+        ng.gain.exponentialRampToValueAtTime(0.9, at + 0.006); ng.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+        n.connect(nf); nf.connect(ng); ng.connect(gearGain); n.start(at); n.stop(at + 0.15);
+      };
+      clunk(t + dur); clunk(t + dur + 0.28);
       gearSndN++;
     } catch (e) {}
   }
@@ -3159,7 +3174,7 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      return { audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };

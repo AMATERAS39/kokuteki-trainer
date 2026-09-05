@@ -1887,7 +1887,7 @@ export function mount(container, opt = {}) {
     st.z = 3;
     const W = LIMIT - 30; st.x = clamp(st.x, -W, W); st.y = clamp(st.y, -W, W);
     st.cue = gmode === 'land' ? '着陸しました' : gmode === 'taxi' ? (gEnd === 'apron' ? '駐機場へ戻ります' : '滑走路へ進みます')
-           : gmode === 'stand' ? (st.lineup ? '「加速」で離陸できます' : '全機が並ぶのを待っています') : gmode === 'apron' ? '「テイクオフ」で滑走路へ進みます' : '加速中';
+           : gmode === 'stand' ? (st.lineup ? '「テイクオフ」で離陸できます' : '全機が並ぶのを待っています') : gmode === 'apron' ? '「離陸準備」で滑走路へ進みます' : '加速中';
   }
   /* 地上で待っているところから演目を始める（離陸から）。
      曲を選んであれば、その頭を待ち、音が立ち上がるところでタイヤが離れる */
@@ -1932,7 +1932,7 @@ export function mount(container, opt = {}) {
     if (landRun && gmode === 'apron' && mates.every(h => !h.userData.shown || (h.userData.pfDone && h.userData.parked))) {
       landRun = false; manPhase = 'do'; formation = userForm;   // 全機降りたので隊形を戻す
       musCut = -1; stopMusic(MUS_FADE);
-      st.show = ''; st.desc = ''; st.cue = '「加速」で離陸できます';
+      st.show = ''; st.desc = ''; st.cue = '「テイクオフ」で離陸できます';
       if (loopRestart) { loopRestart = false; standWait = true; }
     }
     /* 曲のイントロを待ってから滑走を始める（主旋律が入るところで浮く） */
@@ -3359,7 +3359,7 @@ export function mount(container, opt = {}) {
       Object.assign(st, { x: STANDS[0].x, y: STANDS[0].y, z: 3, h: STANDS[0].h, ground: true, wall: false });
       levelAttitude(); hist.length = 0; clearSmoke();
       formation = userForm; formScale = 1; manPhase = 'do'; markOn = false; e8 = null; mir = null;
-      st.show = ''; st.desc = ''; st.cue = '「テイクオフ」で滑走路へ進みます';
+      st.show = ''; st.desc = ''; st.cue = '「離陸準備」で滑走路へ進みます';
       mates.forEach((h, i) => {
         const u = h.userData, sd = STANDS[i + 1];
         u.tk = null; u.ld = null; u.mh = undefined; u.from = null; u.shown = false; u.gh = sd.h; u.pfDone = false; u.parked = true; u.lag = undefined; u.gp = null;
@@ -3374,6 +3374,7 @@ export function mount(container, opt = {}) {
     taxiOut() {
       if (gmode !== 'apron') return false;
       taxiTo(pathOut(0, RWY.x, RWY.y), 'stand', RWY.h); st.cue = '滑走路へ進みます';
+      if (musBuf && actx) { playMusic(); musCut = -1; }        // 離陸準備で曲を流す（テイクオフで頭から流し直し、浮くタイミングを合わせる）
       const n = (auto || standWait) ? 6 : FORMATIONS[formation].n;   // 展示飛行は 6 機とも出す
       const others = k => mates.filter((h, j) => j !== k - 1 && j + 1 < n).map(h => h.position).concat(k === 0 ? [] : [plane.position]);
       gPath.turnDir = pickTurn(st.x, st.y, st.h, others(0));
@@ -3386,11 +3387,20 @@ export function mount(container, opt = {}) {
     },
     skipTaxi() {
       if (gmode !== 'land' && gmode !== 'taxi') return false;
+      if (gmode === 'taxi' && gEnd === 'stand') {               // 滑走路へ出る途中: 並びへ飛ばす
+        gmode = 'stand'; gPath = null; gv = 0;
+        Object.assign(st, { x: RWY.x, y: RWY.y, h: RWY.h });
+        const n = 6;
+        mates.forEach((h, i) => { const u = h.userData, g = GRID[i + 1]; u.gp = null; u.parked = true; u.gh = RWY.h;
+          if (i + 1 < n) { h.position.set(RWY.x + g[0], RWY.y + g[1], 3); h.quaternion.setFromAxisAngle(AZ, -RWY.h * D); u.shown = true; h.visible = true; } });
+        st.cue = '「テイクオフ」で離陸できます';
+        return true;
+      }
       gmode = 'apron'; gPath = null; gv = 0; spdK = 1; spdWant = 1; pathLag = 0;
       Object.assign(st, { x: STANDS[0].x, y: STANDS[0].y, h: STANDS[0].h });
       mates.forEach((h, i) => { const u = h.userData, sd = STANDS[i + 1]; u.gp = null; u.pfDone = true; u.parked = true; u.gh = sd.h; h.position.set(sd.x, sd.y, 3); h.quaternion.setFromAxisAngle(AZ, -sd.h * D); });
       Object.assign(st, { x: RWY.x, y: RWY.y, z: 3, h: RWY.h, ground: true, wall: false });
-      levelAttitude(); st.cue = '「加速」で離陸できます';
+      levelAttitude(); st.cue = '「テイクオフ」で離陸できます';
       mates.forEach(h => { h.userData.shown = false; });   // 並びの位置へそのまま置く
       return true;
     },

@@ -1140,7 +1140,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.10';
+const APP_VER='v04.11';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1464,7 +1464,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=106').then(mod=>{
+  import('./sim3d.js?v=107').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1492,7 +1492,7 @@ function runSim(opt){applyScene();
       <div class="pausemsg" id="pauseMsg" hidden>一時停止中（画面を 2 回叩くと再開）</div>
       <div class="trickdesc" id="trickDesc" hidden></div>
       <button class="iconbtn landback" id="simBack" aria-label="戻る" title="操縦操作の選択に戻る"><svg class="ic"><use href="#i-back"/></svg></button>
-      <button class="btn takeoff" id="simTakeoff" hidden>加速して離陸</button>
+      <button class="btn takeoff" id="simTakeoff" hidden>テイクオフ</button>
       <button class="zoomlbl" id="zoomLbl" hidden>×1.0</button>
       <div class="vload" id="simLoad">3D を読み込み中…</div>
     </div>
@@ -1746,11 +1746,11 @@ function runSim(opt){applyScene();
     /* 着陸・地上走行・待機の案内と、離陸ボタン */
     const tk=$('#simTakeoff');
     /* 押したら「もう押せる」見た目にしない。曲に合わせて待っているあいだと加速中は、その旨を出して押せなくする */
-    if(tk){const show=s.mode==='stand'||s.mode==='takeoff'||s.mode==='apron'||(s.mode==='taxi'&&/滑走路へ/.test(s.cue||''));if(tk.hidden===show)tk.hidden=!show;
-      /* 駐機場では「テイクオフ」（誘導路を通って滑走路へ）。全機が並んだら「加速して離陸」 */
-      const txt=s.mode==='apron'?'テイクオフ':s.mode==='taxi'?'滑走路へ移動中…':s.mode==='takeoff'?'加速中…':(s.waiting?'待機中…':(s.lineup===false?'整列中…':'加速して離陸'));
+    if(tk){const show=s.mode==='stand'||s.mode==='takeoff'||s.mode==='apron'||s.mode==='taxi'||s.mode==='land';if(tk.hidden===show)tk.hidden=!show;
+      /* 駐機場では「離陸準備」（誘導路を通って滑走路へ）。誘導路のあいだは「スキップ」。全機が並んだら「テイクオフ」 */
+      const txt=s.mode==='apron'?'離陸準備':(s.mode==='taxi'||s.mode==='land')?'誘導路をスキップ':s.mode==='takeoff'?'加速中…':(s.waiting?'待機中…':(s.lineup===false?'整列中…':'テイクオフ'));
       if(tk.textContent!==txt)tk.textContent=txt;
-      const dis=s.mode==='takeoff'||s.mode==='taxi'||!!s.waiting||s.lineup===false;if(tk.disabled!==dis)tk.disabled=dis;tk.classList.toggle('busy',dis)}
+      const dis=s.mode==='takeoff'||!!s.waiting||(s.mode==='stand'&&s.lineup===false);if(tk.disabled!==dis)tk.disabled=dis;tk.classList.toggle('busy',dis)}
     if(s.mode&&s.mode!=='fly'){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
     /* 一時停止の表示。演目が終わったら止めるのをやめる */
     if(sim.h){const pz=sim.h.pausedState();
@@ -1762,7 +1762,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=106').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=107').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1834,7 +1834,10 @@ function runSim(opt){applyScene();
         toast(next==='day'?'昼の空にしました':next==='dusk'?'夕方の空にしました':'夜の空にしました');
         runSim(keep);
       });
-      $('#simTakeoff').addEventListener('click',()=>{if(sim.h.state.mode==='apron'){if(sim.h.taxiOut())toast('誘導路を通って滑走路へ進みます')}else if(sim.h.throttle())toast('加速します')});
+      $('#simTakeoff').addEventListener('click',()=>{const md=sim.h.state.mode;
+        if(md==='apron'){if(sim.h.taxiOut())toast('離陸準備。誘導路を通って滑走路へ進みます')}
+        else if(md==='taxi'||md==='land'){if(sim.h.skipTaxi())toast('誘導路をスキップしました')}
+        else if(sim.h.throttle())toast('テイクオフ')});
       /* 写真: 3D の景色だけを絵にして保存する（操作ボタンや計器は 3D の外にあるので写らない） */
       /* 写真: iOS（アプリ・Safari）では <a download> が効かないので、まず共有シートに渡す。
          共有シートの「画像を保存」で写真アプリに入る。使えない環境ではダウンロード、
@@ -1938,7 +1941,7 @@ function runSim(opt){applyScene();
           sim.h.setLoop(true,!sim.demo);aBtn.classList.add('loop');
           if(sim.demo){setProjection(true);toast('固定しました。地上から全部の演目を続けて映します（操作はできません）')}
           else{if(sim.h.standReset){flashSim();sim.h.standReset()}showLabel('');
-            toast('展示飛行モード。「加速」で離陸し、演目のあと着陸します')}
+            toast('展示飛行モード。「離陸準備」で滑走路へ進み、「テイクオフ」で離陸します')}
           return}
         /* 3 回目: 切る */
         sim.h.setLoop(false,!sim.demo);aBtn.classList.remove('loop');
@@ -2248,7 +2251,7 @@ function renderSettingsPage(){
       <input type="file" id="musFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.aiff,.ogg" multiple hidden>
       <div class="setting"><span>浮くタイミング</span><span class="musbtns"><input type="number" id="musLead" min="0" max="120" step="0.5" value="13.5"><span class="unit">秒</span></span></div>`
       :`<div class="sethelp">お手持ちの曲を展示飛行モードに合わせて流す機能は、完全版で使えます。</div>`}
-      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上入れると、順に流して最後まで行ったら最初へ戻ります（1 曲だけなら、3 分 58 秒で 0 分 13 秒へ戻って繰り返します）。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。「浮くタイミング」は、「加速」を押してから何秒目にタイヤが離れるかです（既定は 13.5 秒）。曲を登録してあるときは、曲が始まってからの秒数にもなります。そこから逆算して、滑走を始めるまでの間をとります。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
+      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上入れると、順に流して最後まで行ったら最初へ戻ります（1 曲だけなら、3 分 58 秒で 0 分 13 秒へ戻って繰り返します）。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。「浮くタイミング」は、「テイクオフ」を押してから何秒目にタイヤが離れるかです（既定は 13.5 秒）。曲を登録してあるときは、曲が始まってからの秒数にもなります。そこから逆算して、滑走を始めるまでの間をとります。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
     </div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>

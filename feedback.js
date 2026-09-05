@@ -80,6 +80,11 @@ async function api(path, opts = {}, admin = false) {
 }
 const rpc = (name, body, admin) => api(`/rpc/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }, admin);
 
+/* ---------- 解除コード（1 回だけ使える） ----------
+   redeemKey: 利用者。未使用のコードなら使用済みにして true。issueKey: 管理者だけ。新しいコードを 1 つ作って返す */
+export async function redeemKey(code) { const r = await rpc('redeem_key', { p_code: String(code || '').trim() }); return r === true || r === 'true'; }
+export async function issueKey(note) { const r = await rpc('issue_key', { p_note: note || null }, true); return String(r).replace(/"/g, ''); }
+
 /* ---------- 利用者（ログインなし） ---------- */
 export function myTokens() { const t = store.get(TKEY, []); return Array.isArray(t) ? t.slice(0, 50) : []; }
 

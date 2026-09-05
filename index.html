@@ -1096,7 +1096,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=39"></script>
+<script src="engine.js?v=40"></script>
 <script>
 (function(){
 'use strict';
@@ -1140,7 +1140,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.04';
+const APP_VER='v04.05';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1464,7 +1464,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=100').then(mod=>{
+  import('./sim3d.js?v=101').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1761,7 +1761,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=100').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=101').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1997,7 +1997,7 @@ function runSim(opt){applyScene();
         vM.value=m0;nM.textContent=m0;sim.h.setVol('mus',m0/100);
         /* 曲を手で流す・止める */
         {const mb=$('#musPlay');
-         const paintMb=()=>{const has=!!(sim.h.musicInfo&&sim.h.musicInfo());
+         const paintMb=()=>{const has=!sim.demo&&!!(sim.h.musicInfo&&sim.h.musicInfo());
            mb.hidden=!has;mb.textContent=(sim.h.musicPlaying&&sim.h.musicPlaying())?'曲を止める':'曲を流す'};
          mb.addEventListener('click',e=>{e.stopPropagation();
            if(sim.h.musicPlaying&&sim.h.musicPlaying())sim.h.stopMusicNow();
@@ -2014,7 +2014,7 @@ function runSim(opt){applyScene();
         document.addEventListener('pointerdown',()=>{if(sim&&sim.h&&sim.h.wakeAudio)sim.h.wakeAudio()})}
       /* 設定で登録してある曲を読み込む（地上から演目を始めると流れる） */
       if(sim.h.setLead)sim.h.setLead(store.get('musLead')??13.5);
-      musGet().then(l=>{if(l&&l.length&&sim&&sim.h&&sim.h.setMusicList)sim.h.setMusicList(l.map(x=>({name:x.name,buf:x.buf.slice(0)}))).catch(()=>{})});
+      if(!sim.demo)musGet().then(l=>{if(l&&l.length&&sim&&sim.h&&sim.h.setMusicList)sim.h.setMusicList(l.map(x=>({name:x.name,buf:x.buf.slice(0)}))).catch(()=>{})});   /* 体験版は曲を流さない */
       applyShow();
       /* 体験版: 鍵のかかったボタンは、消さずに灰色で出しておく。押すと断りだけ出す。
          捕まえる段で止めるので、そのボタンに付いている本来の処理は動かない */
@@ -2157,9 +2157,10 @@ function galApply(t){
   const prog=Math.min(1,t/GAL_DUR);
   if(gal.view==='first'){
     const box=$('#gmove'),sv=box&&box.querySelector('svg');if(!sv)return;
-    const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw');
+    const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw'),yg=sv.querySelector('.ck-yawg');
     if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
     if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0) scale(${(1+E.CK.grow*prog).toFixed(3)})`);
+    if(yg)yg.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
   }else if(galViewer){
     galViewer.setAttitude(st.yaw,st.pitch,st.bank);   // 方位はヨーのぶんだけ振れる
   }
@@ -2183,7 +2184,8 @@ function fbSimApply(t){
   const A=f[i],B=f[Math.min(2,i+1)];
   const st={bank:A.bank+(B.bank-A.bank)*k,pitch:A.pitch+(B.pitch-A.pitch)*k,yaw:A.yaw+(B.yaw-A.yaw)*k};
   const prog=Math.min(1,t/GAL_DUR);
-  const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw');
+  const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw'),yg=sv.querySelector('.ck-yawg');
+  if(yg)yg.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
   if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
   if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0) scale(${(1+E.CK.grow*prog).toFixed(3)})`);
   const lb=$('#fbSimStep');
@@ -2239,16 +2241,16 @@ function renderSettingsPage(){
       <div id="progSlots" hidden></div>
       <div class="sethelp">展示飛行モード（シミュレーターで自動操縦を 2 回押す）は、離陸から着陸までをひと続きで行います。「おまかせ」は、長さに合わせて 序盤 → 中盤 → 終盤 → フィナーレ を毎回組み直します。「自分で選ぶ」は、並べた課目をその順に行います（開始位置はそのとき機体がいる方角から最も近い正面を選ぶので、回り込みが短くなります）。</div>
     </div>
-    <div class="setgroup"><h4>演目の曲</h4>
-      <div id="musList" class="muslist"></div>
+    <div class="setgroup"><h4>演目の曲${isFull()?'':'（完全版）'}</h4>
+      ${isFull()?`<div id="musList" class="muslist"></div>
       <div class="setting"><span id="musName">選んでいません</span><span class="musbtns"><button class="btn sm" id="musPick">追加</button><button class="btn sm ghost" id="musClear" hidden>全部取り消す</button></span></div>
       <input type="file" id="musFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.aiff,.ogg" multiple hidden>
-      <div class="setting"><span>浮くタイミング</span><span class="musbtns"><input type="number" id="musLead" min="0" max="120" step="0.5" value="13.5"><span class="unit">秒</span></span></div>
+      <div class="setting"><span>浮くタイミング</span><span class="musbtns"><input type="number" id="musLead" min="0" max="120" step="0.5" value="13.5"><span class="unit">秒</span></span></div>`
+      :`<div class="sethelp">お手持ちの曲を展示飛行モードに合わせて流す機能は、完全版で使えます。</div>`}
       <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上入れると、順に流して最後まで行ったら最初へ戻ります（1 曲だけなら、3 分 58 秒で 0 分 13 秒へ戻って繰り返します）。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。「浮くタイミング」は、「加速」を押してから何秒目にタイヤが離れるかです（既定は 13.5 秒）。曲を登録してあるときは、曲が始まってからの秒数にもなります。そこから逆算して、滑走を始めるまでの間をとります。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
     </div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>
-    ${DEMO_ON&&isFull()&&store.get('key')?`<div class="setgroup"><h4>PC 用コード</h4><div class="setting"><span>PC の Web 版で入力すると全機能版になります</span><code class="pccode">${store.get('key')}</code></div></div>`:''}
     <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
   /* 展示飛行モードの構成: 「自分で選ぶ」のときは、序盤・中盤・終盤・フィナーレの枠に課目を置く */
   {const slots=$('#progSlots');
@@ -2262,8 +2264,8 @@ function renderSettingsPage(){
    paintSlots();
    $('#settingsPage').querySelector('select[data-key="showProg"]').addEventListener('change',()=>setTimeout(paintSlots,0));
    $('#settingsPage').querySelector('select[data-key="showLen"]').addEventListener('change',()=>setTimeout(applyShow,0));}
-  /* 演目の曲: 追加・取り消す。読み込んだものは、この端末の中だけに残す（2 曲以上はリスト再生） */
-  {const nm=$('#musName'),pick=$('#musPick'),clr=$('#musClear'),fi=$('#musFile'),lst=$('#musList');
+  /* 演目の曲: 追加・取り消す。読み込んだものは、この端末の中だけに残す（2 曲以上はリスト再生）。体験版では出さない */
+  if($('#musPick')){const nm=$('#musName'),pick=$('#musPick'),clr=$('#musClear'),fi=$('#musFile'),lst=$('#musList');
    const paint=list=>{list=list||[];const n=list.length;
      nm.textContent=n?`${n} 曲`:'選んでいません';clr.hidden=!n;
      lst.innerHTML=list.map((r,i)=>`<div class="setting"><span class="musnm">${i+1}. ${esc(r.name)}</span><button class="btn sm ghost" data-rm="${i}">外す</button></div>`).join('');
@@ -2411,7 +2413,7 @@ const ATTACH_OK=/^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/;   // 添付�
 const MAX_ATTACH=2*1024*1024;                                          // 1 ファイル 2MB まで
 const jdate=t=>{try{return t?new Date(t).toLocaleString('ja-JP'):''}catch(e){return ''}};
 let FB=null;
-async function fb(){if(!FB)FB=await import('./feedback.js?v=1');return FB}
+async function fb(){if(!FB)FB=await import('./feedback.js?v=2');return FB}
 
 /* 起動時: 届いている返信があればメニューに赤い印を出す */
 async function initFeedback(){
@@ -2538,6 +2540,9 @@ async function renderInbox(){
     b.disabled=true;
     try{const res=await m.adminReply(id,txt);toast(res&&res.mailed?'返信し、メールも送りました':'返信しました');renderInbox()}
     catch(e){toast('返信できませんでした');b.disabled=false}}));
+  /* 解除コードの発行（管理者だけ）。1 つにつき 1 回だけ使える。発行したコードは、購入した人へ個別に渡す */
+  if(m.issueKey){const bar=document.createElement('div');bar.className='acts';bar.innerHTML='<button class="btn ghost" id="issueKey">解除コードを発行</button><code class="pccode" id="issuedKey"></code>';page.prepend(bar);
+    $('#issueKey').addEventListener('click',async()=>{$('#issueKey').disabled=true;try{const c=await m.issueKey();$('#issuedKey').textContent=c;toast('発行しました。1 回だけ使えます')}catch(e){toast('発行できませんでした')}$('#issueKey').disabled=false})}
   const unread=rows.filter(m.unreadForAdmin).map(r=>r.id);
   if(unread.length){try{await m.adminMarkRead(unread)}catch(e){}}
 }
@@ -2638,15 +2643,27 @@ function renderBuy(){
     <ul><li>難易度 Normal と Hard（方位は 8 方位、姿勢は翼の傾きも、操縦操作は 2 つの操作）。</li><li>出題数と制限時間を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
     <div class="sethelp">アプリ版（App Store・Google Play）は<b>準備中</b>です。公開までしばらくお待ちください。</div>
     <div class="acts"><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
-    <h4 class="codeh">PC で使う（購入済みの方）</h4>
-    <div class="sethelp">Android 版または iPhone 版を購入済みなら、そのアプリの設定画面に出る「PC 用コード」を入力すると、この端末でも全機能版になります。</div>
-    <div class="coderow"><input id="buyCode" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="PC 用コード"><button class="btn sm" id="buyApply">有効にする</button></div>
+    <h4 class="codeh">解除コードをお持ちの方</h4>
+    <div class="sethelp">解除コードは 1 つにつき 1 回だけ使えます。入力して有効にすると、この端末が全機能版になります。アプリ版を購入済みで PC でも使いたい方は、「ご要望・お問い合わせ」から購入の控えを添えて請求してください。</div>
+    <div class="coderow"><input id="buyCode" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="解除コード"><button class="btn sm" id="buyApply">有効にする</button></div>
     <div class="sethelp" id="buyMsg"></div>`;
   $('#buyBack').addEventListener('click',()=>{location.hash='#home'});
   $('#buyApply').addEventListener('click',async()=>{const k=$('#buyCode').value.trim();if(!k)return;
-    try{const h=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(k)))].map(b=>b.toString(16).padStart(2,'0')).join('');
-      if(h===FULL_HASH){edition='full';store.set('edition','full');store.set('key',k);$('#buyMsg').textContent='全機能版を有効にしました。';setTimeout(()=>{location.hash='#home';renderHome()},600)}
-      else $('#buyMsg').textContent='コードが違います。'}catch(e){$('#buyMsg').textContent='この環境では確認できません（https で開いてください）。'}});
+    const btn=$('#buyApply');btn.disabled=true;$('#buyMsg').textContent='確かめています…';
+    try{
+      const ok=await redeemCode(k);
+      if(ok){edition='full';store.set('edition','full');store.set('key',k);$('#buyMsg').textContent='全機能版を有効にしました。';setTimeout(()=>{location.hash='#home';renderHome()},600)}
+      else $('#buyMsg').textContent='このコードは使えません（使用済みか、まちがっています）。'
+    }catch(e){$('#buyMsg').textContent='確かめられませんでした。通信できる状態で、もう一度お試しください。'}
+    btn.disabled=false});
+}
+/* 解除コードを確かめる。置き場所（Supabase）があれば、そこで「未使用なら使用済みにして true」。
+   置き場所がまだないあいだだけ、従来の合言葉（ハッシュ照合）を受け付ける */
+async function redeemCode(k){
+  const m=await fb().catch(()=>null);
+  if(m&&m.CONFIGURED&&m.redeemKey)return !!(await m.redeemKey(k));
+  const h=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(k)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+  return h===FULL_HASH;
 }
 window.addEventListener('hashchange',route);
 checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews();initFeedback()});

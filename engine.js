@@ -55,7 +55,7 @@
   const LEVELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
   const lvOf = s => s.level === 'medium' ? 'normal' : (s.level || 'hard');   // medium は旧称
   /* 視界・姿勢指示器のリアルタイム更新に使う係数（svgCockpit / svgAI と同じ値） */
-  const CK = { kp: 5, ky: 6, aiK: 2.4, grow: 0.45 };
+  const CK = { kp: 6, ky: 6, aiK: 2.4, grow: 0.45 };   // 1 度あたりの画素は縦横同じ（同じレンズで見ている）
 
   /* ---------- 出題生成 ---------- */
   /* N マークの向きと機首の向きが一致すると答えが自明になるので、機首は N と別の向きだけを出題する（dir≠0）。
@@ -325,10 +325,13 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     const ref = marks ? '<line x1="16" x2="344" y1="108" y2="108" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9"/><text x="20" y="102" font-size="11" font-family="var(--mono)" fill="#f2a93b">①の水平線</text>' : '';
     const mtn = 'M-900,0 ' + PEAKS.map(p => `L${p[0]},${p[1]}`).join(' ') + ' L900,0 Z';
     const ground = [10, 22, 38, 60, 90, 130, 180].map((y, i) => `<line x1="-900" x2="900" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .02}"/>`).join('');
+    /* 地面の放射の線（消失点から手前へ）。ヨーで横に流れるので、向きが変わったことが地面でも分かる。
+       これがないと、山だけが横に動いて「山が動いた」ように見える */
+    const rad = [-7, -5, -3.5, -2.2, -1.2, -0.5, 0.5, 1.2, 2.2, 3.5, 5, 7].map(k => `<line x1="0" y1="0" x2="${(k * 130).toFixed(0)}" y2="240" stroke="#000" opacity=".10"/>`).join('');
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
 <defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--ck-sky-top, var(--ck-sky, var(--sky)))"/><stop offset="1" style="stop-color:var(--ck-sky-hz, var(--ck-sky, var(--sky)))"/></linearGradient></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
 <g clip-path="url(#${id})"><g class="ck-att" transform="translate(180 108) rotate(${-bank}) translate(0 ${(pitch * kp).toFixed(1)})">
-<rect x="-900" y="-900" width="1800" height="900" fill="url(#${id}s)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--ck-earth, var(--earth))"/>${ground}
+<rect x="-900" y="-900" width="1800" height="900" fill="url(#${id}s)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--ck-earth, var(--earth))"/>${ground}<g class="ck-yawg" transform="translate(${(-yaw * ky).toFixed(1)} 0)">${rad}</g>
 <g class="ck-yaw" transform="translate(${(-yaw * ky).toFixed(1)} 0) scale(${sc})"><g fill="var(--ck-star, none)">${STARS}</g><circle cx="110" cy="-96" r="15" fill="var(--ck-sun, #ffd36b)"/><path d="${mtn}" fill="var(--ck-mtn, #4a5c70)"/>
 <path d="M-130,0 L-90,-72 L-50,0 Z" fill="var(--ck-mtn2, #65788d)"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="var(--ck-snow, #e8eef4)"/>
 <rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/>${mk}</g>

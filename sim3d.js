@@ -1040,9 +1040,8 @@ export function mount(container, opt = {}) {
     const bear = ((Math.atan2(GATE.x - e.ex, GATE.y - e.ey) / D) % 360 + 360) % 360;
     const face = ((Math.atan2(e.dx, e.dy) / D) % 360 + 360) % 360;
     planFace = face;
-    const rel = wrap180(bear - face);
-    const hand = Math.abs(rel) < 22 ? '正面' : (rel > 0 ? '右手' : '左手');
-    st.cue = `${hand}（${DIRJA[Math.round(bear / 45) % 8]}）から進入`;
+    /* 進入の向きは方位だけで示す（「正面・右手・左手」は視点しだいで変わるので書かない） */
+    st.cue = `${DIRJA[Math.round(bear / 45) % 8]}から進入`;
     marker.position.set(GATE.x, GATE.y, 160); markOn = true;
   }
   /* 演目の終わり: 縦隊に組み替えて滑走路へ降りる。

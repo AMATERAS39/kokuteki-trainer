@@ -1096,7 +1096,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=41"></script>
+<script src="engine.js?v=42"></script>
 <script>
 (function(){
 'use strict';
@@ -1140,7 +1140,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.14';
+const APP_VER='v04.15';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1331,7 +1331,7 @@ const INTRO={
   heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークは毎回向きが変わります。まず N を確認してから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を A〜D から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
   combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を A〜D から選びます。','方位指示器は現在の方位が上に来ます。'],
-  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を A〜D の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。']
+  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を A〜D の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。','変化は 3 種類。水平線が傾く → 操縦桿の左右、水平線が上下する → 操縦桿の奥・手前、景色が横に流れる → 方向舵。','2 つの操作は、①→②に片方の変化だけなら順番、①→②で両方が変わっていれば同時。答えの文はどちらも同じです。']
 };
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
    計測に進んだら（startMeasured）ホームボタンに戻る。入口の判定は説明ページのボタンが立てる pendingBack で行う（同じハッシュを操縦操作の選択画面からも使うため） */
@@ -2053,7 +2053,7 @@ function showGallery(){applyScene();
   if(dm){gal.init='level';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols,lock)=>`<div class="gsel${lock?' off':''}"><div class="gl">${title}${lock?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと、①からの②③を表示します。${isFull()?'操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。':'体験版で選べるのは操作 1 つずつです。操縦桿と方向舵を組み合わせた見え方は完全版で使えます。'}</div>
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">写真の変化は 3 種類: 水平線の傾き＝操縦桿の左右、水平線の高さ＝操縦桿の奥・手前、景色の横の流れ＝方向舵。2 つの操作は、①→②に片方の変化だけなら順番、両方なら同時（答えの文は同じ）。</div><div class="sub">操作を選ぶと、①からの②③を表示します。${isFull()?'操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。':'体験版で選べるのは操作 1 つずつです。操縦桿と方向舵を組み合わせた見え方は完全版で使えます。'}</div>
     <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab${dm&&k!=='level'?' lockb':''}" data-init="${k}"${dm&&k!=='level'?' data-lock="1"':''}>${v.b}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
@@ -2304,7 +2304,7 @@ const TIPS={
   heading:['N マークの向きをまず見る','そこから機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','機首が N と同じ向きになることはない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
   combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','数字は 10 の位まで（3＝030°、12＝120°）'],
-  control:['操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 水平のまま右を向き、景色が左へ流れる','選択肢は ①→② と ②→③ の順に見る']
+  control:['変化は 3 種類: 水平線の傾き＝操縦桿の左右、水平線の高さ＝操縦桿の奥・手前、景色の横の流れ＝方向舵','②に両方の変化 → 同時、片方だけ → 順番。答えの文は同じ','操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 水平のまま右を向き、景色が左へ流れる','選択肢は ①→② と ②→③ の順に見る']
 };
 const KBD={heading:'1〜8 で方位（北から時計回り）、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 

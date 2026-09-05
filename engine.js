@@ -139,9 +139,13 @@
     const ops = one ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';
     const init = { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
-    const frames = [init];
-    for (const op of ops) frames.push(applyOp(frames[frames.length - 1], op));
     const single = ops[0] === ops[1];
+    /* 2 操作は「順番」（①→②で操縦桿、②→③で方向舵）と「同時」（①→②でも②→③でも両方が進む）を半々で出す。
+       答えの文はどちらも同じ。試験の写真がどちらの形かは文言から分からないので、両方に慣れる */
+    const simul = !single && Math.random() < 0.5;
+    const frames = [init];
+    if (simul) { for (let k = 0; k < 2; k++) frames.push(ops.reduce((a, op) => applyOp(a, op), frames[frames.length - 1])); }
+    else for (const op of ops) frames.push(applyOp(frames[frames.length - 1], op));
     /* 4 択: 1 操作（6 通り）と「操縦桿 → 方向舵」（8 通り）を混ぜた中から、正解以外を誤答にする */
     const key = a => a.join('|');
     const cands = [];
@@ -149,7 +153,7 @@
     if (lv !== 'easy' && s.ops !== 'single') for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
     const dis = pickDistractors(cands, c => key(c) !== key(ops), 3);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
-    return { type: 'control', ops, frames, init, single, opts, level: lv, hud: lv !== 'hard' };
+    return { type: 'control', ops, frames, init, single, simul, opts, level: lv, hud: lv !== 'hard' };
   }
   function generate(mode, settings) {
     const s = Object.assign({}, DEFAULT_SETTINGS, settings);
@@ -191,10 +195,19 @@
       return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`,
         lines: [`①→②→③：同じ向きに変化が続いている。${v} → ${o.body} → ${o.base}。`, '途中で操作が変わっていないので、操作は 1 つです。'] };
     }
-    const lines = q.ops.map((id, k) => {
-      const o = OP_BY_ID[id];
-      return `${'①②③'[k]}→${'①②③'[k + 1]}：${o.view} → ${o.body} → ${o.base}。`;
-    });
+    let lines;
+    if (q.simul) {
+      const a = OP_BY_ID[q.ops[0]], b = OP_BY_ID[q.ops[1]];
+      lines = [`①→②：2 つの変化が同時に起きている。${a.view}／${b.view}。`,
+               `②→③：同じ 2 つの変化がそのまま続いている → 同時の 2 操作（${a.base}＋${b.base}）。`,
+               '②の時点で両方の変化があれば「同時」、片方だけなら「順番」。答えの文はどちらも同じです。'];
+    } else {
+      lines = q.ops.map((id, k) => {
+        const o = OP_BY_ID[id];
+        return `${'①②③'[k]}→${'①②③'[k + 1]}：${o.view} → ${o.body} → ${o.base}。`;
+      });
+      lines.push('①→②は片方の変化だけ、②→③で別の変化が加わっている → 順番の 2 操作。②の時点で両方が変わっていれば「同時」ですが、答えの文は同じです。');
+    }
     if (q.ops.some(id => OP_BY_ID[id].group === 'rudder'))
       lines.push('方向舵は、傾いていても進む向きに対して水平に向きを変えます。水平線の傾きは変わりません。');
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');

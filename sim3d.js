@@ -2704,48 +2704,48 @@ export function mount(container, opt = {}) {
     if (curView !== 'first' || !soundOn || !actx || actx.state !== 'running') return;
     try {
       if (!gearNoise) gearNoise = makeNoise(actx);
-      /* 機内で聞く、油圧の脚の音。飛行音の音量とは別に直接出す。
-         うなり: 低いモーターの唸り（60 Hz 付近のこぎり波 2 本を少しずらす）＋ 帯域を絞った雑音（油圧のシャー）。
-                 高い音（笛のような音）は使わない。2.2 秒で、出すときは少し下がり、しまうときは少し上がる。8 Hz の震え
-         終わり: 鈍い一発「ゴトッ」（低い音の短い減衰 + 250 Hz 以下の雑音 + 金属の小さな当たり）。
-                 0.18 秒後に小さく扉の音。弾むような音（ポン）にはしない */
+      /* 機内で聞く、電動の脚の音。飛行音の音量とは別に直接出す。
+         「ウィーン」: 電動モーターの澄んだ唸り。0.2 秒で回り出し（音程が上がる）、そのまま 1.1 秒回り、0.25 秒で止まる（下がる）。
+                     のこぎり波 約 900 Hz とその倍音、少しの雑音。低い唸り（ヴォーン）にはしない
+         「ガチャッ」: 終わりの掛け金。「ガ」= 短い当たり（雑音 1.8 kHz + 低い小さな叩き）、
+                      60 ms 後の「チャッ」= 明るい雑音 3.5 kHz + 小さな金属の余韻（2.6 kHz） */
       if (!gearGain) { gearGain = actx.createGain(); gearGain.gain.value = 1; gearGain.connect(actx.destination); }
-      const t = actx.currentTime, dur = 2.2;
+      const t = actx.currentTime, up = 0.2, run = 1.1, down = 0.25, dur = up + run + down;
+      const f0 = extend ? 860 : 980, f1 = extend ? 940 : 900;         // 出すときは少し上がりながら、しまうときは少し下がりながら回る
       const mix = actx.createGain(); mix.gain.setValueAtTime(0.0001, t);
-      mix.gain.exponentialRampToValueAtTime(0.7, t + 0.25); mix.gain.setValueAtTime(0.7, t + dur - 0.3);
+      mix.gain.exponentialRampToValueAtTime(0.5, t + up); mix.gain.setValueAtTime(0.5, t + up + run);
       mix.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      const trem = actx.createOscillator(), tg = actx.createGain(); trem.frequency.value = 8; tg.gain.value = 0.12;
-      trem.connect(tg); tg.connect(mix.gain); trem.start(t); trem.stop(t + dur + 0.05);
-      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.7;
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 1.2;
       lp.connect(mix); mix.connect(gearGain);
-      [0, 1.3].forEach(dtn => {
-        const o = actx.createOscillator(); o.type = 'sawtooth';
-        const f0 = 58 + dtn, f1 = extend ? f0 - 6 : f0 + 6;
-        o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f1, t + dur);
-        const og = actx.createGain(); og.gain.value = 0.5; o.connect(og); og.connect(lp); o.start(t); o.stop(t + dur + 0.05);
+      [[1, 0.45], [2, 0.18], [3, 0.07]].forEach(([h, g]) => {
+        const o = actx.createOscillator(); o.type = h === 1 ? 'sawtooth' : 'sine';
+        o.frequency.setValueAtTime(f0 * 0.35 * h, t);
+        o.frequency.exponentialRampToValueAtTime(f0 * h, t + up);
+        o.frequency.linearRampToValueAtTime(f1 * h, t + up + run);
+        o.frequency.exponentialRampToValueAtTime(f1 * 0.3 * h, t + dur);
+        const og = actx.createGain(); og.gain.value = g; o.connect(og); og.connect(lp); o.start(t); o.stop(t + dur + 0.05);
       });
       const hn = actx.createBufferSource(); hn.buffer = gearNoise; hn.loop = true;
-      const hb = actx.createBiquadFilter(); hb.type = 'bandpass'; hb.frequency.value = 380; hb.Q.value = 1.2;
-      const hg = actx.createGain(); hg.gain.value = 0.35;
+      const hb = actx.createBiquadFilter(); hb.type = 'bandpass'; hb.frequency.value = 1500; hb.Q.value = 2;
+      const hg = actx.createGain(); hg.gain.value = 0.12;
       hn.connect(hb); hb.connect(hg); hg.connect(lp); hn.start(t); hn.stop(t + dur + 0.05);
-      const thud = (at, vol) => {
-        const c = actx.createOscillator(); c.type = 'triangle';
-        c.frequency.setValueAtTime(72, at); c.frequency.exponentialRampToValueAtTime(44, at + 0.25);
-        const cg = actx.createGain(); cg.gain.setValueAtTime(0.0001, at - 0.004);
-        cg.gain.exponentialRampToValueAtTime(vol, at + 0.012); cg.gain.exponentialRampToValueAtTime(0.0001, at + 0.32);
-        c.connect(cg); cg.connect(gearGain); c.start(at); c.stop(at + 0.35);
+      const click = (at, fc, q, len, vol) => {
         const n = actx.createBufferSource(); n.buffer = gearNoise;
-        const nf = actx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 250;
-        const ng = actx.createGain(); ng.gain.setValueAtTime(0.0001, at - 0.004);
-        ng.gain.exponentialRampToValueAtTime(vol * 0.9, at + 0.008); ng.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
-        n.connect(nf); nf.connect(ng); ng.connect(gearGain); n.start(at); n.stop(at + 0.2);
-        const k = actx.createBufferSource(); k.buffer = gearNoise;
-        const kf = actx.createBiquadFilter(); kf.type = 'bandpass'; kf.frequency.value = 2400; kf.Q.value = 6;
-        const kg = actx.createGain(); kg.gain.setValueAtTime(0.0001, at - 0.002);
-        kg.gain.exponentialRampToValueAtTime(vol * 0.25, at + 0.004); kg.gain.exponentialRampToValueAtTime(0.0001, at + 0.04);
-        k.connect(kf); kf.connect(kg); kg.connect(gearGain); k.start(at); k.stop(at + 0.06);
+        const nf = actx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = fc; nf.Q.value = q;
+        const ng = actx.createGain(); ng.gain.setValueAtTime(0.0001, at - 0.002);
+        ng.gain.exponentialRampToValueAtTime(vol, at + 0.003); ng.gain.exponentialRampToValueAtTime(0.0001, at + len);
+        n.connect(nf); nf.connect(ng); ng.connect(gearGain); n.start(at); n.stop(at + len + 0.02);
       };
-      thud(t + dur, 1.0); thud(t + dur + 0.18, 0.35);
+      const tap = (at, fr, len, vol) => {
+        const c = actx.createOscillator(); c.type = 'triangle'; c.frequency.setValueAtTime(fr, at);
+        c.frequency.exponentialRampToValueAtTime(fr * 0.6, at + len);
+        const cg = actx.createGain(); cg.gain.setValueAtTime(0.0001, at - 0.002);
+        cg.gain.exponentialRampToValueAtTime(vol, at + 0.004); cg.gain.exponentialRampToValueAtTime(0.0001, at + len);
+        c.connect(cg); cg.connect(gearGain); c.start(at); c.stop(at + len + 0.02);
+      };
+      const tc = t + dur - 0.05;
+      click(tc, 1800, 3, 0.03, 0.9); tap(tc, 160, 0.05, 0.5);                     // ガ
+      click(tc + 0.06, 3500, 2.5, 0.04, 0.8); tap(tc + 0.06, 2600, 0.09, 0.25);   // チャッ（明るい当たりと金属の余韻）
       gearSndN++;
     } catch (e) {}
   }

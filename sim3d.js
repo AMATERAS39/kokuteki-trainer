@@ -499,6 +499,8 @@ export function mount(container, opt = {}) {
     for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) smokeOnArr[k] = false;
     /* レター・エイト: 合流したら、先頭機と入れ替える（戻った 1 機が円を仕上げる） */
     if (e8 && e8.done && !e8.out) { smokeOnArr[0] = false; smokeOnArr[e8.solo + 1] = true; }
+    /* 前の課目に入っていなかった機体は、合流して次の開始位置に着くまで出さない（smokeAll より優先） */
+    for (let k = 1; k < n; k++) if (mates[k - 1].userData.rejoin) smokeOnArr[k] = false;
     if (smokeNone) smokeOnArr.fill(false);       // 課目の終わりに一斉に切る
     return smokeOnArr;
   }
@@ -1059,6 +1061,7 @@ export function mount(container, opt = {}) {
   }
   function endEntry() {
     manPhase = 'do'; st.cue = ''; markOn = false;
+    mates.forEach(h => { h.userData.rejoin = false; });   // 開始位置に着いた。合流してきた機体もここからスモークを出せる
     /* 回る課目は、まず観覧位置から遠ざかる側へ回る（近づく側へ回ると頭の上を越えて後ろへ抜ける） */
     turnSign = wrap180(planFace - st.h) >= 0 ? 1 : -1;
     manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h;
@@ -1084,6 +1087,10 @@ export function mount(container, opt = {}) {
   }
   function beginManeuver(i) {
     endCork(); endFigure(); if (treeMode) setTreeMode(false);
+    /* いまの課目に入っていなかった機体（隠れていた、または隊形に席がなかった）は、
+       ここから合流する。合流して次の課目の開始位置に着くまでは、スモークを出さない（endEntry で解く） */
+    { const pf = FORMATIONS[formation] || { offs: [] };
+      mates.forEach((h, k) => { const u = h.userData; u.rejoin = !u.shown || !pf.offs[k]; }); }
     reIn = 0;
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null;
     const m = PROGRAM[i];
@@ -2146,7 +2153,7 @@ export function mount(container, opt = {}) {
      'diamond' = ひし形のまま 4 機が一斉に（ダイヤモンド・テイクオフ） */
   function startTakeoff(kind) {
     tkOn = true;
-    mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; });   // 着陸の段取りは消す
+    mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; h.userData.rejoin = false; });   // 着陸の段取りと合流の印は消す
     const dia = kind === 'diamond';
     const offs = FORMATIONS.diamond.offs;                    // [右, 前後, 上]
     mates.forEach((h, i) => {

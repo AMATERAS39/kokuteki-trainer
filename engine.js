@@ -119,14 +119,13 @@
     const mark = lv === 'hard' ? pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45)) : 0;
     return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, mark, opts, level: lv };
   }
-  /* 方向舵は機体の上下軸まわりに効く。機体が傾いていると、その軸も傾いているので、機首は水平面ではなく斜めに振れる
-     （右バンクで右方向舵なら機首はやや沈む）。ヨーは cos(バンク) 倍、ピッチは −sin(バンク) 倍で効く */
+  /* 方向舵は、進む向きに対して水平に向きを変える（世界の上下軸まわり）。
+     傾いていても機首は水平面を振れるだけで、上下しない。
+     3D シミュレーターと同じ扱い（sim3d.js は premultiply(AZ) で世界の上下軸まわりに回す）。
+     出題の約束を「操縦桿 → 傾く」「方向舵 → 水平に向きが変わる」と分けておかないと、
+     縦画面の問題と横画面のシミュレーターで見え方が食い違う */
   function applyOp(state, opId) {
     const o = OP_BY_ID[opId], e = o.effect;
-    if (o.group === 'rudder') {
-      const b = state.bank * D, r = e.yaw;
-      return { bank: state.bank, pitch: state.pitch - r * Math.sin(b), yaw: state.yaw + r * Math.cos(b) };
-    }
     return { bank: state.bank + (e.bank || 0), pitch: state.pitch + (e.pitch || 0), yaw: state.yaw + (e.yaw || 0) };
   }
   function genControl(s) {
@@ -187,24 +186,17 @@
   function gradeControl(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
     if (q.single) {
-      const o = OP_BY_ID[q.ops[0]], b = q.frames[0].bank;
-      let v = o.view;
-      if (o.group === 'rudder' && Math.abs(b) > 1) v = `水平線の傾きは変わらないまま景色が${o.effect.yaw > 0 ? '左' : '右'}へ流れ、${(o.effect.yaw > 0) === (b > 0) ? '少し上がる（機首が沈む）' : '少し下がる（機首が上がる）'}`;
+      const o = OP_BY_ID[q.ops[0]];
+      const v = o.view;
       return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`,
         lines: [`①→②→③：同じ向きに変化が続いている。${v} → ${o.body} → ${o.base}。`, '途中で操作が変わっていないので、操作は 1 つです。'] };
     }
     const lines = q.ops.map((id, k) => {
-      const o = OP_BY_ID[id], b = q.frames[k].bank;
-      let v = o.view, body = o.body;
-      if (o.group === 'rudder' && Math.abs(b) > 1) {
-        const right = o.effect.yaw > 0, down = right === (b > 0);
-        v = `水平線の傾きは変わらないまま景色が${right ? '左' : '右'}へ流れ、${down ? '少し上がる（機首が沈む）' : '少し下がる（機首が上がる）'}`;
-        body = `機体の上下軸まわりに${right ? '右' : '左'}を向き、傾いているぶん機首が${down ? '沈む' : '上がる'}`;
-      }
-      return `${'①②③'[k]}→${'①②③'[k + 1]}：${v} → ${body} → ${o.base}。`;
+      const o = OP_BY_ID[id];
+      return `${'①②③'[k]}→${'①②③'[k + 1]}：${o.view} → ${o.body} → ${o.base}。`;
     });
-    if (q.ops.some((id, k) => OP_BY_ID[id].group === 'rudder' && Math.abs(q.frames[k].bank) > 1))
-      lines.push('方向舵は機体の上下軸まわりに効くので、機体が傾いているときは機首が水平面ではなく斜めに振れます（傾いた側へ沈む）。');
+    if (q.ops.some(id => OP_BY_ID[id].group === 'rudder'))
+      lines.push('方向舵は、傾いていても進む向きに対して水平に向きを変えます。水平線の傾きは変わりません。');
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
     return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`, lines };
   }

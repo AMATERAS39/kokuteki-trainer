@@ -895,7 +895,12 @@ export function mount(container, opt = {}) {
     const wantH = ((Math.atan2(tx - st.x, ty - st.y) / D) % 360 + 360) % 360;
     const wantB = clamp(wrap180(wantH - st.h) * 1.4, -52, 52);
     autoIn.x = clamp((wantB - st.b) / 22, -1, 1);
-    const wantP = clamp((tz - st.z) * 0.12, -20, 20);
+    /* 高さの合わせ方。差だけで機首の角度を決めると、行き過ぎて上下に揺れる（実測: 上昇中に
+       機首が 29 度 → -18 度 → 24 度 と振れ、急上昇と急降下を繰り返して見えた）。
+       いまの上下の速さぶんを差し引く（近づくほど機首を戻す）と、行き過ぎずに寄っていく。
+       角度の上限も 16 度までにして、自然に上がれる範囲にとどめる */
+    const climb = fwd.z * SPEED * Math.max(0.2, spdK);      // いまの上下の速さ（m/s）
+    const wantP = clamp((tz - st.z) * 0.09 - climb * 0.45, -16, 16);
     autoIn.y = -clamp((wantP - st.p) / 10, -1, 1);
     autoIn.r = 0;
   }
@@ -1157,10 +1162,11 @@ export function mount(container, opt = {}) {
       if (ter2 <= 0) continue;                   // 平地は地面の手当て（このあと）に任せる
       const need = ter2 + 70;
       if (pz < need) {
-        /* 機首を上げて越える。ただし翼は水平に戻しきらない。
-           戻してしまうと、行き先へ向き直る舵まで打ち消され、山のほうへ飛び続けてしまう
-           （進入がいつまでも終わらず、演目が観覧位置から遠く離れる元） */
-        autoIn.y = -clamp((need - pz) / 140, 0.35, 1);
+        /* 山を越える。舵をいっぱいに引くと機首が 28 度まで跳ね上がり、不自然な急上昇に見える（実測）。
+           「上げたい角度」を決めて、そこへ寄せる形にする（越える急ぎぐあいで 8〜22 度）。
+           翼は水平に戻しきらない。戻すと行き先へ向き直る舵まで打ち消され、山のほうへ飛び続ける */
+        const urg = clamp((need - pz) / 140, 0, 1);
+        autoIn.y = -clamp((8 + 14 * urg - st.p) / 10, -1, 1);
         autoIn.x = clamp(autoIn.x, -0.7, 0.7);
         return;
       }
@@ -1174,7 +1180,9 @@ export function mount(container, opt = {}) {
        50 度も機首が上がり、飛び上がるように見える */
     if ((ahead < 90 || st.z < 70) && !(tkOn && fwd.z > 0.05)) {
       autoIn.x = Math.abs(st.b) > 45 ? clamp(-st.b / 20, -1, 1) : clamp(autoIn.x, -0.5, 0.5);
-      autoIn.y = -clamp(0.4 + (90 - Math.min(ahead, st.z)) / 90, 0, 1);
+      /* ここも「上げたい角度」で。急ぎぐあいで 8〜22 度 */
+      const urg = clamp((90 - Math.min(ahead, st.z)) / 90, 0, 1);
+      autoIn.y = -clamp((8 + 14 * urg - st.p) / 10, -1, 1);
     }
   }
   function autoInputs(dt) {

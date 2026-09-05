@@ -1809,9 +1809,19 @@ export function mount(container, opt = {}) {
      曲がるときは遅く（5 m/s）、まっすぐは TAXI_V。曲がりは TAXI_TURN 度/秒（止まりかけでも向きは直せる）。
      driveOn は 1 番機にも追従機にも使う。返り値は着いたかどうか */
   function driveOn(p, gp, dt) {
-    const [tx, ty] = gp.pts[gp.idx], last = gp.idx === gp.pts.length - 1;
+    /* 線（前の通過点 → 次の通過点）に沿って進む。狙うのは通過点そのものではなく、
+       自分の位置を線に落とした点の LOOK m 先。こうすると線からずれていても短い距離で線に戻り、
+       あとは線の上をまっすぐ走る（通過点を狙うと、ずれたぶんが長い斜めの直進になり、滑走路をはみ出した。実測） */
+    const LOOK = 14;
+    if (!gp.start) gp.start = [p.x, p.y];
+    const A = gp.idx > 0 ? gp.pts[gp.idx - 1] : gp.start, B = gp.pts[gp.idx], last = gp.idx === gp.pts.length - 1;
+    const ax = B[0] - A[0], ay = B[1] - A[1], len = Math.hypot(ax, ay) || 1, ux = ax / len, uy = ay / len;
+    const s0 = clamp((p.x - A[0]) * ux + (p.y - A[1]) * uy, 0, len);              // 線に落とした位置（A からの距離）
+    const s1 = Math.min(len, s0 + LOOK);
+    const tx = A[0] + ux * s1, ty = A[1] + uy * s1;
+    const dEnd = Math.hypot(B[0] - p.x, B[1] - p.y);
     const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
-    const want = d > 3 ? ((Math.atan2(dx, dy) / D) % 360 + 360) % 360 : gp.hEnd;
+    const want = d > 1.5 ? ((Math.atan2(dx, dy) / D) % 360 + 360) % 360 : (last ? gp.hEnd : gp.h);
     let e = wrap180(want - gp.h);
     /* 向き直り（駐機を出る最初の区間だけ）は決めた側へ回る（隣の機から離れる側）。
        2 つ目以降の区間にまで効かせると、角で少し行き過ぎたとき（差 91 度）に逆へ 270 度回ってしまい、
@@ -1819,14 +1829,15 @@ export function mount(container, opt = {}) {
     if (gp.turnDir && gp.idx > 0) gp.turnDir = 0;
     if (gp.turnDir && Math.abs(e) > 90) e = gp.turnDir * Math.abs(e);
     gp.h = (gp.h + clamp(e, -TAXI_TURN * dt, TAXI_TURN * dt) + 360) % 360;
-    /* 向きが大きく違うとき（駐機からの向き直り）はごく遅く回る。回る輪が小さくなり、隣の機（34 m）に寄らない（実測: 5 m/s だと 8 m まで寄った） */
-    let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 5 : (last ? Math.min(TAXI_V, d * 0.5) : TAXI_V);
+    /* 向きが大きく違うとき（駐機からの向き直り）はごく遅く回る。回る輪が小さくなり、隣の機（34 m）に寄らない */
+    /* 角は 4 m/s（輪の半径 9.5 m）。角の手前 30 m から落とす（12 m/s のまま曲がると半径 29 m になり、滑走路の縁近く 18 m まで膨らんだ。実測） */
+    let vmax = Math.abs(e) > 90 ? 2 : Math.abs(e) > 30 ? 4 : (last ? Math.min(TAXI_V, dEnd * 0.5) : (len - s0 < 30 ? 4 : TAXI_V));
     if (gp.hold) vmax = 0;                                          // 前に機体がいる: 止まって待つ（合流や並びでぶつからない）
     gp.v = gp.v < vmax ? Math.min(vmax, gp.v + 4 * dt) : Math.max(vmax, gp.v - 6 * dt);
     p.x += Math.sin(gp.h * D) * gp.v * dt; p.y += Math.cos(gp.h * D) * gp.v * dt;
-    if (!last && d < 8) gp.idx++;
-    if (last && d < 2.5) {
-      gp.v = 0; p.x = tx; p.y = ty;
+    if (!last && len - s0 < 6) gp.idx++;                            // 角の手前 6 m で次の線へ（曲がりは 5 m/s・24 度/秒の小さな輪）
+    if (last && dEnd < 2.5) {
+      gp.v = 0; p.x = B[0]; p.y = B[1];
       if (Math.abs(wrap180(gp.hEnd - gp.h)) < 2) { gp.h = gp.hEnd; return true; }
       gp.h = (gp.h + clamp(wrap180(gp.hEnd - gp.h), -TAXI_TURN * dt, TAXI_TURN * dt) + 360) % 360;
     }

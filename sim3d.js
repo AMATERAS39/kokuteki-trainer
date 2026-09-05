@@ -2704,35 +2704,48 @@ export function mount(container, opt = {}) {
     if (curView !== 'first' || !soundOn || !actx || actx.state !== 'running') return;
     try {
       if (!gearNoise) gearNoise = makeNoise(actx);
-      /* 飛行音より大きく、機内で聞く音として出す（飛行音の音量とは別に、直接出す）。
-         「ウィーン」: のこぎり波を 1.6 秒かけて上げ下げ（出すときは上がり、しまうときは下がる）。少し揺らして機械らしく
-         「ガコン」: 低い音の短い落ちと、低く絞った雑音の一発。終わりに 2 回（脚が止まる音と扉が閉まる音） */
+      /* 機内で聞く、油圧の脚の音。飛行音の音量とは別に直接出す。
+         うなり: 低いモーターの唸り（60 Hz 付近のこぎり波 2 本を少しずらす）＋ 帯域を絞った雑音（油圧のシャー）。
+                 高い音（笛のような音）は使わない。2.2 秒で、出すときは少し下がり、しまうときは少し上がる。8 Hz の震え
+         終わり: 鈍い一発「ゴトッ」（低い音の短い減衰 + 250 Hz 以下の雑音 + 金属の小さな当たり）。
+                 0.18 秒後に小さく扉の音。弾むような音（ポン）にはしない */
       if (!gearGain) { gearGain = actx.createGain(); gearGain.gain.value = 1; gearGain.connect(actx.destination); }
-      const t = actx.currentTime, dur = 1.6;
-      const o = actx.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(extend ? 240 : 460, t);
-      o.frequency.linearRampToValueAtTime(extend ? 460 : 240, t + dur);
-      const vib = actx.createOscillator(), vg = actx.createGain(); vib.frequency.value = 11; vg.gain.value = 9;
-      vib.connect(vg); vg.connect(o.frequency);
-      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800; lp.Q.value = 2;
-      const g = actx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55, t + 0.15);
-      g.gain.setValueAtTime(0.55, t + dur - 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(lp); lp.connect(g); g.connect(gearGain);
-      vib.start(t); o.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
-      const clunk = at => {
-        const c = actx.createOscillator(); c.type = 'square';
-        c.frequency.setValueAtTime(140, at); c.frequency.exponentialRampToValueAtTime(38, at + 0.16);
-        const cg = actx.createGain(); cg.gain.setValueAtTime(0.0001, at - 0.005);
-        cg.gain.exponentialRampToValueAtTime(1.0, at + 0.008); cg.gain.exponentialRampToValueAtTime(0.0001, at + 0.22);
-        c.connect(cg); cg.connect(gearGain); c.start(at); c.stop(at + 0.25);
+      const t = actx.currentTime, dur = 2.2;
+      const mix = actx.createGain(); mix.gain.setValueAtTime(0.0001, t);
+      mix.gain.exponentialRampToValueAtTime(0.7, t + 0.25); mix.gain.setValueAtTime(0.7, t + dur - 0.3);
+      mix.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      const trem = actx.createOscillator(), tg = actx.createGain(); trem.frequency.value = 8; tg.gain.value = 0.12;
+      trem.connect(tg); tg.connect(mix.gain); trem.start(t); trem.stop(t + dur + 0.05);
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.7;
+      lp.connect(mix); mix.connect(gearGain);
+      [0, 1.3].forEach(dtn => {
+        const o = actx.createOscillator(); o.type = 'sawtooth';
+        const f0 = 58 + dtn, f1 = extend ? f0 - 6 : f0 + 6;
+        o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f1, t + dur);
+        const og = actx.createGain(); og.gain.value = 0.5; o.connect(og); og.connect(lp); o.start(t); o.stop(t + dur + 0.05);
+      });
+      const hn = actx.createBufferSource(); hn.buffer = gearNoise; hn.loop = true;
+      const hb = actx.createBiquadFilter(); hb.type = 'bandpass'; hb.frequency.value = 380; hb.Q.value = 1.2;
+      const hg = actx.createGain(); hg.gain.value = 0.35;
+      hn.connect(hb); hb.connect(hg); hg.connect(lp); hn.start(t); hn.stop(t + dur + 0.05);
+      const thud = (at, vol) => {
+        const c = actx.createOscillator(); c.type = 'triangle';
+        c.frequency.setValueAtTime(72, at); c.frequency.exponentialRampToValueAtTime(44, at + 0.25);
+        const cg = actx.createGain(); cg.gain.setValueAtTime(0.0001, at - 0.004);
+        cg.gain.exponentialRampToValueAtTime(vol, at + 0.012); cg.gain.exponentialRampToValueAtTime(0.0001, at + 0.32);
+        c.connect(cg); cg.connect(gearGain); c.start(at); c.stop(at + 0.35);
         const n = actx.createBufferSource(); n.buffer = gearNoise;
-        const nf = actx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 420;
-        const ng = actx.createGain(); ng.gain.setValueAtTime(0.0001, at - 0.005);
-        ng.gain.exponentialRampToValueAtTime(0.9, at + 0.006); ng.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
-        n.connect(nf); nf.connect(ng); ng.connect(gearGain); n.start(at); n.stop(at + 0.15);
+        const nf = actx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 250;
+        const ng = actx.createGain(); ng.gain.setValueAtTime(0.0001, at - 0.004);
+        ng.gain.exponentialRampToValueAtTime(vol * 0.9, at + 0.008); ng.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+        n.connect(nf); nf.connect(ng); ng.connect(gearGain); n.start(at); n.stop(at + 0.2);
+        const k = actx.createBufferSource(); k.buffer = gearNoise;
+        const kf = actx.createBiquadFilter(); kf.type = 'bandpass'; kf.frequency.value = 2400; kf.Q.value = 6;
+        const kg = actx.createGain(); kg.gain.setValueAtTime(0.0001, at - 0.002);
+        kg.gain.exponentialRampToValueAtTime(vol * 0.25, at + 0.004); kg.gain.exponentialRampToValueAtTime(0.0001, at + 0.04);
+        k.connect(kf); kf.connect(kg); kg.connect(gearGain); k.start(at); k.stop(at + 0.06);
       };
-      clunk(t + dur); clunk(t + dur + 0.28);
+      thud(t + dur, 1.0); thud(t + dur + 0.18, 0.35);
       gearSndN++;
     } catch (e) {}
   }

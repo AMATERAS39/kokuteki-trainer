@@ -269,14 +269,20 @@ svg text{user-select:none}
 .slidebtn.lv::before{content:"";position:absolute;left:.3rem;bottom:.2rem;height:.16rem;border-radius:.1rem;background:var(--accent);width:calc((100% - .6rem) * var(--lv,0));z-index:1}
 .slidebtn.on.lv::before{background:var(--on-accent)}
 .slidebtn .badge{position:absolute;left:50%;top:-1.6rem;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;font-size:.625rem;padding:.1rem .4rem;border-radius:.3rem;white-space:nowrap;pointer-events:none;z-index:3}
-/* 技のホイール（PUBG のホイールチャットの要領）: 中央から技のほうへ向けて離すと選ぶ。押したままでも、いったん離してからでもよい */
+/* 技の一覧（タップで開く）: 記号と名前 */
+.trickmenu{grid-template-columns:repeat(2,1fr);width:18rem}
+.trickmenu button{flex-direction:row;justify-content:flex-start;gap:.375rem;font-size:.625rem;padding:.3rem .4rem;background:var(--panel);color:var(--text);text-align:left}
+.trickmenu button .gl{width:1.25rem;height:1.25rem;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.trickmenu button.off{opacity:.35}
+/* 技のホイール（PUBG のホイールチャットの要領）: 技のボタンを押したまま技のほうへなぞって離す。扇の中は名前が入らないので、軌道や隊形の記号 */
+.wheel .gl{fill:none;stroke:#e9eef4;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.wheel .seg.off + .gl{stroke:rgba(233,238,244,.4)}
+.wheel .seg.hot + .gl{stroke:#141a22}
 .wheel{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:min(74dvh,24rem);height:min(74dvh,24rem);z-index:14;touch-action:none;user-select:none}
 .wheel svg{width:100%;height:100%;display:block;overflow:visible}
 .wheel .seg{fill:rgba(20,26,34,.86);stroke:rgba(255,255,255,.22);stroke-width:1;cursor:pointer;transition:fill .08s}
 .wheel .seg.hot{fill:var(--accent)}
 .wheel .seg.off{fill:rgba(20,26,34,.5)}
-.wheel .lb{fill:#e9eef4;font-size:9px;font-weight:700;text-anchor:middle;pointer-events:none}
-.wheel .seg.off + .lb{fill:rgba(233,238,244,.4)}
 .wheel .hub{fill:rgba(0,0,0,.72);stroke:rgba(255,255,255,.28)}
 .wheel .wc{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:5.4rem;text-align:center;font-size:.6875rem;font-weight:700;color:#fff;line-height:1.25;pointer-events:none}
 .formmenu .mclose{grid-column:1/-1;flex-direction:row;justify-content:center;gap:.375rem;background:var(--panel2);color:var(--muted)}
@@ -915,6 +921,25 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
 <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+<symbol id="m-dtake" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7"/><circle cx="6.5" cy="10" r="1.7"/><circle cx="17.5" cy="10" r="1.7"/><circle cx="12" cy="15" r="1.7"/><path d="M4 21h16"/></symbol>
+<symbol id="m-byover" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="7" cy="9" r="1.6"/><circle cx="17" cy="9" r="1.6"/><path d="M12 21v-7M9.5 16.5 12 14l2.5 2.5"/><path d="M8 21h8"/></symbol>
+<symbol id="m-bloom" viewBox="0 0 24 24"><path d="M12 20 4 6M12 20V4M12 20l8-14M12 20 7.5 5M12 20l4.5-15"/><path d="M4 20h16"/></symbol>
+<symbol id="m-touch" viewBox="0 0 24 24"><path d="M3 19h18"/><path d="M3 6c5 0 6 13 9 13s4-13 9-13"/></symbol>
+<symbol id="m-opro" viewBox="0 0 24 24"><path d="M3 9c3-3 6 3 9 0s6 3 9 0"/><path d="M3 15c3 3 6-3 9 0s6-3 9 0"/><path d="m18 6 3 3-3 3M6 12l-3 3 3 3"/></symbol>
+<symbol id="m-tuck" viewBox="0 0 24 24"><path d="M4 20C9 4 15 4 20 20"/><path d="M20 4C15 20 9 20 4 4"/></symbol>
+<symbol id="m-loop" viewBox="0 0 24 24"><path d="M12 20a8 8 0 1 1 7-4"/><path d="M19 12v4h-4"/></symbol>
+<symbol id="m-wide" viewBox="0 0 24 24"><path d="M12 20a8 8 0 1 1 7-4"/><path d="M19 12v4h-4"/><path d="M5 12H1M23 12h-4"/></symbol>
+<symbol id="m-roll" viewBox="0 0 24 24"><path d="M3 12c3-6 6-6 9 0s6 6 9 0"/><path d="M3 12c3 6 6 6 9 0s6-6 9 0"/></symbol>
+<symbol id="m-vert" viewBox="0 0 24 24"><path d="M12 21V4M8 8l4-4 4 4"/><path d="M8 15c2-2 6 2 8 0"/></symbol>
+<symbol id="m-half" viewBox="0 0 24 24"><path d="M5 19V9a7 7 0 0 1 14 0v10"/><path d="m15 15 4 4 4-4"/></symbol>
+<symbol id="m-change" viewBox="0 0 24 24"><path d="M4 8h12M13 5l3 3-3 3M20 16H8M11 13l-3 3 3 3"/></symbol>
+<symbol id="m-rain" viewBox="0 0 24 24"><path d="M12 4v16M12 4l-8 12M12 4l8 12M12 4l-4.5 15M12 4l4.5 15"/></symbol>
+<symbol id="m-eight" viewBox="0 0 24 24"><path d="M12 12c-2-5-8-5-8 0s6 5 8 0 8-5 8 0-6 5-8 0"/></symbol>
+<symbol id="m-cork" viewBox="0 0 24 24"><path d="M12 12a1 1 0 0 1 1-1 2 2 0 0 1 2 2 3 3 0 0 1-3 3 4 4 0 0 1-4-4 5 5 0 0 1 5-5 6 6 0 0 1 6 6 7 7 0 0 1-7 7"/></symbol>
+<symbol id="m-cupid" viewBox="0 0 24 24"><path d="M13 19s-7-4.5-7-10a3.5 3.5 0 0 1 7-1 3.5 3.5 0 0 1 7 1c0 5.5-7 10-7 10z"/><path d="m2 22 8-8M7 14h3v3"/></symbol>
+<symbol id="m-star" viewBox="0 0 24 24"><path d="m12 3 2.6 6.3 6.8.5-5.2 4.4 1.6 6.6L12 17.2 6.2 20.8l1.6-6.6L2.6 9.8l6.8-.5z"/></symbol>
+<symbol id="m-turnloop" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 1 9-9"/><path d="M21 8v4h-4"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="m-tree" viewBox="0 0 24 24"><path d="m12 3 5 6h-3l4 5h-3l4 5H5l4-5H6l4-5H7z"/><path d="M12 19v3"/></symbol>
 <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
 <symbol id="i-update" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M5.463 4.433A9.96 9.96 0 0 1 12 2c5.523 0 10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228zm13.074 15.134A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772z"/></symbol>
 <symbol id="i-level" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><circle cx="12" cy="12" r="1.4" style="fill:currentColor;stroke:none"/></symbol>
@@ -932,7 +957,6 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-light" viewBox="0 0 24 24"><circle cx="9" cy="12" r="4"/><path d="M13 9l8-3M13 12h8M13 15l8 3"/></symbol>
 <symbol id="i-ui" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h2M7 17h2"/></symbol>
 <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5h3.5L8 6h8l1.5 2.5H21v11H3z"/><circle cx="12" cy="13.5" r="3.6"/></symbol>
-<symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l10-2V16"/><ellipse cx="6.6" cy="18" rx="2.6" ry="2.2"/><ellipse cx="16.6" cy="16" rx="2.6" ry="2.2"/></symbol>
 <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
 <symbol id="i-smoke" viewBox="0 0 24 24"><path d="M2.6 6.4l7 3.2-7 3.2 1.7-3.2z" style="fill:currentColor;stroke:none"/><path d="M8.6 17.6c2.2 0 2.2-2.8 4.4-2.8s2.2 2.8 4.4 2.8 2.2-2.8 4.4-2.8"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
@@ -1159,7 +1183,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.17';
+const APP_VER='v04.18';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1529,7 +1553,7 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（夜は自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
       <button class="iconbtn landscape" id="simFollow" aria-label="機体を目で追う" aria-pressed="false" title="機体を目で追う（地上から見るとき）"><svg class="ic"><use href="#i-follow"/></svg></button>
       <button class="iconbtn landscape showui" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（もう一度押すと展示飛行モード: 離陸から着陸まで）"><svg class="ic"><use href="#i-auto"/></svg></button>
-      <button class="iconbtn landscape" id="simTrickBtn" aria-label="技" title="技（押すとホイール。中央から技のほうへ向けて離す）"><svg class="ic"><use href="#i-trick"/></svg></button>
+      <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技（押すと一覧。押したまま技のほうへなぞって離すとホイール）"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
       <button class="btn ghost sm portrait" id="simBack2">選択に戻る</button>
@@ -1826,10 +1850,10 @@ function runSim(opt){applyScene();
       /* メニューの外を触ったら閉じる。横画面では技の一覧が画面の右いっぱいに出てボタンを覆うので、
          ボタンをもう一度押しても閉じられない。3D の画面は click を作らないことがあるので pointerdown で見る。
          閉じたその 1 回は 3D へ渡さない（2 回叩く＝一時停止 と重ならないように） */
-      const closeMenus=e=>{const t=$('#trickWheel');
-        if(fMenu.hidden&&(!t||t.hidden))return;
-        if(e.target.closest('.formwrap')||e.target.closest('#trickWheel')||e.target.closest('#simTrickBtn'))return;
-        fMenu.hidden=true;if(t&&sim.closeWheel)sim.closeWheel();e.stopPropagation()};
+      const closeMenus=e=>{const t=$('#trickWheel'),l=$('#simTrickMenu');
+        if(fMenu.hidden&&(!t||t.hidden)&&(!l||l.hidden))return;
+        if(e.target.closest('.formwrap')||e.target.closest('#trickWheel'))return;
+        fMenu.hidden=true;if(sim.closeWheel)sim.closeWheel();e.stopPropagation()};
       document.addEventListener('pointerdown',closeMenus,true);
       setForm(store.get('simForm','solo'));
       /* タイヤとライト: 手で出し入れする。昼以外はライトが自動で点いている */
@@ -1979,7 +2003,7 @@ function runSim(opt){applyScene();
       if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
       if(opt.trick!==undefined)setTimeout(()=>{if(sim&&sim.h&&sim.h.runManeuver(opt.trick))showLabel(opt.trickName||'')},60);
       /* 技: 自分で操縦しているときでも、選んだ技をひとつだけ自動で行う（終わると操縦が戻る） */
-      const tBtn=$('#simTrickBtn'),tMenu=$('#trickWheel'),tSvg=$('#trickWheelSvg'),tName=$('#trickWheelName');
+      const tBtn=$('#simTrickBtn'),tList=$('#simTrickMenu'),tMenu=$('#trickWheel'),tSvg=$('#trickWheelSvg'),tName=$('#trickWheelName');
       const nameEl=$('#showName');
       const showLabel=txt=>{if(!nameEl)return;nameEl.textContent=txt||'';nameEl.hidden=!txt};
       /* 技を始める。クリスマスツリー・ローパス以外は昼の空で見せる（設定が自動でも、技のあいだは昼） */
@@ -1993,16 +2017,19 @@ function runSim(opt){applyScene();
         }
         sim.h.setPaused(false);
         if(sim.h.runManeuver(m.i)){toast(m.ja);showLabel(m.ja)}else toast('飛んでいるときに使えます')};
-      /* ホイール: 技を 2 つの輪に並べる（内側 8、残りは外側）。指の向き（角度）と距離で扇を選び、離した所で決める。
-         技のボタンを押したまま指を動かして離してもよいし、いったん離してから扇を押してもよい */
+      /* 一覧（タップで開く）: 記号と名前。先頭に「閉じる」（横画面ではこの一覧が技のボタンを覆うため） */
       const MS=sim.h.maneuvers(),NI=Math.min(8,MS.length);
+      const glyph=id=>`<svg class="gl" viewBox="0 0 24 24"><use href="#m-${id}"/></svg>`;
+      tList.innerHTML=`<button class="mclose" data-close="1"><svg class="ic"><use href="#i-cross"/></svg><span>閉じる</span></button>`
+        +MS.map(m=>`<button class="${m.lock?'off':''}" data-i="${m.i}">${glyph(m.id)}<span>${m.ja}</span></button>`).join('');
+      tList.querySelector('[data-close]').addEventListener('click',()=>{tList.hidden=true});
+      /* ホイール（押したまま技のほうへなぞる）: 技を 2 つの輪に並べる（内側 8、残りは外側）。指の動いた向きと量で扇を選び、離した所で決める */
       const rings=[{r0:44,r1:96,list:MS.slice(0,NI)},{r0:100,r1:154,list:MS.slice(NI)}].filter(g=>g.list.length);
       const P=(r,a)=>[r*Math.sin(a),-r*Math.cos(a)];
       const arc=(r0,r1,a0,a1)=>{const [x0,y0]=P(r1,a0),[x1,y1]=P(r1,a1),[x2,y2]=P(r0,a1),[x3,y3]=P(r0,a0),lg=(a1-a0)>Math.PI?1:0;
         return `M${x0.toFixed(1)} ${y0.toFixed(1)}A${r1} ${r1} 0 ${lg} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}A${r0} ${r0} 0 ${lg} 0 ${x3.toFixed(1)} ${y3.toFixed(1)}Z`};
-      const short=t=>t.replace(/[・･]/g,'').slice(0,5);
-      tSvg.innerHTML=rings.map((g,gi)=>g.list.map((m,k)=>{const n=g.list.length,a0=(k/n)*Math.PI*2,a1=((k+1)/n)*Math.PI*2,am=(a0+a1)/2,[tx,ty]=P((g.r0+g.r1)/2,am);
-          return `<path class="seg${m.lock?' off':''}" d="${arc(g.r0,g.r1,a0+0.012,a1-0.012)}" data-k="${gi}:${k}"/><text class="lb" x="${tx.toFixed(1)}" y="${(ty+3).toFixed(1)}">${short(m.ja)}</text>`}).join('')).join('')
+      tSvg.innerHTML=rings.map((g,gi)=>g.list.map((m,k)=>{const n=g.list.length,a0=(k/n)*Math.PI*2,a1=((k+1)/n)*Math.PI*2,am=(a0+a1)/2,[tx,ty]=P((g.r0+g.r1)/2,am),sz=gi?24:22;
+          return `<path class="seg${m.lock?' off':''}" d="${arc(g.r0,g.r1,a0+0.012,a1-0.012)}" data-k="${gi}:${k}"/><use class="gl" href="#m-${m.id}" x="${(tx-sz/2).toFixed(1)}" y="${(ty-sz/2).toFixed(1)}" width="${sz}" height="${sz}"/>`}).join('')).join('')
         +`<circle class="hub" r="40"/>`;
       const segs=[...tSvg.querySelectorAll('.seg')];
       const findM=k=>{const [g,i]=k.split(':').map(Number);return rings[g].list[i]};
@@ -2018,27 +2045,22 @@ function runSim(opt){applyScene();
       const segDir=(x0,y0,cx,cy)=>{const dx=cx-x0,dy=cy-y0,d=Math.hypot(dx,dy);if(d<26)return null;
         let a=Math.atan2(dx,-dy);if(a<0)a+=Math.PI*2;
         const gi=(d<80||rings.length<2)?0:1,n=rings[gi].list.length;return gi+':'+Math.min(n-1,Math.floor(a/(Math.PI*2)*n))};
-      const openWheel=()=>{tMenu.hidden=false;fMenu.hidden=true;setHot(null);tName.textContent='技を選ぶ'};
+      const openWheel=()=>{tMenu.hidden=false;tList.hidden=true;fMenu.hidden=true;setHot(null);tName.textContent='技を選ぶ'};
       const closeWheel=()=>{tMenu.hidden=true;setHot(null)};
-      sim.closeWheel=closeWheel;sim.wheelPick=k=>{closeWheel();if(k)doTrick(findM(k))};
-      const pick=sim.wheelPick;
-      /* ボタンを押したまま: 動かして離した所の技。動かさず離せば、ホイールを開いたままにする（次に扇を押して選ぶ） */
+      sim.closeWheel=()=>{closeWheel();tList.hidden=true};
+      const pick=k=>{closeWheel();if(k)doTrick(findM(k))};
+      /* 一覧の技を押す */
+      tList.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>{tList.hidden=true;doTrick(MS.find(m=>m.i===+b.dataset.i))}));
+      /* 技のボタン: 押して離す（動かさない）= 一覧を出す／しまう。押したまま 14 px 以上なぞる = ホイールを出し、離した所の技 */
       tBtn.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();
-        if(!tMenu.hidden){closeWheel();return}
-        openWheel();const x0=e.clientX,y0=e.clientY;let moved=false;
+        const x0=e.clientX,y0=e.clientY;let moved=false;
         try{tBtn.setPointerCapture(e.pointerId)}catch(_){}
-        const mv=ev=>{if(Math.hypot(ev.clientX-x0,ev.clientY-y0)>14)moved=true;if(moved)setHot(segDir(x0,y0,ev.clientX,ev.clientY))};
+        const mv=ev=>{if(!moved&&Math.hypot(ev.clientX-x0,ev.clientY-y0)>14){moved=true;openWheel()}if(moved)setHot(segDir(x0,y0,ev.clientX,ev.clientY))};
         const up=ev=>{tBtn.removeEventListener('pointermove',mv);tBtn.removeEventListener('pointerup',up);tBtn.removeEventListener('pointercancel',up);
-          if(moved)pick(segDir(x0,y0,ev.clientX,ev.clientY))};
+          if(moved)pick(segDir(x0,y0,ev.clientX,ev.clientY));
+          else{tList.hidden=!tList.hidden;fMenu.hidden=true;closeWheel()}};
         tBtn.addEventListener('pointermove',mv);tBtn.addEventListener('pointerup',up);tBtn.addEventListener('pointercancel',up)});
       tBtn.addEventListener('click',e=>{e.stopPropagation();e.preventDefault()});
-      /* 開いたまま: 扇の上で動かすと光り、離した所で決める。中央の丸や輪の外で離すと閉じる */
-      tMenu.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();
-        try{tMenu.setPointerCapture(e.pointerId)}catch(_){}
-        setHot(segAt(e.clientX,e.clientY));
-        const mv=ev=>setHot(segAt(ev.clientX,ev.clientY));
-        const up=ev=>{tMenu.removeEventListener('pointermove',mv);tMenu.removeEventListener('pointerup',up);tMenu.removeEventListener('pointercancel',up);pick(segAt(ev.clientX,ev.clientY))};
-        tMenu.addEventListener('pointermove',mv);tMenu.addEventListener('pointerup',up);tMenu.addEventListener('pointercancel',up)});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
       /* なぞるボタン（音の大きさだけ。もともとワンタップのもの＝スモーク・タイヤ・ライト・追従は複雑にしない）。
          押して離す = 押した扱い（click）。上下に 18 px 以上なぞると、なぞった量で 0〜100%（120 px で 100%。上で大きく）。

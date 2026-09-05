@@ -1140,7 +1140,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.12';
+const APP_VER='v04.13';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -2099,11 +2099,11 @@ function galFrames(){
     const f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));
     return {f,text:E.opsText(ordered)};
   }
-  /* 同時に行う: 操作の合計は「順番に行う」と同じにする（①→③ で各操作を 1 回ぶん）。
-     ②はその半分。方向舵は世界の上下軸、操縦桿は機体の軸まわりで互いに独立なので、
-     同時でも順番でも最終の姿勢は同じになる（以前は各操作を 2 回ぶん重ねていて、③が順番のときと食い違っていた） */
-  const half=st=>{const o=Object.assign({},st);gal.sel.forEach(id=>{const e=E.OP_BY_ID[id].effect;o.bank+=(e.bank||0)/2;o.pitch+=(e.pitch||0)/2;o.yaw+=(e.yaw||0)/2});return o};
-  const f=[lv,half(lv)];f.push(half(f[1]));
+  /* 同時に行う: 各区間（①→②、②→③）で両方の操作を全量ずつ加える。実機では昇降舵と方向舵は別の舵面で、
+     同時に入れても片方の効きが減らない（同じ時間で両方が進む）。写真は一定の間隔で撮られるので、この配分が実機の動きに合う。
+     順番のときより③が進むのは、同じ時間で 2 つの操作を加えているぶん（操作の総量の差）で、物理として正しい差 */
+  const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);
+  const f=[lv,step(lv)];f.push(step(f[1]));
   return {f,text:gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')};
 }
 function galDraw(){
@@ -2114,7 +2114,8 @@ function galDraw(){
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
   const fr=galFrames(),f=fr.f;
   const initTx=gal.init==='level'?'':GAL_INIT[gal.init].ja+'から　';
-  const desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと入れ替わります';
+  let desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと入れ替わります';
+  if(gal.sel.length>=2)desc+=gal.seq?'　順番: ①→②で操縦桿、②→③で方向舵。':'　同時: 各区間で両方が全量ずつ進む（昇降舵と方向舵は別の舵面で、同時に入れても片方の効きは減らない）。順番より③が進むのは、同じ時間で 2 つの操作を加えているため。';
   $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4><div class="sub gdesc">${desc}</div>
     <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x.bank,x.pitch,x.yaw,i/2,true))}</div></div>`).join('')}</div>
     <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;

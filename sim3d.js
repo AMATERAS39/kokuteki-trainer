@@ -2719,7 +2719,8 @@ export function mount(container, opt = {}) {
       env.gain.exponentialRampToValueAtTime(0.0001, t + 1.32);
       env.connect(gearGain);
       /* 音程の道すじ（出すときはそのまま、しまうときは少し低め） */
-      const kf = extend ? 1 : 0.92;
+      const GEAR_PITCH = 0.85;                     // 測った音程より少し低く（利用者の好み。1 で録音どおり）
+      const kf = (extend ? 1 : 0.92) * GEAR_PITCH;
       const pitch = o => { o.setValueAtTime(1800 * kf, t); o.exponentialRampToValueAtTime(2500 * kf, t + 0.1);
         o.linearRampToValueAtTime(3400 * kf, t + 0.5); o.linearRampToValueAtTime(3900 * kf, t + 1.0);
         o.setValueAtTime(3900 * kf, t + 1.1); o.exponentialRampToValueAtTime(2000 * kf, t + 1.28); };
@@ -2731,7 +2732,7 @@ export function mount(container, opt = {}) {
         f.setValueAtTime(7400 * kf, t + 1.1); f.exponentialRampToValueAtTime(4000 * kf, t + 1.28); }
       const hg = actx.createGain(); hg.gain.value = 0.1; h2.connect(hg); hg.connect(env);
       const hiss = actx.createBufferSource(); hiss.buffer = gearNoise; hiss.loop = true;
-      const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4500;
+      const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4500 * GEAR_PITCH;
       const ng = actx.createGain(); ng.gain.value = 0.16; hiss.connect(hp); hp.connect(ng); ng.connect(env);
       const res = actx.createBufferSource(); res.buffer = gearNoise; res.loop = true;
       const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 5; pitch(bp.frequency);

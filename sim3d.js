@@ -1092,7 +1092,7 @@ export function mount(container, opt = {}) {
     { const pf = FORMATIONS[formation] || { offs: [] };
       mates.forEach((h, k) => { const u = h.userData; u.rejoin = !u.shown || !pf.offs[k]; }); }
     reIn = 0;
-    step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null;
+    step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null; aimLeader = false;
     const m = PROGRAM[i];
     /* 正面を選ぶ: 機体がいる方角（進入の点の方角ぶんをずらして）に最も近い東西南北。
        そちらから入ってくれば回り込みが短い。滑走路を使う課目と離陸は選ばない（滑走路は北向き） */
@@ -1477,6 +1477,7 @@ export function mount(container, opt = {}) {
         const e4 = eyeDir();
         steerTo(e4.ex - e4.dx * 700, e4.ey - e4.dy * 700, m.alt || 200);
         holdBank(clamp(st.b + autoIn.x * 22, -16, 16));   // 1 番機はほぼ水平のまま、向きだけ少し直す
+        aimLeader = true;                        // 視線は、軸（円の中心）を進む 1 番機に向ける
         if (corkT < 0) {                         // 輪に乗るまでの時間は、いまの離れぐあいで決める
           corkT = 0;
           const h2 = mates[0];
@@ -1805,6 +1806,7 @@ export function mount(container, opt = {}) {
   let fig = null;                                  // {id, t, dur, n, s}
   const figO = new THREE.Vector3(), figR = new THREE.Vector3(), figU = new THREE.Vector3(0, 0, 1), figF = new THREE.Vector3();
   let figAim = null;   // 図を描いているあいだ、地上からの視線を向ける先（絵の中心）
+  let aimLeader = false;   // 視線を 1 番機だけに向ける（コークスクリューで、軸を進む機体を追う）
   const fp = new THREE.Vector3(), fp2 = new THREE.Vector3(), fUp = new THREE.Vector3(), fRt = new THREE.Vector3(), fFw = new THREE.Vector3();
   const fmat = new THREE.Matrix4(), fq = new THREE.Quaternion();
   /* 図を描く前に、編隊が組み終わっているか（合流の途中で始めると、機体が飛んで移動してしまう） */
@@ -2452,6 +2454,7 @@ export function mount(container, opt = {}) {
       /* 絵を描く課目（キューピッド・スタークロス）では、描き始めから課目が終わるまで絵の中心を見る。
          機体の平均を見ると、機体が散らばるにつれて絵の外へ目が動いてしまう */
       if (figAim) focus.copy(figAim);
+      else if (aimLeader) focus.copy(plane.position);   // 軸を進む 1 番機を見る（コークスクリュー。平均だと回る機に引かれて揺れる）
       else {
         focus.copy(plane.position); let fn = 1;
         mates.forEach(mt => { if (mt.visible) { focus.add(mt.position); fn++; } });
@@ -2922,6 +2925,7 @@ export function mount(container, opt = {}) {
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
       return { ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+               aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };
     },

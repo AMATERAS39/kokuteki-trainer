@@ -83,7 +83,7 @@ const JOIN_TIME = 14;                             // 隊形を変えるときに
 /* 自動操縦（地上から見るための演技）。観覧位置のまわりを回り、正面を通過し、宙返りをする。
    距離と高さは、地上から見て機体の姿勢が読み取れる近さにする（2026-09-04 に一段近く・低くした）。
    ALT_MIN より低い課目（クリスマスツリー・ローパスなど）は、そのままの高さで行う */
-const SHOW = { R: 240, ALT: 120, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 220, SIDE: 165, ALT_IN: 170 };
+const SHOW = { R: 205, ALT: 120, ORBIT: 22, PASS: 15, LOOPMAX: 18, GATE: 185, SIDE: 140, ALT_IN: 170 };   // v04.19: R 240→205、GATE 220→185、SIDE 165→140（演目を近くに）
 const ALT_K = 0.78, ALT_MIN = 110;               // 課目ごとの高さにかける係数と、下げない下限（m）
 /* ===== 演目の位置の決まり =====
    原点 = 立ち位置（GROUND_EYE）、北 = 正面。
@@ -92,7 +92,7 @@ const ALT_K = 0.78, ALT_MIN = 110;               // 課目ごとの高さにか�
    ・散開位置: 北 SPREAD_D。サンライズ・レインフォールが開き、タック・クロスが交差する点
    ・中間位置: 開始位置と散開位置の真ん中（タック・クロスで外へ回し始める点）
    ・終了位置: 原点を過ぎた 南 END_D、または方角の点 keyPt(方位, 距離) */
-const SPREAD_D = 600, END_D = 300, KEY_R = 1000;
+const SPREAD_D = 600, END_D = 300, KEY_R = 850;   // v04.19: KEY_R 1000→850（進入点を近くに）
 /* 「無限遠」として使う距離。もとの壁があったところ（原点から南の壁まで）にそろえる。
    ここまで来たら、演目は終わり・スモークは一斉に切る・次の課目へ位置を移す。
    本当に遠くまで飛ばすと、着くまでの時間が長すぎる */
@@ -616,6 +616,11 @@ export function mount(container, opt = {}) {
        道引きの進み具合だけで見ると、ずっと未完成の扱いになってスモークが止まってしまう */
     const ready = smokeAll || matesReady() || mates.every(h => !h.userData.shown || h.userData.cur.length() < 200);
     for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) smokeOnArr[k] = false;
+    /* 編隊に入っていない機（合流の途中 k < 0.9）は出さない。入った瞬間から出せるようになる（出すかどうかは上の位置の決まり）。
+       課目のあいだ全機で出すもの（smokeAll）は除く */
+    if (!smokeAll) for (let k = 1; k < n; k++) { const u = mates[k - 1].userData; if ((u.k === undefined ? 1 : u.k) < 0.9) smokeOnArr[k] = false; }
+    /* 隊形に席のない機（例: チェンジオーバー・ターンのトレイルに入らない 6 番機）は出さない。smokeAll でも出さない */
+    { const fo = FORMATIONS[formation] ? FORMATIONS[formation].offs : null; if (fo) for (let k = 1; k < n; k++) if (!fo[k - 1]) smokeOnArr[k] = false; }
     /* レター・エイト: 合流するまで先頭機は出し続ける（追いつく 1 機が後ろに入ると「後ろに機体がいる」規則で
        先頭機が 3.6 秒早く切れ、煙のない間ができた。実測）。合流した瞬間に先頭機と入れ替える（戻った 1 機が円を仕上げる） */
     if (e8 && !e8.done && !e8.out) smokeOnArr[0] = true;
@@ -1174,6 +1179,7 @@ export function mount(container, opt = {}) {
     /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
        滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
     landRun = true; landDesc = -1; landMusOn = false;
+    landCfg = true; smokeOn = false;                        // 着陸に入ったら全機スモークオフ（入れ直せない。次の出発で解ける）
     gearOn = false; lightsOn = false; applyGear();          // 滑走路の手前 1.8 km で着陸体制（タイヤ・ライト）に入る
     /* 曲: anthem がリストにあれば、ここでは流れている曲をそのまま続け、先頭の降下開始で頭から流し直す。
        なければ、これまでどおり頭から流して主旋律の直前で切る */
@@ -2157,7 +2163,7 @@ export function mount(container, opt = {}) {
   /* 図を描く課目は、描き終わるまで最初の線が消えないようにする（秒）。
      粒の入れ物は 1 機あたり 1400 個・毎秒 25 個なので、56 秒までなら足りる */
   const FIG_LIFE = { cupid: 46, star: 30, eight: 75 };   // レター・エイトは 8 の字が全部残るまで煙を消さない
-  const FIGS = { cupid: { dur: 36, n: 3, s: 15, d: 640, z: 600 }, star: { dur: 18, n: 5, s: 15, d: 520, z: 560 } };
+  const FIGS = { cupid: { dur: 36, n: 3, s: 15, d: 545, z: 600 }, star: { dur: 18, n: 5, s: 15, d: 445, z: 560 } };   // v04.19: d を 15% 近くに
   const HEART_END = 0.64;                          // ハートを描く 2 機は、ここまでで道すじを飛び終える
   const STAR_IN = 0.47, STAR_OUT = 0.89, STAR_R = 16;   // スタークロス: 線を引く区間（この間に頂点から頂点へ飛ぶ）と、星の大きさ（単位）
   let fig = null;                                  // {id, t, dur, n, s}
@@ -2652,7 +2658,7 @@ export function mount(container, opt = {}) {
     turnMate(holder, qa, dt);
     holder.visible = true; u.shown = true;
     /* 浮いたあとは、真後ろに他機がいなければ出す（滑走中は出さない） */
-    if (emitting && t.air && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(qa).add(holder.position); emit(emitPos, color, null, 0, i + 1); }
+    /* 離陸中はスモークを出さない（浮いてからも、編隊に入るまでは出さない。利用者の指示: 離着陸時はどの機体もオフ） */
   }
   /* 地上にいるあいだの並べ方。着陸してきた機体は、その場から並びへ滑らかに寄せる */
   function groundMates(dt, emitting, cols, on0) {
@@ -2761,7 +2767,7 @@ export function mount(container, opt = {}) {
     const emitting = smokeOn && smokeT >= SMOKE_DT && !between;
     if (emitting) smokeGeo.attributes.avel.needsUpdate = true;   // 飛んでいる煙は速さ 0（点検の粒を使い回しても流れない）
     if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
-    if (on[0] && emitting && !fig) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length], null, 0, 0); }
+    if (on[0] && emitting && !fig && !tkOn) { emitPos.set(0, -6.9, -0.3).applyQuaternion(att).add(plane.position); emit(emitPos, cols[0 % cols.length], null, 0, 0); }   // 離陸の段取り中（tkOn）は出さない
     queueStep();
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
@@ -3573,7 +3579,7 @@ export function mount(container, opt = {}) {
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                gearM: mates.map((h, i) => gearSets[i + 1] ? +gearSets[i + 1].visible : -1),
-               mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown, lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
+               mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown, lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, k: h.userData.k === undefined ? null : +h.userData.k.toFixed(2), xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
     },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     setFollow(on) { follow = !!on; if (follow && curView === 'ground') { look.y = 0; look.p = 0; } },

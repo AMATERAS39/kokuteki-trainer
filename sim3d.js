@@ -785,36 +785,46 @@ export function mount(container, opt = {}) {
       set: { smoke: true, gear: true, lights: true },
       desc: '6 機が木の形に組み、列ごとに少し低く並びます。速度を落とし、脚を出してライトを点け、濃いスモークを引きながら頭の上を通り抜けます。' }
   ];
-  /* ===== 演目のまとまり（チャンク）=====
-     全部を通すと 15 分を超えて長すぎるので、曲 1 曲ぶん（4 分ほど）で着陸まで終わる組み合わせを用意し、
-     「通し」を選ぶたびに、その中からひとつを選ぶ。
-     並びは、導線（前の課目の終わりから次の進入までの回り込み）と、
-     序盤・中盤・終盤の決めごとに沿わせる。
-       序盤: ダイヤモンド・テイクオフ / サンライズ / タッチ・アンド・ゴー / タック・クロス / オポジット
-       中盤（終盤寄り）: チェンジオーバー・ターン / レインフォール / レター・エイト / コーク・スクリュー
-       終盤: キューピッド / スタークロス / クリスマスツリー・ローパス
-     数字は PROGRAM の並び順（0 から）。4 は 8 秒の旋回、7・11・17・20 は 6 秒の旋回 */
-  const CHUNKS = [
-    [0, 2, 4, 15, 11, 25],      // 離陸 → サンライズ → 旋回 → チェンジオーバー → 旋回 → クリスマスツリー
-    [0, 3, 4, 18, 11, 21],      // 離陸 → タッチ・アンド・ゴー → 旋回 → レター・エイト → 旋回 → キューピッド
-    [0, 6, 4, 19, 11, 22],      // 離陸 → タック・クロス → 旋回 → コーク・スクリュー → 旋回 → スタークロス
-    [0, 5, 4, 16, 11, 25],      // 離陸 → オポジット → 旋回 → レインフォール → 旋回 → クリスマスツリー
-    [0, 2, 4, 19, 11, 21],      // 離陸 → サンライズ → 旋回 → コーク・スクリュー → 旋回 → キューピッド
-    [0, 3, 4, 15, 11, 22],      // 離陸 → タッチ → 旋回 → チェンジオーバー → 旋回 → スタークロス
-    [0, 6, 4, 16, 11, 21],      // 離陸 → タック・クロス → 旋回 → レインフォール → 旋回 → キューピッド
-    [0, 5, 4, 18, 11, 25],      // 離陸 → オポジット → 旋回 → レター・エイト → 旋回 → クリスマスツリー
-  ];
-  /* 演目の長さの目安（秒）。曲は「頭から 3 分 58 秒」まで流れ、そのあとは 0 分 13 秒へ戻って繰り返す。
-     1 周目 = 238 秒、2 周目 = 238 - 13 = 225 秒。合わせて 463 秒を、離陸から着陸までの目安にする。
-     まとまりの課目を全部行っても足りなければ 1 つ足し、行き過ぎていれば終盤の課目へ飛ばす */
-  const SHOW_TARGET = (MUS_LOOP_END_S - MUS_LEAD_S) + MUS_LOOP_END_S;
-  const MID_POOL = [15, 16, 18, 19];       // 足すときに使う中盤の課目（チェンジ・レイン・エイト・コーク）
+  /* 展示飛行モードの長さ（秒、離陸から着陸まで）。既定は曲 2 周ぶん:
+     曲は「頭から 3 分 58 秒」まで流れ、そのあとは 0 分 13 秒へ戻って繰り返すので、
+     1 周目 = 238 秒、2 周目 = 238 - 13 = 225 秒、合わせて 463 秒。設定で変えられる */
+  const SHOW_LEN_DEFAULT = (MUS_LOOP_END_S - MUS_LEAD_S) + MUS_LOOP_END_S;
+  let showLen = SHOW_LEN_DEFAULT;
+  /* 課目の役割。序盤: 遠くから来て大きく開く（ファンファーレ）。中盤: 技。終盤: 締め。フィナーレ: 最後の一幕。
+     おまかせの構成はここから組む。自分で選ぶときは、どの役割の課目もどの枠にも置ける */
+  const ROLE = { bloom: 'open', touch: 'open', tuck: 'open', opro: 'open',
+                 change: 'mid', rain: 'mid', eight: 'mid', loop: 'mid', wide: 'mid', roll: 'mid', vert: 'mid', half: 'mid', turnloop: 'mid',
+                 tree: 'close', cupid: 'close', byover: 'close', pass: 'close',
+                 cork: 'finale', star: 'finale' };
+  const IDX = id => PROGRAM.findIndex(m => m.id === id);
+  const ORBIT = 11;                        // 課目のあいだの旋回
+  /* おまかせで抽選するのは、動きを実測して整えた課目だけ。ほかは「自分で選ぶ」でだけ置ける */
+  const AUTO_OK = new Set(['bloom', 'touch', 'tuck', 'opro', 'change', 'rain', 'eight', 'tree', 'cupid', 'cork', 'star']);
+  const POOL = role => PROGRAM.map((m, i) => i).filter(i => ROLE[PROGRAM[i].id] === role && AUTO_OK.has(PROGRAM[i].id) && okMan(PROGRAM[i]));
+  let customProg = null;                   // 自分で選んだ並び（課目 id の配列）。null ならおまかせ
   let showT = 0;                           // 離陸してからの経過（秒）
   let chunk = null, chunkPos = 0;          // いま行っているまとまりと、その中の位置
+  /* 演目の並びを組む。
+     自分で選んであれば、その並び（離陸 → 旋回 → 課目 → 旋回 → 課目 …）。
+     おまかせなら、長さに合わせて 序盤 → 中盤 × n → 終盤 → フィナーレ を役割ごとに抽選する。
+     短め（曲 1 周）は中盤なし、標準（2 周）は中盤 1 つとフィナーレ、長め（3 周）は中盤 2 つとフィナーレ。
+     足りなければ nextManeuver で中盤を足し、行き過ぎれば終盤へ飛ばす（おまかせのときだけ） */
   function pickChunk() {
-    const list = CHUNKS.map(c => c.filter(i => okMan(PROGRAM[i]))).filter(c => c.length);
-    chunk = list.length ? list[Math.floor(Math.random() * list.length)] : null;
     chunkPos = 0;
+    if (customProg && customProg.length) {
+      const seq = [0];
+      customProg.forEach(id => { const i = IDX(id); if (i >= 0 && okMan(PROGRAM[i])) seq.push(ORBIT, i); });
+      chunk = seq.length > 1 ? seq : null;
+      return chunk;
+    }
+    const used = [], seq = [0];
+    const take = role => { const c = POOL(role).filter(i => !used.includes(i)); if (!c.length) return; const i = c[Math.floor(Math.random() * c.length)]; used.push(i); seq.push(ORBIT, i); };
+    take('open');
+    const nMid = showLen < 350 ? 0 : showLen < 600 ? 1 : 2;
+    for (let k = 0; k < nMid; k++) take('mid');
+    take('close');
+    if (showLen >= 400) take('finale');
+    chunk = seq.length > 1 ? seq : null;
     return chunk;
   }
   /* 演目の見せ方。once: 地上にいれば離陸から始め、一通り終えたら着陸して終わる。
@@ -1163,16 +1173,16 @@ export function mount(container, opt = {}) {
       chunkPos++;
       const last = chunk.length - 1;
       if (chunkPos >= chunk.length) {
-        /* まとまりを行い終えた。曲 2 周ぶんにまだ間があるなら、中盤の課目を 1 つ足す。
+        /* 並びを行い終えた。おまかせで、決めた長さにまだ間があるなら中盤の課目を 1 つ足す。
            着陸そのものに 2 分ほどかかるので、その手前で切り上げる */
-        if (showT < SHOW_TARGET - LAND_TIME - 60) {
-          const pool = MID_POOL.filter(i => okMan(PROGRAM[i]) && !chunk.includes(i));
-          if (pool.length) { chunk = chunk.concat([11, pool[Math.floor(Math.random() * pool.length)]]); beginManeuver(chunk[chunkPos]); return; }
+        if (!customProg && showT < showLen - LAND_TIME - 60) {
+          const pool = POOL('mid').filter(i => !chunk.includes(i));
+          if (pool.length) { chunk = chunk.concat([ORBIT, pool[Math.floor(Math.random() * pool.length)]]); beginManeuver(chunk[chunkPos]); return; }
         }
         chunk = null; beginLanding(); return;
       }
-      /* 行き過ぎているときは、終盤の課目へ飛ばす（そこで締めて着陸に入る） */
-      if (chunkPos < last && showT > SHOW_TARGET - LAND_TIME) chunkPos = last;
+      /* 行き過ぎているときは、最後の課目へ飛ばす（そこで締めて着陸に入る）。自分で選んだ並びは端折らない */
+      if (!customProg && chunkPos < last && showT > showLen - LAND_TIME) chunkPos = last;
       beginManeuver(chunk[chunkPos]);
       return;
     }
@@ -2758,6 +2768,13 @@ export function mount(container, opt = {}) {
   const MUS_ROLL = SPEED * 0.9 / 6;
   /* 曲の頭（浮くタイミング、秒）。設定で決める。既定は 13.0 秒 */
   let musBuf = null, musSrc = null, musGainNode = null, musLead = 13.5, musWait = -1;
+  /* 曲のリスト。1 曲なら「イントロは一度、あとは主旋律から折り返しまでを繰り返す」。
+     2 曲以上なら順に流し、最後まで行ったら最初へ戻る（それぞれ頭から終わりまで）。
+     decode した音は大きい（4 分で 40 MB ほど）ので、いま鳴らす曲と次の曲だけを持つ */
+  let musList = [];                        // [{ name, buf: ArrayBuffer }]
+  let musIdx = 0;                          // いま鳴らしている曲の番号
+  const musDec = new Map();                // 番号 → decode した音
+  let musGen = 0;                          // リストを入れ替えた回数（古い decode を捨てるため）
   let loopRestart = false;                 // 固定にしたあと、着陸してから離陸で始め直す
   let musCut = -1;                         // 曲を切るまでの残り（秒）。主旋律が入る直前で切る
   let landRun = false;                     // 着陸して滑走路へ戻っているあいだ
@@ -2788,6 +2805,7 @@ export function mount(container, opt = {}) {
     const src = musSrc, g = musGainNode;
     musSrc = null; musGainNode = null;
     if (!src) return;
+    src.onended = null;                      // 手で止めたときは次の曲へ進まない
     if (fade && actx && g) {                 // ぶつ切りにせず、短く絞ってから止める
       const t = actx.currentTime;
       try {
@@ -2802,19 +2820,39 @@ export function mount(container, opt = {}) {
     try { src.stop(); } catch (e) {}
     try { src.disconnect(); g && g.disconnect(); } catch (e) {}
   }
-  /* 曲を頭から流す。前の曲が鳴っていたら短く絞ってから重ねる */
-  function playMusic() {
-    if (!actx || !musBuf) return;
+  async function decodeAt(i) {
+    if (!actx || !musList[i]) return null;
+    if (musDec.has(i)) return musDec.get(i);
+    const gen = musGen;
+    const b = await actx.decodeAudioData(musList[i].buf.slice(0));
+    if (gen !== musGen) return null;         // そのあいだにリストが変わった
+    musDec.set(i, b);
+    for (const k of [...musDec.keys()]) if (k !== i && k !== (i + 1) % musList.length && k !== 0) musDec.delete(k);
+    return b;
+  }
+  /* 曲を頭から流す（リストの最初の曲）。前の曲が鳴っていたら短く絞ってから重ねる */
+  function playMusic() { musIdx = 0; playTrack(0); }
+  function playTrack(i) {
+    if (!actx) return;
+    const buf = i === 0 ? musBuf : musDec.get(i);
+    if (!buf) { decodeAt(i).then(b => { if (b && musIdx === i && !musSrc) playTrack(i); }); return; }
     if (actx.state !== 'running') actx.resume();
     stopMusic(MUS_FADE);
-    const src = actx.createBufferSource(); src.buffer = musBuf;
-    /* 止めるまで繰り返す。ただし頭のイントロは一度だけで、
-       そのあとは「主旋律が入るところ（musLead）」から終わりまでを繰り返す。
-       長い曲は 3:58 で折り返す（そこから 0:13 へ戻る、という決まりに合わせる） */
-    src.loop = true;
-    src.loopStart = Math.max(0, musLead);
-    src.loopEnd = Math.min(musBuf.duration, MUS_LOOP_END);
-    if (src.loopEnd <= src.loopStart + 5) { src.loopStart = 0; src.loopEnd = musBuf.duration; }
+    const src = actx.createBufferSource(); src.buffer = buf;
+    if (musList.length <= 1) {
+      /* 止めるまで繰り返す。ただし頭のイントロは一度だけで、
+         そのあとは「主旋律が入るところ（musLead）」から終わりまでを繰り返す。
+         長い曲は 3:58 で折り返す（そこから 0:13 へ戻る、という決まりに合わせる） */
+      src.loop = true;
+      src.loopStart = Math.max(0, musLead);
+      src.loopEnd = Math.min(buf.duration, MUS_LOOP_END);
+      if (src.loopEnd <= src.loopStart + 5) { src.loopStart = 0; src.loopEnd = buf.duration; }
+    } else {
+      /* リスト再生: 終わったら次の曲へ。最後まで行ったら最初へ戻る。次の曲は先に decode しておく */
+      const next = (i + 1) % musList.length;
+      decodeAt(next).catch(() => {});
+      src.onended = () => { if (musSrc === src) { musSrc = null; musIdx = next; playTrack(next); } };
+    }
     const g = actx.createGain();
     const t = actx.currentTime;
     g.gain.setValueAtTime(0.0001, t);
@@ -3079,22 +3117,31 @@ export function mount(container, opt = {}) {
     vols() { return { air: airVol, mus: musVol }; },
     /* 利用者が選んだ音楽ファイルを読む。アプリは音源を持たず、選ばれたものをその場で鳴らすだけ。
        返り値は「主旋律が入るところ（秒）」。地上から演目を始めると、ここでタイヤが離れる */
-    async loadMusic(arrayBuffer) {
+    async loadMusic(arrayBuffer, name) { return this.setMusicList([{ name: name || '', buf: arrayBuffer }]); },
+    /* 曲のリストを入れ替える。最初の曲だけ decode して、主旋律の入りを調べる（離陸の合図に使う） */
+    async setMusicList(list) {
       initAudio();
-      if (!actx) return null;
+      stopMusic(); musGen++; musDec.clear(); musBuf = null; musIdx = 0;
+      musList = (list || []).filter(x => x && x.buf);
+      if (!actx || !musList.length) return null;
       if (actx.state !== 'running') await actx.resume().catch(() => {});
-      musBuf = await actx.decodeAudioData(arrayBuffer);
+      musBuf = await decodeAt(0);
+      if (!musBuf) return null;
       const found = findLead(musBuf);
       if (musLead <= 0) musLead = found;      // 設定がなければ、探した値を使う
-      return { lead: musLead, found, dur: musBuf.duration };
+      return { lead: musLead, found, dur: musBuf.duration, n: musList.length };
     },
-    musicInfo() { return musBuf ? { lead: musLead, dur: musBuf.duration } : null; },
+    musicInfo() { return musBuf ? { lead: musLead, dur: musBuf.duration, n: musList.length } : null; },
+    /* 展示飛行モードの長さ（秒）と並び。並びは課目 id の配列、null ならおまかせ */
+    setShowLen(sec) { showLen = Math.max(120, +sec || SHOW_LEN_DEFAULT); return showLen; },
+    setProgram(ids) { customProg = Array.isArray(ids) && ids.length ? ids.slice() : null; },
+    programList() { return PROGRAM.map(m => ({ id: m.id, ja: m.ja, role: ROLE[m.id] || '' })).filter(m => m.role); },
     /* 曲を手で流す・止める（ボタン用） */
     playMusicNow() { if (!musBuf) return false; initAudio(); playMusic(); musCut = -1; return true; },
     stopMusicNow() { musCut = -1; musWait = -1; stopMusic(MUS_FADE); return true; },
     musicPlaying() { return !!musSrc; },
     setLead(sec) { musLead = Math.max(0, +sec || 0); return musLead; },
-    clearMusic() { stopMusic(); musBuf = null; musLead = 0; musWait = -1; },
+    clearMusic() { stopMusic(); musGen++; musDec.clear(); musList = []; musBuf = null; musLead = 0; musWait = -1; },
     setSmoke(on) { smokeOn = !!on; },
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },

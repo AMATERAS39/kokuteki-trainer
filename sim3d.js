@@ -766,7 +766,7 @@ export function mount(container, opt = {}) {
     { id: 'change', ja: 'チェンジオーバー・ターン', form: 'trail', alt: 200, at: 45, atR: 1300,
       desc: '高さの違う 5 機が一列で正面から進入し、先頭以外が一斉に左右へ開きます。そのあと、先頭の旋回に合わせて広めの三角形になり、そろって旋回します。' },
     { id: 'rain', ja: 'レインフォール', form: 'fan', alt: 900, at: 180, atR: 1200,
-      desc: '極めて高いところから 5 機が真下へ降り、正面の前方で一気に散らばって、煙の筋が五方向へ伸びます。' },
+      desc: '極めて高いところから 5 機が観覧位置の真上へ降り、頭上で一気に散らばって、煙の筋が五方向へ伸びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'eight', ja: 'レター・エイト', form: 'diamond', alt: 200, entry: 'front', far: SPREAD_D / 2,
       desc: '4 機で、空に数字の 8 を描きます。' },
@@ -853,6 +853,7 @@ export function mount(container, opt = {}) {
   const BLOOM_TURN = 13;                   // 曲がりきるまで（秒）
   const BLOOM_TURN_V = 6;                  // 鉛直下向きから水平へ（レインフォール）の引き起こし（秒）
   const RAIN_PULL_Z = 330;                 // レインフォールの散開位置の高さ（ここから引き起こす。終わりは 150 m ほど）
+  const RAIN_PRE = 210;                    // 原点の手前これだけで押し下げを始める（押し下げの弧で前へ進むぶん。380 では散開が 174 m 手前だった）
   let rainDive = false, rainT = 0;         // レインフォール: 押し下げに入ったか、その経過
   const BLOOM_LAG = 0;                     // 中央の 2 機も外側と同時に曲がり始める
   let bloomS = null;
@@ -866,7 +867,7 @@ export function mount(container, opt = {}) {
       if (i >= 4) return;
       const side = (i % 2 === 0) ? -1 : 1;                  // 0・2 が左、1・3 が右
       const outer = i >= 2;                                  // 外側の 2 機
-      const ang = (outer ? 90 : 45) * side, h1 = hb + ang;
+      const ang = (vertical ? (outer ? 144 : 72) : (outer ? 90 : 45)) * side, h1 = hb + ang;   // 鉛直からの散開は五方に等しく（72 度ずつ）
       /* 弧の長さは同じでも、曲がる角が大きいほど弦（開いた点からの直線距離）は短くなる。
          その比（(θ/2)/sin(θ/2)）だけ速くすると、機首の先端がひとつの弧に並ぶ＝扇の形になる */
       const th2 = Math.abs(ang) * D / 2;
@@ -1051,15 +1052,16 @@ export function mount(container, opt = {}) {
     landStep = 0; landSide = 0;
     /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
        滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
-    landRun = true;
-    if (musBuf && actx && auto) { playMusic(); musCut = Math.max(0.5, musLead - 0.3); }
+    landRun = true; landDesc = -1; landMusOn = false;
+    /* 曲: anthem がリストにあれば、ここでは流れている曲をそのまま続け、先頭の降下開始で頭から流し直す。
+       なければ、これまでどおり頭から流して主旋律の直前で切る */
+    if (musBuf && actx && auto && anthemIdx() < 0) { playMusic(); musCut = Math.max(0.5, musLead - 0.3); }
     formation = 'trail'; formScale = 1;
     /* 2 機ずつ、間をあけて降りる。1・2 番機が先、次に 3・4 番機、最後に 5・6 番機 */
     landClock = -1;
     mates.forEach((h, i) => {
       const u = h.userData;
-      u.ld = { pair: Math.floor((i + 1) / 2), t: 0, wait: Math.floor((i + 1) / 2) * LAND_GAP,
-               step: 0, on: false, done: false, tDown: 0 };
+      u.ld = { pair: Math.floor((i + 1) / 2), t: 0, step: 0, on: false, done: false, tDown: 0 };
       u.mh = undefined;
     });
     st.show = '着陸'; st.desc = '2 機ずつ、間をあけて滑走路へ降ります。';
@@ -1286,7 +1288,23 @@ export function mount(container, opt = {}) {
         readAttitude();
         /* 線の上の点に着くまでは、次の段へ移らない（時間で移すと、外れたまま最終に入る）。
            念のための打ち切りは長めにとる */
-        if (landStep < 3 && (dLand < 300 || phaseT > 60 * (landStep + 1))) landStep++;
+        /* anthem: 最後尾が接地する LAND_TOTAL 秒前に頭から流し始める（そこで終わる）。
+           降下開始からの時刻 LAND_LAST - LAND_TOTAL が負なら、道すじの残り（いまの点 → 残りの通過点 → 最終の入口）
+           から降下開始までの時間を見積もって、前倒しで流す */
+        if (!landMusOn && anthemIdx() >= 0 && actx) {
+          const at = LAND_LAST - LAND_TOTAL;
+          let go = false;
+          if (landDesc >= 0) go = landDesc >= at;
+          else {
+            let rem = dLand; for (let k = landStep + 1; k < 3; k++) rem += Math.hypot(wps[k][0] - wps[k - 1][0], wps[k][1] - wps[k - 1][1]);
+            go = rem / (SPEED * spdK) <= -at;
+          }
+          if (go) { landMusOn = true; const ai = anthemIdx(); musIdx = ai; playTrack(ai); musCut = LAND_TOTAL; }
+        }
+        if (landStep < 3 && (dLand < 300 || phaseT > 60 * (landStep + 1))) {
+          landStep++;
+          if (landStep === 3) landDesc = 0;                  // 先頭の降下開始
+        }
         autoIn.x = 0; autoIn.y = 0; autoIn.r = 0; smIn.x = 0; smIn.y = 0; smIn.r = 0;
         if (st.z <= 4.5) { st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
           gearOn = true; applyGear(); att.setFromAxisAngle(AZ, -st.h * D); readAttitude();
@@ -1498,9 +1516,11 @@ export function mount(container, opt = {}) {
           /* 南から北へ、高いところを水平に散開位置の真上まで。
              押し下げて降りると、引き起こしは来た向きへ戻る（押した側に背中が向くため）。
              南から来れば、引き起こしで南（原点の側）へ抜ける。北から来て捻らずに降りると北へ抜けてしまう */
+          /* 後ろから来て、原点の真上を通る線をまっすぐ飛ぶ（狙いは原点のずっと先）。
+             原点の手前 RAIN_PRE で押し下げを始めると、押し下げの弧のぶん前へ進んで、鉛直になるのが真上になる */
           rainOn = false; formScale = 1;
-          { const rp = showPt(SPREAD_D + 800, 0); steerTo(rp.x, rp.y, GATE.z); }
-          if (alongR > SPREAD_D - 170 || manT > 60) { rainDive = true; rainT = 0; }
+          { const rp = showPt(1500, 0); steerTo(rp.x, rp.y, GATE.z); }
+          if (alongR > -RAIN_PRE || manT > 60) { rainDive = true; rainT = 0; }
           break;
         }
         rainT += dt;
@@ -1513,7 +1533,7 @@ export function mount(container, opt = {}) {
           if ((st.p < -80 && st.z < RAIN_PULL_Z) || st.z < RAIN_PULL_Z - 60 || manT > 80) { spreadOn = true; spreadT = 0; startBloom(true, (showFr + 180) % 360); }
           break;
         }
-        /* 散開: 4 機はそれぞれの向きへ、1 番機は北南向きへ。どの機体も鉛直下向きから水平へゆるやかに */
+        /* 散開: 五方へ（1 番機は後ろへ、4 機は 72 度ずつ）。どの機体も鉛直下向きから水平へゆるやかに */
         spreadT += dt; bloomS.t = spreadT;
         const kr = clamp(spreadT / BLOOM_TURN_V, 0, 1), er = kr * kr * (3 - 2 * kr);
         { const rq = showPt(-2500, 0); steerTo(rq.x, rq.y, 150); }   // 引き起こしの向きは後ろ（原点の側へ抜ける）
@@ -1779,7 +1799,8 @@ export function mount(container, opt = {}) {
     /* 滑走路に戻ったら、曲を切って離陸の体勢で待つ。「加速」を押されるまで動かない。
        接地したところで自動操縦は切れている（auto = false）ので、待っている印を別に持つ */
     if (auto && !oneShot && chunk) showT += dt;             // 演目の長さ（曲 2 周ぶんに合わせるため）
-    if (landClock >= 0) landClock += dt;                    // 1 番機が接地してからの時間（組ごとの間合いに使う）
+    if (landClock >= 0) landClock += dt;                    // 1 番機が接地してからの時間
+    if (landDesc >= 0) landDesc += dt;                      // 先頭の降下開始からの時間（組ごとの出番に使う）
     if (landRun && gmode === 'stand' && mates.every(h => !h.userData.ld || h.userData.ld.done)) {
       landRun = false; manPhase = 'do'; formation = userForm;   // 全機降りたので隊形を戻す
       musCut = -1; stopMusic(MUS_FADE);
@@ -2206,7 +2227,16 @@ export function mount(container, opt = {}) {
      1・2 番機 → 3・4 番機 → 5・6 番機 の順に、`LAND_GAP` 秒あけて降りる。
      地上から見る人が、降りる組を順に目で追えるだけの間をとる。
      出番が来るまでは、滑走路の南で輪を描いて待つ（高さは組ごとに変える） */
-  const LAND_GAP = 18, LAND_HOLD_R = 620;
+  const LAND_HOLD_R = 620;
+  /* 先頭（1 番機）が最終の降下を始めてからの時間（秒）。-1 はまだ。
+     組ごとの出番はここで決める。先頭の降下開始から最後尾の接地までを LAND_TOTAL 秒にそろえる
+     （曲の anthem を頭から流すと、ちょうどそこで終わる長さ）。LAND_AT は実測で合わせた出番の時刻 */
+  const LAND_TOTAL = 66.5;                 // anthem を頭から流し始めてから、最後尾が接地するまで（秒）
+  const LAND_LEAD_TD = 33;                 // 先頭が降下を始めてから接地するまで（実測 32.8 秒）
+  const LAND_PAIR_GAP = 14;                // 組ごとの接地の間隔（秒）。最後尾は 33 + 14 × 3 = 75 秒
+  const LAND_LAST = LAND_LEAD_TD + 3 * LAND_PAIR_GAP;      // 先頭の降下開始から最後尾の接地まで
+  let landMusOn = false;                   // anthem を流し始めたか（着陸で一度だけ）
+  let landDesc = -1;
   let landClock = -1;                      // 1 番機が接地してからの時間（秒）。-1 はまだ
   function landMate(holder, u, i, dt) {
     const L = u.ld;
@@ -2216,10 +2246,12 @@ export function mount(container, opt = {}) {
        あとの組は、1 番機が接地してから LAND_GAP 秒ずつあけて降りる */
     /* 1 番機の組は、1 番機が進入に乗って低くなってから一緒に降りる。
        あとの組は、1 番機が接地してから LAND_GAP 秒ずつあけて降りる */
-    const turn = L.pair === 0
-      ? (landClock >= 0 || (manPhase === 'land' && st.z < 220 && Math.abs(st.x - RWY.x) < 300
-                            && st.y > RWY.y - 1700 && st.y < RWY.y + 700))
-      : (landClock >= 0 && landClock >= (L.pair - 1) * LAND_GAP);
+    /* 出番: 組ごとの「接地させたい時刻」（先頭 + 11 秒 × 組の番号）から、いまの位置から接地点までにかかる時間を
+       引いた時刻に最終へ入る。輪のどこにいても接地の時刻がそろう（決めた時刻で出すと、輪の位置で 36〜63 秒ぶれた） */
+    const tdYw = RWY.y + LAND_TD, gy = RWY.y - 1400;
+    const est = (Math.hypot(rx - holder.position.x, gy - holder.position.y) + (tdYw - gy)) / (SPEED * 0.9) + 7;   // +7 秒は曲がりの遅れ（+4 では最後尾が 2.8 秒遅れた）
+    const want = LAND_LEAD_TD + (L.pair + 1) * LAND_PAIR_GAP;
+    const turn = landDesc >= 0 && (L.on || landDesc >= want - est);
     if (!turn) {                                               // 出番待ち: 滑走路の南で輪を描く
       const cx = RWY.x - 40, cy = RWY.y - 1900, z = 260 + L.pair * 90;
       const a = Math.atan2(holder.position.y - cy, holder.position.x - cx) + 0.4;
@@ -2775,6 +2807,7 @@ export function mount(container, opt = {}) {
   let musIdx = 0;                          // いま鳴らしている曲の番号
   const musDec = new Map();                // 番号 → decode した音
   let musGen = 0;                          // リストを入れ替えた回数（古い decode を捨てるため）
+  const anthemIdx = () => musList.findIndex(x => /anthem/i.test(x.name || ''));   // 曲名に anthem を含む曲（細かい時間の決まりはこの曲があるときだけ）
   let loopRestart = false;                 // 固定にしたあと、着陸してから離陸で始め直す
   let musCut = -1;                         // 曲を切るまでの残り（秒）。主旋律が入る直前で切る
   let landRun = false;                     // 着陸して滑走路へ戻っているあいだ
@@ -2827,26 +2860,30 @@ export function mount(container, opt = {}) {
     const b = await actx.decodeAudioData(musList[i].buf.slice(0));
     if (gen !== musGen) return null;         // そのあいだにリストが変わった
     musDec.set(i, b);
-    for (const k of [...musDec.keys()]) if (k !== i && k !== (i + 1) % musList.length && k !== 0) musDec.delete(k);
+    const ai = anthemIdx();
+    for (const k of [...musDec.keys()]) if (k !== i && k !== (i + 1) % musList.length && k !== 0 && k !== ai) musDec.delete(k);
     return b;
   }
-  /* 曲を頭から流す（リストの最初の曲）。前の曲が鳴っていたら短く絞ってから重ねる */
-  function playMusic() { musIdx = 0; playTrack(0); }
+  /* 曲を頭から流す。anthem がリストにあればどの順番にあっても anthem から（時間の決まりは anthem に合わせてある）。
+     なければリストの最初の曲。前の曲が鳴っていたら短く絞ってから重ねる */
+  function playMusic() { const ai = anthemIdx(); musIdx = ai >= 0 ? ai : 0; playTrack(musIdx); }
   function playTrack(i) {
     if (!actx) return;
-    const buf = i === 0 ? musBuf : musDec.get(i);
+    const buf = musDec.get(i) || (i === 0 ? musBuf : null);
     if (!buf) { decodeAt(i).then(b => { if (b && musIdx === i && !musSrc) playTrack(i); }); return; }
     if (actx.state !== 'running') actx.resume();
     stopMusic(MUS_FADE);
     const src = actx.createBufferSource(); src.buffer = buf;
     if (musList.length <= 1) {
-      /* 止めるまで繰り返す。ただし頭のイントロは一度だけで、
-         そのあとは「主旋律が入るところ（musLead）」から終わりまでを繰り返す。
-         長い曲は 3:58 で折り返す（そこから 0:13 へ戻る、という決まりに合わせる） */
+      /* 止めるまで繰り返す。anthem なら頭のイントロは一度だけで、
+         そのあとは「主旋律が入るところ（musLead）」から 3:58 までを繰り返す（そこから 0:13 へ戻る、という決まり）。
+         ほかの曲は、その曲を丸ごと繰り返す */
       src.loop = true;
-      src.loopStart = Math.max(0, musLead);
-      src.loopEnd = Math.min(buf.duration, MUS_LOOP_END);
-      if (src.loopEnd <= src.loopStart + 5) { src.loopStart = 0; src.loopEnd = buf.duration; }
+      if (i === anthemIdx()) {
+        src.loopStart = Math.max(0, musLead);
+        src.loopEnd = Math.min(buf.duration, MUS_LOOP_END);
+        if (src.loopEnd <= src.loopStart + 5) { src.loopStart = 0; src.loopEnd = buf.duration; }
+      } else { src.loopStart = 0; src.loopEnd = buf.duration; }
     } else {
       /* リスト再生: 終わったら次の曲へ。最後まで行ったら最初へ戻る。次の曲は先に decode しておく */
       const next = (i + 1) % musList.length;
@@ -3071,7 +3108,7 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      return { origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown })) };
@@ -3127,7 +3164,9 @@ export function mount(container, opt = {}) {
       if (actx.state !== 'running') await actx.resume().catch(() => {});
       musBuf = await decodeAt(0);
       if (!musBuf) return null;
-      const found = findLead(musBuf);
+      const ai = anthemIdx();
+      if (ai > 0) await decodeAt(ai);          // 離陸で頭から流すので、先に decode しておく
+      const found = findLead(ai > 0 && musDec.get(ai) ? musDec.get(ai) : musBuf);
       if (musLead <= 0) musLead = found;      // 設定がなければ、探した値を使う
       return { lead: musLead, found, dur: musBuf.duration, n: musList.length };
     },

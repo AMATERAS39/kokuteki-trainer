@@ -180,7 +180,17 @@
     const cands = [];
     for (const o of OPS) cands.push([o.id, o.id]);
     if (lv !== 'easy' && s.ops !== 'single') for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
-    const dis = pickDistractors(cands, c => key(c) !== key(ops), 3);
+    /* 誤答の選び方（利用者の指摘 v04.25）: 操縦桿を倒している向きが写真で明らかなとき、本番の難しさは
+       「方向舵を踏んでいるかどうか」の見分けにある。正解と同じ操縦桿の向きで方向舵だけ違う選択肢
+       （右だけ／右 + 右方向舵／右 + 左方向舵）を必ず混ぜる。Hard は 2 つ、Normal は 1 つ。
+       操縦桿の向きだけで答えが決まらないようにする。方向舵だけの正解のときは、逆の方向舵を必ず混ぜる */
+    const stickOf = a => (OP_BY_ID[a[0]].group === 'stick' ? a[0] : null);
+    const same = stickOf(ops) ? cands.filter(c => stickOf(c) === stickOf(ops) && key(c) !== key(ops))
+                              : cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops));
+    const nSame = lv === 'hard' ? Math.min(2, same.length) : Math.min(1, same.length);
+    const disSame = pickDistractors(same, () => true, nSame);
+    const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c)), 3 - disSame.length);
+    const dis = disSame.concat(disRest);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
     return { type: 'control', ops, frames, init, single, simul, opts, level: lv, hud: lv !== 'hard' };
   }

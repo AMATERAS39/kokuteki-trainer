@@ -1193,7 +1193,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.25';
+const APP_VER='v04.26';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2745,13 +2745,14 @@ function route(){
   if(v==='home')renderHome();
   else if(v==='train')enterMode(E.MODES[arg]?arg:'heading',sub);
   else if(v==='settings')renderSettingsPage();
-  else if(v==='buy')renderBuy();
+  else if(v==='buy'){if(NATIVE){location.hash='#home';return}renderBuy()}   /* アプリ版に購入の画面はない */
   else if(v==='news')renderNews();
   else if(v==='contact')renderContact();
   else if(v==='inbox')renderInbox();
   else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。4 種目とも試せて、3D シミュレーターは単機で操縦でき、横画面では自動操縦の演目も見られます。難易度は Easy まで、出題数は種目ごとに決まった数まで、編隊・スモーク・写真・タイヤ・ライト、「見え方」の 2 つの操作の組み合わせには鍵がかかっています。';initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
+  menuList.querySelector('[data-act="restore"]').hidden=NATIVE||isFull();   /* アプリ版は全機能版。復元も購入もない */
 }
 $('#backHome').addEventListener('click',()=>{
   if(!confirmLeave())return;leaveSession();location.hash='#home'});

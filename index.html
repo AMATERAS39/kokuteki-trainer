@@ -1193,7 +1193,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.26';
+const APP_VER='v04.27';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1518,7 +1518,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=114').then(mod=>{
+  import('./sim3d.js?v=115').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1812,9 +1812,16 @@ function runSim(opt){applyScene();
       if(autoOn&&s.mode!==sim.prevMode){
         if(s.mode==='taxi'&&(sim.prevMode==='apron'||sim.prevMode==='land'))toCockpit();        /* 誘導路へ */
         else if(s.mode==='stand'&&sim.prevMode!=='stand')toCockpit();                            /* 並び・待機 */
-        else if(s.mode==='fly'&&sim.prevMode==='takeoff')toGround();                              /* 浮いた: 地上から見る */
+        else if(s.mode==='takeoff')toGround();                                                    /* テイクオフ: 地上から第一飛行群を見る */
         sim.camHold=false;                                                                         /* 段が変わったら自動に戻す */
       }
+      /* 着陸: 降り始めたら 2 番機の機内から 1 番機の着陸を見る。3 番機が接地したら原点の地上視点へ */
+      if(autoOn&&s.landing&&!sim.landCam&&s.landStep>=0){sim.landCam=1;
+        if(!sim.camHold&&sim.h.setSeat&&sim.h.setSeat(1)===1){if(sim.setViewTo)sim.setViewTo('first','cockpit');if(sim.paintSeat)sim.paintSeat(2)}}
+      /* 3 番機の接地は 1 番機が接地して自動操縦が切れたあとに来る（実測: 1 番機 347 秒、3 番機 385 秒）ので、autoOn は見ない */
+      if(sim.landCam===1&&(s.tdN||0)>=3){sim.landCam=2;
+        if(!sim.camHold){if(sim.h.setSeat)sim.h.setSeat(0);if(sim.paintSeat)sim.paintSeat(1);if(sim.h.groundReset)sim.h.groundReset();if(sim.setViewTo)sim.setViewTo('ground')}}
+      if(!s.landing&&sim.landCam)sim.landCam=0;
       sim.prevMode=s.mode}
     if(s.mode&&s.mode!=='fly'){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
     /* 一時停止の表示。演目が終わったら止めるのをやめる */
@@ -1827,7 +1834,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=114').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=115').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1888,6 +1895,7 @@ function runSim(opt){applyScene();
       const paintSeat=n=>{seatBtn.innerHTML=finIcon(n);seatBtn.title=n+' 番機（押すと乗り換え）';
         seatBtn.setAttribute('aria-label','乗り換え: '+n+' 番機')};
       paintSeat(sim.h.seatNo());
+      sim.paintSeat=paintSeat;
       seatBtn.addEventListener('click',()=>{const n=sim.h.nextSeat();paintSeat(n);
         });
       /* 空の切り替え: 設定が「自動」のときだけ。3D は組み立て時の空で作るので、作り直して同じ状態に戻す */

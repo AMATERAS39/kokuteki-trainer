@@ -1000,22 +1000,25 @@ export function mount(container, opt = {}) {
   const BLOOM_AT = SPREAD_D;
   let reIn = 0;                            // 進入をやり直した回数（近すぎるところで始めないため）
   let spreadOn = false, spreadT = 0, bloomOut = false;
-  /* サンライズの散開（v04.30）: 地面と平行な面の上で開く。隊形の間隔を広げるのではなく、機体それぞれが短く旋回して
-     放射の向きへ向き、あとはまっすぐ飛ぶ。外側は右端から 30・150 度、1 番機はまっすぐ（90 度）。
-     内側の 2 機は「地上から見て」外側と真ん中のちょうど間に見える向きにする（v04.31。利用者の指摘: 60・120 度では均等に見えない）。
-     放射は水平面にあり、地上（600 m 手前、高さ 160 m を見上げる）からは遠近で潰れて見える。画面での角は
-     30 度 → 8 度、60 度 → 24 度、90 度 → 90 度なので、真ん中（49 度）に見えるのは平面で 77.6 度（まっすぐから 12.4 度）。
-     曲がる角は、放射の線（要から機首先端への向き）がその角になる値。旋回のあいだの弦のずれぶん、向きの角より少し大きい
-     （4 秒の旋回で 66.7 度 → 60 度。内側は 0.8 秒遅れて開くので 14.3 度 → 12.4 度。数で確かめた） */
-  const BLOOM_IN_ANG = 14.3, BLOOM_OUT_ANG = 66.7;
+  /* サンライズの散開（v04.34）: 横に開きながら、全機が同じ率で上げていく（利用者の指示: 上昇角は変化し続け、
+     1 番機は最終的に 45 度。中間の機も上昇し、鉛直面でも円になる）。
+     横の開き: 機体それぞれが 4 秒で短く旋回して放射の向きへ向き、あとはまっすぐ。水平に落として外側は右端から 30・150 度、
+     1 番機はまっすぐ（90 度）。内側の 2 機は「地上から見て」外側と真ん中の間に見える向き（画面での角が外側と 90 度の間）。
+     上昇: 開き始めの BLOOM_TURN_AT 秒後から、BLOOM_CLIMB_T 秒かけて一定の率で BLOOM_CLIMB 度まで上げる
+     （率が一定なので、鉛直面では円弧の引き起こし）。全機同じ率で上げ、要からの距離は 3 次元でそろえる（機首先端が球の上に並ぶ）。
+     向きの変化（開き）は全機同時。傾き（ロール）だけ外側が BLOOM_ROLL_LEAD 秒先に始める。
+     曲がる角は、放射の線（要から機首先端への向き）が狙いの角になる値（旋回の弦のずれと 0.8 秒の遅れぶん、向きの角より大きい）:
+     外側 76.5 度 → 水平で 30 度（画面 33.5 度）、内側 25.4 度 → 69.4 度（画面 61.7 度 = 外側と真ん中の間）。calib_v34b で数値的に求めた */
+  const BLOOM_IN_ANG = 25.4, BLOOM_OUT_ANG = 76.5;
+  const BLOOM_CLIMB = 45, BLOOM_CLIMB_T = 12;   // 上昇角の終わり（度）と、そこまでの時間（秒。率 3.75 度/秒、約 1.4 G）
+  const bloomG = t => BLOOM_CLIMB * D * clamp((t - BLOOM_TURN_AT) / BLOOM_CLIMB_T, 0, 1);   // 開き始めからの時間 → 上昇角
   const BLOOM_TURN = 4;                    // 曲がりきるまで（秒）。短く曲がって、あとは直線の放射にする
+  const BLOOM_TURN_AT = 0.8;               // 開き始め（向きの変化）は全機同時にこの秒数あと
+  const BLOOM_ROLL_LEAD = 0.8;             // 外側の 2 機はこの秒数だけ先に傾き始める（ロールは時間差、散開は同時）
+  const lfV = new THREE.Vector3(), lfUp = new THREE.Vector3(), lfRt = new THREE.Vector3();   // 1 番機の姿勢づくり
   const BLOOM_TURN_V = 6;                  // 鉛直下向きから水平へ（レインフォール）の引き起こし（秒）
   const RAIN_PULL_Z = 330;                 // レインフォールの散開位置の高さ（ここから引き起こす。終わりは 150 m ほど）
   let rainDive = false, rainT = 0;         // レインフォール: 押し下げに入ったか、その経過
-  /* 外側の 2 機が先に開き、内側の 2 機はほんの少し遅れて開く（同時に開くと、開き始めに内側が凹んで見える。利用者の指摘）。
-     遅れは外側が傾き切るころ（0.8 秒。4 秒の旋回で傾きが最大の 6 割強に達する時点。v04.33。1.5 秒は長すぎた）。
-     遅れるぶん内側の放射の起点が前へずれるので、向き（BLOOM_IN_ANG）は遅れ込みで求めた値にしてある */
-  const BLOOM_LAG = 0.8;
   let bloomS = null;
   const bq = new THREE.Quaternion();
   /* vertical = true はレインフォール: 鉛直下向きから、それぞれの水平の向きへ曲がる */
@@ -1035,22 +1038,26 @@ export function mount(container, opt = {}) {
   }
   const NOSE_D = 6.9;                      // 機首の先端まで（尾のスモークを出す位置と対称）
   function startBloom(vertical, baseH) {
-    bloomS = { t: 0, list: [], vert: !!vertical, c: plane.position.clone() };   // c: 開き始めた点（放射の要）
+    bloomS = { t: 0, list: [], vert: !!vertical, climb: !vertical, c: plane.position.clone() };   // c: 開き始めた点（放射の要）
     const dur = vertical ? BLOOM_TURN_V : BLOOM_TURN;
     const hb = baseH === undefined ? st.h : baseH;         // 基準の向き（1 番機の向き）
+    const f0 = new THREE.Vector3(Math.sin(hb * D), Math.cos(hb * D), 0);      // 1 番機の向き（水平）
+    const rt = new THREE.Vector3(Math.cos(hb * D), -Math.sin(hb * D), 0);     // 1 番機の右
+    bloomS.v0 = f0;
     mates.forEach((holder, i) => {
       if (i >= 4) return;
       const side = (i % 2 === 0) ? -1 : 1;                  // 0・2 が左、1・3 が右
       const outer = i >= 2;                                  // 外側の 2 機
-      const ang = (outer ? BLOOM_OUT_ANG : BLOOM_IN_ANG) * side, h1 = hb + ang;
-      const v0 = vertical ? new THREE.Vector3(0, 0, -1)
-                          : new THREE.Vector3(Math.sin(hb * D), Math.cos(hb * D), 0);
-      const v1 = new THREE.Vector3(Math.sin(h1 * D), Math.cos(h1 * D), 0);
-      /* 曲がる角ぶんだけ遠回りになるので、その比だけ速く飛ぶ。
+      const ang = (outer ? BLOOM_OUT_ANG : BLOOM_IN_ANG) * side;
+      const v0 = vertical ? new THREE.Vector3(0, 0, -1) : f0.clone();
+      const v1 = f0.clone().multiplyScalar(Math.cos(ang * D)).addScaledVector(rt, Math.sin(ang * D)).normalize();   // 水平で前から ang（上昇は placeBloom で重ねる）
+      /* 曲がる角ぶんだけ遠回りになるので、その比だけ速く飛ぶ（上昇は全機同じなので比に入らない）。
          鉛直下向きから水平へ（レインフォール）は、どの機体も 90 度曲がる */
       const turn = Math.acos(clamp(v0.dot(v1), -1, 1)) / D;
       const vk = 1 / chordFactor(turn);
-      bloomS.list[i] = { p: holder.position.clone(), v0, v1, ang, dur, vk, delay: outer ? 0 : BLOOM_LAG };
+      bloomS.list[i] = { p: holder.position.clone(), v0, v1, ang, dur, vk,
+                         delay: vertical ? 0 : BLOOM_TURN_AT,                    // 開きは全機同時
+                         lead: (!vertical && outer) ? BLOOM_ROLL_LEAD : 0 };    // 傾きは外側が先
     });
   }
   /* 散った機体を、いまの位置から隊形へ戻す（ふつうの合流にわたす） */
@@ -1070,6 +1077,7 @@ export function mount(container, opt = {}) {
     /* 進む向きは、始めの向き（v0）から終わりの向き（v1）へ回していく。
        水平なら旋回、鉛直下向きからなら引き起こし。位置は前へ進めるだけ（実際に飛べる動き） */
     bv.copy(b.v0).lerp(b.v1, e); if (bv.lengthSq() < 1e-6) bv.copy(b.v1); bv.normalize();
+    if (bloomS.climb) { const g = bloomG(bloomS.t); bv.multiplyScalar(Math.cos(g)).addScaledVector(AZ, Math.sin(g)).normalize(); }   // 全機同じ率で上げる
     const v = SPEED * spdK * (b.vk || 1);
     /* 進む距離は「機首の先端が、1 番機と同じ半径の弧に乗る」ように決める（＝扇の形）。
        曲がる角ぶんの速さ（vk）だけでは、中央の 2 機が弧の内側へ 6〜19 m 凹んだ（実測 v04.28。利用者の指摘）。
@@ -1078,7 +1086,7 @@ export function mount(container, opt = {}) {
     if (bloomS.c) {
       bNose.copy(plane.position).addScaledVector(fwd, NOSE_D).sub(bloomS.c);      // 1 番機の機首の先端
       bArm.copy(b.p).addScaledVector(bv, NOSE_D).sub(bloomS.c);                   // この機体の機首の先端
-      if (!bloomS.vert) { bNose.z = 0; bArm.z = 0; }        // 水平に開くときは水平面ではかる（1 番機の上昇に引かれない）
+      if (!bloomS.vert && !bloomS.climb) { bNose.z = 0; bArm.z = 0; }        // 水平に開くときは水平面ではかる
       const want = bNose.length(), ad = bArm.dot(bv), disc = ad * ad + want * want - bArm.lengthSq();
       if (disc > 0) {
         const arc = clamp(-ad + Math.sqrt(disc), v * dt * 0.5, v * dt * 1.6);     // 速さは半分から 1.6 倍まで
@@ -1093,8 +1101,9 @@ export function mount(container, opt = {}) {
       if (bIn.lengthSq() < 1e-6) bIn.set(0, 0, 1); else bIn.normalize();
       bUp.copy(bIn).multiplyScalar(1 - e).addScaledVector(AZ, e).normalize();
     } else {
-      /* 旋回: 傾きは旋回率に見合ったバンクにする */
-      const om = (b.ang * D) * (6 * k * (1 - k)) / b.dur;    // 角速度（rad/s）
+      /* 旋回: 傾きは旋回率に見合ったバンクにする。外側は lead 秒だけ先に傾き始める（ロールは時間差、開きは同時） */
+      const kb = clamp((bloomS.t - b.delay + (b.lead || 0)) / b.dur, 0, 1);
+      const om = (b.ang * D) * (6 * kb * (1 - kb)) / b.dur;    // 角速度（rad/s）
       const bank = clamp(Math.atan(v * om / 9.81), -1.05, 1.05);
       bRt.crossVectors(bv, AZ).normalize();                  // 右向き
       bUp.copy(AZ).multiplyScalar(Math.cos(bank)).addScaledVector(bRt, Math.sin(bank)).normalize();
@@ -1710,7 +1719,12 @@ export function mount(container, opt = {}) {
           break;
         }
         spreadT += dt; bloomS.t = spreadT;
-        holdBank(0); holdPitch(2);                 // 1 番機はまっすぐのまま（放射の真ん中、90 度）
+        /* 1 番機: 放射の真ん中。まっすぐのまま、僚機と同じ率で上げていく（開き始めの 0.8 秒後から 12 秒で 45 度）。傾きは 0 */
+        { const g = bloomG(spreadT);
+          lfV.copy(bloomS.v0).multiplyScalar(Math.cos(g)).addScaledVector(AZ, Math.sin(g)).normalize();
+          lfRt.crossVectors(lfV, AZ).normalize(); lfUp.crossVectors(lfRt, lfV).normalize();
+          att.setFromRotationMatrix(fmat.makeBasis(lfRt, lfV, lfUp)); readAttitude();
+          autoIn.x = 0; autoIn.y = 0; autoIn.r = 0; smIn.x = 0; smIn.y = 0; smIn.r = 0; }
         /* 終わりは、1 番機が観覧位置を過ぎて後ろへ抜けたところ。
            開始位置から終わりまで、ずっとスモークを出したままにする */
         if (alongB < -END_D || manT > 70) { endBloomMates(); nextManeuver(); }
@@ -1950,7 +1964,7 @@ export function mount(container, opt = {}) {
     }
     /* 墜落と天井の備え。レインフォールで降りているあいだと、
        タッチ・アンド・ゴーで滑走路へ降ろしているあいだは効かせない（効かせると降りられない） */
-    if (!rainOn && !(m.id === 'touch' && !touchDone) && !(m.id === 'tuck' && tkT2 < 1.2)) safety();   // 背面のあいだは姿勢を直接決めているので手当てしない
+    if (!rainOn && !(m.id === 'touch' && !touchDone) && !(m.id === 'tuck' && tkT2 < 1.2) && !(m.id === 'bloom' && spreadOn)) safety();   // 姿勢を直接決めているあいだは手当てしない
     return autoIn;
   }
 
@@ -3746,7 +3760,8 @@ export function mount(container, opt = {}) {
                bloomC: bloomS ? { x: +bloomS.c.x.toFixed(1), y: +bloomS.c.y.toFixed(1) } : null,
                gearM: mates.map((h, i) => gearSets[i + 1] ? +gearSets[i + 1].visible : -1),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown,
-                 mh: +((Math.atan2(gfw.copy(AY).applyQuaternion(h.quaternion).x, gfw.y) / D % 360 + 360) % 360).toFixed(1), lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, k: h.userData.k === undefined ? null : +h.userData.k.toFixed(2), xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
+                 mh: +((Math.atan2(gfw.copy(AY).applyQuaternion(h.quaternion).x, gfw.y) / D % 360 + 360) % 360).toFixed(1),
+                 mb: +(Math.asin(clamp(gfw.copy(AX).applyQuaternion(h.quaternion).z, -1, 1)) / D).toFixed(1), lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, k: h.userData.k === undefined ? null : +h.userData.k.toFixed(2), xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
     },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     /* 地上からの視線を、その番号の機体に向ける（0 でふつうの追従に戻す）。着陸の締めに使う */

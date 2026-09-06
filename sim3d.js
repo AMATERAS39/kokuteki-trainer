@@ -1013,6 +1013,7 @@ export function mount(container, opt = {}) {
   /* 上昇角の終わり（度）と、そこまでの時間（秒）。10.2 秒だと、散開位置（正面 600 m）から原点の上まで 11.0 秒で、
      45 度に達するのがちょうど原点の通過と同時になる（利用者の指示。率 4.4 度/秒、約 1.5 G） */
   const BLOOM_CLIMB = 45, BLOOM_CLIMB_T = 10.2;
+  const BLOOM_OUT = 45;                    // 散開から課目の終わりまで（秒）。終わりは位置ではなく時間で測る（利用者の指示）
   const bloomG = t => BLOOM_CLIMB * D * clamp((t - BLOOM_TURN_AT) / BLOOM_CLIMB_T, 0, 1);   // 開き始めからの時間 → 上昇角
   const BLOOM_TURN = 4;                    // 曲がりきるまで（秒）。短く曲がって、あとは直線の放射にする
   const BLOOM_TURN_AT = 0.8;               // 開き始め（向きの変化）は全機同時にこの秒数あと
@@ -1065,8 +1066,13 @@ export function mount(container, opt = {}) {
   /* 散った機体を、いまの位置から隊形へ戻す（ふつうの合流にわたす） */
   function endBloomMates() {
     mates.forEach((h, i) => { if (i < 4 && bloomS && bloomS.list[i]) {
+      const u = h.userData;
       mo.copy(h.position).sub(plane.position).applyQuaternion(qInv.copy(att).invert());
-      h.userData.cur.copy(mo); h.userData.from = null; } });
+      /* 放射で遠くへ離れた機は、そこから隊形へ寄せると何十秒もかかり、途中で 1 番機の瞬間移動に引きずられる。
+         見えない距離まで離れているので、いったん隠して「無限遠を飛んでいる」扱いにし、次の課目の進入で合流させる（v04.36） */
+      if (mo.length() > 500) { h.visible = false; u.shown = false; u.rejoin = true; u.hold = 90; u.cur.set(0, -120, 0); }   // hold: 次の瞬間移動まで隠したまま（秒）
+      else u.cur.copy(mo);
+      u.from = null; } });
     bloomS = null;
   }
   const bv = new THREE.Vector3(), bIn = new THREE.Vector3(), bUp = new THREE.Vector3(), bRt = new THREE.Vector3();
@@ -1475,7 +1481,7 @@ export function mount(container, opt = {}) {
           if (far0 > JUMP_FAR || phaseT > 45) {
             st.x = RWY.x; st.y = RWY.y - LAND_FAR; st.z = 3 + (tdY - st.y) * LAND_SLOPE; st.h = RWY.h;
             spdK = 1; spdWant = 1; levelAttitude();
-            seedHistory(100); slowAim = SLOW_AIM; if (opt.onJump) opt.onJump();
+            seedHistory(100); slowAim = SLOW_AIM; mates.forEach(h => { h.userData.hold = 0; }); if (opt.onJump) opt.onJump();
             landStep = 1; landDesc = 0; landSide = 0;
             gearOn = false; lightsOn = false; applyGear();         // 着陸体制は滑走路の手前 1.8 km で
             spreadOnLine(LAND_LAG);                                // 追従機は後ろに 16 秒ずつ、滑走路 1・2 に交互
@@ -1578,6 +1584,7 @@ export function mount(container, opt = {}) {
           st.x = jx; st.y = jy; st.z = GATE.z;
           att.setFromAxisAngle(AZ, -inH * D); readAttitude();
           hist.length = 0; clearSmoke();
+          mates.forEach(h => { h.userData.hold = 0; });   // 無限遠で待たせていた機は、ここで現れる（移した先なので見えない）
           slowAim = SLOW_AIM;                    // 地上の視線は、均一に振り向く（追いかけて飛ばない）
           if (opt.onJump) opt.onJump();
           manPhase = 'align'; phaseT = 0;
@@ -1727,9 +1734,10 @@ export function mount(container, opt = {}) {
           lfRt.crossVectors(lfV, AZ).normalize(); lfUp.crossVectors(lfRt, lfV).normalize();
           att.setFromRotationMatrix(fmat.makeBasis(lfRt, lfV, lfUp)); readAttitude();
           autoIn.x = 0; autoIn.y = 0; autoIn.r = 0; smIn.x = 0; smIn.y = 0; smIn.r = 0; }
-        /* 終わりは、1 番機が観覧位置を過ぎて後ろへ抜けたところ。
+        /* 終わりは時間で測る（利用者の指示）。散開から BLOOM_OUT 秒。どの機体もそのままの進路で直進し続ける。
+           45 度で上げながらなので水平の進みは 42 m/s。45 秒では観覧位置の 1.4 km 先まで抜ける。
            開始位置から終わりまで、ずっとスモークを出したままにする */
-        if (alongB < -END_D || manT > 70) { endBloomMates(); nextManeuver(); }
+        if (spreadT > BLOOM_OUT) { endBloomMates(); nextManeuver(); }
         break;
       }
       case 'rain': {                             // レインフォール: サンライズと同じ要領。開始位置が散開位置の真上（鉛直）
@@ -2927,6 +2935,9 @@ export function mount(container, opt = {}) {
     queueStep();
     mates.forEach((holder, i) => {
       const target = f.offs[i], u = holder.userData, e = ENTRY[i];
+      /* 無限遠へ飛び去った扱いの機は、次の瞬間移動まで出さない（出すと、遠くから隊形へ一気に寄って見える）。
+         万一そのままにならないよう、時間で必ず解ける */
+      if (u.hold > 0) { u.hold -= dt; holder.visible = false; u.shown = false; if (u.hold > 0) return; }
       if (u.gp || (u.ground && !u.tk)) { groundOne(holder, u, i, dt, emitting, on, cols); return; }   // まだ地上（順番待ち・誘導路）
       if (pathLag > 0 && !u.pfDone) { if (i + 1 < f.n) placeReplay(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); else { holder.visible = false; u.shown = false; } return; }
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
@@ -3691,6 +3702,7 @@ export function mount(container, opt = {}) {
       endCork(); endFigure(); if (treeMode) setTreeMode(false);
       musCut = -1; musWait = -1; stopMusic(MUS_FADE);
       gmode = 'apron'; gv = 0; rotP = 0; spdK = 1; spdWant = 1; tkOn = false; gPath = null; pathLag = 0; taxiFrom = null;
+      mates.forEach(h => { h.userData.hold = 0; });
       Object.assign(st, { x: STANDS[0].x, y: STANDS[0].y, z: 3, h: STANDS[0].h, ground: true, wall: false });
       levelAttitude(); hist.length = 0; clearSmoke();
       formation = userForm; formScale = 1; manPhase = 'do'; markOn = false; e8 = null; mir = null;

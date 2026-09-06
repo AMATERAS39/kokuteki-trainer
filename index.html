@@ -263,12 +263,20 @@ svg text{user-select:none}
 .simflash{position:absolute;inset:0;z-index:20;background:#fff;pointer-events:none;opacity:0}
 .simflash.on{animation:simflash .5s ease-out}
 @keyframes simflash{0%{opacity:.9}100%{opacity:0}}
-/* なぞるボタン: 下の細い帯が大きさ（音）の手ごたえ。--lv は 0〜1 */
-.slidebtn{position:relative;overflow:visible;touch-action:none}
-.slidebtn.lv::after{content:"";position:absolute;left:.3rem;right:.3rem;bottom:.2rem;height:.16rem;border-radius:.1rem;background:rgba(255,255,255,.18)}
-.slidebtn.lv::before{content:"";position:absolute;left:.3rem;bottom:.2rem;height:.16rem;border-radius:.1rem;background:var(--accent);width:calc((100% - .6rem) * var(--lv,0));z-index:1}
-.slidebtn.on.lv::before{background:var(--on-accent)}
-.slidebtn .badge{position:absolute;left:50%;top:-1.6rem;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;font-size:.625rem;padding:.1rem .4rem;border-radius:.3rem;white-space:nowrap;pointer-events:none;z-index:3}
+/* 音のボタン（1 つ）: 上へなぞると飛行音、下へなぞると曲、押すと両方。右上の点が飛行音、右下の点が曲の入り切り */
+.swipebtn{position:relative;overflow:visible;touch-action:none}
+.swipebtn .sdot{position:absolute;right:.22rem;width:.32rem;height:.32rem;border-radius:50%;background:rgba(255,255,255,.22)}
+.swipebtn .sdot.a{top:.22rem}
+.swipebtn .sdot.m{bottom:.22rem}
+.swipebtn .sdot.on{background:var(--accent)}
+.swipebtn.on .sdot.on{background:var(--on-accent)}
+.swipebtn .badge{position:absolute;left:50%;top:-1.6rem;transform:translateX(-50%);display:inline-flex;align-items:center;gap:.25rem;background:rgba(0,0,0,.75);color:#fff;font-size:.625rem;padding:.1rem .4rem;border-radius:.3rem;white-space:nowrap;pointer-events:none;z-index:3}
+.swipebtn .badge .ic,.swipebtn .shint .ic{width:.9rem;height:.9rem;color:#fff;stroke-width:2}
+.swipebtn .shint{position:absolute;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:.25rem;background:rgba(0,0,0,.6);color:#fff;font-size:.625rem;padding:.15rem .45rem;border-radius:.3rem;white-space:nowrap;pointer-events:none;z-index:3;opacity:.55}
+.swipebtn .shint.up{top:-2.3rem}
+.swipebtn .shint.dn{bottom:-2.3rem}
+.swipebtn .shint.hot{opacity:1;background:var(--accent);color:var(--on-accent)}
+.swipebtn .shint.hot .ic{color:var(--on-accent)}
 /* 技の一覧（タップで開く）: 記号と名前 */
 .trickmenu{grid-template-columns:repeat(2,1fr);width:18rem}
 .trickmenu button{flex-direction:row;justify-content:flex-start;gap:.375rem;font-size:.625rem;padding:.3rem .4rem;background:var(--panel);color:var(--text);text-align:left}
@@ -920,6 +928,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-rudder-right-on" viewBox="0 0 24 24"><rect x="3.5" y="3" width="6" height="11" rx="1.5"/><rect class="f" x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M8 20h8"/><path class="f" d="M13 17l4 3-4 3z"/></symbol>
 <symbol id="i-rudder-left-on" viewBox="0 0 24 24"><rect class="f" x="3.5" y="3" width="6" height="11" rx="1.5"/><rect x="14.5" y="3" width="6" height="11" rx="1.5"/><path d="M16 20H8"/><path class="f" d="M11 17l-4 3 4 3z"/></symbol>
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/></symbol>
 <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
 <symbol id="m-dtake" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7"/><circle cx="6.5" cy="10" r="1.7"/><circle cx="17.5" cy="10" r="1.7"/><circle cx="12" cy="15" r="1.7"/><path d="M4 21h16"/></symbol>
 <symbol id="m-byover" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="7" cy="9" r="1.6"/><circle cx="17" cy="9" r="1.6"/><path d="M12 21v-7M9.5 16.5 12 14l2.5 2.5"/><path d="M8 21h8"/></symbol>
@@ -1183,7 +1193,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.21';
+const APP_VER='v04.22';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1544,8 +1554,7 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"></button>
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button>
-      <button class="iconbtn slidebtn" id="simSound" aria-label="飛行音" aria-pressed="false" title="飛行音（押すと入り切り、上下になぞると大きさ）"><svg class="ic"><use href="#i-sound"/></svg></button>
-      <button class="iconbtn slidebtn" id="simMusic" aria-label="曲" aria-pressed="false" title="曲（押すと流す・止める、上下になぞると大きさ）" hidden><svg class="ic"><use href="#i-music"/></svg></button>
+      <button class="iconbtn swipebtn" id="simSound" aria-label="音" aria-pressed="false" title="音（押すと飛行音と曲の両方を入り切り。上へなぞると飛行音、下へなぞると曲）"><svg class="ic"><use href="#i-sound"/></svg><span class="sdot a" id="sndDotA"></span><span class="sdot m" id="sndDotM"></span></button>
       <button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
       <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
@@ -2062,44 +2071,52 @@ function runSim(opt){applyScene();
         tBtn.addEventListener('pointermove',mv);tBtn.addEventListener('pointerup',up);tBtn.addEventListener('pointercancel',up)});
       tBtn.addEventListener('click',e=>{e.stopPropagation();e.preventDefault()});
       sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
-      /* なぞるボタン（音の大きさだけ。もともとワンタップのもの＝スモーク・タイヤ・ライト・追従は複雑にしない）。
-         押して離す = 押した扱い（click）。上下に 18 px 以上なぞると、なぞった量で 0〜100%（120 px で 100%。上で大きく）。
-         横ではなく上下にするのは、ボタンが横一列なので、横になぞると隣のボタンに指が重なるため（上は景色だけ）。
-         なぞったあとの click は捨てる（二重に切り替わらない） */
-      const slideOn=(btn,o)=>{if(!btn)return;
-        const paintLv=()=>{if(o.level){btn.classList.add('lv');btn.style.setProperty('--lv',o.level())}};
-        btn.paintLv=paintLv;paintLv();
-        let badge=null;const showBadge=t=>{if(!badge){badge=document.createElement('span');badge.className='badge';btn.appendChild(badge)}badge.textContent=t;badge.hidden=false};
-        const hideBadge=()=>{if(badge)badge.hidden=true};
-        btn.addEventListener('pointerdown',e=>{if(e.button)return;const y0=e.clientY;let slid=false,v0=o.level?o.level():0;
-          try{btn.setPointerCapture(e.pointerId)}catch(_){}
-          const mv=ev=>{const dy=y0-ev.clientY;if(!slid&&Math.abs(dy)<18)return;slid=true;
-            const v=Math.max(0,Math.min(1,v0+dy/120));o.setLevel(v);paintLv();showBadge(Math.round(v*100)+'%')};
-          const up=()=>{btn.removeEventListener('pointermove',mv);btn.removeEventListener('pointerup',up);btn.removeEventListener('pointercancel',up);
-            hideBadge();if(slid){btn._slid=true;setTimeout(()=>{btn._slid=false},0)}};
-          btn.addEventListener('pointermove',mv);btn.addEventListener('pointerup',up);btn.addEventListener('pointercancel',up)});
-        btn.addEventListener('click',e=>{if(btn._slid){e.stopImmediatePropagation();e.preventDefault()}},true)};
-      sim.slideOn=slideOn;
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
       /* 音: ブラウザの決まりで、押されたその流れの中でしか音を出せない */
-      const soBtn=$('#simSound'),muBtn=$('#simMusic');
+      const soBtn=$('#simSound');
       if(soBtn){
-        /* 飛行音: 押すと入り切り。横になぞると大きさ（設定の「音」と同じ値） */
-        const paintSo=()=>{const on=sim.h.soundState();soBtn.classList.toggle('on',on);soBtn.setAttribute('aria-pressed',String(on))};
-        sim.paintSo=paintSo;
+        /* 音のボタンは 1 つ（利用者の指示）: 上へなぞると飛行音の入り切り、下へなぞると曲の入り切り、押すと両方の入り切り。
+           大きさはここでは変えない（設定の「音」と端末の音量ボタン）。右上の点が飛行音、右下の点が曲 */
+        const dotA=$('#sndDotA'),dotM=$('#sndDotM');
+        const musHas=()=>!sim.demo&&!!(sim.h.musicInfo&&sim.h.musicInfo());
+        const musOn=()=>!!(sim.h.musicPlaying&&sim.h.musicPlaying());
+        const paintSo=()=>{const a=sim.h.soundState(),m=musOn();
+          soBtn.classList.toggle('on',a||m);soBtn.setAttribute('aria-pressed',String(a||m));
+          soBtn.dataset.air=a?'1':'0';soBtn.dataset.mus=m?'1':'0';
+          dotA.classList.toggle('on',a);dotM.classList.toggle('on',m);dotM.hidden=!musHas()};
+        sim.paintSo=paintSo;sim.paintMusicBtn=paintSo;
         sim.h.setVol('air',store.get('simVolAir')??.9);sim.h.setVol('mus',store.get('simVolMus')??.55);
-        soBtn.addEventListener('click',e=>{e.stopPropagation();const on=!sim.h.soundState();sim.h.setSound(on);store.set('simSound',on);paintSo()});
-        slideOn(soBtn,{level:()=>store.get('simVolAir')??.9,setLevel:v=>{store.set('simVolAir',v);sim.h.setVol('air',v);if(!sim.h.soundState()){sim.h.setSound(true);store.set('simSound',true);paintSo()}}});
-        /* 曲: 押すと流す・止める。横になぞると大きさ。曲が入っていないときは出さない */
-        const paintMb=()=>{const has=!sim.demo&&!!(sim.h.musicInfo&&sim.h.musicInfo());
-          muBtn.hidden=!has;const pl=!!(sim.h.musicPlaying&&sim.h.musicPlaying());muBtn.classList.toggle('on',pl);muBtn.setAttribute('aria-pressed',String(pl))};
-        muBtn.addEventListener('click',e=>{e.stopPropagation();
-          if(sim.h.musicPlaying&&sim.h.musicPlaying())sim.h.stopMusicNow();
-          else if(!sim.h.playMusicNow||!sim.h.playMusicNow())toast('設定の「演目の曲」で曲を選んでください');
-          paintMb()});
-        slideOn(muBtn,{level:()=>store.get('simVolMus')??.55,setLevel:v=>{store.set('simVolMus',v);sim.h.setVol('mus',v)}});
-        sim.paintMusicBtn=paintMb;paintMb();
-        setInterval(()=>{if(sim&&sim.h&&!muBtn.hidden)paintMb()},700);
+        const setAir=on=>{sim.h.setSound(on);store.set('simSound',on)};
+        const setMus=on=>{if(on){if(!sim.h.playMusicNow||!sim.h.playMusicNow()){toast('設定の「演目の曲」で曲を選んでください');return false}}
+          else if(sim.h.stopMusicNow)sim.h.stopMusicNow();return true};
+        const mark=on=>`<svg class="ic"><use href="#i-${on?'play':'pause'}"/></svg>`;   /* ▶ = 入れる、⏸ = 切る */
+        let badge=null;const showBadge=(t,on)=>{if(!badge){badge=document.createElement('span');badge.className='badge';soBtn.appendChild(badge)}badge.innerHTML=(on===undefined?'':mark(on))+`<span>${t}</span>`;badge.hidden=false;clearTimeout(soBtn._bt);soBtn._bt=setTimeout(()=>{badge.hidden=true},900)};
+        /* なぞる先の案内: 上は飛行音、下は曲。いま鳴っていれば ⏸（切る）、止まっていれば ▶（入れる）。押している間だけ出す */
+        let hintU=null,hintD=null;
+        const hints=show=>{if(!hintU){hintU=document.createElement('span');hintU.className='shint up';hintD=document.createElement('span');hintD.className='shint dn';soBtn.appendChild(hintU);soBtn.appendChild(hintD)}
+          if(!show){hintU.hidden=true;hintD.hidden=true;return}
+          hintU.innerHTML=mark(!sim.h.soundState())+'<span>飛行音</span>';hintD.innerHTML=musHas()?mark(!musOn())+'<span>曲</span>':'<span>曲なし</span>';
+          hintU.hidden=false;hintD.hidden=false;hintU.classList.remove('hot');hintD.classList.remove('hot')};
+        /* 押して離す（動かさない）= 両方の入り切り。どちらか鳴っていれば両方切る、両方止まっていれば両方入れる */
+        soBtn.addEventListener('click',e=>{e.stopPropagation();if(soBtn._swiped){soBtn._swiped=false;return}
+          const any=sim.h.soundState()||musOn();
+          if(any){setAir(false);if(musOn())setMus(false);showBadge('音 切',false)}
+          else{setAir(true);if(musHas())setMus(true);showBadge('音 入',true)}
+          paintSo()});
+        /* 上下 18 px 以上なぞる: 上は飛行音、下は曲。横一列のボタンなので上下（隣のボタンに指が重ならない） */
+        soBtn.addEventListener('pointerdown',e=>{if(e.button)return;const y0=e.clientY;let last=y0;
+          try{soBtn.setPointerCapture(e.pointerId)}catch(_){}
+          hints(true);
+          const mv=ev=>{last=ev.clientY;const dy=y0-last;hintU.classList.toggle('hot',dy>=18);hintD.classList.toggle('hot',dy<=-18)};
+          const up=ev=>{soBtn.removeEventListener('pointermove',mv);soBtn.removeEventListener('pointerup',up);soBtn.removeEventListener('pointercancel',up);
+            hints(false);
+            const dy=y0-(ev.clientY??last);if(Math.abs(dy)<18)return;
+            soBtn._swiped=true;setTimeout(()=>{soBtn._swiped=false},0);
+            if(dy>0){const on=!sim.h.soundState();setAir(on);showBadge(on?'飛行音 入':'飛行音 切',on)}
+            else{if(!musHas()){toast('設定の「演目の曲」で曲を選んでください');return}const on=!musOn();if(setMus(on))showBadge(on?'曲 入':'曲 切',on)}
+            paintSo()};
+          soBtn.addEventListener('pointermove',mv);soBtn.addEventListener('pointerup',up);soBtn.addEventListener('pointercancel',up)});
+        setInterval(()=>{if(sim&&sim.h)paintSo()},700);
         if(store.get('simSound')===false)sim.h.setSound(false);
         paintSo();
         /* ブラウザは操作なしに音を出せない。最初に画面へ触れたときに、音の仕組みを起こす */
@@ -2357,8 +2374,8 @@ function renderSettingsPage(){
   {const vA=$('#setVolAir'),vM=$('#setVolMus'),nA=$('#setVolAirN'),nM=$('#setVolMusN');
    const a0=Math.round((store.get('simVolAir')??.9)*100),m0=Math.round((store.get('simVolMus')??.55)*100);
    vA.value=a0;nA.textContent=a0;vM.value=m0;nM.textContent=m0;
-   vA.addEventListener('input',()=>{nA.textContent=vA.value;store.set('simVolAir',+vA.value/100);if(sim&&sim.h)sim.h.setVol('air',vA.value/100);const b=$('#simSound');if(b&&b.paintLv)b.paintLv()});
-   vM.addEventListener('input',()=>{nM.textContent=vM.value;store.set('simVolMus',+vM.value/100);if(sim&&sim.h)sim.h.setVol('mus',vM.value/100);const b=$('#simMusic');if(b&&b.paintLv)b.paintLv()});}
+   vA.addEventListener('input',()=>{nA.textContent=vA.value;store.set('simVolAir',+vA.value/100);if(sim&&sim.h)sim.h.setVol('air',vA.value/100);});
+   vM.addEventListener('input',()=>{nM.textContent=vM.value;store.set('simVolMus',+vM.value/100);if(sim&&sim.h)sim.h.setVol('mus',vM.value/100);});}
   /* 展示飛行モードの構成: 「自分で選ぶ」のときは、序盤・中盤・終盤・フィナーレの枠に課目を置く */
   {const slots=$('#progSlots');
    const paintSlots=()=>{const custom=settings.showProg==='custom';slots.hidden=!custom;if(!custom){applyShow();return}

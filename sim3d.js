@@ -2044,9 +2044,18 @@ export function mount(container, opt = {}) {
     st.cue = musWait > 0 ? '待機中' : '離陸します';
     if (musWait <= 0) { gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs'); }
   }
+  let lineupPrev = false;                  // 前のコマで「全機が並んだ」状態だったか（曲を止める合図に使う）
   function step(dt) {
     st.mode = gmode;
     st.lineup = gmode !== 'stand' || mates.every(h => !h.userData.shown || h.userData.parked);   // 滑走路に全機が並んだ（加速はそれから）
+    /* 誘導路を通り終えて全機が並び、離陸準備が済んだところで曲を止める（利用者の指示）。
+       「離陸準備」で流し始めた曲は、ここでいったん切れる。「テイクオフ」を押すと startFromGround が頭から流し直し、
+       主旋律が入るところでタイヤが離れる（これまでどおり） */
+    {
+      const lined = gmode === 'stand' && st.lineup;
+      if (lined && !lineupPrev && musWait < 0) { musCut = -1; stopMusic(MUS_FADE); }
+      lineupPrev = lined;
+    }
     st.waiting = musWait >= 0;               // 曲の頭に合わせて滑走を待っているあいだ
     /* 曲は、主旋律（ギター）が入る直前で切る。着陸して戻るあいだの静かなところだけを流す */
     if (musCut >= 0) { musCut -= dt; if (musCut <= 0) { musCut = -1; stopMusic(MUS_FADE); } }

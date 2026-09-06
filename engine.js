@@ -21,8 +21,8 @@
     { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', effect: { bank: -20 }, body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
     { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', effect: { pitch: -8 }, body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
     { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', effect: { pitch: 8 }, body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
-    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', effect: { yaw: 10 }, body: '水平のまま右を向く', view: '水平線は変わらず、景色が左へ流れる' },
-    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', effect: { yaw: -10 }, body: '水平のまま左を向く', view: '水平線は変わらず、景色が右へ流れる' }
+    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', effect: { yaw: 10 }, body: '機体に対して横へ、右を向く', view: '水平線の傾きは変わらず、景色が画面の左へ流れる' },
+    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', effect: { yaw: -10 }, body: '機体に対して横へ、左を向く', view: '水平線の傾きは変わらず、景色が画面の右へ流れる' }
   ];
   const OP_BY_ID = Object.fromEntries(OPS.map(o => [o.id, o]));
   const OPPOSITE = { 'stick-right': 'stick-left', 'stick-left': 'stick-right', 'stick-forward': 'stick-back', 'stick-back': 'stick-forward', 'rudder-right': 'rudder-left', 'rudder-left': 'rudder-right' };
@@ -119,14 +119,43 @@
     const mark = lv === 'hard' ? pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45)) : 0;
     return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, mark, opts, level: lv };
   }
-  /* 方向舵は、進む向きに対して水平に向きを変える（世界の上下軸まわり）。
-     傾いていても機首は水平面を振れるだけで、上下しない。
-     3D シミュレーターと同じ扱い（sim3d.js は premultiply(AZ) で世界の上下軸まわりに回す）。
-     出題の約束を「操縦桿 → 傾く」「方向舵 → 水平に向きが変わる」と分けておかないと、
-     縦画面の問題と横画面のシミュレーターで見え方が食い違う */
+  /* 操縦操作は、どれも「機体の軸まわりの回転」。
+       操縦桿 左右 → 機首の軸（前後）まわり、操縦桿 奥・手前 → 翼の軸（左右）まわり、方向舵 → 機体の上下軸まわり。
+     傾いているときに方向舵を踏むと、機首は「傾いた機体に対して横」へ振れる（水平線に沿ってではない）。
+     世界の向きで見れば 方位が cos(バンク) ぶん変わり、機首の上下も sin(バンク) ぶん変わる。
+     操縦桿を手前に引いたときも同じで、傾いていれば機首上げと同時に向きも傾いた側へ変わる（実機の旋回）。
+     以前は 世界の上下軸まわり（方位だけ）で扱っていて、傾いているときの見え方が実機と違った（利用者の指摘 v04.21）。
+     3D シミュレーター（sim3d.js）も同じ機体軸まわりの回転にそろえてある。
+     状態は { bank, pitch, yaw } のまま（yaw は方位のずれ。絵は 水平線の傾き・高さ と 景色の横の流れ で描く）。
+     合成は 3×3 の回転行列で行う: R = Rz(-yaw) · Rx(pitch) · Ry(bank)（sim3d の att と同じ順）。
+     行列の列は 機体の 右(x)・前(y)・上(z) の向き */
+  const matOf = (bank, pitch, yaw) => {   // D（度 → ラジアン）は上で宣言済み
+    const cb = Math.cos(bank * D), sb = Math.sin(bank * D), cp = Math.cos(pitch * D), sp = Math.sin(pitch * D), cy = Math.cos(-yaw * D), sy = Math.sin(-yaw * D);
+    const Rz = [[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]], Rx = [[1, 0, 0], [0, cp, -sp], [0, sp, cp]], Ry = [[cb, 0, sb], [0, 1, 0], [-sb, 0, cb]];
+    return mul(mul(Rz, Rx), Ry);
+  };
+  const mul = (A, B) => A.map((r, i) => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+  const axisRot = (axis, deg) => {   // 機体の軸まわりの回転（x: 翼, y: 機首, z: 上下）
+    const c = Math.cos(deg * D), s = Math.sin(deg * D);
+    if (axis === 'x') return [[1, 0, 0], [0, c, -s], [0, s, c]];
+    if (axis === 'y') return [[c, 0, s], [0, 1, 0], [-s, 0, c]];
+    return [[c, -s, 0], [s, c, 0], [0, 0, 1]];
+  };
+  const eulerOf = M => {   // 列: 右 = M[·][0]、前 = M[·][1]、上 = M[·][2]
+    const fx = M[0][1], fy = M[1][1], fz = M[2][1], rz = M[2][0], uz = M[2][2];
+    const yaw = Math.atan2(fx, fy) / D, pitch = Math.asin(Math.max(-1, Math.min(1, fz))) / D, bank = Math.atan2(-rz, uz) / D;
+    return { bank, pitch, yaw };
+  };
   function applyOp(state, opId) {
     const o = OP_BY_ID[opId], e = o.effect;
-    return { bank: state.bank + (e.bank || 0), pitch: state.pitch + (e.pitch || 0), yaw: state.yaw + (e.yaw || 0) };
+    let M = matOf(state.bank, state.pitch, state.yaw);
+    if (e.bank) M = mul(M, axisRot('y', e.bank));      // 操縦桿 左右: 機首の軸まわり（右に倒す → 右バンク）
+    if (e.pitch) M = mul(M, axisRot('x', e.pitch));    // 操縦桿 奥・手前: 翼の軸まわり（手前 → 機首上げ）
+    if (e.yaw) M = mul(M, axisRot('z', -e.yaw));       // 方向舵: 機体の上下軸まわり（右 → 機首が右へ）
+    const r = eulerOf(M);
+    /* 方位のずれは連続に（−180〜180 を越えても前の値に近い側） */
+    let yaw = r.yaw; while (yaw - state.yaw > 180) yaw -= 360; while (yaw - state.yaw < -180) yaw += 360;
+    return { bank: r.bank, pitch: r.pitch, yaw };
   }
   function genControl(s) {
     /* 出題は 1 操作（同じ操作を続ける）と 2 操作の混在。2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。
@@ -209,7 +238,7 @@
       lines.push('①→②は片方の変化だけ、②→③で別の変化が加わっている → 順番の 2 操作。②の時点で両方が変わっていれば「同時」ですが、答えの文は同じです。');
     }
     if (q.ops.some(id => OP_BY_ID[id].group === 'rudder'))
-      lines.push('方向舵は、傾いていても進む向きに対して水平に向きを変えます。水平線の傾きは変わりません。');
+      lines.push('方向舵は、機体の上下軸まわりに機首を振ります。傾いているときは、傾いた機体に対して横（画面の左右）へ景色が流れ、水平線に沿ってではありません。水平線の傾きは変わりません。');
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
     return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`, lines };
   }

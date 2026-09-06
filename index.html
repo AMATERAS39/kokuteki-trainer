@@ -1139,7 +1139,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=42"></script>
+<script src="engine.js?v=43"></script>
 <script>
 (function(){
 'use strict';
@@ -1183,7 +1183,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.20';
+const APP_VER='v04.21';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
@@ -1507,7 +1507,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=111').then(mod=>{
+  import('./sim3d.js?v=112').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1808,7 +1808,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=111').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=112').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2403,7 +2403,7 @@ const TIPS={
   heading:['N マークの向きをまず見る','そこから機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','機首が N と同じ向きになることはない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
   combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','数字は 10 の位まで（3＝030°、12＝120°）'],
-  control:['変化は 3 種類: 水平線の傾き＝操縦桿の左右、水平線の高さ＝操縦桿の奥・手前、景色の横の流れ＝方向舵','②に両方の変化 → 同時、片方だけ → 順番。答えの文は同じ','操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 水平のまま右を向き、景色が左へ流れる','選択肢は ①→② と ②→③ の順に見る']
+  control:['変化は 3 種類: 水平線の傾き＝操縦桿の左右、水平線の高さ＝操縦桿の奥・手前、景色の横の流れ＝方向舵','傾いているときの方向舵は、傾いた機体に対して横（画面の左右）へ景色が流れる。水平線に沿ってではない','②に両方の変化 → 同時、片方だけ → 順番。答えの文は同じ','操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 水平のまま右を向き、景色が左へ流れる','選択肢は ①→② と ②→③ の順に見る']
 };
 const KBD={heading:'1〜8 で方位（北から時計回り）、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 

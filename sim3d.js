@@ -898,9 +898,9 @@ export function mount(container, opt = {}) {
       desc: '縦隊で間を空け、滑走路に平行に進入して、順にタイヤをつけ、そのまま上がります。' },
     { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'opro', ja: 'オポジット・コンティニュアス・ロール', form: 'pair', alt: 220,
-      at: 90, atR: FRONT_START, atN: SPREAD_D / 2, inH: 270,
+      at: 90, atR: FRONT_START, atN: SPREAD_D / 2, inH: 270, mirror: 'h',
       desc: '2 機が正面の左右から高速で近づき、会場の正面で至近距離をすれ違います。すれ違った直後に機首を上げ、そのまま 3 回転します。' },
-    { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230, entry: 'front',
+    { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230, entry: 'front', mirror: 'v',
       desc: '2 機が背面のまま北から進入し、途中で外側へ回して膨らみ、正面で交差します。そのまま進んで、南東と南西へ抜けます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front',
@@ -1584,8 +1584,9 @@ export function mount(container, opt = {}) {
           st.x = jx; st.y = jy; st.z = GATE.z;
           att.setFromAxisAngle(AZ, -inH * D); readAttitude();
           hist.length = 0; clearSmoke();
-          mates.forEach(h => { h.userData.hold = 0; });   // 無限遠で待たせていた機は、ここで現れる（移した先なので見えない）
+          mates.forEach(h => { h.userData.hold = 0; h.userData.qw = null; });   // 無限遠で待たせていた機は、ここで現れる（移した先なので見えない）
           slowAim = SLOW_AIM;                    // 地上の視線は、均一に振り向く（追いかけて飛ばない）
+          beginMirror(m, true);                  // 交差する課目の相手は、この瞬間に鏡の位置へ移す（跳びが見えない）
           if (opt.onJump) opt.onJump();
           manPhase = 'align'; phaseT = 0;
         }
@@ -1868,7 +1869,7 @@ export function mount(container, opt = {}) {
         /* 1 番機は東（x = 原点と散開位置の中間の線上、y = 開始位置の距離）から西向きに高速で入る。
            相手は正面の線の鏡（西から東向き）。原点と散開位置の中間で交差し、
            交差の瞬間から機首上げ 30 度と連続ロール。そのまま東・西の無限遠へ */
-        if (!mir) { startMirror(); mir.dz = 14; }
+        beginMirror(m);
         const east = showLocal(st.x, st.y).side;               // 正面から見て右の距離（正が右）
         if (east < 60) oproX = true;
         if (!oproX) {                                          // 交差まで: 線に沿って西向きに高速で、水平を保ったまま
@@ -1890,7 +1891,8 @@ export function mount(container, opt = {}) {
         break;
       }
       case 'tuck': {                             // タック・クロス: 北から背面で入り、中間位置で外へ回して膨らみ、散開位置で交差
-        if (!mir) { startMirror(); mir.dz = 14; tkWp = 0; }    // 相手は正面の線の鏡。交差で当たらないよう 14 m 上
+        /* 相手は正面の線の鏡。交差で当たらないよう 14 m 上 */
+        beginMirror(m);
         const O = GROUND_EYE, CROSS_D = SPREAD_D / 2;      // 交差は散開位置と原点の中間
         const TL = showLocal(st.x, st.y), alongT = TL.along;
         /* 通過点: 膨らみ（散開位置と交差点のあいだ、左へ 110 m）→ 交差（線の少し右） */
@@ -2291,6 +2293,7 @@ export function mount(container, opt = {}) {
     if (a > lim) holder.quaternion.slerp(q, lim / a); else holder.quaternion.copy(q);
   }
   const fwd2 = new THREE.Vector3(), moFlat = new THREE.Vector3();
+  const moW = new THREE.Vector3(), mirWas = new THREE.Vector3();
   const basePos = new THREE.Vector3(), offNow = new THREE.Vector3(), retFrom = new THREE.Vector3();   // 追従機は「1 番機から見たずれ」で置く
   /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
   let joinFast = false;                              // 切れのある動きが要る課目では、隊形の移りを速くする
@@ -2476,8 +2479,27 @@ export function mount(container, opt = {}) {
   /* 左右から寄って交差する課目（オポジット・コンティニュアス・ロール、タック・クロス）。
      相手の機体は、見ている正面の線について 1 番機を鏡に映した位置・向きに置く。
      こうすると必ず正面で交差し、ロールの向きも自然に逆になる */
+  const MIR_SEEN = 300;                       // 鏡へ渡すときに「跳んだ」と見なす距離（m）
+  /* 遠い機を世界の座標で持ち始める距離と、完全に切り離す距離（m） */
+  const FARW_NEAR = 400, FARW_FAR = 1000;
   let mir = null;
-  function startMirror() { const e = eyeDir(); mir = { ox: e.ex, oy: e.ey, dx: e.dx, dy: e.dy, z0: GATE.z, vert: false }; }
+  function startMirror() { const e = eyeDir(); mir = { ox: e.ex, oy: e.ey, dx: e.dx, dy: e.dy, z0: GATE.z, vert: false, fresh: false }; }
+  /* 鏡への受け渡し（v04.40）。課目の始めに渡すと、相手が隊形の隣から鏡の位置へ一度に跳ぶ
+     （実測 v04.27・再現 v04.40: オポジットで 1 コマ 3,834 m。機内から見ると隣の機が消えて向こうに現れる）。
+     進入で位置を移す瞬間に渡せば、アプリ側の onJump で地上視点に戻っているので跳びは見えない。
+     masked が真なら、その瞬間移動と同じコマなので跳びの知らせは要らない */
+  function beginMirror(m, masked) {
+    if (!m || !m.mirror || mir) return false;
+    startMirror(); mir.dz = 14; mir.fresh = !masked;
+    if (m.mirror === 'v') { mir.vert = true; tkWp = 0; }
+    return true;
+  }
+  /* 瞬間移動でない場所で渡してしまったときの受け皿。大きく跳んだら地上視点に戻す（利用者の決め: v04.29） */
+  function mirJumped(holder, was) {
+    if (!mir || !mir.fresh) return;
+    mir.fresh = false;
+    if (was && mirWas.distanceTo(holder.position) > MIR_SEEN && opt.onJump) opt.onJump();
+  }
   /* タック・クロスの相手。左右ではなく上下の鏡に映す（2 機とも左から入り、右へ抜けるため）。
      ぶつからないよう、相手は奥へ TUCK_DEEP だけ離す */
   const TUCK_DEEP = 90;
@@ -2488,21 +2510,24 @@ export function mount(container, opt = {}) {
     mirQi.copy(att).invert();
     mirV.copy(holder.position).sub(plane.position).applyQuaternion(mirQi);
     u.cur.copy(mirV); u.from = null;
+    u.qw = (u.qw || new THREE.Quaternion()).copy(att);
   }
   function placeTuck(holder, u, dt, emitting, color) {
     const e = mir, vx = plane.position.x - e.ox, vy = plane.position.y - e.oy;
+    const was = u.shown; if (mir.fresh) mirWas.copy(holder.position);
     holder.position.set(plane.position.x + e.dx * TUCK_DEEP, plane.position.y + e.dy * TUCK_DEEP,
                         Math.max(60, 2 * e.z0 - plane.position.z));      // 高さを鏡に映す
     tkQ.setFromAxisAngle(AZ, -st.h * D);                                  // 向きは同じ
     tkQ.multiply(dq.setFromAxisAngle(AX, -st.p * D));                     // 上下が逆なので、機首の上げ下げも逆
     tkQ.multiply(dq.setFromAxisAngle(AY, (180 - st.b) * D));              // 背中も逆（背面になる）
     turnMate(holder, tkQ, dt); noteMirrorPos(holder, u);
-    holder.visible = true; u.shown = true;
+    holder.visible = true; u.shown = true; mirJumped(holder, was);
     if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(tkQ).add(holder.position); emit(emitPos, color, null, 0, 1); }
   }
   const mrQ = new THREE.Quaternion(), qInv = new THREE.Quaternion();
   function placeMirror(holder, u, dt, emitting, color) {
     const e = mir, vx = plane.position.x - e.ox, vy = plane.position.y - e.oy;
+    const was = u.shown; if (mir.fresh) mirWas.copy(holder.position);
     const along = vx * e.dx + vy * e.dy;
     holder.position.set(e.ox + e.dx * along - (vx - e.dx * along),
                         e.oy + e.dy * along - (vy - e.dy * along), plane.position.z + (e.dz || 0));
@@ -2512,7 +2537,7 @@ export function mount(container, opt = {}) {
     mrQ.multiply(dq.setFromAxisAngle(AX, st.p * D));
     mrQ.multiply(dq.setFromAxisAngle(AY, -st.b * D));  // 傾きは逆向き
     turnMate(holder, mrQ, dt); noteMirrorPos(holder, u);
-    holder.visible = true; u.shown = true;
+    holder.visible = true; u.shown = true; mirJumped(holder, was);
     if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mrQ).add(holder.position); emit(emitPos, color, null, 0, 1); }
   }
   /* ===== 1 番機の道をそのままたどる（タッチ・アンド・ゴーと着陸）=====
@@ -3075,6 +3100,18 @@ export function mount(container, opt = {}) {
         const kf = far * far * (3 - 2 * far);
         if (kf > 0.001) mq.slerp(qFlat, kf);
       }
+      /* さらに遠い機は、1 番機の向きから切り離して世界の座標で持つ（v04.40）。
+         向きで持つと、腕の長さぶん振り回される（実測: 2.8 km 先の機が、課目の変わり目に 1 コマ 177 m 動いた）。
+         FARW_NEAR から効かせ始め、FARW_FAR で完全に切り離す。切り替えではなく混ぜるので、
+         寄ってくるあいだに自然と隊形の持ち方へ戻る */
+      const farW = clamp((u.cur.length() - FARW_NEAR) / (FARW_FAR - FARW_NEAR), 0, 1);
+      if (farW > 0.001) {
+        if (!u.qw) u.qw = new THREE.Quaternion().copy(mq);
+        moW.set(u.cur.x, u.cur.y, u.cur.z).applyQuaternion(u.qw);
+        mo.lerp(moW, farW);
+        /* 完全に切り離す手前では、1 番機の向きへ少しずつ寄せ直す（戻るときに位置が飛ばない） */
+        if (farW < 1) u.qw.slerp(mq, (1 - farW) * Math.min(1, dt * 3));
+      } else if (u.qw) u.qw = null;
       basePos.copy(mp);                  // 1 番機の位置（ここからのずれで置く）
       mp.add(mo);
       if (mp.z < 3) mp.z = 3;            // 地面より下へは置かない（低いところで機首を上げても、後ろの機体がめり込まない）
@@ -3816,8 +3853,8 @@ export function mount(container, opt = {}) {
       att.setFromAxisAngle(AZ, -hh * D); readAttitude();
       spdK = 1; spdWant = 1;
       hist.length = 0; clearSmoke();
-      mates.forEach(h => { const u = h.userData; u.hold = 0; u.k = 1; u.from = null; });   // 隊形は組み上がった形にする
-      slowAim = SLOW_AIM; if (opt.onJump) opt.onJump();
+      mates.forEach(h => { const u = h.userData; u.hold = 0; u.k = 1; u.from = null; u.qw = null; });   // 隊形は組み上がった形にする
+      slowAim = SLOW_AIM; beginMirror(m, true); if (opt.onJump) opt.onJump();
       endEntry(); return true; },
     entryState() { return auto && (manPhase === 'in' || manPhase === 'align'); },
     runManeuver(i) {

@@ -264,7 +264,7 @@ svg text{user-select:none}
 .sim .hud,.sim .cross,.sim .simbar,.sim .ctl,.sim .instrow .inst.ai,.sim .trickdesc{transition:opacity .5s}
 .sim.rest .simbar,.sim.rest .ctl,.sim.rest .trickdesc{opacity:0;pointer-events:none}
 /* 操作一覧を出す／しまうボタンと鍵は、何かの最中（演目に見入っているあいだ・操作をしまっているあいだ）でも押せる（利用者の指示。v04.37） */
-.sim.rest .simbar #simUI,.sim.rest .simbar #simLock{opacity:1;pointer-events:auto}
+.sim.rest .simbar #simUI,.sim.rest .simbar #simLock{opacity:1;pointer-events:auto}   /* 操作一覧のボタンと画面の固定は、何かの最中でも押せる */
 /* 計器は、コックピット視点（.restfp）では消さない。外から見ているときだけしまう */
 .sim.rest:not(.restfp) .hud,.sim.rest:not(.restfp) .cross,.sim.rest:not(.restfp) .instrow .inst.ai{opacity:0;pointer-events:none}
 .sim.rest{cursor:none}
@@ -274,10 +274,7 @@ svg text{user-select:none}
 @keyframes simflash{0%{opacity:.9}100%{opacity:0}}
 /* 音のボタン（1 つ）: 上へなぞると飛行音、下へなぞると曲、押すと両方。右上の点が飛行音、右下の点が曲の入り切り */
 .swipebtn{position:relative;overflow:visible;touch-action:none}
-/* 画面のロック: 鍵のボタン以外は触っても効かない（見ているあいだに誤って触らない）。
-   ロック中は鍵だけ光らせ、ほかのボタンは薄くする */
-#sim.locked .view,#sim.locked .simbar>*:not(#simLock):not(#simUI),#sim.locked .stkwrap,#sim.locked .trickmenu,#sim.locked .wheel{pointer-events:none}
-#sim.locked .simbar>*:not(#simLock):not(#simUI){opacity:.35}
+/* 画面のロック = 横画面のまま固定する（端末を傾けても向きが変わらない）。操作は止めない */
 #sim.locked #simLock{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .swipebtn .sdot{position:absolute;right:.22rem;width:.32rem;height:.32rem;border-radius:50%;background:rgba(255,255,255,.22)}
 .swipebtn .sdot.a{top:.22rem}
@@ -1216,7 +1213,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.37';
+const APP_VER='v04.38';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2173,17 +2170,31 @@ function runSim(opt){applyScene();
       sim.toggleSmoke=()=>{const want=!sim.smoke;const got=sim.h.setSmoke(want);sim.smoke=!!got;store.set('simSmoke',sim.smoke);paint();if(want&&!got)toast('着陸のあいだはスモークを出せません')};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
       /* 音: ブラウザの決まりで、押されたその流れの中でしか音を出せない */
-      /* 画面のロック: 触っても何も起きないようにする（見ているあいだの誤操作を防ぐ）。鍵のボタンだけは効く */
+      /* 画面のロック = 横画面のまま固定する（端末を傾けても縦に変わらない）。操作は止めない。
+         向きの固定は全画面のときだけ効く決まりなので、必要なら全画面にしてから固定する */
       { const lkBtn=$('#simLock');
         if(lkBtn){
+          const so=screen.orientation;
           const paintLk=()=>{const on=!!sim.locked;
             $('#sim').classList.toggle('locked',on);
             lkBtn.classList.toggle('on',on);lkBtn.setAttribute('aria-pressed',String(on));
             lkBtn.querySelector('use').setAttribute('href','#'+(on?'i-lock':'i-unlock'));
-            lkBtn.title=on?'ロック中（押すと解除）':'画面をロック（操作を受け付けなくする）'};
+            lkBtn.setAttribute('aria-label',on?'横画面の固定を解除':'横画面で固定');
+            lkBtn.title=on?'横画面で固定中（押すと解除）':'横画面で固定する（端末を傾けても向きが変わらない）'};
           sim.paintLock=paintLk;
-          lkBtn.addEventListener('click',e=>{e.stopPropagation();sim.locked=!sim.locked;paintLk();
-            toast(sim.locked?'画面をロックしました（鍵をもう一度押すと解除）':'ロックを解除しました')});
+          const lock=async()=>{
+            if(!so||!so.lock){toast('この端末では画面の向きを固定できません');return false}
+            try{
+              if(!document.fullscreenElement&&document.documentElement.requestFullscreen)
+                await document.documentElement.requestFullscreen().catch(()=>{});
+              await so.lock('landscape');return true
+            }catch(e){toast('この端末では画面の向きを固定できません');return false}};
+          const unlock=()=>{try{if(so&&so.unlock)so.unlock()}catch(_){}};
+          lkBtn.addEventListener('click',async e=>{e.stopPropagation();
+            if(sim.locked){unlock();sim.locked=false;paintLk();toast('画面の固定を解除しました')}
+            else if(await lock()){sim.locked=true;paintLk();toast('横画面で固定しました（もう一度押すと解除）')}});
+          /* 全画面から出ると固定も外れる（ブラウザの決まり）。ボタンの見た目を合わせる */
+          document.addEventListener('fullscreenchange',()=>{if(sim&&sim.locked&&!document.fullscreenElement){sim.locked=false;paintLk()}});
           paintLk();
         } }
       const soBtn=$('#simSound');

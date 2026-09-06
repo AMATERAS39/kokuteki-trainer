@@ -220,10 +220,14 @@ svg text{user-select:none}
 .sim .stick .lb.t{top:.3rem;left:50%;transform:translateX(-50%)}.sim .stick .lb.b{bottom:.3rem;left:50%;transform:translateX(-50%)}
 .sim .stick .lb.l{left:.4rem;top:50%;transform:translateY(-50%)}.sim .stick .lb.r{right:.4rem;top:50%;transform:translateY(-50%)}
 .sim .rud .pedals{margin-top:0}
-/* タブレットの縦画面: 画面が広いと操縦桿が左端まで離れて押しにくいので、操縦桿と方向舵をまとめて中央に寄せる */
+/* タブレットの縦画面: 操縦桿は左手、方向舵は右足の位置。中央に寄せると両手を体の前で組む形になって押しにくい（利用者の指示。v04.37）。
+   幅を広めに取り、操縦桿は左寄せ、方向舵は右寄せにする */
 @media (min-width:34rem) and (orientation:portrait){
-  .sim .ctl{width:min(34rem,100%);margin-left:auto;margin-right:auto;gap:1.5rem}
-  .sim .stick{width:clamp(7rem,22dvh,10rem)}
+  .sim .ctl{width:min(46rem,100%);margin-left:auto;margin-right:auto;gap:1.5rem}
+  .sim .ctl .stkwrap{justify-self:start;margin-left:1rem}
+  .sim .ctl .rud{justify-self:end;margin-right:1rem}
+  .sim .stick{width:clamp(7rem,22dvh,10rem);margin-left:0}
+  .sim .rud .pedals{margin-left:auto;margin-right:0}
   .sim .rud .pedals .ab{min-height:clamp(4rem,11dvh,5rem)}
 }
 .sim .rud .pedals .ab{min-height:clamp(3.5rem,10dvh,4.5rem);font-size:1rem}
@@ -248,14 +252,19 @@ svg text{user-select:none}
 .formmenu button{display:flex;flex-direction:column;align-items:center;gap:.125rem;padding:.25rem;border-radius:.5rem;font-size:.5625rem;color:var(--muted);line-height:1.1;text-align:center}
 .formmenu button .ic{width:1.6rem;height:1.6rem;color:var(--text)}
 .formmenu{max-height:calc(100dvh - 2rem);overflow-y:auto;overscroll-behavior:contain;align-content:start}
-/* 横画面では画面の右側に立てて出す（16 課目あるので、ボタンの真上に出すと画面からはみ出す） */
+/* 横画面では画面の右下（ボタンの上）に出す。高さは中身なり（枠だけ大きいと、ほかの表示に重なる。利用者の指摘）。
+   入りきらないときだけ中で送る */
 @media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse),(min-width:64rem) and (orientation:landscape){
-  .formwrap .formmenu{position:fixed;right:.5rem;top:.5rem;bottom:.5rem;max-height:none}
+  .formwrap .formmenu{position:fixed;right:.5rem;top:auto;bottom:3.25rem;max-height:calc(100dvh - 4.5rem)}
 }
+/* 閉じるボタンは、どの一覧でも上に横いっぱい（位置をそろえる） */
+.formmenu .mclose{order:-1}
 /* 自動操縦で 10 秒 何も触らなければ、方位計だけ残して消す（演目に見入るため）。
    出し入れは ゆっくり薄くして、急に消えないようにする */
 .sim .hud,.sim .cross,.sim .simbar,.sim .ctl,.sim .instrow .inst.ai,.sim .trickdesc{transition:opacity .5s}
 .sim.rest .simbar,.sim.rest .ctl,.sim.rest .trickdesc{opacity:0;pointer-events:none}
+/* 操作一覧を出す／しまうボタンと鍵は、何かの最中（演目に見入っているあいだ・操作をしまっているあいだ）でも押せる（利用者の指示。v04.37） */
+.sim.rest .simbar #simUI,.sim.rest .simbar #simLock{opacity:1;pointer-events:auto}
 /* 計器は、コックピット視点（.restfp）では消さない。外から見ているときだけしまう */
 .sim.rest:not(.restfp) .hud,.sim.rest:not(.restfp) .cross,.sim.rest:not(.restfp) .instrow .inst.ai{opacity:0;pointer-events:none}
 .sim.rest{cursor:none}
@@ -265,6 +274,11 @@ svg text{user-select:none}
 @keyframes simflash{0%{opacity:.9}100%{opacity:0}}
 /* 音のボタン（1 つ）: 上へなぞると飛行音、下へなぞると曲、押すと両方。右上の点が飛行音、右下の点が曲の入り切り */
 .swipebtn{position:relative;overflow:visible;touch-action:none}
+/* 画面のロック: 鍵のボタン以外は触っても効かない（見ているあいだに誤って触らない）。
+   ロック中は鍵だけ光らせ、ほかのボタンは薄くする */
+#sim.locked .view,#sim.locked .simbar>*:not(#simLock):not(#simUI),#sim.locked .stkwrap,#sim.locked .trickmenu,#sim.locked .wheel{pointer-events:none}
+#sim.locked .simbar>*:not(#simLock):not(#simUI){opacity:.35}
+#sim.locked #simLock{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .swipebtn .sdot{position:absolute;right:.22rem;width:.32rem;height:.32rem;border-radius:50%;background:rgba(255,255,255,.22)}
 .swipebtn .sdot.a{top:.22rem}
 .swipebtn .sdot.m{bottom:.22rem}
@@ -343,6 +357,12 @@ svg text{user-select:none}
     top:var(--iy,78%);bottom:auto;right:auto}
   body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst.ai{left:var(--ix,50%);transform:translate(-112%,-100%)}
   body[data-view="train"][data-phase="sim"] .sim.fpv .instrow .inst.hi{left:var(--ix,50%);transform:translate(12%,-100%)}
+  /* 一人称の「計器だけ」の見せ方（機内の計器盤を出さない）は、計器を画面の下の中央に並べる（利用者の指示。v04.37）。
+     操作の帯の上に置き、姿勢指示器を左、方位計を右にする */
+  body[data-view="train"][data-phase="sim"] .sim.nohud .instrow .inst{top:auto;right:auto;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 3.4rem);width:clamp(2.5rem,13dvh,3.8rem);height:clamp(2.5rem,13dvh,3.8rem)}
+  body[data-view="train"][data-phase="sim"] .sim.nohud .instrow .inst.ai{left:50%;transform:translateX(-108%)}
+  body[data-view="train"][data-phase="sim"] .sim.nohud .instrow .inst.hi{left:50%;transform:translateX(8%)}
   /* 戻るは左上。端末の時計などと重ならないよう、上の安全余白ぶん下げる */
   /* 操作を出しているときは、並んだアイコンの上に置く（重ならないように） */
   body[data-view="train"][data-phase="sim"] .sim .landback{display:inline-flex;position:absolute;z-index:6;
@@ -968,7 +988,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-ui" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h2M7 17h2"/></symbol>
 <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5h3.5L8 6h8l1.5 2.5H21v11H3z"/><circle cx="12" cy="13.5" r="3.6"/></symbol>
 <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
-<symbol id="i-smoke" viewBox="0 0 24 24"><path d="M2.6 6.4l7 3.2-7 3.2 1.7-3.2z" style="fill:currentColor;stroke:none"/><path d="M8.6 17.6c2.2 0 2.2-2.8 4.4-2.8s2.2 2.8 4.4 2.8 2.2-2.8 4.4-2.8"/></symbol>
+<symbol id="m-land" viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M5 16.5 19 12"/><path d="M9.5 15 7 9l2.5.6 2 3.2"/><path d="M14.5 13.4 12 6l2.4.7 2.6 5.3"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.5-2"/></symbol>
+<symbol id="i-smoke" viewBox="8.097901 15.323674 47.781122 33.435205"><path class="f" style="stroke:none" d="M 23.77115 20.987475 L 23.249564 21.516879 A 58 58 0 0 0 20.576369 24.421543 C 18.467563569 26.875547502 16.664639883 29.6167192 15.302223 32.557492 C 14.438765261 34.421262969 13.681305921 36.473060442 13.606462 38.5465 C 13.549719575 40.118464517 14.036966416 41.763823687 15.619705 42.394337 C 17.191485217 43.020484844 19.068776487 42.572333573 20.607595 42.066672 C 22.994953388 41.282177021 25.229105482 40.054010969 27.367485 38.749742 C 28.334599529 38.159866602 29.254188604 37.459657246 30.256043 36.931992 L 30.308425 36.904403 A 28.761828 28.761828 0 0 1 28.35204 38.900942 C 27.019511053 40.134733943 25.746196782 41.433270875 24.36125 42.609102 A 42.441438 42.441438 0 0 1 22.25436 44.28582 C 19.398924247 46.413874539 12.121887268 51.314277252 8.97153 47.103594 C 7.106781769 44.611221396 8.625699722 40.054902074 9.842184 37.473945 C 12.838899853 31.115954911 18.050148 25.093352 23.763188 20.98211 L 23.77115 20.987475 Z"/><path class="f" style="stroke:none" d="M 55.829805 15.323867 C 55.846485 15.32231 55.862617 15.33054 55.879023 15.33486 C 55.868633 15.443332 55.704043491 15.759954633 55.650703 15.873395 L 55.186133 16.861406 C 54.266824646 18.816518826 53.586394857 20.308373194 52.062656 21.898453 C 51.386935169 22.603593545 50.829810267 22.966030343 50.055625 23.54277 L 47.685742 25.308246 C 45.272058466 27.106351793 42.90060055 28.960854692 40.471914 30.738687 L 38.884063 31.901016 C 38.576169058 32.126398644 38.226433563 32.397834634 37.911719 32.605117 C 37.682570672 32.756042356 37.316937735 32.943129746 37.068164 33.077344 L 30.890391 36.410273 C 30.868662995 36.42199533 30.883336 36.415195 30.841473 36.413555 C 31.079008 36.088165 31.44187478 35.677378568 31.70332 35.356719 L 33.319883 33.374023 C 34.323806508 32.142722319 35.307951085 30.81889635 36.452383 29.717453 C 36.787861886 29.394575786 37.123442088 29.069624656 37.457813 28.745903 L 41.413085 24.916601 C 43.063236643 23.319004429 44.684511937 21.677481802 46.37953 20.127398 C 47.38524583 19.207676936 48.237540325 18.280328539 49.411406 17.572234 C 51.32410253 16.418464879 53.679766 15.866914 55.829805 15.323867 Z"/><path class="f" style="stroke:none" d="M 44.008555 21.236051 L 38.38039 26.595288 L 24.171074 20.66082 L 26.566223 18.784164 L 44.008555 21.236051 Z"/><path class="f" style="stroke:none" d="M 48.183126 26.326035 L 45.299073 44.40617 A 9.645301 9.645301 0 0 0 43.004766 46.303516 C 42.734513814 44.280945538 42.563069297 42.247566392 42.341406 40.21953 L 41.371796 31.348398 C 43.578471771 29.596836876 45.878016298 27.942990805 48.15414 26.282914 L 48.183126 26.326035 Z"/><path class="f" style="stroke:none" d="M 34.75461 30.425793 L 31.371914 34.14375 C 29.373310488 33.164830507 27.329426642 32.299540747 25.307727 31.37246 A 198.689663 198.689663 0 0 1 27.64704 29.401414 L 34.75461 30.425793 Z"/><path class="f" style="stroke:none" d="M 36.978203 34.137461 L 36.837029 41.316305 A 12.177022 12.177022 0 0 0 34.642356 43.064683 L 33.064766 36.801016 L 36.958516 34.130078 L 36.978203 34.137461 Z"/></symbol>
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="m12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81zM12 3L2 12h3v8h6v-6h2v6h6v-8h3"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
@@ -1193,7 +1216,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.36';
+const APP_VER='v04.37';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1518,7 +1541,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=124').then(mod=>{
+  import('./sim3d.js?v=125').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1562,13 +1585,15 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
       <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（夜は自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
       <button class="iconbtn landscape" id="simFollow" aria-label="機体を目で追う" aria-pressed="false" title="機体を目で追う（地上から見るとき）"><svg class="ic"><use href="#i-follow"/></svg></button>
-      <button class="iconbtn landscape showui" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（もう一度押すと展示飛行モード: 離陸から着陸まで）"><svg class="ic"><use href="#i-auto"/></svg></button>
+      <button class="iconbtn landscape showui swipebtn" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（押すと入り切り。上へなぞると展示飛行モード: 離陸から着陸まで）"><svg class="ic"><use href="#i-auto"/></svg><span class="sdot a" id="autoDot"></span></button>
       <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技（押すと一覧。押したまま技のほうへなぞって離すとホイール）"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
       <button class="btn ghost sm portrait" id="simBack2">選択に戻る</button>
+      <button class="iconbtn showui" id="simLock" aria-label="画面をロック" aria-pressed="false" title="画面をロック（操作を受け付けなくする。もう一度押すと解除）"><svg class="ic"><use href="#i-lock"/></svg></button>
       <button class="iconbtn showui" id="simUI" aria-label="操作を出す／しまう" title="操作を出す／しまう"><svg class="ic"><use href="#i-ui"/></svg></button>
       <button class="iconbtn showui landscape" id="simSmall" aria-label="画面を小さくする" title="戻る・計測へ進むを出す"><svg class="ic"><use href="#i-vthird"/></svg></button>
+      <button class="iconbtn" id="simSkipIn" aria-label="開始位置へ" title="進入を飛ばして、技の開始位置へ" hidden><svg class="ic"><use href="#i-next"/></svg></button>
       <button class="iconbtn" id="simSkip" aria-label="滑走路へ戻る" title="着陸してから滑走路へ戻るまでを飛ばす" hidden><svg class="ic"><use href="#i-next"/></svg></button>
       <div class="simflash" id="simFlash" hidden></div>
     </div>
@@ -1682,7 +1707,16 @@ function runSim(opt){applyScene();
   ['pointerup','pointercancel','pointerleave'].forEach(ev=>vw.addEventListener(ev,endLook));
   /* 2 回叩いたら一時停止、もう一度で再開。止めていても見回し・拡大・視点の切り替えはできる */
   const tapAt=()=>{if(!sim||!sim.h)return;
-    const p=sim.h.togglePause();const m=$('#pauseMsg');if(m)m.hidden=!p;toast(p?'一時停止しました':'再開しました')};
+    const p=sim.h.togglePause();sim.userPaused=p;const m=$('#pauseMsg');if(m)m.hidden=!p;toast(p?'一時停止しました':'再開しました')};
+  /* 画面から離れたら自動で止める（別のアプリへ移る・画面を消す・タブを閉じる直前。戻ったときは止まったまま）。
+     一度だけ登録する */
+  if(!window.__simAway){window.__simAway=true;
+    const away=()=>{if(!sim||!sim.h||sim.h.pausedState())return;
+      sim.h.setPaused(true);sim.userPaused=true;const m=$('#pauseMsg');if(m)m.hidden=false};
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)away()});
+    window.addEventListener('pagehide',away);
+    window.addEventListener('blur',away);
+    document.addEventListener('freeze',away);}
   /* 長押し: 地上ではその場所に立つ、それ以外は見回しを正面に戻す */
   const holdAt=e=>{if(!sim||!sim.h)return;
     const rc=vw.getBoundingClientRect();
@@ -1757,6 +1791,8 @@ function runSim(opt){applyScene();
   $('#simUI').addEventListener('click',()=>{const on=!$('#sim').classList.contains('uihide');
     $('#sim').classList.toggle('uihide',on);sim.uiHidden=on});
   $('#simSkip').addEventListener('click',()=>{if(sim.h&&sim.h.skipTaxi())toast('滑走路に戻りました')});
+  /* 進入を飛ばす: 技をひとつだけ行うとき（展示飛行モードでないとき）だけ出す。押すと開始位置から始まる */
+  $('#simSkipIn').addEventListener('click',()=>{if(sim.h&&sim.h.skipEntry())toast('開始位置へ')});
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
   /* 初期位置に戻す: 地上から見ているときは、視点（立ち位置と向き）を原点へ戻す。それ以外は機体を戻す */
   $('#simHome').addEventListener('click',()=>{if(!sim.h)return;
@@ -1830,9 +1866,14 @@ function runSim(opt){applyScene();
       if(!s.landing&&sim.landCam){sim.landCam=0;if(sim.h.aimAt)sim.h.aimAt(0)}
       sim.prevMode=s.mode}
     if(s.mode&&s.mode!=='fly'){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
+    /* 進入を飛ばすボタン: 技をひとつだけ行っていて（展示飛行モードでない）、いま進入中のときだけ出す */
+    {const sk=$('#simSkipIn');
+      if(sk&&sim.h&&sim.h.entryState){const show=sim.h.entryState()&&!sim.h.loopState();if(sk.hidden===show)sk.hidden=!show}}
     /* 一時停止の表示。演目が終わったら止めるのをやめる */
     if(sim.h){const pz=sim.h.pausedState();
-      if(pz&&!sim.h.showing())sim.h.setPaused(false);
+      /* 演目が終わったら止めるのをやめる。ただし自分で止めたとき（2 回叩く・画面から離れる）は解かない
+         （v04.37 まで、自動操縦でないときは止めた直後に解けていた。利用者の指摘） */
+      if(pz&&!sim.h.showing()&&!sim.userPaused)sim.h.setPaused(false);
       const m=$('#pauseMsg');if(m&&m.hidden===sim.h.pausedState())m.hidden=!sim.h.pausedState()}
     /* 技の初期設定で入った装備を、ボタンの見た目に映す */
     if(sim.h&&sim.paintGL)sim.paintGL();
@@ -1840,7 +1881,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=124').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=125').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -1879,8 +1920,10 @@ function runSim(opt){applyScene();
           return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i?1.8:2.6}" fill="${i?'currentColor':'var(--accent)'}"/>`}).join('')};
       const setForm=k=>{store.set('simForm',k);sim.h.setFormation(k);fIcon.innerHTML=dots(mod.FORMATIONS[k]);
         fMenu.querySelectorAll('[data-f]').forEach(b=>b.classList.toggle('sel',b.dataset.f===k))};
-      fMenu.innerHTML=Object.entries(mod.FORMATIONS).map(([k,v])=>
+      fMenu.innerHTML=`<button class="mclose" data-close="1"><svg class="ic"><use href="#i-cross"/></svg><span>閉じる</span></button>`
+        +Object.entries(mod.FORMATIONS).map(([k,v])=>
         `<button data-f="${k}" title="${v.ja}"><svg class="ic fmi" viewBox="0 0 24 24">${dots(v)}</svg><span>${v.ja}</span></button>`).join('');
+      fMenu.querySelector('[data-close]').addEventListener('click',()=>{fMenu.hidden=true});
       fMenu.querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{setForm(b.dataset.f);fMenu.hidden=true}));
       fBtn.addEventListener('click',e=>{e.stopPropagation();fMenu.hidden=!fMenu.hidden});
       /* メニューの外を触ったら閉じる。横画面では技の一覧が画面の右いっぱいに出てボタンを覆うので、
@@ -1985,7 +2028,8 @@ function runSim(opt){applyScene();
       sim.flashSim=flashSim;
       const aBtn=$('#simAuto');
       const stkH=$('#sim').querySelector('.stkwrap h4');
-      const paintAuto=()=>{const on=sim.h.autoState();aBtn.classList.toggle('on',on);aBtn.setAttribute('aria-pressed',String(on));
+      const paintAuto=()=>{const on=sim.h.autoState(),lp=sim.h.loopState();aBtn.classList.toggle('on',on);aBtn.setAttribute('aria-pressed',String(on));
+        aBtn.classList.toggle('loop',on&&lp);{const d=$('#autoDot');if(d)d.classList.toggle('on',on&&lp)}
         $('#sim').classList.toggle('autoon',on);
         const g=on&&sim.viewName==='ground';
         stkH.textContent=on?(g?'視点の移動':'視点'):'操縦桿';
@@ -2010,10 +2054,26 @@ function runSim(opt){applyScene();
       /* 2 回続けて押すと「固定」: 離着陸を含めず、演目を繰り返す。もう一度 2 回押すと解ける */
       /* 押すたびに順に変わる（視点のボタンと同じ要領）。
          切 → 自動操縦 → 通し（離陸から着陸まで）→ 切 */
-      const autoStep=()=>{
+      /* 押す = 自動操縦の入り切り、上へなぞる = 展示飛行モード（利用者の指示。v04.37）。
+         show を true で呼ぶと展示飛行モードまで進む */
+      const autoStep=(show)=>{
         if(!sim||!sim.h){autoQueue++;toast('昼の空を読み込んでいます。そのまま続けます');return}
         const on=sim.h.autoState(), lp=sim.h.loopState();
-        if(!on){                                   /* 1 回目: 自動操縦 */
+        if(on&&!show&&!lp){                        /* 押した: 自動操縦を止める */
+          sim.h.setAuto(false);paintAuto();showLabel('');
+          $('#sim').classList.remove('uihide');sim.uiHidden=false;
+          toast('自動操縦を止めました');return}
+        if(on&&!show&&lp){                         /* 押した: 展示飛行モードを止める（自動操縦も切る） */
+          sim.h.setLoop(false,!sim.demo);aBtn.classList.remove('loop');
+          if(sim.projection)setProjection(false);
+          sim.h.setAuto(false);paintAuto();showLabel('');
+          $('#sim').classList.remove('uihide');sim.uiHidden=false;
+          toast('展示飛行モードを止めました');return}
+        if(on&&show&&lp){                          /* なぞった: 展示飛行モードを止める */
+          sim.h.setLoop(false,!sim.demo);aBtn.classList.remove('loop');
+          if(sim.projection)setProjection(false);paintAuto();
+          toast('展示飛行モードを止めました（自動操縦は続きます）');return}
+        if(!on){                                   /* 自動操縦を入れる */
           /* 夜に演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
           if(document.body.dataset.scene!=='day'){toast('演目は昼の空で行います');
             runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
@@ -2023,21 +2083,29 @@ function runSim(opt){applyScene();
           if(sim.viewName==='ground'&&!sim.h.followState()){sim.h.setFollow(true);store.set('simFollow',true);paintFollow()}
           if(landFull()){$('#sim').classList.add('uihide');sim.uiHidden=true;   /* 横画面は鑑賞のため操作をしまう */
             if(sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
-          toast('自動操縦。もう一度押すと展示飛行モード（離陸から着陸まで）');
-          return}
-        if(!lp){                                   /* 2 回目: 通し */
+          if(!show){toast('自動操縦。上へなぞると展示飛行モード（離陸から着陸まで）');return}}
+        {                                          /* 展示飛行モード（通し） */
           sim.h.setLoop(true,!sim.demo);aBtn.classList.add('loop');
           if(sim.demo){setProjection(true);toast('固定しました。地上から全部の演目を続けて映します（操作はできません）')}
           else{if(sim.h.standReset){flashSim();sim.h.standReset()}showLabel('');
             toast('展示飛行モード。「離陸準備」で滑走路へ進み、「テイクオフ」で離陸します')}
-          return}
-        /* 3 回目: 切る */
-        sim.h.setLoop(false,!sim.demo);aBtn.classList.remove('loop');
-        if(sim.projection)setProjection(false);
-        sim.h.setAuto(false);paintAuto();showLabel('');
-        $('#sim').classList.remove('uihide');sim.uiHidden=false;
-        toast('自動操縦を止めました')};
-      aBtn.addEventListener('click',autoStep);
+          paintAuto();return}};
+      aBtn.addEventListener('click',e=>{if(aBtn._swiped){aBtn._swiped=false;return}autoStep(false)});
+      /* 上へ 18 px 以上なぞる = 展示飛行モード（音のボタンと同じ要領。横一列なので上下でなぞる） */
+      { let hint=null;
+        const showHint=on=>{if(!hint){hint=document.createElement('span');hint.className='shint up';aBtn.appendChild(hint)}
+          if(!on){hint.hidden=true;return}
+          hint.innerHTML='<span>'+(sim.h.loopState()?'通し 切':'展示飛行')+'</span>';hint.hidden=false;hint.classList.remove('hot')};
+        aBtn.addEventListener('pointerdown',e=>{if(e.button)return;const y0=e.clientY;let last=y0;
+          try{aBtn.setPointerCapture(e.pointerId)}catch(_){}
+          showHint(true);
+          const mv=ev=>{last=ev.clientY;hint.classList.toggle('hot',y0-last>=18)};
+          const up=ev=>{aBtn.removeEventListener('pointermove',mv);aBtn.removeEventListener('pointerup',up);aBtn.removeEventListener('pointercancel',up);
+            showHint(false);
+            if(y0-(ev.clientY??last)<18)return;
+            aBtn._swiped=true;setTimeout(()=>{aBtn._swiped=false},0);
+            autoStep(true)};
+          aBtn.addEventListener('pointermove',mv);aBtn.addEventListener('pointerup',up);aBtn.addEventListener('pointercancel',up)}); }
       paintAuto();
       if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
       if(opt.trick!==undefined)setTimeout(()=>{if(sim&&sim.h&&sim.h.runManeuver(opt.trick))showLabel(opt.trickName||'')},60);
@@ -2055,7 +2123,8 @@ function runSim(opt){applyScene();
           return;
         }
         sim.h.setPaused(false);
-        if(sim.h.runManeuver(m.i)){toast(m.ja);showLabel(m.ja)}else toast('飛んでいるときに使えます')};
+        if(sim.h.runManeuver(m.i)){toast(m.ja);showLabel(m.ja)}
+        else toast(m.need==='ground'?'滑走路に並んでいるときに使えます':'飛んでいるときに使えます')};
       /* 一覧（タップで開く）: 記号と名前。先頭に「閉じる」（横画面ではこの一覧が技のボタンを覆うため） */
       const MS=sim.h.maneuvers(),NI=Math.min(8,MS.length);
       const glyph=id=>`<svg class="gl" viewBox="0 0 24 24"><use href="#m-${id}"/></svg>`;
@@ -2104,6 +2173,19 @@ function runSim(opt){applyScene();
       sim.toggleSmoke=()=>{const want=!sim.smoke;const got=sim.h.setSmoke(want);sim.smoke=!!got;store.set('simSmoke',sim.smoke);paint();if(want&&!got)toast('着陸のあいだはスモークを出せません')};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
       /* 音: ブラウザの決まりで、押されたその流れの中でしか音を出せない */
+      /* 画面のロック: 触っても何も起きないようにする（見ているあいだの誤操作を防ぐ）。鍵のボタンだけは効く */
+      { const lkBtn=$('#simLock');
+        if(lkBtn){
+          const paintLk=()=>{const on=!!sim.locked;
+            $('#sim').classList.toggle('locked',on);
+            lkBtn.classList.toggle('on',on);lkBtn.setAttribute('aria-pressed',String(on));
+            lkBtn.querySelector('use').setAttribute('href','#'+(on?'i-lock':'i-unlock'));
+            lkBtn.title=on?'ロック中（押すと解除）':'画面をロック（操作を受け付けなくする）'};
+          sim.paintLock=paintLk;
+          lkBtn.addEventListener('click',e=>{e.stopPropagation();sim.locked=!sim.locked;paintLk();
+            toast(sim.locked?'画面をロックしました（鍵をもう一度押すと解除）':'ロックを解除しました')});
+          paintLk();
+        } }
       const soBtn=$('#simSound');
       if(soBtn){
         /* 音のボタンは 1 つ（利用者の指示）: 上へなぞると飛行音の入り切り、下へなぞると曲の入り切り、押すと両方の入り切り。

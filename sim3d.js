@@ -3787,12 +3787,49 @@ export function mount(container, opt = {}) {
     zoomVal() { return zoom; },
     /* 技の一覧（移動のための旋回と正面通過を除く）と、1 つだけ行わせる呼び出し。
        自分で操縦しているときに技を選ぶと、その技の間だけ自動で飛び、終わると操縦が戻る */
+    /* 技の一覧。need: 'ground' は地上にいるときだけ、'air' は飛んでいるときだけ使える（v04.37）。
+       着陸（land）は技ではないが、一覧から呼べるようにする */
     maneuvers() { const seen = new Set();   // 同じ技が演技の中に何度も出るので、一覧では 1 つにまとめる
-      return PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja, desc: m.desc || '', lock: !okMan(m) })).filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id)); },
+      const air = gmode === 'fly';
+      const list = PROGRAM.map((m, i) => ({ i, id: m.id, ja: m.ja, desc: m.desc || '',
+        need: m.id === 'dtake' ? 'ground' : 'air',
+        lock: !okMan(m) || (m.id === 'dtake' ? air : !air) }))
+        .filter(m => m.id !== 'orbit' && m.id !== 'pass' && !seen.has(m.id) && seen.add(m.id));
+      list.push({ i: -1, id: 'land', ja: '着陸', desc: '滑走路へ進入して着陸し、誘導路を通って駐機場へ戻ります。', need: 'air', lock: !air });
+      return list; },
     /* 見せる課目を絞る（体験版）。ids を渡すとその id だけ、null で全部に戻す */
     setAllowed(ids) { allowIds = (ids && ids.length) ? ids.slice() : null; },
+    /* 進入を飛ばして、その課目の開始位置へ置く（技をひとつだけ行うとき用）。進入中だけ効く。
+       開始位置は、正面から入る課目なら正面の線の上（m.far か FRONT_START の距離）、
+       方角を決めた課目なら決めた点（GATE）、滑走路の課目なら延長線の南 900 m */
+    skipEntry() {
+      if (!auto || (manPhase !== 'in' && manPhase !== 'align')) return false;
+      const m = PROGRAM[step_i], e = eyeDir();
+      let hx, hy, hh;
+      if (m.rwy) { hx = RWY.x; hy = RWY.y - 900; hh = RWY.h; }
+      else if (m.at !== undefined) { hx = GATE.x; hy = GATE.y;
+        hh = ((Math.atan2(GROUND_EYE.x - hx, GROUND_EYE.y - hy) / D) % 360 + 360) % 360; }
+      else { const d = (m.far || FRONT_START);
+        hx = e.ex + e.dx * d; hy = e.ey + e.dy * d;
+        hh = ((Math.atan2(e.ex - hx, e.ey - hy) / D) % 360 + 360) % 360; }
+      st.x = hx; st.y = hy; st.z = GATE.z;
+      att.setFromAxisAngle(AZ, -hh * D); readAttitude();
+      spdK = 1; spdWant = 1;
+      hist.length = 0; clearSmoke();
+      mates.forEach(h => { const u = h.userData; u.hold = 0; u.k = 1; u.from = null; });   // 隊形は組み上がった形にする
+      slowAim = SLOW_AIM; if (opt.onJump) opt.onJump();
+      endEntry(); return true; },
+    entryState() { return auto && (manPhase === 'in' || manPhase === 'align'); },
     runManeuver(i) {
+      /* 着陸（一覧の -1）。飛んでいるときだけ */
+      if (i === -1) { if (gmode !== 'fly') return false; if (!auto) { userForm = formation; oneShot = false; } auto = true; chunk = null; beginLanding(); return true; }
       if (!PROGRAM[i] || !okMan(PROGRAM[i])) return false;
+      if (PROGRAM[i].id === 'dtake') {            // ダイヤモンド・テイクオフは地上から（滑走路に並んでいるとき）
+        if (gmode === 'fly') return false;
+        if (!auto) { userForm = formation; oneShot = false; }
+        auto = true; beginManeuver(i); return true;
+      }
+      if (gmode !== 'fly' && PROGRAM[i].id !== 'dtake') return false;   // ほかの技は飛んでいるときだけ
       if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 120); spdK = 1; spdWant = 1; levelAttitude(); }
       if (!auto) { userForm = formation; oneShot = true; }   // 自分で操縦しているときは、その技だけ行って操縦を返す
       auto = true; beginManeuver(i); return true;

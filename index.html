@@ -1193,7 +1193,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.28';
+const APP_VER='v04.29';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1518,7 +1518,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=116').then(mod=>{
+  import('./sim3d.js?v=117').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1809,12 +1809,17 @@ function runSim(opt){applyScene();
       const autoOn=!!(sim.h&&sim.h.autoState&&sim.h.autoState());
       const toCockpit=()=>{if(sim.camHold||!sim.setViewTo)return;if(sim.viewName!=='first'||(sim.fpMode!=='cockpit'&&!portraitNow()))sim.setViewTo('first','cockpit')};
       const toGround=()=>{if(sim.camHold||!sim.setViewTo||!landFull())return;if(sim.viewName!=='ground')sim.setViewTo('ground')};
+      /* 三人称前方。並びのあいだは少し斜め（yaw）と上（pitch）から、後ろに並ぶ他機が見えるように */
+      const toFront=(yaw,pit)=>{if(sim.camHold||!sim.setViewTo)return;if(sim.viewName!=='front')sim.setViewTo('front');if(sim.h.setLook)sim.h.setLook(yaw||0,pit||0)};
       if(autoOn&&s.mode!==sim.prevMode){
-        if(s.mode==='taxi'&&(sim.prevMode==='apron'||sim.prevMode==='land'))toCockpit();        /* 誘導路へ */
-        else if(s.mode==='stand'&&sim.prevMode!=='stand')toCockpit();                            /* 並び・待機 */
-        else if(s.mode==='takeoff')toGround();                                                    /* テイクオフ: 地上から第一飛行群を見る */
+        if(s.mode==='taxi'&&sim.prevMode==='apron'){toCockpit();sim.taxiCam=1}                   /* 離陸準備: 誘導路に入って 1 本目までは 1 番機の機内 */
+        else if(s.mode==='taxi'&&sim.prevMode==='land'){if(sim.landCam!==2)toCockpit()}          /* 着陸後: 6 番機を追っている最中は変えない */
+        else if(s.mode==='stand'&&sim.prevMode!=='stand')toFront(40,8);                          /* 並び・待機: 三人称前方、少し斜めから */
+        else if(s.mode==='takeoff'){toGround();if(sim.h.aimAt)sim.h.aimAt(1)}                    /* テイクオフ: 地上から先頭機を追う */
         sim.camHold=false;                                                                         /* 段が変わったら自動に戻す */
       }
+      if(autoOn&&s.mode==='taxi'&&sim.taxiCam===1&&(s.gIdx||0)>=2){sim.taxiCam=2;toFront(0,0)}   /* 2 本目の誘導路から三人称前方 */
+      if(s.mode!=='taxi')sim.taxiCam=0;
       /* 着陸: 着陸体制（滑走路の手前でタイヤを下ろした）に入ったら、2 番目に接地する機体＝2 番機の機内から見る。
          4 番目が接地したら地上視点に戻し、最後に降りる 6 番機を追う（v04.28。以前は降り始めと 3 番機の接地） */
       if(autoOn&&s.landing&&s.landCfg&&s.landStep===1&&!sim.landCam){sim.landCam=1;
@@ -1835,13 +1840,15 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=116').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=117').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
         el.style.setProperty('--ix',(sp.x*100).toFixed(2)+'%');el.style.setProperty('--iy',(sp.y*100).toFixed(2)+'%');
         if(!el.classList.contains('haspanel'))el.classList.add('haspanel')};
-      sim.h=mod.mount($('#simView'),{onState,view,onPanel,onJump:()=>{if(sim&&sim.flashSim)sim.flashSim()}});$('#simLoad').remove();applyInput();
+      sim.h=mod.mount($('#simView'),{onState,view,onPanel,onJump:()=>{if(sim&&sim.flashSim)sim.flashSim();
+        /* 位置を移す瞬間は、機体に付いた視点（機内・三人称）にしておかない。地上視点に戻す（利用者の決め） */
+        if(sim&&sim.setViewTo&&sim.viewName!=='ground'&&landFull()){sim.setViewTo('ground');sim.camHold=false}}});$('#simLoad').remove();applyInput();
       /* 作り直しの最中に押された自動操縦のボタンは、読み込みが済んでから効かせる（下の autoStep を後で呼ぶ） */
       const autoReplay=autoQueue;autoQueue=0;
       /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。

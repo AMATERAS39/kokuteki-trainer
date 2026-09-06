@@ -893,7 +893,7 @@ export function mount(container, opt = {}) {
     { id: 'byover', ja: '頭上通過', form: 'delta', alt: 130, entry: 'front',
       desc: '正面から低く向かってきて、頭の上を通り抜けます。' },
     { id: 'bloom', ja: 'サンライズ', form: 'fan', alt: 190, entry: 'front', far: 1700,
-      desc: '5 機がそろって遠くから進入し、ずっと奥で開き始めて、近づくにつれ放射状に大きく広がります（日の出）。' },
+      desc: '5 機が扇隊形で正面から進入し、一斉に引き起こして、日の出のように放射状に上がります。' },
     { id: 'touch', ja: 'タッチ・アンド・ゴー', form: 'trail', alt: 140, rwy: true, set: { gear: true },
       desc: '縦隊で間を空け、滑走路に平行に進入して、順にタイヤをつけ、そのまま上がります。' },
     { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
@@ -921,7 +921,7 @@ export function mount(container, opt = {}) {
       desc: '極めて高いところから 5 機が真下へ降り、正面の前方で一気に散らばって、煙の筋が五方向へ伸びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     /* v04.27: 始める位置は散開位置（正面 600 m）。以前は原点の上から始めていた */
-    { id: 'eight', ja: 'レター・エイト', form: 'diamond', at: 0, atR: SPREAD_D, alt: 200, entry: 'front', far: SPREAD_D / 2,
+    { id: 'eight', ja: 'レター・エイト', form: 'diamond', at: 0, atR: SPREAD_D, alt: 200,
       desc: '4 機で、空に数字の 8 を描きます。' },
     { id: 'cork', ja: 'コーク・スクリュー', form: 'pair', alt: 200, entry: 'front',
       desc: '2 機。1 機がまっすぐ進み、その周りをもう 1 機が背中を内側に向けて回ります。実際の演技では、直進する 5 番機が背面で飛びます。' },
@@ -1005,6 +1005,13 @@ export function mount(container, opt = {}) {
      中央を 48 度にすると、開き切ったときの並びが 0・26・52 度となり、等しい間隔の扇になる（45 度では 0・24・52 で内寄り） */
   const BLOOM_IN_ANG = 48;
   const BLOOM_TURN = 13;                   // 曲がりきるまで（秒）
+  /* サンライズ（v04.29）: 地上から見て、右端から 30・60・90・120・150 度の放射になる。1 番機が真上（90 度）。
+     正面から向かってくるので、見ている人の右は機体の左。2 番機（左内）60、3 番機（右内）120、4 番機（左外）30、5 番機（右外）150 */
+  const SUN_ANGS = [60, 120, 30, 150];
+  const BLOOM_RAY = 3;                     // 開き切ってから放射の線をまっすぐ伸ばす（秒）
+  const BLOOM_REC = 6.5;                   // 1 番機が頂点を越えて水平（来た向きの逆）に戻る（秒）
+  const BLOOM_ROLL = 2;                    // 背面から正立へ回す（秒）
+  const sunV = new THREE.Vector3(), sunUp = new THREE.Vector3(), sunRt = new THREE.Vector3(), sunNeg = new THREE.Vector3();
   const BLOOM_TURN_V = 6;                  // 鉛直下向きから水平へ（レインフォール）の引き起こし（秒）
   const RAIN_PULL_Z = 330;                 // レインフォールの散開位置の高さ（ここから引き起こす。終わりは 150 m ほど）
   let rainDive = false, rainT = 0;         // レインフォール: 押し下げに入ったか、その経過
@@ -1027,23 +1034,36 @@ export function mount(container, opt = {}) {
     return Math.hypot(sx, sy) / n;
   }
   const NOSE_D = 6.9;                      // 機首の先端まで（尾のスモークを出す位置と対称）
-  function startBloom(vertical, baseH) {
-    bloomS = { t: 0, list: [], vert: !!vertical, c: plane.position.clone() };   // c: 開き始めた点（扇の要）
+  /* sun = true はサンライズ: 水平に向かってくる向きから、正面の鉛直面の放射（SUN_ANGS）へ 90 度引き起こす。
+     1 番機も同じ形で真上へ引き起こす（bloom の課目の側で姿勢を決める） */
+  function startBloom(vertical, baseH, sun) {
+    bloomS = { t: 0, list: [], vert: !!vertical, sun: !!sun, c: plane.position.clone() };   // c: 開き始めた点（放射の要）
     const dur = vertical ? BLOOM_TURN_V : BLOOM_TURN;
-    const hb = baseH === undefined ? st.h : baseH;         // 扇の基準の向き（1 番機の向き）
+    const hb = baseH === undefined ? st.h : baseH;         // 基準の向き（1 番機の向き）
+    const f0 = new THREE.Vector3(Math.sin(hb * D), Math.cos(hb * D), 0);      // 1 番機の向き（水平）
+    const rt = new THREE.Vector3(Math.cos(hb * D), -Math.sin(hb * D), 0);     // 1 番機の右
+    if (sun) { bloomS.v0 = f0.clone(); bloomS.n = f0.clone().cross(AZ).normalize(); }   // 1 番機の引き起こしの面（法線）
     mates.forEach((holder, i) => {
       if (i >= 4) return;
       const side = (i % 2 === 0) ? -1 : 1;                  // 0・2 が左、1・3 が右
       const outer = i >= 2;                                  // 外側の 2 機
-      const ang = (outer ? 90 : BLOOM_IN_ANG) * side, h1 = hb + ang;
-      const v0 = vertical ? new THREE.Vector3(0, 0, -1)
-                          : new THREE.Vector3(Math.sin(hb * D), Math.cos(hb * D), 0);
-      const v1 = new THREE.Vector3(Math.sin(h1 * D), Math.cos(h1 * D), 0);
-      /* 曲がる角ぶんだけ遠回りになるので、その比だけ速く飛ぶ。
+      let v0, v1, ang = 0, turnL = 0;
+      if (sun) {
+        v0 = f0.clone();
+        const th = SUN_ANGS[i] * D;                          // 地上から見て右端からの角。見ている人の右 = 機体の左 = -rt
+        v1 = rt.clone().multiplyScalar(-Math.cos(th)).addScaledVector(AZ, Math.sin(th)).normalize();
+        ang = SUN_ANGS[i]; turnL = 90;                       // 1 番機も 90 度曲がる（同じ形なので速さの比は 1）
+      } else {
+        ang = (outer ? 90 : BLOOM_IN_ANG) * side; const h1 = hb + ang;
+        v0 = vertical ? new THREE.Vector3(0, 0, -1) : f0.clone();
+        v1 = new THREE.Vector3(Math.sin(h1 * D), Math.cos(h1 * D), 0);
+      }
+      /* 曲がる角ぶんだけ遠回りになるので、1 番機との比だけ速く飛ぶ。
          鉛直下向きから水平へ（レインフォール）は、どの機体も 90 度曲がる */
       const turn = Math.acos(clamp(v0.dot(v1), -1, 1)) / D;
-      const vk = 1 / chordFactor(turn);
-      bloomS.list[i] = { p: holder.position.clone(), v0, v1, ang, dur, vk, delay: outer ? 0 : BLOOM_LAG };
+      const vk = chordFactor(turnL) / chordFactor(turn);
+      const n = v0.clone().cross(v1); if (n.lengthSq() > 1e-9) n.normalize(); else n.set(0, 0, 1);   // 曲がる面の法線
+      bloomS.list[i] = { p: holder.position.clone(), v0, v1, ang, dur, vk, n, delay: outer ? 0 : BLOOM_LAG };
     });
   }
   /* 散った機体を、いまの位置から隊形へ戻す（ふつうの合流にわたす） */
@@ -1068,10 +1088,10 @@ export function mount(container, opt = {}) {
        曲がる角ぶんの速さ（vk）だけでは、中央の 2 機が弧の内側へ 6〜19 m 凹んだ（実測 v04.28。利用者の指摘）。
        開いた点の近くでは半径の向きが定まらないので、120 m から 250 m のあいだで少しずつ効かせる */
     let ds = v * dt;
-    if (bloomS.c) {
+    if (bloomS.c && bloomS.track !== false) {
       bNose.copy(plane.position).addScaledVector(fwd, NOSE_D).sub(bloomS.c);      // 1 番機の機首の先端
       bArm.copy(b.p).addScaledVector(bv, NOSE_D).sub(bloomS.c);                   // この機体の機首の先端
-      if (!bloomS.vert) { bNose.z = 0; bArm.z = 0; }        // 水平に開くときは水平面ではかる（1 番機の上昇に引かれない）
+      if (!bloomS.vert && !bloomS.sun) { bNose.z = 0; bArm.z = 0; }        // 水平に開くときは水平面ではかる（1 番機の上昇に引かれない）
       const want = bNose.length(), ad = bArm.dot(bv), disc = ad * ad + want * want - bArm.lengthSq();
       if (disc > 0) {
         const arc = clamp(-ad + Math.sqrt(disc), v * dt * 0.5, v * dt * 1.6);     // 速さは半分から 1.6 倍まで
@@ -1085,6 +1105,9 @@ export function mount(container, opt = {}) {
       bIn.copy(b.v1).addScaledVector(bv, -b.v1.dot(bv));
       if (bIn.lengthSq() < 1e-6) bIn.set(0, 0, 1); else bIn.normalize();
       bUp.copy(bIn).multiplyScalar(1 - e).addScaledVector(AZ, e).normalize();
+    } else if (bloomS.sun) {
+      /* 引き起こし: 機体の上は曲がる内側（面の法線 × 進む向き）。始めは開く先、終わりは来た向きの逆 */
+      bUp.copy(b.n).cross(bv).normalize();
     } else {
       /* 旋回: 傾きは旋回率に見合ったバンクにする */
       const om = (b.ang * D) * (6 * k * (1 - k)) / b.dur;    // 角速度（rad/s）
@@ -1229,7 +1252,6 @@ export function mount(container, opt = {}) {
      接地は step() のふつうの判定（z <= 3.2）に任せる（そこから減速・誘導路・待機まで既にある） */
   let landN = true;                        // 着陸の向き: true = 北向き（南から進入）
   let landStep = 0, landSide = 0;          // 着陸の道すじの段（0〜3）と、通る脇（+1 右 / -1 左）
-  let landLine = false;                    // 機内視点の着陸（移さない）で、南の点に着いてから線に乗せる段に入ったか
   function beginLanding() {
     manPhase = 'land'; phaseT = 0; markOn = false;
     /* 進入はいつも南から北向き。向きを選ぶと、南向きのとき接地点が帯の外（y = -860）になり、
@@ -1238,7 +1260,7 @@ export function mount(container, opt = {}) {
     landStep = 0; landSide = 0;
     /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
        滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
-    landRun = true; landDesc = -1; landMusOn = false; landReal = false; landLine = false;
+    landRun = true; landDesc = -1; landMusOn = false;
     landCfg = true; smokeOn = false;                        // 着陸に入ったら全機スモークオフ（入れ直せない。次の出発で解ける）
     gearOn = false; lightsOn = false; applyGear();          // 滑走路の手前 1.8 km で着陸体制（タイヤ・ライト）に入る
     /* 曲: anthem がリストにあれば、ここでは流れている曲をそのまま続け、先頭の降下開始で頭から流し直す。
@@ -1332,7 +1354,7 @@ export function mount(container, opt = {}) {
     { const nf = FORMATIONS[PROGRAM[i].form || userForm] || { offs: [] };
       if (auto && !oneShot && PROGRAM[i].id !== 'dtake' && !tkOn && gmode === 'fly')
         mates.forEach((h, k) => { const u = h.userData; if (!nf.offs[k] && u.shown && !u.ground && !u.gp && !u.tk) { h.visible = false; u.shown = false; u.rejoin = true; } }); }
-    reIn = 0; aimN = 0;
+    reIn = 0; if (PROGRAM[i].id !== 'takeoff') aimN = 0;   // 離陸ではアプリが「先頭機を追う」と指すので消さない
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null; aimLeader = false;
     if (PROGRAM[i].id !== 'touch' && pathLag > 0) endPath();
     const m = PROGRAM[i];
@@ -1455,32 +1477,7 @@ export function mount(container, opt = {}) {
              北向き、勾配の上の高さ）へ移る。見えない距離で行うので、飛んで回り込むより自然に見える */
           holdBank(0); holdPitch(clamp((Math.max(st.z, 200) - st.z) * 0.08, -4, 6)); autoIn.r = 0;
           const far0 = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
-          if (curView === 'first') {
-            /* 機内から見ているとき: 移さずに飛ぶ。延長線の南 LAND_FAR + 900 m の点へ向かい、北向きに乗ったところで直線進入へ。
-               追従機は 1 番機の道を遅れてたどる（間隔は placeReplay が機ごとの速さで広げる。滑走路 1・2 は交互） */
-            const px = RWY.x, py = RWY.y - LAND_FAR - 900;
-            const dP = Math.hypot(px - st.x, py - st.y);
-            /* 南の点に一度着いたら（landLine）、線に乗せる側に固定する。固定しないと、点から離れた次のコマで
-               また点へ向かい、点のまわりを回り続けた（実測 v04.27: 南 5 km で輪になり、進入に入らなかった） */
-            if (!landLine && dP > 300 && phaseT < 150) { steerTo(px, py, Math.max(st.z, 200)); autoIn.r = 0; }
-            else {
-              landLine = true;
-              const onLine = Math.abs(st.x - RWY.x) < 250 && Math.abs(wrap180(RWY.h - st.h)) < 35;
-              if (!onLine && phaseT < 200) { steerTo(RWY.x, RWY.y - LAND_FAR + 400, Math.max(st.z, 200)); autoIn.r = 0; }
-              else {
-                landStep = 1; landDesc = 0; landSide = 0;
-                /* 段の時計を戻す。着陸の段には 120 秒で自動操縦を切る備えがあり、実飛行では南の点まで飛ぶだけで
-                   120 秒を越えて、進入の途中で操縦が返ってしまった（実測 v04.27: 306 秒、滑走路の手前 1.7 km） */
-                phaseT = 0;
-                gearOn = false; lightsOn = false; applyGear();
-                landReal = true;
-                /* 滑走路 2 の線への 100 m の横ずれは 8 秒かけて寄せる（u.rwk 0 → 1）。一度に当てると、
-                   2 番機に乗っているとき横へ 103 m 跳んだ（実測 v04.27） */
-                mates.forEach((h, i) => { const u = h.userData; u.rwx = ((i + 1) % 2) ? RWY2 : 0; u.rwk = 0; u.pfDone = false; u.parked = false; u.ground = false; u.gp = null; });
-                st.cue = '進入';
-              }
-            }
-          } else if (far0 > JUMP_FAR || phaseT > 45) {
+          if (far0 > JUMP_FAR || phaseT > 45) {
             st.x = RWY.x; st.y = RWY.y - LAND_FAR; st.z = 3 + (tdY - st.y) * LAND_SLOPE; st.h = RWY.h;
             spdK = 1; spdWant = 1; levelAttitude();
             seedHistory(100); slowAim = SLOW_AIM; if (opt.onJump) opt.onJump();
@@ -1575,13 +1572,8 @@ export function mount(container, opt = {}) {
            移す先へ向かって離れれば、去った側から戻ってくる形になり、移す瞬間も同じ線の上 */
         /* 機内から見ているとき（一人称）は移さない。移すと景色が跳ぶのが分かる（利用者の指示: 瞬間移動は使うが、機内で見ているときはバレないように）。
            その場合は移す先（jx, jy）まで実際に飛び、そこで向き直して入る。地上から見ているときは、見えない距離で移す（従来どおり） */
-        const ride = curView === 'first';
-        const dJ = Math.hypot(jx - st.x, jy - st.y);
-        if (ride) {
-          if (dJ > 220 && phaseT < 90) steerTo(jx, jy, GATE.z);                              // 移す先まで飛ぶ
-          else { manPhase = 'align'; phaseT = 0; }                                             // 着いたら（向きは align で直す）
-        }
-        else if (dO < JUMP_FAR) { const bj = Math.atan2(jx - GROUND_EYE.x, jy - GROUND_EYE.y); steerTo(GROUND_EYE.x + Math.sin(bj) * (JUMP_FAR + 600), GROUND_EYE.y + Math.cos(bj) * (JUMP_FAR + 600), GATE.z); }
+        /* v04.29: 視点によらず移す。移す瞬間はアプリ側（onJump）で地上視点に戻す（機内・三人称のまま移さない） */
+        if (dO < JUMP_FAR) { const bj = Math.atan2(jx - GROUND_EYE.x, jy - GROUND_EYE.y); steerTo(GROUND_EYE.x + Math.sin(bj) * (JUMP_FAR + 600), GROUND_EYE.y + Math.cos(bj) * (JUMP_FAR + 600), GATE.z); }
         /* 向きは 60 度以内まで合わせれば移す（移す先で向きは進入の向きに置き直す）。
            8 度まで待つと、遠くで 180 度回り切るのに 17 秒かかった（実測 v04.24）。隊形が組めるのは待つ */
         else if (Math.abs(wrap180(inH - st.h)) > 60 || (!matesReady() && phaseT < 60)) {   // 向きをおおむね合わせ、隊形が組めるのを待ってから移す
@@ -1595,7 +1587,7 @@ export function mount(container, opt = {}) {
           if (opt.onJump) opt.onJump();
           manPhase = 'align'; phaseT = 0;
         }
-        if (!ride && phaseT > 70) { manPhase = 'align'; phaseT = 0; }
+        if (phaseT > 70) { manPhase = 'align'; phaseT = 0; }
       } else {
         /* 正面から入る課目は、観覧位置そのものへ向かってまっすぐ飛ぶ。
            少し先（演目の中心）を狙うと、正面の線から斜めにずれたまま突っ込むことになる */
@@ -1722,22 +1714,38 @@ export function mount(container, opt = {}) {
         autoIn.r = 0;
         if (manT > 9) nextManeuver();
         break;
-      case 'bloom': {                            // サンライズ: 正面の奥で隊形を整え、やや奥から放射状に開く（日の出）
-        holdBank(0); autoIn.r = 0;
+      case 'bloom': {                            // サンライズ: 扇隊形で正面から進入し、散開位置で一斉に引き起こして日の出の放射（v04.29）
         const eb = eyeDir();
         const alongB = (st.x - eb.ex) * eb.dx + (st.y - eb.ey) * eb.dy;      // 観覧位置からの距離（正が正面側）
-        smokeAll = true;                           // 開始位置から終わりまで、ずっとスモークを出す
-        if (!spreadOn) {                           // 開始位置から散開位置まで、平らな三角のまま直進する
-          holdPitch(2); formScale = 1;
+        if (!spreadOn) {                           // 開始位置から散開位置まで、扇隊形のまま直進する
+          holdBank(0); holdPitch(2); autoIn.r = 0; formScale = 1; smokeAll = true;
           steerTo(eb.ex, eb.ey, GATE.z);           // 観覧位置へまっすぐ近づく
-          if (alongB < BLOOM_AT || manT > 26) { spreadOn = true; spreadT = 0; startBloom(); }
+          if (alongB < BLOOM_AT || manT > 26) { spreadOn = true; spreadT = 0; startBloom(false, undefined, true); }
           break;
         }
         spreadT += dt; bloomS.t = spreadT;
-        holdBank(0); holdPitch(2);                 // 1 番機はまっすぐのまま
-        /* 終わりは、1 番機が観覧位置を過ぎて後ろへ抜けたところ。
-           開始位置から終わりまで、ずっとスモークを出したままにする */
-        if (alongB < -END_D || manT > 70) { endBloomMates(); nextManeuver(); }
+        /* 1 番機: 真上へ引き起こす（放射の真ん中）→ 少し直進 → 頂点を越えて水平（来た向きの逆）→ 正立に戻す。
+           僚機（placeBloom）と同じ形（向きの補間）で曲げるので、同じ速さなら同じ弧を描く */
+        const S = bloomS, tRay = BLOOM_TURN + BLOOM_RAY;
+        if (spreadT <= tRay) {
+          const k = clamp(spreadT / BLOOM_TURN, 0, 1), e = k * k * (3 - 2 * k);
+          sunV.copy(S.v0).lerp(AZ, e).normalize();
+        } else {
+          const t3 = spreadT - tRay, k3 = clamp(t3 / BLOOM_REC, 0, 1), e3 = k3 * k3 * (3 - 2 * k3);
+          sunV.copy(AZ).lerp(sunNeg.copy(S.v0).negate(), e3).normalize();
+        }
+        sunUp.copy(S.n).cross(sunV).normalize();   // 機体の上は曲がる内側
+        if (spreadT > tRay + BLOOM_REC) {          // 頂点を越えると背面。進む向きのまわりに回して正立へ
+          const k4 = clamp((spreadT - tRay - BLOOM_REC) / BLOOM_ROLL, 0, 1), e4 = k4 * k4 * (3 - 2 * k4);
+          sunUp.applyAxisAngle(sunV, Math.PI * e4);
+        }
+        sunRt.crossVectors(sunV, sunUp).normalize(); sunUp.crossVectors(sunRt, sunV).normalize();
+        att.setFromRotationMatrix(fmat.makeBasis(sunRt, sunV, sunUp)); readAttitude();
+        autoIn.x = 0; autoIn.y = 0; autoIn.r = 0; smIn.x = 0; smIn.y = 0; smIn.r = 0;
+        smokeAll = spreadT <= tRay;                // 放射を描き終えたら全機切る（絵を残す。戻りの線は引かない）
+        S.track = spreadT <= tRay;                 // 半径の追従も止める（1 番機が頂点を越えて戻るあいだ、僚機が合わせて減速しない。実測: 0.5 倍まで落ちた）
+        if (spreadT > tRay) smokeOn = false;
+        if (spreadT > tRay + BLOOM_REC + BLOOM_ROLL || manT > 90) { endBloomMates(); nextManeuver(); }
         break;
       }
       case 'rain': {                             // レインフォール: サンライズと同じ要領。開始位置が散開位置の真上（鉛直）
@@ -1974,7 +1982,7 @@ export function mount(container, opt = {}) {
     }
     /* 墜落と天井の備え。レインフォールで降りているあいだと、
        タッチ・アンド・ゴーで滑走路へ降ろしているあいだは効かせない（効かせると降りられない） */
-    if (!rainOn && !(m.id === 'touch' && !touchDone) && !(m.id === 'tuck' && tkT2 < 1.2)) safety();   // 背面のあいだは姿勢を直接決めているので手当てしない
+    if (!rainOn && !(m.id === 'touch' && !touchDone) && !(m.id === 'tuck' && tkT2 < 1.2) && !(m.id === 'bloom' && spreadOn)) safety();   // 姿勢を直接決めているあいだは手当てしない
     return autoIn;
   }
 
@@ -2160,6 +2168,7 @@ export function mount(container, opt = {}) {
   function step(dt) {
     smDt = dt || 0.05;
     st.mode = gmode;
+    st.gIdx = gPath ? gPath.idx : -1;                         // 地上の道の何本目か（誘導路のカメラの段取りに使う）
     st.landStep = manPhase === 'land' ? landStep : -1;       // 着陸の段（-1 = 着陸中でない、0 = 離れる、1 = 直線進入）
     st.landing = landRun;                                     // 着陸して滑走路へ戻るまで
     /* 接地した機の数（1 番機 + 道をたどって高さ 3.5 m 以下になった追従機）。カメラの段取りに使う */
@@ -2544,7 +2553,7 @@ export function mount(container, opt = {}) {
     const v = SPEED * spdK;
     pathLag = lagStep;
     mates.forEach((h, i) => { const u = h.userData; if (!u.shown) return;
-      const lag = (i + 1) * lagStep; u.lag = lag; u.rwx = ((i + 1) % 2) ? RWY2 : 0; u.rwk = undefined; u.pfDone = false; u.parked = false; u.ground = false; u.gp = null;
+      const lag = (i + 1) * lagStep; u.lag = lag; u.rwx = ((i + 1) % 2) ? RWY2 : 0; u.pfDone = false; u.parked = false; u.ground = false; u.gp = null;
       h.position.set(plane.position.x - fwd.x * v * lag + u.rwx, plane.position.y - fwd.y * v * lag, plane.position.z - fwd.z * v * lag);
       h.quaternion.copy(att); });
   }
@@ -2553,13 +2562,9 @@ export function mount(container, opt = {}) {
     if (u.lag === undefined) {                                     // いまの間隔から始める（道の上の同じ位置）
       u.lag = u.shown ? Math.min(tgt, holder.position.distanceTo(plane.position) / Math.max(20, SPEED * spdK)) : tgt;
     }
-    /* 実飛行の着陸（機内視点）: 全機が同じ速さで遅れを増やすと途中で同じ遅れに並んで重なる。
-       後ろの機ほど速く増やし（1 機あたり 18 秒の間隔を 130 秒で作る）、上限 0.7（見た目の速さが 18 m/s まで） */
-    const rate = landReal ? clamp(tgt / 130, LAG_RATE, 0.7) : LAG_RATE;
-    u.lag = Math.min(tgt, u.lag + rate * dt);
+    u.lag = Math.min(tgt, u.lag + LAG_RATE * dt);
     const sAt = stateAt(u.lag);
-    if (u.rwk !== undefined && u.rwk < 1) u.rwk = Math.min(1, u.rwk + dt / 8);   // 横ずれの寄せ（機内視点の着陸）
-    holder.position.copy(sAt.p); holder.position.x += (u.rwx || 0) * (u.rwk === undefined ? 1 : u.rwk);   // 滑走路 2 に降りる機は 100 m 西の線
+    holder.position.copy(sAt.p); holder.position.x += (u.rwx || 0);   // 滑走路 2 に降りる機は 100 m 西の線
     if (holder.position.z < 3) holder.position.z = 3;
     if (!u.shown) holder.quaternion.copy(sAt.q); else turnMate(holder, sAt.q, dt);
     holder.visible = true; u.shown = true;
@@ -3427,7 +3432,6 @@ export function mount(container, opt = {}) {
   let loopRestart = false;                 // 固定にしたあと、着陸してから離陸で始め直す
   let musCut = -1;                         // 曲を切るまでの残り（秒）。主旋律が入る直前で切る
   let landRun = false;                     // 着陸して滑走路へ戻っているあいだ
-  let landReal = false;                    // 機内視点のため、無限遠へ移さず実際に飛んで着陸しているか（追従機の間隔を機ごとの速さで作る）
   let standWait = false;                   // 滑走路で「加速」を待っている（押されたら演目を始め直す）
   /* 音の大きさが立ち上がるところを探す。0.05 秒ごとの音量を出し、
      はじめの静かなところの何倍かを超えた最初の点を「主旋律の入り」とする */
@@ -3590,6 +3594,7 @@ export function mount(container, opt = {}) {
     addLook(dy, dp) { look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },
     resetLook() { if (curView === 'ground') gAim(); else { look.y = 0; look.p = 0; } },
+    setLook(yawDeg, pitchDeg) { look.y = (+yawDeg || 0) * D; look.p = (+pitchDeg || 0) * D; },   // 三人称前方を斜めから（並びのあいだ）
     /* 地上視点で 2 回叩いた場所へ立ち位置を移す。画面の座標は −1〜1（中央が 0）。
        地面・滑走路・オブジェクト（山や家や木）の上に立てる */
     /* 地上の立ち位置と向きを原点（初めの位置・北向き）へ戻す */

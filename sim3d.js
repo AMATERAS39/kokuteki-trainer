@@ -104,7 +104,7 @@ const LAND_TD_Y = -STRIP_END + 450;              // 接地する点（y = -100�
 const LAND_SLOPE = 0.052;                        // 進入の勾配（約 3 度）
 /* JUMP_FAR: ここまで離れたら位置を移してよい。1000 m にすると、離陸して上がりきった直後（原点から 1 km ほど）に
    目の前で移ってしまい、瞬間移動が見える（実測）。壁のあった距離まで離れてからにする */
-const JUMP_FAR = REAR_END, JUMP_FRONT = 3200, JUMP_AT = 700, JUMP_RWY = 1800;
+const JUMP_FAR = REAR_END, JUMP_FRONT = 2600, JUMP_AT = 700, JUMP_RWY = 1800;   // v04.24: JUMP_FRONT 3200 → 2600（無駄な直進を減らす）
 /* ===== 演目の正面 =====
    正面は北に固定しない。課目ごとに、いまの機体がいる方角に最も近い東西南北を正面に選ぶ
    （そちらから入ってくれば、無限遠への回り込みが短い）。
@@ -1099,7 +1099,7 @@ export function mount(container, opt = {}) {
   }
   const bearO = () => ((Math.atan2(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y) / D) % 360 + 360) % 360;   // 原点から見た方位
   const CHG_R = 850;                       // チェンジオーバー・ターンの弧の半径（m）
-  const DTAKE_R = 520;                     // ダイヤモンド・テイクオフのあと、原点のまわりを回る輪の半径（m）
+  const DTAKE_R = 330;                     // ダイヤモンド・テイクオフのあと、原点のまわりを回る輪の半径（m）。v04.24: 520 → 330（近くで見せる）
   let dtT = -1;                            // その一周の経過（秒）。-1 はまだ上がっている途中
   let tkWp = 0, tkT = 0, tkT2 = 0;         // タック・クロスの通過点の番号、背面へ回す経過、外側へ戻す経過（秒）
   let oproX = false, oproUp = false, oproZ = -1;   // オポジット: 交差したか、機首を上げ終えたか、進入の高さ
@@ -1389,7 +1389,7 @@ export function mount(container, opt = {}) {
         autoIn.x = clamp(-wrap180(st.b) / 18, -1, 1); autoIn.y = -clamp(-st.p / 10, -1, 1); autoIn.r = 0;
         safety();
         if ((Math.abs(st.b) < 12 && Math.abs(st.p) < 8 && st.z > 120) || phaseT > 10) {
-          auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.cue = ''; st.desc = ''; formation = userForm; formScale = 1;
+          auto = false; oneShot = false; manPhase = 'do'; st.show = ''; st.cue = ''; st.desc = ''; formation = userForm; formScale = 1; landCfg = false;
         }
         return autoIn;
       }
@@ -1451,14 +1451,21 @@ export function mount(container, opt = {}) {
         return autoIn;                        // 地面回避（safety）は呼ばない。呼ぶと降りられない
       }
       if (manPhase === 'gather') {         // 隊形が組めるまで待つ。観覧位置のまわりを回って待つので、遠くへ流れない
-        /* 離陸の最中は、回らずまっすぐ上がる（回ると離陸そのものが不自然に見える） */
-        if (tkOn) { holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12)); autoIn.r = 0; safety(); return autoIn; }
+        /* 離陸の最中: 100 m まではまっすぐ上がる（回ると離陸そのものが不自然に見える）。
+           そこからは 5・6 番機が上がるのを待つあいだも、原点のまわり（DTAKE_R）を速さ 0.8 で回る。
+           まっすぐ待つと 50 秒で 1 km 以上離れ、視点から見えなくなった（実測 v04.24） */
+        if (tkOn) {
+          if (st.z < 100) { holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12)); }
+          else { spdWant = 0.8; orbitAround(GROUND_EYE.x, GROUND_EYE.y, DTAKE_R, GATE.z, turnSign >= 0 ? 1 : -1); }
+          autoIn.r = 0; safety(); return autoIn;
+        }
         orbitEye(GATE.z);
         /* 組めたら始める。正面から向かってくる課目だけ、門からの進入をやり直す。
            それ以外は、正面のまわりを回っているところから そのまま始める（回り込みで時間を使わない） */
         /* 隊形が組めるまで待つ。時間で切り上げると、揃わないまま演目が始まってしまう
            （チェンジオーバー・ターンのスモークが出ない、コークスクリューが遠くへ行く、などの元） */
         if (matesReady() || phaseT > 150) {
+          spdWant = 1;                                                  // 離陸待ちで落としていた速さを戻す
           if (m.entry === 'front' || m.at !== undefined || m.rwy) { planEntry(m); manPhase = 'in'; phaseT = 0; }
           else { manPhase = 'do'; st.cue = ''; markOn = false; phaseT = 0; }
         }
@@ -1483,8 +1490,13 @@ export function mount(container, opt = {}) {
           inH = (planFace + 180) % 360;
           jx = GROUND_EYE.x - Math.sin(inH * D) * JUMP_FRONT; jy = GROUND_EYE.y - Math.cos(inH * D) * JUMP_FRONT;
         }
-        if (dO < JUMP_FAR) steerTo(st.x + fwd.x * 2000, st.y + fwd.y * 2000, GATE.z);   // まず離れる
-        else if (Math.abs(wrap180(inH - st.h)) > 8 || (!matesReady() && phaseT < 60)) {   // 向きを合わせ、隊形が組めるのを待ってから移す
+        /* まず離れる。離れる向きは「これから現れる側」（移す先 jx, jy の方角）。機首の向きのまま離れると、
+           東へ去って西から現れる、といった無駄な動線になった（実測: 離陸のあとのタック・クロス）。
+           移す先へ向かって離れれば、去った側から戻ってくる形になり、移す瞬間も同じ線の上 */
+        if (dO < JUMP_FAR) { const bj = Math.atan2(jx - GROUND_EYE.x, jy - GROUND_EYE.y); steerTo(GROUND_EYE.x + Math.sin(bj) * (JUMP_FAR + 600), GROUND_EYE.y + Math.cos(bj) * (JUMP_FAR + 600), GATE.z); }
+        /* 向きは 60 度以内まで合わせれば移す（移す先で向きは進入の向きに置き直す。白い一瞬で隠れる）。
+           8 度まで待つと、遠くで 180 度回り切るのに 17 秒かかった（実測 v04.24）。隊形が組めるのは待つ */
+        else if (Math.abs(wrap180(inH - st.h)) > 60 || (!matesReady() && phaseT < 60)) {   // 向きをおおむね合わせ、隊形が組めるのを待ってから移す
           holdBank(clamp(wrap180(inH - st.h) * 1.4, -45, 45));
           holdPitch(clamp((GATE.z - st.z) * 0.12, -15, 15));
         } else {                                                                          // 位置だけ移す
@@ -1728,17 +1740,23 @@ export function mount(container, opt = {}) {
         break;
       }
       case 'dtake':                              // ダイヤモンド・テイクオフ: ひし形のまま、わずかな時間差で上がる
-        if (tkOn || st.z < 150) {                  // 全機が上がるまでは、まっすぐ上昇
-          holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12));
-          if (manT > 60) nextManeuver();
+        /* 全機が上がるまで: 100 m まではまっすぐ上昇。そこからは上がりながら原点のまわりを回って待つ。
+           まっすぐ待つと 5・6 番機が上がるまでの 50 秒で 1 km 以上離れてしまい、視点から見えなくなった（実測 v04.24） */
+        if (tkOn || st.z < 150) {
+          if (st.z < 100) { holdBank(0); holdPitch(clamp(12 - st.z / 30, 3, 12)); }
+          else { spdWant = 0.8; orbitAround(GROUND_EYE.x, GROUND_EYE.y, DTAKE_R, GATE.z, turnSign >= 0 ? 1 : -1); }
+          if (manT > 60) { spdWant = 1; nextManeuver(); }
           break;
         }
         /* 全機が上がった。ここから追従機も一斉にスモークを出し、原点のまわりを一周する */
         if (dtT < 0) { dtT = 0; hdgSum = 0; prevH = st.h; }
         dtT += dt;
         smokeAll = true;
+        /* 輪は 330 m。60 m/s だと旋回半径の下限（バンク 52 度で 287 m）に近く、外へふくらんで 560 m の輪になった（実測）。
+           輪のあいだは速さを 0.8 倍に落とす（半径は速さの二乗で効くので、下限が 185 m まで下がる） */
+        spdWant = 0.8;
         orbitAround(GROUND_EYE.x, GROUND_EYE.y, DTAKE_R, GATE.z, turnSign >= 0 ? 1 : -1);
-        if (hdgSum > 175 || manT > 90) nextManeuver();   // 原点のまわりを半周
+        if (hdgSum > 175 || manT > 90) { spdWant = 1; nextManeuver(); }   // 原点のまわりを半周
         break;
       case 'touch': {                            // タッチ・アンド・ゴー: 滑走路に平行になったところから降ろし、順にタイヤをつけて上がる
         if (pathLag <= 0) { seedHistory(60); spreadOnLine(TOUCH_LAG); }   // 追従機は後ろに 9 秒ずつ、滑走路 1・2 に交互に並べ、同じ動きで接地する
@@ -3474,7 +3492,7 @@ export function mount(container, opt = {}) {
     /* 自動操縦の入り切り。入れたときは観覧位置の南の空から演技を始める */
     setAuto(on) {
       auto = !!on; oneShot = false;
-      if (!on) { musWait = -1; musCut = -1; standWait = false; landRun = false; stopMusic(MUS_FADE); }
+      if (!on) { musWait = -1; musCut = -1; standWait = false; landRun = false; landCfg = false; stopMusic(MUS_FADE); }
       if (auto) {
         userForm = formation;
         let f0 = 0;
@@ -3696,10 +3714,10 @@ export function mount(container, opt = {}) {
     musicPlaying() { return !!musSrc; },
     setLead(sec) { musLead = Math.max(0, +sec || 0); return musLead; },
     clearMusic() { stopMusic(); musGen++; musDec.clear(); musList = []; musBuf = null; musLead = 0; musWait = -1; },
-    setSmoke(on) { if (on && landCfg) return false; smokeOn = !!on; return smokeOn; },
+    setSmoke(on) { if (on && landCfg && auto) return false; smokeOn = !!on; return smokeOn; },   // 着陸体制の錠は自動操縦のあいだだけ
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },
-    level() { levelAttitude(); st.ground = false; if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 60); spdK = 1; } },
+    level() { levelAttitude(); st.ground = false; landCfg = false; if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 60); spdK = 1; } },
     home() { gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1; Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },
     dispose() { running = false; cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); cv.remove();
       if (actx) { try { aNodes && aNodes.forEach(n => n.src.stop()); actx.close(); } catch (e) {} actx = null; aNodes = null; } }

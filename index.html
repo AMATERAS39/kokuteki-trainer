@@ -1193,9 +1193,10 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.23';
+const APP_VER='v04.24';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
+let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
 /* 体験版の出題数の上限。選んだ数ではなく、完全版で最初から入っている数の半分にする
    （方位 20 → 10、姿勢指示器 10 → 5、方位×姿勢指示器 20 → 10、操縦操作 10 → 5） */
 const qCap=()=>Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
@@ -1517,7 +1518,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=113').then(mod=>{
+  import('./sim3d.js?v=114').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1735,7 +1736,7 @@ function runSim(opt){applyScene();
     paintViewBtn();
     if(sim.h){sim.h.setCockpit(inside);sim.h.setView(v);if(sim.setZoom)sim.setZoom(1);if(sim.paintAuto)sim.paintAuto()}};
   sim.setViewTo=setViewTo;
-  vBtn.addEventListener('click',()=>{const L=viewList(),c=curItem(),i=L.indexOf(c);
+  vBtn.addEventListener('click',()=>{sim.camHold=true;const L=viewList(),c=curItem(),i=L.indexOf(c);
     const nx=L[(i+1)%L.length];setViewTo(nx[0],nx[3]);toast(nx[1]+'にしました')});
   /* 端末を縦にしたら、一人称は計器だけの見せ方に戻す */
   sim.mqP=matchMedia('(orientation:portrait)');
@@ -1801,10 +1802,19 @@ function runSim(opt){applyScene();
       const dis=s.mode==='takeoff'||!!s.waiting||(s.mode==='stand'&&s.lineup===false);if(tk.disabled!==dis)tk.disabled=dis;tk.classList.toggle('busy',dis)}
     /* 整列中（滑走路へ入って向きを揃えているあいだ）は、機内から見せる。
        切り替えは一度だけで、そのあとは視点のスイッチで自由に変えられる */
-    {const lining=s.mode==='stand'&&(s.lineup===false||sim.prevMode!=='stand');   /* 整列中…か、並びに入った瞬間（スキップで即テイクオフでも） */
-      if(lining&&!sim.lineCam){sim.lineCam=true;
-        if(sim.setViewTo&&(sim.viewName!=='first'||(sim.fpMode!=='cockpit'&&!portraitNow())))sim.setViewTo('first','cockpit')}
-      if(s.mode!=='stand'&&s.mode!=='taxi'&&s.mode!=='apron'&&sim.lineCam)sim.lineCam=false;
+    {/* 展示飛行モードのカメラの段取り（自動操縦のときだけ）:
+         「離陸準備」で誘導路を走り始めたら機内へ（地上からずっと見ていると飽きる）。整列・待機も機内。
+         浮いて上がったら地上へ戻す（演目は地上から見るもの）。着陸して誘導路に入ったらまた機内。
+         利用者が視点のスイッチに触れたら（sim.camHold）、次の切り替わりまで自動では変えない */
+      const autoOn=!!(sim.h&&sim.h.autoState&&sim.h.autoState());
+      const toCockpit=()=>{if(sim.camHold||!sim.setViewTo)return;if(sim.viewName!=='first'||(sim.fpMode!=='cockpit'&&!portraitNow()))sim.setViewTo('first','cockpit')};
+      const toGround=()=>{if(sim.camHold||!sim.setViewTo||!landFull())return;if(sim.viewName!=='ground')sim.setViewTo('ground')};
+      if(autoOn&&s.mode!==sim.prevMode){
+        if(s.mode==='taxi'&&(sim.prevMode==='apron'||sim.prevMode==='land'))toCockpit();        /* 誘導路へ */
+        else if(s.mode==='stand'&&sim.prevMode!=='stand')toCockpit();                            /* 並び・待機 */
+        else if(s.mode==='fly'&&sim.prevMode==='takeoff')toGround();                              /* 浮いた: 地上から見る */
+        sim.camHold=false;                                                                         /* 段が変わったら自動に戻す */
+      }
       sim.prevMode=s.mode}
     if(s.mode&&s.mode!=='fly'){const nm=$('#showName');if(nm){nm.textContent=s.cue||'';nm.hidden=!s.cue}}
     /* 一時停止の表示。演目が終わったら止めるのをやめる */
@@ -1817,13 +1827,15 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=113').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=114').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
         el.style.setProperty('--ix',(sp.x*100).toFixed(2)+'%');el.style.setProperty('--iy',(sp.y*100).toFixed(2)+'%');
         if(!el.classList.contains('haspanel'))el.classList.add('haspanel')};
       sim.h=mod.mount($('#simView'),{onState,view,onPanel,onJump:()=>{if(sim&&sim.flashSim)sim.flashSim()}});$('#simLoad').remove();applyInput();
+      /* 作り直しの最中に押された自動操縦のボタンは、読み込みが済んでから効かせる（下の autoStep を後で呼ぶ） */
+      const autoReplay=autoQueue;autoQueue=0;
       /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。
          鍵をかけるのは 編隊・スモーク・写真・タイヤ・ライト。ボタンは消さずに灰色にして出しておく */
       sim.demo=!isFull();
@@ -1964,6 +1976,7 @@ function runSim(opt){applyScene();
         const lb={t:on?(g?'前':'上'):'奥',b:on?(g?'後ろ':'下'):'手前',l:'左',r:'右'};
         Object.entries(lb).forEach(([k,v])=>{const e=$('#sim').querySelector('.stick .lb.'+k);if(e)e.textContent=v})};
       sim.paintAuto=paintAuto;
+      if(autoReplay>0)setTimeout(()=>{for(let k=0;k<autoReplay;k++)autoStep()},300);
       /* 体験版の「固定」は、地上から全演目をずっと映すだけの形にする（操作はできない）。
          見せる課目の制限を外し、オブジェクトを消し、操作をしまって、地上視点で機体を目で追う */
       const setProjection=on=>{
@@ -1982,6 +1995,7 @@ function runSim(opt){applyScene();
       /* 押すたびに順に変わる（視点のボタンと同じ要領）。
          切 → 自動操縦 → 通し（離陸から着陸まで）→ 切 */
       const autoStep=()=>{
+        if(!sim||!sim.h){autoQueue++;toast('昼の空を読み込んでいます。そのまま続けます');return}
         const on=sim.h.autoState(), lp=sim.h.loopState();
         if(!on){                                   /* 1 回目: 自動操縦 */
           /* 夜に演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
@@ -2070,7 +2084,8 @@ function runSim(opt){applyScene();
           else{tList.hidden=!tList.hidden;fMenu.hidden=true;closeWheel()}};
         tBtn.addEventListener('pointermove',mv);tBtn.addEventListener('pointerup',up);tBtn.addEventListener('pointercancel',up)});
       tBtn.addEventListener('click',e=>{e.stopPropagation();e.preventDefault()});
-      sim.toggleSmoke=()=>{sim.smoke=!sim.smoke;store.set('simSmoke',sim.smoke);sim.h.setSmoke(sim.smoke);paint()};
+      /* 実際に入ったかどうかは sim3d の返り値で決める（展示飛行の着陸体制では入らない）。入らなかったときはその旨を出す */
+      sim.toggleSmoke=()=>{const want=!sim.smoke;const got=sim.h.setSmoke(want);sim.smoke=!!got;store.set('simSmoke',sim.smoke);paint();if(want&&!got)toast('着陸のあいだはスモークを出せません')};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
       /* 音: ブラウザの決まりで、押されたその流れの中でしか音を出せない */
       const soBtn=$('#simSound');

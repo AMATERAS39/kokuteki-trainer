@@ -1207,10 +1207,6 @@ const hideIntro=store.get('hideIntro',{});   // 種目ごとの「次回から�
 const FULL_HASH='c9bb76ecad45a99039353b7f2b9195f95f19fdda5fa8bd816da7cc06609ae060';
 /* App Store（2026-09-07 公開）。国を入れない形の URL にすると、見ている人の国のストアへ送られる */
 const APPSTORE_URL='https://apps.apple.com/app/id6808281696';
-/* ブラウザから完全版を買う場所（決済ページの URL）。空のあいだはボタンを出さない。
-   買うと 1 回きりの解除コードが届き、それを「全機能版について」の画面に入れると完全版になる。
-   コードの引き換えは Supabase の `redeem_key`（dev/docs/feedback/keys.sql）が受け持つので、
-   feedback.js の設定が空のままだと、届いたコードは使えない */
 /* Google Play。いまはクローズドテストなので、全機能版の画面には出さない（製品版になったら出す） */
 const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki';
 /* 体験版でできること。**機能は隠さずに見せて、鍵をかける**（選べないものは灰色にする）。

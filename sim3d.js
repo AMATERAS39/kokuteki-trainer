@@ -591,6 +591,7 @@ export function mount(container, opt = {}) {
   function clearSmoke() { sBirth.fill(-1e6); smokeGeo.attributes.birth.needsUpdate = true; }
   /* 地上での点検: 機体の後ろへ吹き出して流れる煙。止まっていても、その場にとどまらない */
   const chkV = new THREE.Vector3(), chkP = new THREE.Vector3(), gfw = new THREE.Vector3();
+  const cfw = new THREE.Vector3(), crt = new THREE.Vector3();   // 探針でカメラの向きを読むための入れ物
   function checkSmoke(pos, q, colorHex, dt) {
     if (Math.random() > Math.min(1, dt * 30)) return;      // 1 秒に 30 粒ほど
     chkV.set((Math.random() - 0.5) * 3, -(16 + Math.random() * 8), 1.5 + Math.random() * 2).applyQuaternion(q);
@@ -871,10 +872,11 @@ export function mount(container, opt = {}) {
   /* 見回し（ドラッグ量）。一人称は首の向き、三人称は機体のまわりの位置。視点を変えると中央に戻す */
   const look = { y: 0, p: 0 };
   const LOOK_MAX_P = 75 * D;
+  const TILT_A = 16 * D;           // 一人称の見下ろし角（計器盤と操縦桿が視界に入る）
   const cam = new THREE.PerspectiveCamera(70, 1, 0.08, 9000);
   let zoom = 1, baseFov = 70;                      // 画面の拡大（望遠）。画角 = 元の画角 ÷ 倍率
   const applyFov = () => { cam.fov = clamp(baseFov / zoom, 7, 100); cam.updateProjectionMatrix(); };
-  const camPos = new THREE.Vector3(), tmp = new THREE.Vector3(), R = new THREE.Matrix4(), Rh = new THREE.Matrix4(), RX90 = new THREE.Matrix4().makeRotationX(Math.PI / 2), TILT = new THREE.Matrix4().makeRotationX(-16 * D), qc = new THREE.Quaternion();
+  const camPos = new THREE.Vector3(), tmp = new THREE.Vector3(), R = new THREE.Matrix4(), Rh = new THREE.Matrix4(), RX90 = new THREE.Matrix4().makeRotationX(Math.PI / 2), qc = new THREE.Quaternion();
   function rotation() { return R.makeRotationFromQuaternion(att); }
 
   function resize() { const w = container.clientWidth || 1, h = container.clientHeight || 1; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
@@ -3231,9 +3233,13 @@ export function mount(container, opt = {}) {
       cam.position.copy(camPos); cam.up.copy(bup2.set(0, 0, 1).applyQuaternion(seatQ)); cam.lookAt(seatObj.position);
     } else {
       cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(seatR).add(seatObj.position));
-      /* 一人称は少し下向き（計器盤と操縦桿が視界に入る）。そこからドラッグで首を振る */
-      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(seatR, RX90).multiply(TILT));
-      cam.quaternion.multiply(qc.setFromAxisAngle(AY, look.y)).multiply(qc.setFromAxisAngle(AX, look.p));
+      /* 一人称は少し下向き（計器盤と操縦桿が視界に入る）。そこからドラッグで首を振る。
+         下向き（TILT_A）は首の左右より「あと」に掛ける。先に掛けると首を振る軸が傾き、
+         横を向くほど視線が上がって水平線も回った（実測 v04.41: 真横で 視線 +16 度・水平線 16 度）。
+         左右 → 上下（見回し + 下向き）の順なら、横を向いても水平のまま */
+      cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(seatR, RX90));
+      cam.quaternion.multiply(qc.setFromAxisAngle(AY, look.y))
+                    .multiply(qc.setFromAxisAngle(AX, clamp(look.p - TILT_A, -85 * D, 85 * D)));
     }
     sky.position.copy(cam.position);
   }
@@ -3627,6 +3633,8 @@ export function mount(container, opt = {}) {
       look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },
     resetLook() { if (curView === 'ground') gAim(); else { look.y = 0; look.p = 0; } },
     setLook(yawDeg, pitchDeg) { look.y = (+yawDeg || 0) * D; look.p = (+pitchDeg || 0) * D; },   // 三人称前方を斜めから（並びのあいだ）
+    /* いまの見回しの角度（度）。首を振っているあいだ HUD を消すのに使う */
+    lookState() { return { y: look.y / D, p: look.p / D }; },
     /* 地上視点で 2 回叩いた場所へ立ち位置を移す。画面の座標は −1〜1（中央が 0）。
        地面・滑走路・オブジェクト（山や家や木）の上に立てる */
     /* 地上の立ち位置と向きを原点（初めの位置・北向き）へ戻す */
@@ -3805,7 +3813,12 @@ export function mount(container, opt = {}) {
     /* 動きを確かめるための読み取り口（見るだけで、動きは変えない）。
        演目が観覧位置の正面で行われているか、隊形が組めているか、スモークが出ているかを外から測る */
     probe() {
-      return { gear: gearOn, lights: lightsOn, landCfg, aud: aNodes ? aNodes.map(n => +n.g.gain.value.toFixed(3)) : null, seat, xwait: gPath ? !!gPath.xwait : false, lineup: st.lineup, gIdx: gPath ? gPath.idx : -1, pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, parked: !!h.userData.parked, on: !!h.userData.shown, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
+      const cf = cfw.set(0, 0, -1).applyQuaternion(cam.quaternion), cr = crt.set(1, 0, 0).applyQuaternion(cam.quaternion);
+      /* cam: カメラが向いている方位・仰角・見かけの傾き（水平線の傾き）。見回しが水平かを測るのに使う */
+      const camDir = { h: +((((Math.atan2(cf.x, cf.y) / D) % 360) + 360) % 360).toFixed(1),
+                       p: +(Math.asin(clamp(cf.z, -1, 1)) / D).toFixed(1),
+                       r: +(Math.asin(clamp(-cr.z, -1, 1)) / D).toFixed(1) };
+      return { cam: camDir, gear: gearOn, lights: lightsOn, landCfg, aud: aNodes ? aNodes.map(n => +n.g.gain.value.toFixed(3)) : null, seat, xwait: gPath ? !!gPath.xwait : false, lineup: st.lineup, gIdx: gPath ? gPath.idx : -1, pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, parked: !!h.userData.parked, on: !!h.userData.shown, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
                form: formation, scale: formScale, smoke: smokeOnArr.slice(), smWhy: smWhyArr.slice(),
                bloomC: bloomS ? { x: +bloomS.c.x.toFixed(1), y: +bloomS.c.y.toFixed(1) } : null,

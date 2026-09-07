@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "u-v0442",
+      "date": "2026-09-07",
+      "type": "update",
+      "title": "v04.42 App Store 版への案内を入れました",
+      "body": "iPhone・iPad 版を App Store で配信しはじめました（買い切り 1,000 円・広告なし）。「全機能版について」の画面から開けます。Android 版は準備中です。"
+    },
+    {
       "id": "u-v0441",
       "date": "2026-09-07",
       "type": "update",

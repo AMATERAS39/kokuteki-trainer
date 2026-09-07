@@ -2296,6 +2296,7 @@ export function mount(container, opt = {}) {
   }
   const fwd2 = new THREE.Vector3(), moFlat = new THREE.Vector3();
   const moW = new THREE.Vector3(), mirWas = new THREE.Vector3();
+  const lookF = new THREE.Vector3(), lookAx = new THREE.Vector3(), lookQ = new THREE.Quaternion();
   const basePos = new THREE.Vector3(), offNow = new THREE.Vector3(), retFrom = new THREE.Vector3();   // 追従機は「1 番機から見たずれ」で置く
   /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
   let joinFast = false;                              // 切れのある動きが要る課目では、隊形の移りを速くする
@@ -3233,13 +3234,28 @@ export function mount(container, opt = {}) {
       cam.position.copy(camPos); cam.up.copy(bup2.set(0, 0, 1).applyQuaternion(seatQ)); cam.lookAt(seatObj.position);
     } else {
       cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(seatR).add(seatObj.position));
-      /* 一人称は少し下向き（計器盤と操縦桿が視界に入る）。そこからドラッグで首を振る。
-         下向き（TILT_A）は首の左右より「あと」に掛ける。先に掛けると首を振る軸が傾き、
-         横を向くほど視線が上がって水平線も回った（実測 v04.41: 真横で 視線 +16 度・水平線 16 度）。
-         左右 → 上下（見回し + 下向き）の順なら、横を向いても水平のまま */
+      /* 一人称の向き。まず「機体の向き ＋ 少し下向き（TILT_A。計器盤と操縦桿が視界に入る）」を作る。
+         見回し（ドラッグ）は、この向きに対してではなく**世界の軸**まわりに掛ける（v04.43）。
+         機体の軸まわりに掛けると、機体が傾いているあいだは横になぞっても視線が斜めに動いた
+         （利用者の指摘。実測 v04.43: バンク 30 度で真横まで振ると仰角が 15 度動く）。
+         世界の上まわりに振れば、傾いていても視線は水平のまま横へ動く。
+         画面の傾き（水平線の傾き）は機体のまま残す。操縦操作の練習では、傾けたときに
+         景色が傾いて見えること自体が覚えるものなので、ここは水平に直さない */
       cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(seatR, RX90));
-      cam.quaternion.multiply(qc.setFromAxisAngle(AY, look.y))
-                    .multiply(qc.setFromAxisAngle(AX, clamp(look.p - TILT_A, -85 * D, 85 * D)));
+      cam.quaternion.multiply(qc.setFromAxisAngle(AX, -TILT_A));
+      if (look.y) cam.quaternion.premultiply(lookQ.setFromAxisAngle(WUP, -look.y));   // 左右は世界の上まわり
+      if (look.p) {
+        /* 上下は「いまの視線に直交する世界の水平軸」まわり。真上・真下の近くでは軸が決まらないので止める。
+           仰角は ±85 度で止める（裏返らないように） */
+        lookF.set(0, 0, -1).applyQuaternion(cam.quaternion);
+        lookAx.set(lookF.y, -lookF.x, 0);
+        if (lookAx.lengthSq() > 1e-6) {
+          lookAx.normalize();
+          const e0 = Math.asin(clamp(lookF.z, -1, 1));
+          const want = clamp(e0 + look.p, -85 * D, 85 * D);
+          cam.quaternion.premultiply(lookQ.setFromAxisAngle(lookAx, want - e0));
+        }
+      }
     }
     sky.position.copy(cam.position);
   }

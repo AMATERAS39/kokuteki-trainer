@@ -1219,7 +1219,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.44';
+const APP_VER='v04.45';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1544,7 +1544,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=128').then(mod=>{
+  import('./sim3d.js?v=129').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1669,7 +1669,10 @@ function runSim(opt){applyScene();
     if(nearStick(e))return;
     e.preventDefault();
     sim.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(sim.pts.size>=2){sim.look=null;sim.pinch={d:pinchDist(),z:sim.h?sim.h.zoomVal():1};return}   /* 指 2 本で拡大縮小 */
+    /* 指 2 本になったら拡大縮小。1 本目で始めた長押しは取り消し、しばらく「2 回叩いた」と数えない
+       （2 本の指を同時に離すと pointerup が 2 つ続けて来て、一時停止と判定されていた。利用者の指摘） */
+    if(sim.pts.size>=2){sim.look=null;clearTimeout(sim.holdT);sim.multiUntil=performance.now()+450;
+      sim.pinch={d:pinchDist(),z:sim.h?sim.h.zoomVal():1};return}
     sim.look={id:e.pointerId,x:e.clientX,y:e.clientY,moved:0};
     clearTimeout(sim.holdT);const he={clientX:e.clientX,clientY:e.clientY};
     sim.holdT=setTimeout(()=>{if(sim&&sim.look&&sim.look.moved<=8)holdAt(he)},620);   /* 長押し */
@@ -1730,6 +1733,8 @@ function runSim(opt){applyScene();
   /* 指でも 2 回叩いたら視点を戻す。横画面で左上（ホームボタンのあたり）を叩いたら戻り方を案内する */
   vw.addEventListener('pointerup',e=>{
     if(!sim)return;const now=performance.now();
+    /* 拡大縮小の最中と、その直後は数えない。ほかの指がまだ触れているときも数えない */
+    if(sim.pts.size>0||now<(sim.multiUntil||0)){sim.tap=0;return}
     if(sim.tap&&now-sim.tap<320){tapAt(e);sim.tap=0;return}   /* 一度そろったら数え直す（3 回目で戻らないように） */
     sim.tap=now});
   vw.addEventListener('wheel',e=>{e.preventDefault();
@@ -1889,7 +1894,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=128').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=129').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}

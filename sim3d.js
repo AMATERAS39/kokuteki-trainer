@@ -3243,7 +3243,9 @@ export function mount(container, opt = {}) {
          景色が傾いて見えること自体が覚えるものなので、ここは水平に直さない */
       cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().multiplyMatrices(seatR, RX90));
       cam.quaternion.multiply(qc.setFromAxisAngle(AX, -TILT_A));
-      if (look.y) cam.quaternion.premultiply(lookQ.setFromAxisAngle(WUP, -look.y));   // 左右は世界の上まわり
+      /* 左右は世界の上まわり。符号は地上視点（`gYaw - look.y`）とそろえる。
+         v04.43 で世界の軸に変えたとき、ここだけ向きが逆になり、右へなぞると左を向いていた（利用者の指摘） */
+      if (look.y) cam.quaternion.premultiply(lookQ.setFromAxisAngle(WUP, look.y));
       if (look.p) {
         /* 上下は「いまの視線に直交する世界の水平軸」まわり。真上・真下の近くでは軸が決まらないので止める。
            仰角は ±85 度で止める（裏返らないように） */

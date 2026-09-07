@@ -1211,13 +1211,6 @@ const APPSTORE_URL='https://apps.apple.com/app/id6808281696';
    買うと 1 回きりの解除コードが届き、それを「全機能版について」の画面に入れると完全版になる。
    コードの引き換えは Supabase の `redeem_key`（dev/docs/feedback/keys.sql）が受け持つので、
    feedback.js の設定が空のままだと、届いたコードは使えない */
-const BUY_URL='';
-/* Gumroad の商品 ID。商品の設定で「購入ごとに固有のライセンスキーを発行する」を入れると出る。
-   ここに入れると、買った人のライセンスキーをそのまま解除コードとして使えるようになる。
-   照合は Gumroad の API に直接聞く（`access-control-allow-origin: *` なので、ブラウザから呼べる）。
-   商品 ID は秘密ではない（正しいライセンスキーが無ければ通らない） */
-const GUM_PRODUCT_ID='';
-const GUM_MAX_USES=10;   // 同じキーを使える端末の数の目安（配り回しを止めるため）
 /* Google Play。いまはクローズドテストなので、全機能版の画面には出さない（製品版になったら出す） */
 const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki';
 /* 体験版でできること。**機能は隠さずに見せて、鍵をかける**（選べないものは灰色にする）。
@@ -1230,7 +1223,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.48';
+const APP_VER='v04.49';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2917,8 +2910,8 @@ function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版</h3>
     <div class="sethelp">体験版でも 4 種目すべてと 3D シミュレーターを試せます。完全版では、次の鍵が外れます。</div>
     <ul><li>難易度 Normal と Hard（方位は 8 方位、姿勢は翼の傾きも、操縦操作は 2 つの操作）。</li><li>出題数と制限時間を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
-    <div class="sethelp">買い切り 1,000 円・広告なし。${BUY_URL?'このブラウザで買うと解除コードが届きます。iPhone・iPad は <b>App Store</b> からもどうぞ。':'iPhone・iPad 版を <b>App Store</b> で配信しています。'}Android 版は準備中です。</div>
-    <div class="acts">${BUY_URL?`<a class="btn" href="${BUY_URL}" target="_blank" rel="noopener">このブラウザで買う</a>`:''}<a class="btn${BUY_URL?' ghost':''}" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
+    <div class="sethelp">完全版はアプリでの買い切りです（1,000 円・広告なし）。iPhone・iPad 版を <b>App Store</b> で配信しています。Android 版（Google Play）は準備中です。このブラウザ版は体験版で、買う場所ではありません。</div>
+    <div class="acts"><a class="btn" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
     <h4 class="codeh">解除コードをお持ちの方</h4>
     <div class="sethelp">解除コードは 1 つにつき 1 回だけ使えます。入力して有効にすると、この端末が全機能版になります。アプリ版を購入済みで PC でも使いたい方は、「ご要望・お問い合わせ」から購入の控えを添えて請求してください。</div>
     <div class="coderow"><input id="buyCode" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="解除コード"><button class="btn sm" id="buyApply">有効にする</button></div>
@@ -2935,25 +2928,7 @@ function renderBuy(){
 }
 /* 解除コードを確かめる。置き場所（Supabase）があれば、そこで「未使用なら使用済みにして true」。
    置き場所がまだないあいだだけ、従来の合言葉（ハッシュ照合）を受け付ける */
-/* Gumroad のライセンスキーを照合する。買ったときに届くキーをそのまま入れてもらう。
-   一度通れば端末に覚えるので、起動のたびには聞かない（uses は端末の数と同じになる） */
-async function redeemGumroad(k){
-  if(!GUM_PRODUCT_ID)return false;
-  try{
-    const r=await fetch('https://api.gumroad.com/v2/licenses/verify',{method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:new URLSearchParams({product_id:GUM_PRODUCT_ID,license_key:k,increment_uses_count:'true'})});
-    if(!r.ok)return false;
-    const d=await r.json();
-    if(!d||d.success!==true)return false;
-    const p=d.purchase||{};
-    if(p.refunded||p.chargebacked||p.disputed)return false;   /* 返金・取り消しのあったものは通さない */
-    if(GUM_MAX_USES&&+d.uses>GUM_MAX_USES)return false;
-    return true;
-  }catch(e){return false}
-}
 async function redeemCode(k){
-  if(await redeemGumroad(k))return true;
   const m=await fb().catch(()=>null);
   if(m&&m.CONFIGURED&&m.redeemKey)return !!(await m.redeemKey(k));
   const h=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(k)))].map(b=>b.toString(16).padStart(2,'0')).join('');

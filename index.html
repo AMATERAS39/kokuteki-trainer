@@ -122,6 +122,8 @@ svg text{user-select:none}
 .foot{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:1rem;
   padding:.25rem 1rem calc(.25rem + env(safe-area-inset-bottom));font-family:var(--mono);font-size:.625rem;letter-spacing:.04em;color:var(--faint);
   background:linear-gradient(180deg,transparent,var(--bg) 45%);pointer-events:none;z-index:15}
+/* 案内ページへの link。フッターは pointer-events:none なので、link だけ押せるように戻す */
+.foot a{color:var(--faint);pointer-events:auto;text-decoration:underline;text-underline-offset:.15em}
 /* お知らせ */
 .news{display:flex;flex-direction:column;gap:.75rem;margin-top:.75rem}
 .news .it{border:1px solid var(--line);border-radius:.75rem;padding:.75rem .875rem;background:var(--panel2)}
@@ -1161,7 +1163,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   </div>
 </div>
 
-<footer class="foot"><span id="footVer"></span><span>© 2026 AMATERAS</span></footer>
+<footer class="foot"><span id="footVer"></span><a href="/guide">適性検査について</a><span>© 2026 AMATERAS</span></footer>
 <div class="toast" id="toast" hidden></div>
 <div class="install" id="install">
   <img src="icons/icon-192.png" alt="">
@@ -1217,7 +1219,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.43';
+const APP_VER='v04.44';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */

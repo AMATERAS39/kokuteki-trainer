@@ -2494,3 +2494,33 @@ v04.43 で見回しを世界の軸まわりに変えたとき、**`look.y` の�
 2. **決済の場所**。`BUY_URL` に入れる URL。1 回きりのコードを買った人に渡す必要があるので、購入ごとに別のコードを配れる仕組みが要る。
 
 App 版（`NATIVE`）では `#buy` の画面自体を開かないので（v04.26）、この導線はブラウザ版だけに出る。App Store の規定に触れない。
+
+## v04.48 Gumroad のライセンスキーを解除コードとして使う
+
+利用者の決め: ブラウザからの販売は Gumroad で行う。
+
+### 分かったこと（実測）
+
+Gumroad の照合 API は **ブラウザから直接呼べる**。
+
+```
+curl -i -X POST https://api.gumroad.com/v2/licenses/verify   -H "Origin: https://kokuteki.amaterasu-vocab.com" -d "product_id=dummy&license_key=dummy"
+```
+
+返りの見出しに `access-control-allow-origin: *` が入っている（2026-09-08 確認）。
+アクセストークンも要らない（`product_id` と `license_key` だけ）。
+
+**これで、購入まわりに Supabase は要らなくなった**。保留 (b) の Supabase 設定は、ご要望・お問い合わせのためのもので、販売とは切り離せる。
+
+### 作り
+
+- `GUM_PRODUCT_ID`（空のあいだは何もしない）と `GUM_MAX_USES`（10）を足した。
+- `redeemGumroad(k)`: `product_id` + `license_key` + `increment_uses_count=true` を投げ、`success` が真で、返金・取り消し・係争のいずれでもなく、`uses` が上限以内なら通す。
+- `redeemCode(k)`: Gumroad → Supabase の `redeem_key` → `FULL_HASH` の順に試す。前からのコードもそのまま使える。
+- 一度通れば端末に覚える（`store.set('edition','full')`）ので、起動のたびには聞かない。だから `uses` は「入れた端末の数」とほぼ同じになり、上限 10 は配り回しの歯止めとして働く。
+- 商品 ID は公開されるが秘密ではない（正しいライセンスキーが無ければ通らない）。
+- サービスワーカーは GET 以外を素通しするので（`if (e.request.method !== 'GET') return;`）、この POST には触らない。
+
+### 残り
+
+`BUY_URL`（商品のページ）と `GUM_PRODUCT_ID` を入れれば動く。どちらも Gumroad で商品を作れば分かる。

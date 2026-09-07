@@ -95,6 +95,20 @@ figcaption{margin-top:.5rem;font:400 .75rem/1.7 var(--body);color:var(--faint)}
 .plan a{display:flex;align-items:center;justify-content:center;margin-top:1rem;padding:.875rem;border-radius:.5rem;font:700 .9375rem/1 var(--display)}
 .plan.pick a{background:var(--accent);color:var(--on-accent)}
 .plan.pay a{border:1px solid var(--line2);color:var(--text)}
+.tbl{width:100%;border-collapse:collapse;margin-top:1rem;font-size:.8125rem}
+.tbl th,.tbl td{padding:.625rem .5rem;border-bottom:1px solid var(--line);text-align:left}
+.tbl th{font:500 .75rem/1.5 var(--body);color:var(--faint);font-weight:400}
+.tbl td:first-child{font-family:var(--display);font-weight:700}
+.tbl td+td{font-family:var(--mono);color:var(--muted);white-space:nowrap}
+.terms{display:flex;flex-direction:column;gap:.625rem;margin-top:1rem}
+.term{border-left:2px solid var(--line2);padding:.25rem 0 .25rem .875rem}
+.term dt{font:700 .9375rem/1.5 var(--display)}
+.term dd{margin:.25rem 0 0;font-size:.8125rem;line-height:1.85;color:var(--muted)}
+.miss{display:flex;flex-direction:column;gap:.75rem;margin-top:1rem}
+.miss li{list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:.625rem;padding:.9375rem 1rem}
+.miss b{display:block;font:700 .9375rem/1.5 var(--display)}
+.miss p{margin-top:.375rem;font-size:.8125rem;line-height:1.85;color:var(--muted)}
+.miss ul{margin:0;padding:0}
 .faq{display:flex;flex-direction:column;gap:.625rem}
 .qa{border:1px solid var(--line);border-radius:.625rem;padding:.9375rem 1rem;background:var(--panel)}
 .qa .q{display:flex;gap:.5rem}
@@ -130,6 +144,9 @@ footer .sig{margin-top:1rem;font:500 .6875rem/1 var(--mono);color:var(--line2)}
   .card>p,.tip dd{font-size:.875rem;line-height:1.9}
   .sim{display:grid;grid-template-columns:.9fr 1.1fr;gap:2.5rem;align-items:center}
   .start{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem}
+  .miss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+  .terms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem 2rem}
+  .tbl{font-size:.875rem;max-width:44rem}
   footer{padding:1.5rem 2.5rem}
 }
 @media (prefers-reduced-motion:no-preference){a{transition:opacity .12s}}
@@ -141,7 +158,7 @@ a:hover{opacity:.85}
 
 <div class="bar">
   <b>TENRYU</b>
-  <nav><a href="#subjects">4 種目</a><a href="#sim">3D シミュレーター</a><a href="#start">始め方</a><a href="#faq">質問</a></nav>
+  <nav><a href="#subjects">4 種目</a><a href="#practice">練習</a><a href="#terms">用語</a><a href="#start">始め方</a><a href="#faq">質問</a></nav>
   <span>GUIDE</span>
 </div>
 
@@ -297,7 +314,46 @@ a:hover{opacity:.85}
   </figure>
 </section>
 
-<section class="pad" id="start">
+<section class="pad" id="practice">
+  <h2>練習の進め方</h2>
+  <p class="sec-lead">速さは、条件を決めて繰り返すと伸びます。アプリの既定はこの値です。</p>
+  <table class="tbl">
+    <thead><tr><th>種目</th><th>出題数</th><th>1 問</th><th>全体</th></tr></thead>
+    <tbody>
+      <tr><td>方位</td><td>20 問</td><td>5 秒</td><td>5 分</td></tr>
+      <tr><td>姿勢指示器</td><td>10 問</td><td>10 秒</td><td>5 分</td></tr>
+      <tr><td>方位×姿勢指示器</td><td>20 問</td><td>15 秒</td><td>8 分</td></tr>
+      <tr><td>操縦操作</td><td>10 問</td><td>20 秒</td><td>15 分</td></tr>
+    </tbody>
+  </table>
+  <p class="lead" style="margin-top:1.125rem">はじめは Easy で読み方の手順を決めます。手順が固まってから Normal と Hard に上げ、1 問の制限時間を縮めます。平均解答時間は種目ごとに残るので、縮んでいるかどうかで判断できます。記録は端末の中だけに置き、どこにも送りません。</p>
+</section>
+
+<section class="pad" id="miss" style="border-top:1px solid var(--line)">
+  <h2>つまずきやすいところ</h2>
+  <p class="sec-lead">読み方を決めていないと、同じところで毎回止まります。</p>
+  <ul class="miss">
+    <li><b>画面の上を北だと思い込む</b><p>方位では N マークの向きが毎回変わります。先に N の位置を見て、そこから時計回りに数えます。</p></li>
+    <li><b>南から見ていることを忘れる</b><p>姿勢指示器は南から見た絵です。機首がこちらを向くほど、左右が逆に見えます。</p></li>
+    <li><b>読む順番が絵ごとに変わる</b><p>方位×姿勢指示器は読むものが 2 つあります。先に方位、次に上下、と決めておけば手順が変わりません。</p></li>
+    <li><b>操縦桿の向きだけで答えを決める</b><p>操縦操作では、同じ操縦桿の向きで方向舵だけが違う選択肢が並びます。方向舵を踏んでいるかどうかまで見ないと外します。</p></li>
+  </ul>
+</section>
+
+<section class="pad" id="terms" style="border-top:1px solid var(--line)">
+  <h2>用語</h2>
+  <p class="sec-lead">問題文と選択肢に出てくる言葉です。</p>
+  <dl class="terms">
+    <div class="term"><dt>姿勢指示器</dt><dd>機体の傾きと機首の上げ下げを、地平線の絵で示す計器です。空側と地側の境目が地平線で、その傾きが左右、中央の記号との上下関係が機首の上げ下げにあたります。</dd></div>
+    <div class="term"><dt>方位指示器</dt><dd>機首が向いている方位を示す計器です。上に来ている目盛りが、いま向いている方位です。</dd></div>
+    <div class="term"><dt>バンク</dt><dd>機体の左右の傾きです。機首に対して右の翼が下がっていれば右バンクです。</dd></div>
+    <div class="term"><dt>ピッチ</dt><dd>機首の上げ下げです。上を向いていれば機首上げ、下を向いていれば機首下げです。</dd></div>
+    <div class="term"><dt>操縦桿</dt><dd>倒すと機体が傾き（バンク）、引く・押すと機首が上下します（ピッチ）。右に倒せば右バンクになり、景色は左へ傾いて見えます。</dd></div>
+    <div class="term"><dt>方向舵</dt><dd>足のペダルで踏み、機首を左右へ振ります。右を踏めば機首は右を向き、景色は左へ流れます。</dd></div>
+  </dl>
+</section>
+
+<section class="pad" id="start" style="border-top:1px solid var(--line)">
   <h2>始め方は 2 つ</h2>
   <p class="sec-lead">まずブラウザで試して、続けるならアプリ版へ。</p>
   <div class="start">
@@ -365,6 +421,9 @@ a:hover{opacity:.85}
 {"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用で、Google Play 版は準備中です。"}},
 {"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
 {"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切り 1,000 円です。月額の課金も、アプリの中での追加の課金もありません。"}}]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-08","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/hero.webp","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"1000","priceCurrency":"JPY"}}

@@ -362,8 +362,9 @@ a:hover{opacity:.85}
       <a href="/">体験版を開く</a>
     </div>
     <div class="plan pay">
-      <div class="top"><h3>アプリ版（完全版）</h3><span class="price">1,000 円</span></div>
+      <div class="top"><h3>アプリ版（完全版）</h3><span class="price" id="price">2,000 円</span></div>
       <p>買い切り、広告なし。難易度 Normal と Hard、出題数と制限時間の指定、編隊とスモーク、展示飛行の全演目、写真の保存が使えます。iPhone・iPad は App Store から。Android 版は準備中です。</p>
+      <p id="pricenote" style="margin-top:.5rem;color:var(--accent)">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</p>
       <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
     </div>
   </div>
@@ -394,7 +395,7 @@ a:hover{opacity:.85}
     </div>
     <div class="qa">
       <div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div>
-      <div class="a"><span>A</span><p>買い切り 1,000 円です。月額の課金も、アプリの中での追加の課金もありません。</p></div>
+      <div class="a"><span>A</span><p>買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。</p></div>
     </div>
   </div>
 </section>
@@ -419,7 +420,7 @@ a:hover{opacity:.85}
 {"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。難易度が Easy だけ、出題数が既定の半分までに限られ、編隊とスモーク、展示飛行の全演目、写真の保存は完全版です。"}},
 {"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用で、Google Play 版は準備中です。"}},
 {"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
-{"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切り 1,000 円です。月額の課金も、アプリの中での追加の課金もありません。"}}]}
+{"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。"}}]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-08","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/hero.webp","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
@@ -437,6 +438,12 @@ a:hover{opacity:.85}
   if(next===null){el.textContent='終了';return}
   var d=Math.ceil((next-now)/86400000);
   el.textContent=d<=0?'当日':'あと '+d+' 日';
+})();
+/* 価格は一次試験の終わりで自動的に切り替える（直し忘れを防ぐ）。9/27 から 1,000 円 */
+(function(){
+  if(Date.now() < Date.parse('2026-09-27T00:00:00+09:00'))return;
+  var p=document.getElementById('price'); if(p)p.textContent='1,000 円';
+  var n=document.getElementById('pricenote'); if(n)n.remove();
 })();
 </script>
 </body>

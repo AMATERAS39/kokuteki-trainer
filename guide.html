@@ -200,15 +200,13 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
 .tall{max-width:min(22rem,62vw);margin:0 auto}
 
 /* 練習の表 */
-.tbl{margin-top:1.75rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
-.tr{display:grid;grid-template-columns:1.5fr .8fr .7fr .7fr 1fr;gap:.5rem;padding:.75rem clamp(.625rem,2vw,1rem);align-items:center;font-size:var(--small)}
+.tbl{margin-top:1.75rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden;max-width:46rem}
+.tr{display:grid;grid-template-columns:1.6fr .8fr .7fr .7fr;gap:.5rem;padding:.75rem clamp(.625rem,2vw,1rem);align-items:center;font-size:var(--small)}
 .tr+.tr{border-top:1px solid var(--line)}
 .th{background:rgba(255,255,255,.03);color:var(--faint);font-family:var(--mono);font-size:var(--tiny);letter-spacing:.1em}
 .tr b{font-weight:700}
 .tr .num{font-family:var(--mono);color:var(--muted)}
-.wbar{height:.375rem;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-.wbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--amber));width:0;transition:width .12s linear}
-@media (max-width:34rem){.tr{grid-template-columns:1.4fr .7fr .7fr .7fr}.tr .wcol{display:none}}
+@media (max-width:34rem){.tr{grid-template-columns:1.5fr .7fr .7fr .7fr;gap:.375rem}}
 
 /* つまずき */
 .acc{margin-top:1.5rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
@@ -480,11 +478,11 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     <h2>練習の進め方</h2>
     <p class="sub">速さは、条件を決めて繰り返すと伸びます。アプリのデフォルトはこの値です。</p>
     <div class="tbl">
-      <div class="tr th"><div>種目</div><div>出題数</div><div>1 問</div><div>全体</div><div class="wcol">1 問の重さ</div></div>
-      <div class="tr"><b>方位</b><div class="num">20 問</div><div class="num">5 秒</div><div class="num">5 分</div><div class="wcol"><div class="wbar"><i data-w="25"></i></div></div></div>
-      <div class="tr"><b>姿勢指示器</b><div class="num">10 問</div><div class="num">10 秒</div><div class="num">5 分</div><div class="wcol"><div class="wbar"><i data-w="50"></i></div></div></div>
-      <div class="tr"><b>方位×姿勢指示器</b><div class="num">20 問</div><div class="num">15 秒</div><div class="num">8 分</div><div class="wcol"><div class="wbar"><i data-w="75"></i></div></div></div>
-      <div class="tr"><b>操縦操作</b><div class="num">10 問</div><div class="num">20 秒</div><div class="num">15 分</div><div class="wcol"><div class="wbar"><i data-w="100"></i></div></div></div>
+      <div class="tr th"><div>種目</div><div>出題数</div><div>1 問</div><div>全体</div></div>
+      <div class="tr"><b>方位</b><div class="num">20 問</div><div class="num">5 秒</div><div class="num">5 分</div></div>
+      <div class="tr"><b>姿勢指示器</b><div class="num">10 問</div><div class="num">10 秒</div><div class="num">5 分</div></div>
+      <div class="tr"><b>方位×姿勢指示器</b><div class="num">20 問</div><div class="num">15 秒</div><div class="num">8 分</div></div>
+      <div class="tr"><b>操縦操作</b><div class="num">10 問</div><div class="num">20 秒</div><div class="num">15 分</div></div>
     </div>
     <p class="lead">はじめは Easy で読み方の手順を決めます。手順が固まってから Normal と Hard に上げ、1 問の制限時間を縮めます。平均解答時間は種目ごとに残るので、縮んでいるかどうかで判断できます。記録は端末の中だけに置き、どこにも送りません。</p>
   </section>
@@ -648,7 +646,6 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
               : el.classList.contains('l') ? 'l'
               : el.classList.contains('r') ? 'r' : 'up' };
   });
-  var bars=[].slice.call(document.querySelectorAll('.wbar i'));
   var cl=function(v){ return v<0?0:v>1?1:v };
   var ease=function(t){ return 1-Math.pow(1-t,3) };
   /* 画面の下から 98% のところで動きだし、26% ぶん上がったところで出来上がる。
@@ -658,11 +655,10 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   var at=function(r,vh,i){ return cl((vh*.98-r.top)/(vh*.26) - i*.05) };
   /* 先に全部の位置を読み、そのあとで全部に書く。
      1 つずつ「読んで書く」を繰り返すと、書くたびに版組みが起き直して、指の動きから遅れる */
-  var eIt=new Array(items.length), eBar=new Array(bars.length);
+  var eIt=new Array(items.length);
   var paint=function(){
     var vh=innerHeight, n;
     for(n=0;n<items.length;n++) eIt[n]=ease(at(items[n].el.getBoundingClientRect(),vh,items[n].i));
-    for(n=0;n<bars.length;n++)  eBar[n]=ease(at(bars[n].getBoundingClientRect(),vh,2));
     for(n=0;n<items.length;n++){
       var it=items[n], e=eIt[n], st=it.el.style;
       if(e===it.last)continue;                        /* 変わっていないものは触らない */
@@ -673,7 +669,6 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
                    : it.k==='r' ? 'translateX('+( 2.75*(1-e)).toFixed(2)+'rem)'
                    : 'translateY('+(2.25*(1-e)).toFixed(2)+'rem) scale('+(.985+.015*e).toFixed(4)+')';
     }
-    for(n=0;n<bars.length;n++) bars[n].style.width=(eBar[n]*(+bars[n].dataset.w)).toFixed(1)+'%';
   };
   var tick=false, onScr=function(){ if(tick)return; tick=true; requestAnimationFrame(function(){tick=false;paint()}) };
   addEventListener('scroll',onScr,{passive:true}); addEventListener('resize',onScr);

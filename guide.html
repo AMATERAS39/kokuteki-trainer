@@ -7,12 +7,12 @@
 <title>航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方 - TENRYU</title>
 <meta name="description" content="航空自衛隊 航空学生の一次試験（2026 年は 9 月 19 日と 9 月 26 日）で出る適性検査の 4 種目を、読み方のコツとあわせてまとめました。方位、姿勢指示器、方位×姿勢指示器、操縦操作。ブラウザでそのまま練習でき、パイロットの操縦操作は 3D シミュレーターで確かめられます。">
 <link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/guide">
-<link rel="icon" href="/icons/favicon-64.png" sizes="64x64">
-<link rel="icon" href="/icons/favicon-96.png" sizes="96x96">
-<link rel="icon" href="/icons/icon-192.png" sizes="192x192">
+<link rel="icon" href="/favicon.ico" sizes="48x48 96x96">
+<link rel="icon" href="/icons/favicon-96.png?v=2" sizes="96x96">
+<link rel="icon" href="/icons/icon-192.png?v=2" sizes="192x192">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="TENRYU | 航空学生適性検査トレーニングアプリ">
+<meta property="og:site_name" content="TENRYU">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:title" content="航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方">
 <meta property="og:description" content="航空学生の適性検査で出る 4 種目を、読み方のコツとあわせてまとめました。ブラウザでそのまま練習できます。">
@@ -651,17 +651,25 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
       ['.tr',null],['.qa',null],['.term',null],['.acc',null],['figure',null],
       ['h2',null],['.sub',null],['.tlab',null],['.lead',null],['.eyebrow',null],['.rate',null],['.tbl',null],['.terms',null]
     ];
-    var seen=[], n=0;
+    var seen=[];
     groups.forEach(function(g){
-      sec.querySelectorAll(g[0]).forEach(function(el){
-        if(seen.indexOf(el)>=0) return; seen.push(el);
-        var k = el.classList.contains('tr') ? 'wipe'
-              : (el.classList.contains('card')||el.classList.contains('plan')) ? (n%2 ? 'r' : 'l')
-              : (el.classList.contains('term')||el.classList.contains('qa')) ? 'l'
-              : 'up';
-        el.classList.add('an', k);
-        el.style.setProperty('--i', Math.min(n++, 7));   /* 遅れは 7 番目で頭打ち */
-      });
+      sec.querySelectorAll(g[0]).forEach(function(el){ if(seen.indexOf(el)<0) seen.push(el) });
+    });
+    /* 出る順は「並びの順（上から下）」で決める。集めた順（選び手の並び）で決めていたため、
+       たとえば「知識ではなく、瞬発力」の節では 4 つの札（--i 0〜3）が先に出て、
+       見出しが 4 番目、説明文が 6 番目と、ばらばらに出ていた（利用者の指摘。v04.77） */
+    seen.sort(function(a,b){ return (a.compareDocumentPosition(b) & 4) ? -1 : 1 });
+    /* 左右交互は「カードの数え」で決める（並びの順の番号で決めると、カードが偶数番ばかりに当たって
+       全部が左からになった。v04.77 で気づいた） */
+    var cn=0;
+    seen.forEach(function(el,n){
+      var card = el.classList.contains('card')||el.classList.contains('plan');
+      var k = el.classList.contains('tr') ? 'wipe'
+            : card ? ((cn++ % 2) ? 'r' : 'l')
+            : (el.classList.contains('term')||el.classList.contains('qa')) ? 'l'
+            : 'up';
+      el.classList.add('an', k);
+      el.style.setProperty('--i', Math.min(n, 7));   /* 遅れは 7 番目で頭打ち */
     });
   };
   document.querySelectorAll('[data-reveal]').forEach(prep);

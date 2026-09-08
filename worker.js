@@ -2,7 +2,7 @@
    この Worker が受けるのは、平均回答時間の受け渡しだけ。
 
    GET  /api/avg  … 置いてある数値を返す（誰でも読める。案内ページが使う）
-   POST /api/avg  … 数値を置き換える（合言葉が合うときだけ）
+   POST /api/avg  … 数値を置き換える（合言葉が合うときだけ）。{clear:true} を送ると消す
 
    合言葉そのものはここに書かない。SHA-256 だけを置く（公開リポジトリに合言葉を残さないため）。
    合言葉つきの URL（/?rec=…）でいちど開いた端末だけが、計測のたびに自分の記録を送る。 */
@@ -53,6 +53,10 @@ export default {
         try { body = await request.json() } catch (e) { return json({ error: 'bad-json' }, 400) }
         if (!body || typeof body.key !== 'string') return json({ error: 'no-key' }, 403);
         if (await sha256(body.key) !== REC_HASH) return json({ error: 'no-key' }, 403);
+        if (body.clear === true) {                 /* 数値を消して、既定の持ち時間の表示に戻す */
+          await env.STATS.delete('avg');
+          return json({ ok: true, cleared: true });
+        }
         const stats = clean(body.stats);
         if (!stats) return json({ error: 'bad-stats' }, 400);
         await env.STATS.put('avg', JSON.stringify({ stats, at: Date.now() }));

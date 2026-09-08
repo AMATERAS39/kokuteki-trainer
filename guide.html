@@ -87,6 +87,9 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
    browser 側の scroll 連動（animation-timeline:view()）も使わない。
    iPad の Safari では「使える」と答えるのに範囲の指定（animation-range）が効かず、
    画面から上へ抜けるまで出来上がらなかった（v04.69 で取りやめ） */
+/* 横へずらす動きの最中、要素が画面の外へ出ると紙の幅が広がり、横にずれて見える。
+   main で横を切る（clip は巻き取り箱を作らないので、指の動きの取り合いは起きない） */
+main{overflow-x:clip}
 .an{opacity:0;transition:opacity 1.15s cubic-bezier(.16,1,.3,1),transform 1.15s cubic-bezier(.16,1,.3,1),clip-path 1.15s cubic-bezier(.16,1,.3,1)}
 .an.up{transform:translateY(2.25rem) scale(.985)}
 .an.l{transform:translateX(-2.75rem)}
@@ -105,7 +108,7 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
 @media (prefers-reduced-motion: reduce){
   .an,.an.up,.an.l,.an.r{transform:none;transition:opacity .6s ease}
   .an.wipe{opacity:0;clip-path:none;transition:opacity .6s ease}
-  .an.on{transform:none;clip-path:none;transition-delay:calc(var(--i,0) * 55ms)}
+  .an.on{opacity:1;transform:none;clip-path:none;transition-delay:calc(var(--i,0) * 55ms)}   /* 濃さもここで戻す。上の .an.wipe{opacity:0} を打ち消すため */
   .an.mv{will-change:opacity}
   .wordmark,.subtitle,.hero .lead,.cta,.facts,.jetback{animation:fade .7s both}
   .bar{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(11,16,23,.96)}
@@ -408,7 +411,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   </div>
 </section>
 
-<main>
+<main>   <!-- 横へずらす動きの最中に画面の外へ出ないよう、main で横を切る（下の CSS の main{overflow-x:clip}） -->
 
   <section data-reveal>
     <h2>知識ではなく、瞬発力</h2>

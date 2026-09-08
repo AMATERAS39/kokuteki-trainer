@@ -81,46 +81,52 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
 [data-reveal].seen{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}[data-reveal]{opacity:1;transform:none}}
 
-/* 見出しの舞台。全幅で、奥へ伸びる格子と光で奥行きを出す */
+/* 見出しの舞台。円と弧の幾何学模様を背景に敷く */
 .stage{position:relative;overflow:hidden;background:
-  radial-gradient(120% 80% at 50% 0%,rgba(90,209,230,.10),transparent 60%),
-  radial-gradient(90% 70% at 70% 20%,rgba(255,176,32,.10),transparent 60%),
+  radial-gradient(120% 90% at 78% 8%,rgba(90,209,230,.12),transparent 62%),
+  radial-gradient(90% 70% at 20% 60%,rgba(255,176,32,.08),transparent 62%),
   linear-gradient(#0d141d,#0b1017)}
-.stage::before{content:"";position:absolute;left:-25%;right:-25%;bottom:0;height:58%;
-  background:repeating-linear-gradient(to right,rgba(90,209,230,.16) 0 1px,transparent 1px 8%),
-             repeating-linear-gradient(to top,rgba(90,209,230,.16) 0 1px,transparent 1px 14%);
-  transform:perspective(28rem) rotateX(72deg);transform-origin:bottom;
-  -webkit-mask-image:linear-gradient(transparent,#000 55%);mask-image:linear-gradient(transparent,#000 55%);pointer-events:none}
-.stage::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 35%,rgba(255,255,255,.06) 50%,transparent 65%);
-  transform:translateX(-60%);animation:sweep 7s ease-in-out infinite;pointer-events:none}
+.deco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.6}
+.deco .spin{transform-origin:78% 26%;animation:turn 90s linear infinite}
+.deco .spin2{transform-origin:78% 26%;animation:turn 140s linear infinite reverse}
+@keyframes turn{to{transform:rotate(360deg)}}
+.stage .sweep{position:absolute;inset:0;background:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.05) 50%,transparent 62%);
+  transform:translateX(-60%);animation:sweep 8s ease-in-out infinite;pointer-events:none}
 @keyframes sweep{0%,100%{transform:translateX(-60%)}50%{transform:translateX(60%)}}
-.hero{position:relative;max-width:var(--wrap);margin:0 auto;padding:clamp(2rem,6vw,4.5rem) var(--pad) clamp(2.25rem,6vw,5rem);
-  display:grid;grid-template-columns:1fr;gap:clamp(1.75rem,5vw,3rem);align-items:center}
-@media (min-width:56rem){.hero{grid-template-columns:1.05fr .95fr}}
-.jet{position:relative;animation:rise .9s .15s both}
-.jet{overflow:visible}
-.jet img{width:150%;max-width:none;margin-left:-25%;filter:drop-shadow(0 1.5rem 2.5rem rgba(0,0,0,.6));animation:hover 9s ease-in-out infinite}
-@media (min-width:56rem){.jet img{width:124%;max-width:none;margin-left:-12%}}
-@keyframes hover{0%,100%{transform:translateY(0) rotate(-.6deg)}50%{transform:translateY(-1.1%) rotate(.6deg)}}
-.jet .ring{position:absolute;left:50%;top:50%;width:min(26rem,86%);aspect-ratio:1;transform:translate(-50%,-50%);
-  border-radius:50%;border:1px solid rgba(90,209,230,.22);animation:ring 4s ease-out infinite;pointer-events:none}
+
+.hero{position:relative;max-width:var(--wrap);margin:0 auto;padding:clamp(2.5rem,8vw,5rem) var(--pad) clamp(2.5rem,7vw,5rem)}
 .chip{display:inline-flex;align-items:center;gap:.55rem;padding:.35rem .75rem;border:1px solid rgba(90,209,230,.35);border-radius:999px;font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan);animation:rise .6s both}
 .chip i{width:.375rem;height:.375rem;border-radius:50%;background:var(--cyan);animation:blink 1.6s infinite}
-h1{font-size:var(--h1);line-height:1.22;font-weight:900;letter-spacing:-.01em;margin-top:1.25rem;animation:rise .7s .08s both}
-.hero .lead{max-width:52ch;margin-top:1.375rem;animation:rise .7s .18s both}
-.cta{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.875rem;animation:rise .7s .28s both}
+.hero .chip{margin-bottom:1.25rem}
+.cta{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.875rem;animation:rise .7s .35s both}
 .btn{padding:.875rem 1.5rem;border-radius:.75rem;font-weight:700;font-size:var(--small);transition:transform .2s cubic-bezier(.2,.9,.3,1.4),box-shadow .2s,background .2s,border-color .2s}
 .btn.pri{background:var(--amber);color:#0b1017}
 .btn.pri:hover{transform:translateY(-.19rem);box-shadow:0 .875rem 2.125rem rgba(255,176,32,.32);color:#0b1017}
 .btn.sec{border:1px solid var(--line2);color:var(--text)}
 .btn.sec:hover{border-color:rgba(90,209,230,.6);background:rgba(90,209,230,.08);transform:translateY(-.19rem);color:var(--text)}
 .btn:active{transform:translateY(.06rem) scale(.98)}
-.facts{display:flex;gap:clamp(1.25rem,5vw,2.125rem);margin-top:2.25rem;padding-top:1.625rem;border-top:1px solid var(--line);animation:rise .7s .38s both}
+.facts{display:flex;gap:clamp(1.25rem,5vw,2.125rem);margin-top:2.25rem;padding-top:1.625rem;border-top:1px solid var(--line);animation:rise .7s .45s both}
+.facts div{margin:0}
 .facts dt{font-size:var(--tiny);letter-spacing:.18em;color:var(--faint);font-family:var(--mono)}
 .facts dd{margin:.4rem 0 0;font-family:var(--mono);font-size:clamp(1.05rem,2.6vw,1.45rem);font-weight:600}
 .facts .big{font-size:clamp(1.3rem,3.4vw,1.875rem);color:var(--amber);line-height:1}
 .facts .unit{font-size:var(--small);color:var(--muted);font-family:var(--disp)}
-
+.wordmark{font-family:var(--mono);font-weight:600;letter-spacing:.16em;
+  font-size:clamp(3rem,13vw,7rem);line-height:1;margin:0;
+  background:linear-gradient(180deg,#ffffff,#9fb4c6);-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:rise .7s .05s both}
+.subtitle{margin-top:.875rem;font-size:clamp(1.05rem,3.4vw,1.75rem);font-weight:700;color:var(--cyan);
+  letter-spacing:.02em;animation:rise .7s .15s both}
+.hero .lead{max-width:44ch;margin-top:1.25rem;animation:rise .7s .25s both}
+.jetband{position:relative;margin-top:clamp(1.5rem,4vw,2.25rem);animation:rise .9s .35s both}
+.jetband img{width:100%;max-width:46rem;margin:0 auto;filter:drop-shadow(0 1.25rem 2.25rem rgba(0,0,0,.55));
+  animation:hover 9s ease-in-out infinite}
+@keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.6%)}}
+@media (min-width:56rem){
+  .hero{display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(1.5rem,4vw,3rem);align-items:center}
+  .jetband{margin-top:0}
+  .jetband img{max-width:none}
+}
 /* アプリの部品（engine.js が描く SVG）を、アプリと同じ色で出すための変数。
    値はアプリの :root と body[data-scene=day] から写した */
 .app{
@@ -263,11 +269,41 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
 </header>
 
 <section class="stage" id="top">
+  <svg class="deco" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#5ad1e6" stop-opacity=".55"/><stop offset="1" stop-color="#5ad1e6" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="ga" x1="1" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffb020" stop-opacity=".5"/><stop offset="1" stop-color="#ffb020" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <g fill="none" stroke-width="1">
+      <g class="spin">
+        <circle cx="936" cy="161" r="250" stroke="url(#gl)"/>
+        <circle cx="936" cy="161" r="186" stroke="rgba(255,255,255,.10)" stroke-dasharray="2 10"/>
+        <g stroke="rgba(90,209,230,.35)">
+          <path d="M936 -99 v26 M1196 161 h-26 M936 421 v-26 M676 161 h26"/>
+        </g>
+      </g>
+      <g class="spin2">
+        <circle cx="936" cy="161" r="312" stroke="rgba(255,255,255,.06)"/>
+        <path d="M624 161 a312 312 0 0 1 312 -312" stroke="url(#ga)" stroke-width="2"/>
+      </g>
+      <circle cx="936" cy="161" r="120" stroke="rgba(255,255,255,.07)"/>
+      <path d="M-60 520 Q 300 380 700 470 T 1320 400" stroke="rgba(90,209,230,.18)"/>
+      <path d="M-60 578 Q 340 440 760 528 T 1320 462" stroke="rgba(90,209,230,.10)"/>
+      <path d="M120 -40 L 520 660" stroke="rgba(255,255,255,.05)"/>
+      <path d="M40 -40 L 440 660" stroke="rgba(255,255,255,.035)"/>
+    </g>
+  </svg>
+  <div class="sweep"></div>
   <div class="hero">
     <div>
       <div class="chip"><i></i>GUIDE</div>
-      <h1>方位と姿勢指示器を、数秒で読めるようにする</h1>
-      <p class="lead">航空自衛隊 航空学生の適性検査で出る 4 種目を、実際の出題形式のまま練習するアプリ「TENRYU」の案内です。登録なしで、このページからそのまま始められます。</p>
+      <h1 class="wordmark">TENRYU</h1>
+      <div class="subtitle">パイロット適性検査トレーニングアプリ</div>
+      <p class="lead">航空学生一次試験の課目である適性検査対策に特化したアプリです。方位、姿勢指示器、方位×姿勢指示器、操縦操作の 4 種目を、本番と同じ制限時間で練習できます。</p>
       <div class="cta">
         <a class="btn pri" href="/">ブラウザで体験版を始める</a>
         <a class="btn sec" href="https://apps.apple.com/app/id6808281696">App Store の完全版</a>
@@ -277,8 +313,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
         <div><dt>第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit">日</span></dd></div>
       </dl>
     </div>
-    <div class="jet">
-      <div class="ring"></div>
+    <div class="jetband">
       <img src="/img/guide/header.webp" width="2000" height="682" alt="TENRYU の 3D モデルから描いた T-4 ブルーインパルスの編隊" fetchpriority="high" decoding="async">
     </div>
   </div>

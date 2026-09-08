@@ -615,10 +615,9 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
      入れ物側が巻いていて scroll が飛んでこない場合でも、見えた節から順に出せる。
      全部出たら止める（利用者の指示: 開いた瞬間ではなく、スクロールで見えたときに出す） */
   var iv=setInterval(function(){ if(!left.length){clearInterval(iv);return} check(); },500);
-  /* 最後の備え: 6 秒経っても 1 つも出ていなければ、仕組みが働いていない。そのときだけ全部出す（白紙にしない） */
-  setTimeout(function(){
-    if(left.length===secs.length){ left.slice().forEach(function(el){ run(el) }); left.length=0; clearInterval(iv); }
-  },6000);
+  /* 白紙にしない備えは、この見回り自体が担う。位置で判じているので、
+     scroll が飛んでこなくても、見えた節はここで必ず出る。
+     「何秒か経ったら残り全部を出す」は入れない。下まで巻いていない人の分まで動いてしまうため */
 
   /* 上の帯: いま見ている節を光らせる */
   var links=[].slice.call(document.querySelectorAll('.nav a'));

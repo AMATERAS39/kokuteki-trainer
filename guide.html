@@ -7,10 +7,11 @@
 <title>航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方 - TENRYU</title>
 <meta name="description" content="航空自衛隊 航空学生の一次試験（2026 年は 9 月 19 日と 9 月 26 日）で出る適性検査の 4 種目を、読み方のコツとあわせてまとめました。方位、姿勢指示器、方位×姿勢指示器、操縦操作。ブラウザでそのまま練習でき、パイロットの操縦操作は 3D シミュレーターで確かめられます。">
 <link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/guide">
-<link rel="icon" href="/icons/favicon-64.png">
+<link rel="icon" href="/icons/favicon-64.png" sizes="64x64">
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="TENRYU">
+<meta property="og:site_name" content="TENRYU | 航空学生適性検査トレーニングアプリ">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:title" content="航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方">
 <meta property="og:description" content="航空学生の適性検査で出る 4 種目を、読み方のコツとあわせてまとめました。ブラウザでそのまま練習できます。">
@@ -753,17 +754,19 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
    まだ何も置かれていないとき（あるいは読めないとき）は、デフォルトの持ち時間のまま出す */
 (function(){
   var KEY='aat.avgtiles';
+  var got=function(v){ return !!(v&&v.n>0&&v.t>0) };
   var fill=function(d){
     if(!d||!d.stats)return false;
-    var any=false;
-    document.querySelectorAll('.tile[data-m]').forEach(function(t){
+    var tiles=[].slice.call(document.querySelectorAll('.tile[data-m]'));
+    var any=tiles.some(function(t){ return got(d.stats[t.dataset.m]) });
+    if(!any)return false;                       /* 1 つも記録がなければ、デフォルトの持ち時間のまま */
+    tiles.forEach(function(t){
       var v=d.stats[t.dataset.m];
-      if(!v||!(v.n>0)||!(v.t>0))return;
-      t.querySelector('b').textContent=(v.t/v.n).toFixed(1)+' 秒';
-      any=true;
+      /* 記録のない種目は「—」。デフォルトの持ち時間を平均として見せない */
+      t.querySelector('b').textContent = got(v) ? (v.t/v.n).toFixed(1)+' 秒' : '—';
     });
-    if(any){ var l=document.getElementById('tlab'); if(l)l.textContent='平均回答時間' }
-    return any;
+    var l=document.getElementById('tlab'); if(l)l.textContent='平均回答時間';
+    return true;
   };
   try{ fill(JSON.parse(localStorage.getItem(KEY))) }catch(e){}
   fetch('/api/avg',{cache:'no-store'}).then(function(r){ return r.ok?r.json():null }).then(function(d){

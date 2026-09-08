@@ -44,7 +44,7 @@ export default {
         if (!env.STATS) return json({ stats: null });
         const v = await env.STATS.get('avg');
         return new Response(v || '{"stats":null}', {
-          headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=300' }
+          headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=30' }
         });
       }
       if (request.method === 'POST') {

@@ -2894,3 +2894,30 @@ Cloudflare の中で完結させた（`worker.js` ＋ KV）。Supabase を選ば
 
 KV の名前空間を作って `wrangler.jsonc` に ID を書き込むまで、`/api/avg` は無い。
 それまでは札は既定の持ち時間のままで、送信も届かない（アプリ側は黙って諦めるので、実害はない）。
+
+## v04.64 / v04.65 置き場所（Cloudflare KV）をつないだ
+
+利用者が名前空間を作り、ID を渡してくれたので、`wrangler.jsonc` に 3 つ足した。
+
+- `"main": "worker.js"` … `/api/avg` を受け持つ
+- `"assets": { "directory": "./", "binding": "ASSETS" }` … ファイルのある道は今までどおり静的配信
+- `"kv_namespaces": [{ "binding": "STATS", "id": "…" }]`
+
+v04.65 で、置いた数値を**消す道**を足した（`POST {key, clear:true}`）。試すたびに数字が残ってしまうと、
+本番の札に嘘の数字が出たままになる。消せるようにしておけば、確かめたあとで空に戻せる。
+
+### 本番で確かめたこと
+
+| 試したこと | 返り |
+|---|---|
+| 合言葉が違う POST | `403 {"error":"no-key"}` |
+| 正解数が問数より多い POST | `400 {"error":"bad-stats"}` |
+| 正しい POST | `200 {"ok":true}` |
+| GET | 置いた数値がそのまま返る |
+| `clear` の POST | `200 {"ok":true,"cleared":true}` → GET は `{"stats":null}` |
+
+札の表示も本番で確かめた。`heading 432.5 秒 / 100 問` などを置くと、札が **4.3 / 6.7 / 12.1 / 16.8 秒** に変わり、
+小見出しが「平均回答時間」になった。確かめたあとは消して、既定の持ち時間の表示に戻してある。
+
+`main` を足しても静的配信は壊れていない（`/`・`/guide`・`/engine.js`・`/news.json`・`/img/guide/header.webp`・
+`/manifest.webmanifest` がいずれも 200。`/privacy.html` の 307 → `/privacy` は Cloudflare の既定の振る舞いで、以前から同じ）。

@@ -1213,13 +1213,16 @@ const PLAY_URL='https://play.google.com/store/apps/details?id=com.amaterasuvocab
    levels: 選べる難易度／qDefRatio: 出題数の上限は、完全版の既定の何割か／
    galleryOne: 「見え方」は操作 1 つずつ。
    シミュレーターは体験版でも自分で操縦できる（操縦桿も方向舵も）。鍵をかけるのは 演目・編隊・スモーク */
-const DEMO={levels:['easy'],qDefRatio:.5,galleryOne:true};
+const DEMO={levels:['easy'],qDefRatio:.5,galleryOne:true,showLen:238};
+/* 展示飛行モードの長さ。体験版は「短め」に固定する（標準と長めは完全版）。
+   利用者の決め: 体験版でも展示飛行モードは見られるようにし、長さだけ限る */
+const showLenNow=()=>isFull()?+(settings.showLen||463):DEMO.showLen;
 /* DEMO_ON: Web 版を体験版にする切り替え。有償配信（Google Play / App Store）が始まるまでは false のままにし、全員が全機能を使える */
 const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.51';
+const APP_VER='v04.52';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1686,9 +1689,9 @@ function runSim(opt){applyScene();
         sim.lastClick=0;tapAt();return}
       sim.lastClick=now;sim.lastX=e.clientX;sim.lastY=e.clientY}});
   /* PC: ボタンを押していなくても、カーソルを動かすと視線が変わる（マウスのときだけ）。
-     操縦桿のまわりと、体験版の投影中は動かさない */
+     操縦桿のまわりでは動かさない */
   vw.addEventListener('mousemove',e=>{
-    if(!sim||!sim.h||sim.projection)return;
+    if(!sim||!sim.h)return;
     if(sim.viewName!=='first')return;           // 見回しは一人称のときだけ（外から見るときは邪魔になる）
     if(e.buttons)return;                       // ドラッグ中は下の pointermove が受け持つ
     if(matchMedia('(pointer:coarse)').matches)return;
@@ -1910,7 +1913,8 @@ function runSim(opt){applyScene();
       sim.demo=!isFull();
       /* 体験版で見せる演目は 5 つ（旋回・キューピッド・スタークロス・クリスマスツリー・ローパス・コークスクリュー）。
          残りは一覧に灰色で並べ、押すと断りを出す */
-      if(sim.demo)sim.h.setAllowed(['orbit','cupid','star','tree','cork']);
+      const demoAllow=()=>{if(sim.demo)sim.h.setAllowed(['orbit','cupid','star','tree','cork'])};
+      demoAllow();
       const demoStop=()=>{if(!sim.demo)return false;toast('体験版では鍵がかかっています。編隊・スモーク・写真・タイヤ・ライトは完全版で使えます');return true};
       sim.h.setCockpit(sim.viewName==='first'&&sim.fpMode==='cockpit');
       /* スモークの色と入り切り。編隊と地上の目印は開始前の設定画面で決めたものを使う */
@@ -2050,20 +2054,6 @@ function runSim(opt){applyScene();
         Object.entries(lb).forEach(([k,v])=>{const e=$('#sim').querySelector('.stick .lb.'+k);if(e)e.textContent=v})};
       sim.paintAuto=paintAuto;
       if(autoReplay>0)setTimeout(()=>{for(let k=0;k<autoReplay;k++)autoStep()},300);
-      /* 体験版の「固定」は、地上から全演目をずっと映すだけの形にする（操作はできない）。
-         見せる課目の制限を外し、オブジェクトを消し、操作をしまって、地上視点で機体を目で追う */
-      const setProjection=on=>{
-        if(!sim||!sim.h)return;
-        sim.projection=on;
-        $('#sim').classList.toggle('uihide',on);sim.uiHidden=on;
-        if(on){
-          sim.h.setAllowed(null);sim.h.setProps(false);
-          if(sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground');
-          sim.h.setFollow(true);if(sim.paintFollow)sim.paintFollow();
-        }else{
-          sim.h.setAllowed(['orbit','cupid','star','tree','cork']);sim.h.setProps(true);
-        }
-      };
       /* 2 回続けて押すと「固定」: 離着陸を含めず、演目を繰り返す。もう一度 2 回押すと解ける */
       /* 押すたびに順に変わる（視点のボタンと同じ要領）。
          切 → 自動操縦 → 通し（離陸から着陸まで）→ 切 */
@@ -2077,14 +2067,13 @@ function runSim(opt){applyScene();
           $('#sim').classList.remove('uihide');sim.uiHidden=false;
           toast('自動操縦を止めました');return}
         if(on&&!show&&lp){                         /* 押した: 展示飛行モードを止める（自動操縦も切る） */
-          sim.h.setLoop(false,!sim.demo);aBtn.classList.remove('loop');
-          if(sim.projection)setProjection(false);
+          sim.h.setLoop(false,true);demoAllow();aBtn.classList.remove('loop');
           sim.h.setAuto(false);paintAuto();showLabel('');
           $('#sim').classList.remove('uihide');sim.uiHidden=false;
           toast('展示飛行モードを止めました');return}
         if(on&&show&&lp){                          /* なぞった: 展示飛行モードを止める */
-          sim.h.setLoop(false,!sim.demo);aBtn.classList.remove('loop');
-          if(sim.projection)setProjection(false);paintAuto();
+          sim.h.setLoop(false,true);demoAllow();aBtn.classList.remove('loop');
+          paintAuto();
           toast('展示飛行モードを止めました（自動操縦は続きます）');return}
         if(!on){                                   /* 自動操縦を入れる */
           /* 夜に演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
@@ -2097,11 +2086,12 @@ function runSim(opt){applyScene();
           if(landFull()){$('#sim').classList.add('uihide');sim.uiHidden=true;   /* 横画面は鑑賞のため操作をしまう */
             if(sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
           if(!show){toast('自動操縦。上へなぞると展示飛行モード（離陸から着陸まで）');return}}
-        {                                          /* 展示飛行モード（通し） */
-          sim.h.setLoop(true,!sim.demo);aBtn.classList.add('loop');
-          if(sim.demo){setProjection(true);toast('固定しました。地上から全部の演目を続けて映します（操作はできません）')}
-          else{if(sim.h.standReset){flashSim();sim.h.standReset()}showLabel('');
-            toast('展示飛行モード。「離陸準備」で滑走路へ進み、「テイクオフ」で離陸します')}
+        {                                          /* 展示飛行モード（通し）。体験版でも同じものを見せる（長さだけ短め） */
+          if(sim.demo){sim.h.setAllowed(null);sim.h.setShowLen(DEMO.showLen)}   /* 演目は全部。長さは短めに固定 */
+          sim.h.setLoop(true,true);aBtn.classList.add('loop');
+          if(sim.h.standReset){flashSim();sim.h.standReset()}showLabel('');
+          toast(sim.demo?'展示飛行モード（体験版は短めの通し）。「離陸準備」で滑走路へ進み、「テイクオフ」で離陸します'
+                        :'展示飛行モード。「離陸準備」で滑走路へ進み、「テイクオフ」で離陸します');
           paintAuto();return}};
       aBtn.addEventListener('click',e=>{if(aBtn._swiped){aBtn._swiped=false;return}autoStep(false)});
       /* 上へ 18 px 以上なぞる = 展示飛行モード（音のボタンと同じ要領。横一列なので上下でなぞる） */
@@ -2478,7 +2468,8 @@ function renderStats(){
 function renderSettingsPage(){
   /* 体験版で選べないものは、消さずに灰色で見せる */
   const sel=(key,label,opts,lock)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>{const off=!isFull()&&lock&&lock(v);
-    const cur=(!isFull()&&key==='scene')?'day':settings[key];   /* 体験版の背景は昼で固定して見せる */
+    /* 体験版は、背景を昼、展示飛行モードの長さを短めで固定して見せる（実際に使う値と合わせる） */
+    const cur=!isFull()&&key==='scene'?'day':!isFull()&&key==='showLen'?DEMO.showLen:settings[key];
     return `<option value="${v}"${String(cur)===String(v)?' selected':''}${off?' disabled':''}>${t}${off?'（完全版）':''}</option>`}).join('')}</select></label>`;
   $('#settingsPage').innerHTML=`<h3>${ic('settings','s')}設定</h3>
     <div class="setgroup"><h4>表示</h4>
@@ -2489,10 +2480,10 @@ function renderSettingsPage(){
       ${sel('net','通信',[['wifi','Wi-Fi のときだけ'],['any','いつでも']])}
       <div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。携帯の回線では通信しないので、通信量を使いません。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div></div>
     <div class="setgroup"><h4>展示飛行モード</h4>
-      ${sel('showLen','全体の長さ',[[238,'短め（曲 1 周・約 4 分）'],[463,'標準（曲 2 周・約 7 分 43 秒）'],[688,'長め（曲 3 周・約 11 分 30 秒）']])}
+      ${sel('showLen','全体の長さ',[[238,'短め（曲 1 周・約 4 分）'],[463,'標準（曲 2 周・約 7 分 43 秒）'],[688,'長め（曲 3 周・約 11 分 30 秒）']],v=>+v!==238)}
       ${sel('showProg','構成',[['auto','おまかせ（長さに合わせて組む）'],['custom','自分で選ぶ']])}
       <div id="progSlots" hidden></div>
-      <div class="sethelp">展示飛行モード（シミュレーターで自動操縦を 2 回押す）は、離陸から着陸までをひと続きで行います。「おまかせ」は、長さに合わせて 序盤 → 中盤 → 終盤 → フィナーレ を毎回組み直します。「自分で選ぶ」は、並べた課目をその順に行います（開始位置はそのとき機体がいる方角から最も近い正面を選ぶので、回り込みが短くなります）。</div>
+      <div class="sethelp">展示飛行モード（シミュレーターで自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。体験版でも見られます（長さは「短め」だけ）。「おまかせ」は、長さに合わせて 序盤 → 中盤 → 終盤 → フィナーレ を毎回組み直します。「自分で選ぶ」は、並べた課目をその順に行います（開始位置はそのとき機体がいる方角から最も近い正面を選ぶので、回り込みが短くなります）。</div>
     </div>
     <div class="setgroup"><h4>演目の曲${isFull()?'':'（完全版）'}</h4>
       ${isFull()?`<div id="musList" class="muslist"></div>
@@ -2601,7 +2592,7 @@ const PROG_ALL=[['bloom','サンライズ','open'],['touch','タッチ・アン�
   ['cork','コーク・スクリュー','finale'],['star','スタークロス','finale']].map(([id,ja,role])=>({id,ja,role}));
 function PROG_LIST(){return PROG_ALL}
 function applyShow(){if(!sim||!sim.h||!sim.h.setShowLen)return;
-  sim.h.setShowLen(+(settings.showLen||463));
+  sim.h.setShowLen(showLenNow());
   sim.h.setProgram(settings.showProg==='custom'?store.get('progSlots',[]).filter(Boolean):null)}
 
 /* ===== 画面の切り替え（ホーム / 訓練 / 設定 / 説明）: URL のハッシュで管理 ===== */

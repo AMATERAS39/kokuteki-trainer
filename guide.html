@@ -79,9 +79,34 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
 [data-reveal].seen{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}[data-reveal]{opacity:1;transform:none}}
 
-/* 冒頭 */
-.hero{display:grid;grid-template-columns:1fr;gap:clamp(1.75rem,5vw,3rem);align-items:center;padding:clamp(2rem,6vw,4.5rem) 0 clamp(2.25rem,6vw,5rem)}
+/* 見出しの舞台。全幅で、奥へ伸びる格子と光で奥行きを出す */
+.stage{position:relative;overflow:hidden;background:
+  radial-gradient(120% 80% at 50% 0%,rgba(90,209,230,.10),transparent 60%),
+  radial-gradient(90% 70% at 70% 20%,rgba(255,176,32,.10),transparent 60%),
+  linear-gradient(#0d141d,#0b1017)}
+.stage::before{content:"";position:absolute;left:-25%;right:-25%;bottom:0;height:58%;
+  background:repeating-linear-gradient(to right,rgba(90,209,230,.16) 0 1px,transparent 1px 8%),
+             repeating-linear-gradient(to top,rgba(90,209,230,.16) 0 1px,transparent 1px 14%);
+  transform:perspective(28rem) rotateX(72deg);transform-origin:bottom;
+  -webkit-mask-image:linear-gradient(transparent,#000 55%);mask-image:linear-gradient(transparent,#000 55%);pointer-events:none}
+.stage::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 35%,rgba(255,255,255,.06) 50%,transparent 65%);
+  transform:translateX(-60%);animation:sweep 7s ease-in-out infinite;pointer-events:none}
+@keyframes sweep{0%,100%{transform:translateX(-60%)}50%{transform:translateX(60%)}}
+.hero{position:relative;max-width:var(--wrap);margin:0 auto;padding:clamp(2rem,6vw,4.5rem) var(--pad) clamp(2.25rem,6vw,5rem);
+  display:grid;grid-template-columns:1fr;gap:clamp(1.75rem,5vw,3rem);align-items:center}
 @media (min-width:56rem){.hero{grid-template-columns:1.05fr .95fr}}
+.jet{position:relative;animation:rise .9s .15s both}
+.jet{overflow:visible}
+.jet img{width:160%;max-width:none;margin-left:-30%;filter:drop-shadow(0 1.5rem 2.5rem rgba(0,0,0,.6));animation:hover 9s ease-in-out infinite}
+@media (min-width:56rem){.jet img{width:132%;max-width:none;margin-left:-16%}}
+@keyframes hover{0%,100%{transform:translateY(0) rotate(-.6deg)}50%{transform:translateY(-1.1%) rotate(.6deg)}}
+.jet .ring{position:absolute;left:50%;top:50%;width:min(26rem,86%);aspect-ratio:1;transform:translate(-50%,-50%);
+  border-radius:50%;border:1px solid rgba(90,209,230,.22);animation:ring 4s ease-out infinite;pointer-events:none}
+.d3{margin-top:1rem;display:flex;gap:.625rem;align-items:center;flex-wrap:wrap;justify-content:center}
+.d3 button{font:700 var(--small)/1 var(--disp);padding:.6rem 1rem;border-radius:.625rem;border:1px solid rgba(90,209,230,.5);
+  background:rgba(90,209,230,.08);color:var(--cyan);cursor:pointer}
+.d3 span{font-size:var(--tiny);color:var(--faint)}
+#v3d{margin-top:.75rem}
 .chip{display:inline-flex;align-items:center;gap:.55rem;padding:.35rem .75rem;border:1px solid rgba(90,209,230,.35);border-radius:999px;font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan);animation:rise .6s both}
 .chip i{width:.375rem;height:.375rem;border-radius:50%;background:var(--cyan);animation:blink 1.6s infinite}
 h1{font-size:var(--h1);line-height:1.22;font-weight:900;letter-spacing:-.01em;margin-top:1.25rem;animation:rise .7s .08s both}
@@ -98,6 +123,22 @@ h1{font-size:var(--h1);line-height:1.22;font-weight:900;letter-spacing:-.01em;ma
 .facts dd{margin:.4rem 0 0;font-family:var(--mono);font-size:clamp(1.05rem,2.6vw,1.45rem);font-weight:600}
 .facts .big{font-size:clamp(1.3rem,3.4vw,1.875rem);color:var(--amber);line-height:1}
 .facts .unit{font-size:var(--small);color:var(--muted);font-family:var(--disp)}
+
+/* アプリの部品（engine.js が描く SVG）を、アプリと同じ色で出すための変数。
+   値はアプリの :root と body[data-scene=day] から写した */
+.app{
+  --bezel:#2b3644;--card:#0d1219;--glare:#07090c;--hud:#8ce99a;--inst-ink:#fff;
+  --line:#223040;--line2:#34465a;--sky:#2b6cb0;--earth:#7b4a22;--accent:#f0a53a;--faint:#66788a;
+  --ck-sky-top:#2f86e0;--ck-sky-hz:#b4dcf7;--ck-earth:#9a6535;--ck-mtn:#6b8199;--ck-mtn2:#8a9db1;--ck-snow:#f6f9fc;--ck-sun:#ffd95a;
+  --display:"Zen Kaku Gothic New",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+.part{background:var(--bg);border-bottom:1px solid var(--line);padding:1.125rem clamp(1rem,4vw,2rem)}
+.part.row{display:flex;gap:.75rem;align-items:center;justify-content:center}
+.part.row>*{flex:1 1 0;min-width:0;max-width:11rem}
+.part .one{max-width:13rem;margin:0 auto}
+.part.wide{padding:1rem}
+.ck2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.ck2 figcaption{margin-top:.375rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint);text-align:center}
 
 /* 実際の画面を、端末の枠に入れて見せる */
 .art{position:relative;display:flex;justify-content:center;animation:rise .8s .2s both}
@@ -224,9 +265,8 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   </div>
 </header>
 
-<main id="top">
-
-  <section class="hero">
+<section class="stage" id="top">
+  <div class="hero">
     <div>
       <div class="chip"><i></i>GUIDE</div>
       <h1>方位と姿勢指示器を、数秒で読めるようにする</h1>
@@ -240,13 +280,19 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
         <div><dt>第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit">日</span></dd></div>
       </dl>
     </div>
-    <div class="art">
-      <div class="halo"></div>
-      <div class="phone">
-        <img src="/img/guide/home.webp" width="560" height="1217" alt="TENRYU のホーム画面。4 種目とシミュレーターが並ぶ" fetchpriority="high" decoding="async">
+    <div class="jet">
+      <div class="ring"></div>
+      <img src="/img/hero.webp" width="2894" height="970" alt="TENRYU の 3D モデルから描いた T-4 ブルーインパルス" fetchpriority="high" decoding="async">
+      <div class="d3">
+        <button type="button" id="go3d">3D で回してみる</button>
+        <span>読み込み 7 MB（Wi-Fi 推奨）</span>
       </div>
+      <div id="v3d"></div>
     </div>
-  </section>
+  </div>
+</section>
+
+<main>
 
   <section data-reveal>
     <h2>知識ではなく、速さで決まる</h2>
@@ -265,7 +311,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     <div class="grid">
 
       <article class="card">
-        <figure class="pic"><img src="/img/guide/fig-heading.webp" width="640" height="556" alt="方位の問題。上から見た T-4 と N マークが方位計の中に描かれている" loading="lazy" decoding="async"></figure>
+        <figure class="part app" data-part="top"><div class="one"></div></figure>
         <div class="in">
           <div class="n">01</div><h3>方位</h3>
           <p>上から見た機体の絵と N マークから、機首がどの方位を向いているかを答えます。</p>
@@ -274,7 +320,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
       </article>
 
       <article class="card">
-        <figure class="pic"><img src="/img/guide/fig-attitude.webp" width="640" height="535" alt="姿勢指示器の問題。南から見た T-4 が傾いて飛んでいる" loading="lazy" decoding="async"></figure>
+        <figure class="part app" data-part="ai"><div class="one"></div></figure>
         <div class="in">
           <div class="n">02</div><h3>姿勢指示器</h3>
           <p>南から見た機体の姿勢に合う姿勢指示器を、4 つの絵から選びます。</p>
@@ -283,7 +329,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
       </article>
 
       <article class="card">
-        <figure class="pic"><img src="/img/guide/fig-combo.webp" width="640" height="535" alt="方位×姿勢指示器の問題。同じ絵から方位と姿勢の両方を読む" loading="lazy" decoding="async"></figure>
+        <figure class="part row app" data-part="combo"><div></div><div></div></figure>
         <div class="in">
           <div class="n">03</div><h3>方位×姿勢指示器</h3>
           <p>同じ絵から方位と姿勢の両方を読み、姿勢指示器と方位指示器の組み合わせを選びます。</p>
@@ -292,7 +338,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
       </article>
 
       <article class="card">
-        <figure class="pic"><img src="/img/guide/fig-control.webp" width="640" height="779" alt="操縦操作の問題。コックピットからの視界が 3 枚並んでいる" loading="lazy" decoding="async"></figure>
+        <figure class="part wide app" data-part="ck2"><div class="ck2"></div></figure>
         <div class="in">
           <div class="n">04</div><h3>操縦操作</h3>
           <p>コックピットからの視界 3 枚の変化を見て、そのあいだに行われた操作（操縦桿と方向舵）を選びます。</p>
@@ -308,13 +354,13 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     <h2 style="margin-top:.75rem">操縦操作は、視界の変化で覚える</h2>
     <p class="lead">操縦操作は、操作と視界の対応が身についていると速くなります。アプリには機体を 3D で動かせるシミュレーターが入っていて、操縦桿と方向舵を入れたときに外がどう動くかを、その場で確かめられます。視点は機内、計器だけ、後方、前方、地上の 5 つです。</p>
     <div class="simgrid">
-      <figure>
-        <div class="shot tall"><img src="/img/guide/sim.webp" width="760" height="1651" alt="3D シミュレーターの画面。操縦桿と方向舵で自分で飛ばせる" loading="lazy" decoding="async"></div>
-        <figcaption class="cap">3D シミュレーター。左の操縦桿と右の方向舵で飛ばします。</figcaption>
+      <figure class="shot app part wide" data-part="ck3">
+        <div class="ck2" style="grid-template-columns:1fr 1fr 1fr"></div>
+        <figcaption class="cap">操縦操作の「見え方」。同じ操作で、視界がこう変わります。アプリの中で使っている絵そのものです。</figcaption>
       </figure>
       <figure>
-        <div class="shot tall"><img src="/img/guide/gallery.webp" width="760" height="1651" alt="見え方の画面。始めの姿勢と操作を選ぶと、視界の変化が 3 枚並ぶ" loading="lazy" decoding="async"></div>
-        <figcaption class="cap">「見え方」。始めの姿勢と操作を選ぶと、①から②③への視界が並びます。</figcaption>
+        <div class="shot"><img src="/img/guide/sim3d.webp" width="720" height="684" alt="3D シミュレーターの視界。滑走路と山、機首の先に地平線" loading="lazy" decoding="async"></div>
+        <figcaption class="cap">3D シミュレーター。操縦桿と方向舵で、自分で飛ばせます。</figcaption>
       </figure>
     </div>
     <div class="pair">
@@ -488,6 +534,39 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     links.forEach(function(a){ a.classList.toggle('on', a===cur) });
   };
   addEventListener('scroll',spy,{passive:true}); spy();
+
+  /* カードの図は、アプリが実際に描いている部品（engine.js）をそのまま出す。
+     読み込めなかったときは、図の枠ごと消して文章だけにする */
+  var sc=document.createElement('script'); sc.src='/engine.js?v=44';
+  sc.onload=function(){
+    var E=window.AAT; if(!E)return;
+    var fix=function(h){return h.replace(/(src|href)="img\//g,'$1="/img/')};
+    var put=function(sel,html){var e=document.querySelector(sel); if(e)e.innerHTML=fix(html)};
+    put('[data-part=top] .one', E.figTopDown(135,45));
+    put('[data-part=ai] .one', E.svgAI(25,12));
+    var c=document.querySelector('[data-part=combo]');
+    if(c){c.children[0].innerHTML=fix(E.svgAI(-15,-10)); c.children[1].innerHTML=fix(E.svgHI(120,0));}
+    var k=document.querySelector('[data-part=ck2] .ck2');
+    if(k)k.innerHTML=[[0,0,'①'],[25,-6,'③']].map(function(v){
+      return '<figure>'+fix(E.svgCockpit(v[0],v[1],0,v[0]?1:0,false,true))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
+    var k3=document.querySelector('[data-part=ck3] .ck2');
+    if(k3)k3.innerHTML=[[0,0,'①'],[18,-4,'②'],[32,-9,'③']].map(function(v,i){
+      return '<figure>'+fix(E.svgCockpit(v[0],v[1],0,i/2,false,true))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
+  };
+  sc.onerror=function(){document.querySelectorAll('.part').forEach(function(e){e.remove()})};
+  document.head.appendChild(sc);
+
+  /* 3D は押されたときだけ読む（模型 5.6 MB ＋ three.js。黙って落とすと通信量を食う） */
+  var b3=document.getElementById('go3d');
+  if(b3) b3.addEventListener('click',function(){
+    b3.disabled=true; b3.textContent='読み込み中…';
+    var host=document.getElementById('v3d');
+    import('/viewer.js?v=5').then(function(m){
+      return m.mount(host,{modelUrl:'/model/t4.glb?v=2',onProgress:function(pr){b3.textContent='読み込み中… '+Math.round(pr*100)+'%'}});
+    }).then(function(){
+      b3.remove(); var im=document.querySelector('.jet>img'); if(im)im.style.display='none';
+    }).catch(function(){b3.disabled=false;b3.textContent='読み込めませんでした。もう一度'});
+  });
 
   /* つまずき: 押すと開く */
   document.querySelectorAll('#acc .it').forEach(function(it){

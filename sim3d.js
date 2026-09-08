@@ -906,8 +906,9 @@ export function mount(container, opt = {}) {
     { id: 'opro', ja: 'オポジット・コンティニュアス・ロール', form: 'pair', alt: 220,
       at: 90, atR: FRONT_START, atN: SPREAD_D / 2, inH: 270, mirror: 'h',
       desc: '2 機が正面の左右から高速で近づき、会場の正面で至近距離をすれ違います。すれ違った直後に機首を上げ、そのまま 3 回転します。' },
-    { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230, entry: 'front', mirror: 'v',
-      desc: '2 機が背面のまま北から進入し、途中で外側へ回して膨らみ、正面で交差します。そのまま進んで、南東と南西へ抜けます。' },
+    { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230,
+      at: 90, atR: FRONT_START, atN: SPREAD_D / 2, inH: 270, mirror: 's',
+      desc: '2 機が背面のまま、至近距離で真横に並んで横から進入します。会場の手前で外側へロールして少し膨らみ、目の前で交差して、そのまま抜けていきます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front',
       desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
@@ -1938,84 +1939,66 @@ export function mount(container, opt = {}) {
         if (east < -1500 || manT > 60) { spdWant = 1; rollBoost = 1; nextManeuver(); }   // 左の無限遠で終わり
         break;
       }
-      case 'tuck': {                             // タック・クロス: 北から背面で入り、中間位置で外へ回して膨らみ、散開位置で交差
-        /* 相手は正面の線の鏡。交差で当たらないよう 14 m 上 */
+      case 'tuck': {
+        /* タック・クロス（利用者の説明どおりに作り直した。v04.76）:
+           「進入時点で背面を下にして 2 機が至近距離で真横に並んで横から進入し、会場近くで外側にロールして
+             少し膨らみ目の前で交差して交差したそのまま通過していく」。
+           相手は「進行方向に沿った線」の鏡なので、こちらが外へ膨らめば相手は逆へ膨らみ、線の上で交差する。
+           2 機とも背面のまま入る（左右の鏡は背面を背面のまま映す） */
         beginMirror(m);
-        const O = GROUND_EYE, CROSS_D = SPREAD_D / 2;      // 交差は散開位置と原点の中間
-        const TL = showLocal(st.x, st.y), alongT = TL.along;
-        /* 通過点: 膨らみ（散開位置と交差点のあいだ、左へ 110 m）→ 交差（線の少し右） */
-        /* 散開位置から交差点まで 300 m しかないので、膨らみは小さく（線の 60 m 西）、交差点は線の 8 m 東。
-           大きく膨らませると曲がりきれず、交差せずにすれ違うだけになる（実測） */
-        /* 交差点は線の 40 m 東に置く。膨らみからそこへ向かう向きが南東（約 140 度）になり、そのまま進めば線を横切って南東へ抜ける。
-           捕まえる半径を小さくすると通り過ぎてから戻ろうとして輪になる（実測）ので 110 m のまま */
-        const w0 = showPt(CROSS_D + 130, -60), w1 = showPt(CROSS_D, 40);
-        const wps = [[w0.x, w0.y], [w1.x, w1.y]];
-        if (alongT > SPREAD_D) {
-          /* 散開位置まで: 2.2 秒で左へ回して背面にし、そのまま南へまっすぐ。
-             背面では舵の効きが逆になり、ふつうの舵取りでは高さも傾きも暴れるので、
-             ここは姿勢を直接決める（背面の直進は、実機でもそのまま飛べる動き）。
-             位置は step() の積分に任せる（向きは南、速さはそのまま） */
+        const e = mir, rx = e.dy, ry = -e.dx;                          // 線の右手
+        const s0 = (st.x - e.ox) * e.dx + (st.y - e.oy) * e.dy;        // 線に沿った位置
+        const n0 = (st.x - e.ox) * rx + (st.y - e.oy) * ry;            // 線からの離れ（右が正）
+        const lineH = (((Math.atan2(e.dx, e.dy) / D) % 360 + 360) % 360);
+        /* 交差する点: いまの奥行きのまま、観覧位置の正面（横のずれ 0）に当たるところ */
+        const cL = showLocal(st.x, st.y), cP = showPt(cL.along, 0);
+        const sC = (cP.x - e.ox) * e.dx + (cP.y - e.oy) * e.dy;
+        const toC = sC - s0;                                           // 交差点までの残り
+        const pt = (a, b) => ({ x: e.ox + e.dx * a + rx * b, y: e.oy + e.dy * a + ry * b });
+        if (toC > TUCK_ROLL_D) {
+          /* 進入: 背面のまま、線に沿ってまっすぐ。姿勢は直接決める
+             （背面では舵の効きが逆で、ふつうの舵取りでは高さも傾きも暴れる） */
           tkT += dt;
           const kk = clamp(tkT / 2.2, 0, 1), ee = kk * kk * (3 - 2 * kk);
-          att.setFromAxisAngle(AZ, -((showFr + 180) % 360) * D);   // 正面から原点へ向かう向き
+          att.setFromAxisAngle(AZ, -lineH * D);
           att.multiply(dq.setFromAxisAngle(AY, -180 * ee * D));
           readAttitude();
-          st.z += (GATE.z - st.z) * Math.min(1, dt * 0.6);   // 高さは決めた高さへなめらかに
-          { /* 線の 30 m 左を通る（相手は鏡で 30 m 右。真上に重ならない） */
-            const u = frU(), e = clamp((TL.side + 30) * Math.min(1, dt * 0.8), -25 * dt, 25 * dt);   // 横ずれの詰めは 25 m/s まで（機内から見て跳ばない。実測 v04.27: 制限なしで 1 コマ 10.8 m）
-            st.x -= u.dy * e; st.y += u.dx * e; }
+          st.z += (GATE.z - st.z) * Math.min(1, dt * 0.6);
+          /* 線の左 TUCK_SIDE に付ける（相手は鏡で右 TUCK_SIDE）。詰めは 25 m/s まで */
+          { const ee2 = clamp((-TUCK_SIDE - n0) * Math.min(1, dt * 0.8), -25 * dt, 25 * dt);
+            st.x += rx * ee2; st.y += ry * ee2; }
           autoIn.x = 0; autoIn.y = 0; smIn.x = 0; smIn.y = 0;
         } else if (tkT2 < 1.2) {
-          /* 散開位置: 外側へ 1.2 秒で回して、背面から右 50 度のバンクへ（南向きでは西へ膨らむ）。
-             ここも姿勢を直接決める。背面（180 度）のままふつうの舵取りに渡すと、
-             向きの読みが 180 度 あいまいになり、逆へ曲がることがある */
+          /* 会場の手前: 外側（線から離れる側）へ 1.2 秒でロールする。背面 180 度 → 50 度。
+             ここも姿勢を直接決める（背面のままふつうの舵取りに渡すと、向きの読みが 180 度あいまいになる） */
           tkT2 += dt;
           const k2 = clamp(tkT2 / 1.2, 0, 1), e2 = k2 * k2 * (3 - 2 * k2);
-          att.setFromAxisAngle(AZ, -((showFr + 180) % 360) * D);
-          att.multiply(dq.setFromAxisAngle(AY, (180 - 130 * e2) * D));    // 180 → +50（右バンク = 左（外側）へ膨らむ）
+          att.setFromAxisAngle(AZ, -lineH * D);
+          /* 背面（180 度）から、そのまま同じ向きに回して 310 度（＝外向き 50 度）へ。
+             逆回し（180 → 50）にすると内側へ切り込み、膨らむ前に一度 14 m まで近づいた（実測 v04.76） */
+          att.multiply(dq.setFromAxisAngle(AY, (180 + 130 * e2) * D));
           readAttitude();
           autoIn.x = 0; autoIn.y = 0; smIn.x = 0; smIn.y = 0;
-        } else if (tkWp < 2) {                     // 膨らんで、散開位置と原点の中間で交差する
-          if (tkWp === 0 && alongT < CROSS_D + 130 + 40) tkWp = 1;   // 膨らみの点を通り過ぎていたら飛ばす（戻ると輪になる）
-          const w = wps[tkWp];
-          steerTo(w[0], w[1], GATE.z);
-          if (Math.hypot(w[0] - st.x, w[1] - st.y) < 110) tkWp++;
-        } else {                                   // 交差した瞬間の速度ベクトルのまま進む（円は描かない）
+        } else if (tkWp < 2) {
+          /* 少し膨らんでから、目の前で線を横切る（相手は鏡なので、そこで交差する） */
+          /* 2 つ目は交差点そのもの（線の上）。ここを狙うから、相手（鏡）とちょうど目の前で交差する。
+             ここを通り過ぎた点にすると、線を早くに横切ってしまう（実測 v04.76: 正面から 139 m 手前で交差した） */
+          const w = tkWp === 0 ? pt(sC - 380, -TUCK_BULGE) : pt(sC - 120, 0);
+          steerTo(w.x, w.y, GATE.z);
+          if (Math.hypot(w.x - st.x, w.y - st.y) < (tkWp === 0 ? 140 : 80)) tkWp++;
+        } else {
+          /* 交差したそのまま通過していく（円は描かない） */
           holdBank(0); holdPitch(clamp((GATE.z - st.z) * 0.1, -8, 8));
         }
         autoIn.r = 0;
-        /* 地上の視線: 2 機は離れて飛ぶ（片方は正面の線の向こう、上下も鏡）ので、平均を見ると何もない空を見る（利用者の指摘）。
-           1 番機を追い、交差点まで 300 m（約 5 秒）に入ったら交差点を見る。交差して 250 m 離れたら 1 番機に戻す */
-        { const dC = Math.hypot(w1.x - st.x, w1.y - st.y);
+        /* 地上の視線: 2 機は線の左右に離れて飛ぶので、平均を見ると何もない空を見る。
+           1 番機を追い、交差点まで 300 m に入ったら交差点を見る。交差して 250 m 離れたら 1 番機に戻す */
+        { const dC = Math.hypot(cP.x - st.x, cP.y - st.y);
           const atCross = (tkWp === 1 && dC < 300) || (tkWp >= 2 && dC < 250);
-          if (atCross) { if (!figAim) figAim = new THREE.Vector3(w1.x, w1.y, GATE.z); aimLeader = false; }
+          if (atCross) { if (!figAim) figAim = new THREE.Vector3(cP.x, cP.y, GATE.z); aimLeader = false; }
           else { if (figAim) { figAim = null; slowAim = 6; } aimLeader = true; } }
-        const dOt = Math.hypot(st.x - O.x, st.y - O.y);
-        if ((tkWp >= 2 && alongT < 0 && dOt > 1400) || manT > 85) nextManeuver();
-        break;
-      }
-      case 'change': {                           // チェンジオーバー・ターン: 北東から入り、頂点で開いて南東の無限遠へ
-        /* 北を x、東を y とした平面で下に凸の曲線。頂点は散開位置と原点の中間（北 300 m）。
-           階段の一列で頂点へ向かい、頂点で交互に開いてデルタになり、整った速度ベクトルのまま南東へ。
-           捻れないよう、舵は頂点で 1 回だけ切る */
-        const Oc = GROUND_EYE, vp = showPt(SPREAD_D / 2, 0), vx = vp.x, vy = vp.y;
-        const dOc = Math.hypot(st.x - Oc.x, st.y - Oc.y);
-        if (chgT < 0) {
-          formation = 'steps'; formScale = 1;
-          steerTo(vx, vy, GATE.z);
-          if (Math.hypot(vx - st.x, vy - st.y) < 150 || manT > 60) { chgT = 0; smokeAll = true; }   // 頂点で一斉に開く
-        } else {
-          chgT += dt;
-          if (chgT < 3.5) { joinFast = true; formation = 'split'; formScale = 1; }        // 交互に開く
-          /* 散開直後は扇編隊。5 機とも 1 番機と同じ高さに並ぶ（利用者の指示 11。v04.76）。
-             以前はデルタ（6 機の隊形）にしていたため、席の無いはずの 6 番機に席ができて、
-             課目の途中で合流して現れていた。扇は 5 機の隊形なので、6 番機は合流するまで出てこない */
-          else { joinFast = false; formation = 'fan'; formScale = 1.7; }                 // 扇に
-          if (chgT < 7) { const se = keyPt(135, 4000); steerTo(se.x, se.y, GATE.z); }    // 頂点で南東へ曲がる
-          else holdBank(0);                                                              // 整った速度ベクトルのまま
-        }
-        holdPitch(1); autoIn.r = 0;
-        if ((chgT > 7 && dOc > 1500) || manT > 90) nextManeuver();                        // 南東の無限遠
+        const dOt = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
+        if ((tkWp >= 2 && dOt > 1400) || manT > 85) nextManeuver();
         break;
       }
       case 'turnloop':                           // 360 度ターン & ループ: 1 周旋回してから宙返り
@@ -2572,6 +2555,16 @@ export function mount(container, opt = {}) {
      masked が真なら、その瞬間移動と同じコマなので跳びの知らせは要らない */
   function beginMirror(m, masked) {
     if (!m || !m.mirror || mir) return false;
+    /* 's' = 進行方向に沿った線の鏡（タック・クロス。2 機が真横に並ぶ）。
+       線は、いまの位置から右手へ TUCK_SIDE。相手はその向こう側の同じ距離なので、
+       2 機は TUCK_SIDE × 2 だけ離れて真横に並ぶ。ぶつからないよう相手は TUCK_DZ だけ上。
+       鏡は左右の傾きを逆にするだけなので、背面（180 度）はそのまま背面のまま映る（＝ 2 機とも背面） */
+    if (m.mirror === 's') {
+      const hr = st.h * D, dx = Math.sin(hr), dy = Math.cos(hr);
+      mir = { ox: st.x + dy * TUCK_SIDE, oy: st.y - dx * TUCK_SIDE, dx, dy,
+              z0: GATE.z, vert: false, fresh: !masked, dz: TUCK_DZ };
+      tkWp = 0; tkT = 0; tkT2 = 0; return true;
+    }
     startMirror(); mir.dz = 14; mir.fresh = !masked;
     if (m.mirror === 'v') { mir.vert = true; tkWp = 0; }
     return true;
@@ -2585,6 +2578,10 @@ export function mount(container, opt = {}) {
   /* タック・クロスの相手。左右ではなく上下の鏡に映す（2 機とも左から入り、右へ抜けるため）。
      ぶつからないよう、相手は奥へ TUCK_DEEP だけ離す */
   const TUCK_DEEP = 90;
+  /* タック・クロス（v04.76 で作り直し）。TUCK_SIDE: 鏡の線からの離れ（2 機の間はこの 2 倍）。
+     TUCK_DZ: 相手を上へずらす高さ（交差でぶつからないように）。
+     TUCK_ROLL_D: 交差点の手前どれだけでロールを始めるか。TUCK_BULGE: 外側への膨らみ */
+  const TUCK_SIDE = 14, TUCK_DZ = 14, TUCK_ROLL_D = 900, TUCK_BULGE = 90;
   const tkQ = new THREE.Quaternion(), mirV = new THREE.Vector3(), mirQi = new THREE.Quaternion();
   /* 鏡で置いたあとの位置を、1 番機から見た相対位置として控える。課目が終わって隊形へ戻るとき、
      ここから寄せ始める（控えないと、隊形の古い位置から寄せ始めた形になり、相手が 800 m 跳ぶ。実測 v04.27） */
@@ -3952,7 +3949,9 @@ export function mount(container, opt = {}) {
                gearM: mates.map((h, i) => gearSets[i + 1] ? +gearSets[i + 1].visible : -1),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown,
                  mh: +((Math.atan2(gfw.copy(AY).applyQuaternion(h.quaternion).x, gfw.y) / D % 360 + 360) % 360).toFixed(1),
-                 mb: +(Math.asin(clamp(gfw.copy(AX).applyQuaternion(h.quaternion).z, -1, 1)) / D).toFixed(1), lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, k: h.userData.k === undefined ? null : +h.userData.k.toFixed(2), xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
+                 mb: +(Math.asin(clamp(gfw.copy(AX).applyQuaternion(h.quaternion).z, -1, 1)) / D).toFixed(1),
+                 /* 機体の上がどちらを向いているか（1 = 背が上、-1 = 背面）。傾きの値だけでは背面と水平を見分けられない */
+                 mup: +gfw.copy(AZ).applyQuaternion(h.quaternion).z.toFixed(2), lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, k: h.userData.k === undefined ? null : +h.userData.k.toFixed(2), xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
     },
     setLights(on) { lightsOn = !!on; applyGear(); }, lightState() { return lightsOn; },
     /* 地上からの視線を、その番号の機体に向ける（0 でふつうの追従に戻す）。着陸の締めに使う */

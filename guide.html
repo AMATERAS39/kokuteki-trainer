@@ -339,11 +339,11 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     <div class="two">
       <p class="lead">適性検査は覚えた量を測る試験ではありません。1 問あたり数秒。計器の絵を見て、迷わずに答えを選べるかどうかだけが問われます。読み方の手順を体に入れておくと、その数秒が余ります。</p>
       <div class="tiles">
-        <p class="tlab">1 問の持ち時間（アプリの既定）</p>
-        <div class="tile"><b>5 秒</b><span>方位</span></div>
-        <div class="tile"><b>10 秒</b><span>姿勢指示器</span></div>
-        <div class="tile"><b>15 秒</b><span>方位×姿勢指示器</span></div>
-        <div class="tile"><b>20 秒</b><span>操縦操作</span></div>
+        <p class="tlab" id="tlab">1 問の持ち時間（アプリの既定）</p>
+        <div class="tile" data-m="heading"><b>5 秒</b><span>方位</span></div>
+        <div class="tile" data-m="attitude"><b>10 秒</b><span>姿勢指示器</span></div>
+        <div class="tile" data-m="combo"><b>15 秒</b><span>方位×姿勢指示器</span></div>
+        <div class="tile" data-m="control"><b>20 秒</b><span>操縦操作</span></div>
       </div>
     </div>
   </section>
@@ -659,5 +659,30 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   });
 })();
 </script>
+
+<script>
+/* 平均回答時間。/api/avg に置いてある記録を読んで、札の数字を入れ替える（開くたびに読み直す）。
+   まだ何も置かれていないとき（あるいは読めないとき）は、既定の持ち時間のまま出す */
+(function(){
+  var KEY='aat.avgtiles';
+  var fill=function(d){
+    if(!d||!d.stats)return false;
+    var any=false;
+    document.querySelectorAll('.tile[data-m]').forEach(function(t){
+      var v=d.stats[t.dataset.m];
+      if(!v||!(v.n>0)||!(v.t>0))return;
+      t.querySelector('b').textContent=(v.t/v.n).toFixed(1)+' 秒';
+      any=true;
+    });
+    if(any){ var l=document.getElementById('tlab'); if(l)l.textContent='平均回答時間' }
+    return any;
+  };
+  try{ fill(JSON.parse(localStorage.getItem(KEY))) }catch(e){}
+  fetch('/api/avg',{cache:'no-store'}).then(function(r){ return r.ok?r.json():null }).then(function(d){
+    if(fill(d)){ try{ localStorage.setItem(KEY,JSON.stringify(d)) }catch(e){} }
+  }).catch(function(){});
+})();
+</script>
+
 </body>
 </html>

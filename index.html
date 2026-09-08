@@ -1222,7 +1222,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.62';
+const APP_VER='v04.63';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1230,6 +1230,16 @@ let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された�
    （方位 20 → 10、姿勢指示器 10 → 5、方位×姿勢指示器 20 → 10、操縦操作 10 → 5） */
 const qCap=()=>Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
 const qMax=()=>{const c=MS().qCount;return isFull()?c:Math.min(c>0?c:qCap(),qCap())};
+/* 紹介ページに出す「平均回答時間」を送る端末の合言葉。
+   /?rec=… でいちど開くと端末に残り、計測が終わるたびに、この端末の平均を送る。
+   合言葉が無い端末は何も送らない（送り先も、合言葉が合わなければ受け取らない） */
+const REC_K='rec';                                  /* store が 'aat.' を足すので、ここは付けない */
+function checkRec(){
+  const u=new URL(location.href),r=u.searchParams.get('rec');if(!r)return;
+  store.set(REC_K,r);
+  u.searchParams.delete('rec');                     /* 合言葉だけを URL から消す（?key= は checkKey が扱う） */
+  history.replaceState(null,'',u.pathname+u.search+u.hash);
+}
 async function checkKey(){
   const k=new URLSearchParams(location.search).get('key');if(!k)return;
   if(!DEMO_ON){history.replaceState(null,'',location.pathname+location.hash);return}
@@ -1535,7 +1545,18 @@ function showSummary(){
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());
   $('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});
+  sendRec();
   window.scrollTo({top:0});
+}
+/* この端末の記録（種目ごとの 問数・正解数・合計の解答時間）を送る。
+   合言葉を持たない端末では何もしない。通信の設定にも従う */
+function sendRec(){
+  const k=store.get(REC_K,'');if(!k||!netOK())return;
+  const out={};
+  Object.keys(E.MODES).forEach(m=>{const s=stats[m];if(s&&s.n>0)out[m]={n:s.n,c:s.c,t:+(+s.t).toFixed(2)}});
+  if(!Object.keys(out).length)return;
+  fetch('/api/avg',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({key:k,stats:out})}).catch(()=>{});
 }
 function confirmLeave(){
   if(document.body.dataset.view!=='train'||phase!=='session'||!session||session.ended)return true;
@@ -2922,7 +2943,7 @@ async function redeemCode(k){
   return h===FULL_HASH;
 }
 window.addEventListener('hashchange',route);
-checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews();initFeedback()});
+checkRec();checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews();initFeedback()});
 
 /* PWA と更新ボタン。新しい sw.js はインストールできしだい有効になる（待機させると、更新ボタンのない古い版の端末が移れない）。
    ただしページは勝手に読み込み直さない: 新しい版が有効になったら更新ボタンに赤い点を出し、押されたら読み込み直す。

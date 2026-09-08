@@ -2001,6 +2001,30 @@ export function mount(container, opt = {}) {
         if ((tkWp >= 2 && dOt > 1400) || manT > 85) nextManeuver();
         break;
       }
+      case 'change': {                           // チェンジオーバー・ターン: 北東から入り、頂点で開いて南東の無限遠へ
+        /* 北を x、東を y とした平面で下に凸の曲線。頂点は散開位置と原点の中間（北 300 m）。
+           階段の一列で頂点へ向かい、頂点で交互に開いてデルタになり、整った速度ベクトルのまま南東へ。
+           捻れないよう、舵は頂点で 1 回だけ切る */
+        const Oc = GROUND_EYE, vp = showPt(SPREAD_D / 2, 0), vx = vp.x, vy = vp.y;
+        const dOc = Math.hypot(st.x - Oc.x, st.y - Oc.y);
+        if (chgT < 0) {
+          formation = 'steps'; formScale = 1;
+          steerTo(vx, vy, GATE.z);
+          if (Math.hypot(vx - st.x, vy - st.y) < 150 || manT > 60) { chgT = 0; smokeAll = true; }   // 頂点で一斉に開く
+        } else {
+          chgT += dt;
+          if (chgT < 3.5) { joinFast = true; formation = 'split'; formScale = 1; }        // 交互に開く
+          /* 散開直後は扇編隊。5 機とも 1 番機と同じ高さに並ぶ（利用者の指示 11。v04.76）。
+             以前はデルタ（6 機の隊形）にしていたため、席の無いはずの 6 番機に席ができて、
+             課目の途中で合流して現れていた。扇は 5 機の隊形なので、6 番機は合流するまで出てこない */
+          else { joinFast = false; formation = 'fan'; formScale = 1.7; }                 // 扇に
+          if (chgT < 7) { const se = keyPt(135, 4000); steerTo(se.x, se.y, GATE.z); }    // 頂点で南東へ曲がる
+          else holdBank(0);                                                              // 整った速度ベクトルのまま
+        }
+        holdPitch(1); autoIn.r = 0;
+        if ((chgT > 7 && dOc > 1500) || manT > 90) nextManeuver();                        // 南東の無限遠
+        break;
+      }
       case 'turnloop':                           // 360 度ターン & ループ: 1 周旋回してから宙返り
         if (hdgSum < 350) { holdBank(54 * turnSign); holdPitch(0); }
         else { loopSum += RATE.pitch * dt; autoIn.x = 0; autoIn.y = -1; }

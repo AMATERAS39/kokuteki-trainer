@@ -129,17 +129,17 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
   letter-spacing:.02em;animation:inL .9s .18s both}
 .hero .lead{max-width:44ch;margin-top:1.25rem;animation:rise .9s .32s both}
 .jetback{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;animation:inR 1.2s .2s both}
-.jetback .m{position:absolute;right:-10%;top:44%;transform:translateY(-50%);width:min(72rem,182%)}
-.jetback img{width:100%;max-width:none;opacity:.62;filter:drop-shadow(0 1.25rem 2.5rem rgba(0,0,0,.6));
+.jetback .m{position:absolute;right:-8%;top:33%;transform:translateY(-50%);width:min(40rem,118%)}
+.jetback img{width:100%;max-width:none;opacity:.85;filter:drop-shadow(0 1.25rem 2.5rem rgba(0,0,0,.6));
   animation:hover 10s ease-in-out infinite}
 /* 文字が読めるように、左から暗い幕をかける */
 .jetback::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(95deg,#0b1017 4%,rgba(11,16,23,.80) 34%,rgba(11,16,23,.34) 64%,rgba(11,16,23,.06) 90%)}
+  background:linear-gradient(95deg,#0b1017 2%,rgba(11,16,23,.78) 26%,rgba(11,16,23,.28) 52%,transparent 74%)}
 @keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.4%)}}
 .hero>.txt{position:relative;z-index:1}
 @media (min-width:56rem){
-  .jetback .m{right:-4%;width:min(64rem,104%)}
-  .jetback::after{background:linear-gradient(95deg,#0b1017 4%,rgba(11,16,23,.82) 34%,rgba(11,16,23,.34) 62%,transparent 92%)}
+  .jetback .m{right:-2%;top:34%;width:min(52rem,62%)}
+  .jetback::after{background:linear-gradient(95deg,#0b1017 2%,rgba(11,16,23,.72) 22%,rgba(11,16,23,.18) 46%,transparent 64%)}
   .hero>.txt{max-width:38rem}
 }
 /* アプリの部品（engine.js が描く SVG）を、アプリと同じ色で出すための変数。

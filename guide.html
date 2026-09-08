@@ -44,7 +44,9 @@
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
-body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:var(--disp);-webkit-font-smoothing:antialiased;line-height:1.9}
+/* 横は clip で切る。hidden にすると body 自体が巻き取り箱になり、
+   横へずらす動き（左右から入るカード）のたびに、どちらへ巻くかの取り合いが起きて、指が一瞬止まる */
+body{margin:0;overflow-x:clip;background:var(--bg);color:var(--text);font-family:var(--disp);-webkit-font-smoothing:antialiased;line-height:1.9}
 h1,h2,h3{margin:0;line-height:1.3;text-wrap:pretty}
 p{margin:0;text-wrap:pretty}
 a{color:var(--cyan);text-decoration:none}
@@ -280,25 +282,45 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   try{ history.scrollRestoration='manual' }catch(e){}
   var K='aat.scrollpos';
   var el=function(){ return document.scrollingElement||document.documentElement };
-  var ypos=function(){ return Math.round(el().scrollTop||window.scrollY||0) };
+  /* 巻いているのが html か body かは、置かれ方で変わる。両方見て、大きいほうを取る */
+  var ypos=function(){
+    return Math.round(Math.max(window.scrollY||0, (el()||{}).scrollTop||0, (document.body||{}).scrollTop||0));
+  };
+  /* 戻すときは、必ず一足飛びに。なめらかに動かす指定（scroll-behavior:smooth）が効いていると、
+     戻る途中で指が触れて止まり、中途半端な場所（節の切れ目など）に置き去りになる */
+  var put=function(y){
+    var h=document.documentElement, prev=h.style.scrollBehavior;
+    h.style.scrollBehavior='auto';
+    try{ scrollTo({top:y,left:0,behavior:'instant'}) }catch(e){ try{ scrollTo(0,y) }catch(e2){} }
+    var a=el(); if(a&&Math.abs((a.scrollTop||0)-y)>2)a.scrollTop=y;
+    var b=document.body;
+    if(b&&b.scrollHeight-b.clientHeight>4&&Math.abs((b.scrollTop||0)-y)>2)b.scrollTop=y;
+    h.style.scrollBehavior=prev;
+  };
   var save=function(){
     try{ sessionStorage.setItem(K,JSON.stringify({h:location.hash||'',y:ypos()})) }catch(e){}
   };
   /* 動かすたびに控える。閉じる合図（pagehide）が来ない画面もあるので、それだけには頼らない */
   var t=0;
-  addEventListener('scroll',function(){ if(t)return; t=setTimeout(function(){ t=0; save() },350) },{passive:true});
+  var onS=function(){ if(t)return; t=setTimeout(function(){ t=0; save() },350) };
+  addEventListener('scroll',onS,{passive:true});
+  document.addEventListener('scroll',onS,{passive:true,capture:true});   /* body 側が巻いている場合 */
   addEventListener('pagehide',save);
   addEventListener('beforeunload',save);
   document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden')save() });
 
   var d=null; try{ d=JSON.parse(sessionStorage.getItem(K)) }catch(e){}
-  if(!d||!(d.y>0)||(d.h||'')!==(location.hash||''))return;
+  /* 控えがあって、同じ場所（hash）を開き直したときだけ戻す。
+     控えが 0（いちばん上で見ていた）ときも戻す。URL に節の名前が残っていると、
+     browser がそこへ飛ばしてしまうので、上で見ていた人を勝手に節へ連れて行かないため */
+  if(!d||!(d.y>=0)||(d.h||'')!==(location.hash||''))return;
   var stop=false, off=function(){ stop=true };
   ['wheel','touchstart','keydown','pointerdown'].forEach(function(e){ addEventListener(e,off,{passive:true,once:true}) });
   var go=function(){
     if(stop)return;
-    if(el().scrollHeight-innerHeight < d.y-4)return;    /* まだ背が足りない。次の機会に */
-    if(Math.abs(ypos()-d.y)>2)scrollTo(0,d.y);
+    var tall=Math.max(el().scrollHeight,(document.body||{}).scrollHeight||0);
+    if(tall-innerHeight < d.y-4)return;                /* まだ背が足りない。次の機会に */
+    if(Math.abs(ypos()-d.y)>2)put(d.y);
   };
   addEventListener('DOMContentLoaded',go);
   addEventListener('load',go);

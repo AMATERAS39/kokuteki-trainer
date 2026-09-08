@@ -15,7 +15,9 @@
 <meta property="og:title" content="航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方">
 <meta property="og:description" content="航空学生の適性検査で出る 4 種目を、読み方のコツとあわせてまとめました。ブラウザでそのまま練習できます。">
 <meta property="og:url" content="https://kokuteki.amaterasu-vocab.com/guide">
-<meta property="og:image" content="https://kokuteki.amaterasu-vocab.com/img/hero.webp">
+<meta property="og:image" content="https://kokuteki.amaterasu-vocab.com/img/guide/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -97,16 +99,11 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
 @media (min-width:56rem){.hero{grid-template-columns:1.05fr .95fr}}
 .jet{position:relative;animation:rise .9s .15s both}
 .jet{overflow:visible}
-.jet img{width:160%;max-width:none;margin-left:-30%;filter:drop-shadow(0 1.5rem 2.5rem rgba(0,0,0,.6));animation:hover 9s ease-in-out infinite}
-@media (min-width:56rem){.jet img{width:132%;max-width:none;margin-left:-16%}}
+.jet img{width:150%;max-width:none;margin-left:-25%;filter:drop-shadow(0 1.5rem 2.5rem rgba(0,0,0,.6));animation:hover 9s ease-in-out infinite}
+@media (min-width:56rem){.jet img{width:124%;max-width:none;margin-left:-12%}}
 @keyframes hover{0%,100%{transform:translateY(0) rotate(-.6deg)}50%{transform:translateY(-1.1%) rotate(.6deg)}}
 .jet .ring{position:absolute;left:50%;top:50%;width:min(26rem,86%);aspect-ratio:1;transform:translate(-50%,-50%);
   border-radius:50%;border:1px solid rgba(90,209,230,.22);animation:ring 4s ease-out infinite;pointer-events:none}
-.d3{margin-top:1rem;display:flex;gap:.625rem;align-items:center;flex-wrap:wrap;justify-content:center}
-.d3 button{font:700 var(--small)/1 var(--disp);padding:.6rem 1rem;border-radius:.625rem;border:1px solid rgba(90,209,230,.5);
-  background:rgba(90,209,230,.08);color:var(--cyan);cursor:pointer}
-.d3 span{font-size:var(--tiny);color:var(--faint)}
-#v3d{margin-top:.75rem}
 .chip{display:inline-flex;align-items:center;gap:.55rem;padding:.35rem .75rem;border:1px solid rgba(90,209,230,.35);border-radius:999px;font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan);animation:rise .6s both}
 .chip i{width:.375rem;height:.375rem;border-radius:50%;background:var(--cyan);animation:blink 1.6s infinite}
 h1{font-size:var(--h1);line-height:1.22;font-weight:900;letter-spacing:-.01em;margin-top:1.25rem;animation:rise .7s .08s both}
@@ -282,12 +279,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     </div>
     <div class="jet">
       <div class="ring"></div>
-      <img src="/img/hero.webp" width="2894" height="970" alt="TENRYU の 3D モデルから描いた T-4 ブルーインパルス" fetchpriority="high" decoding="async">
-      <div class="d3">
-        <button type="button" id="go3d">3D で回してみる</button>
-        <span>読み込み 7 MB（Wi-Fi 推奨）</span>
-      </div>
-      <div id="v3d"></div>
+      <img src="/img/guide/header.webp" width="2000" height="682" alt="TENRYU の 3D モデルから描いた T-4 ブルーインパルスの編隊" fetchpriority="high" decoding="async">
     </div>
   </div>
 </section>
@@ -477,7 +469,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
 </footer>
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-08","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/hero.webp","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
+{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-08","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/guide/ogp.jpg","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
@@ -555,18 +547,6 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   };
   sc.onerror=function(){document.querySelectorAll('.part').forEach(function(e){e.remove()})};
   document.head.appendChild(sc);
-
-  /* 3D は押されたときだけ読む（模型 5.6 MB ＋ three.js。黙って落とすと通信量を食う） */
-  var b3=document.getElementById('go3d');
-  if(b3) b3.addEventListener('click',function(){
-    b3.disabled=true; b3.textContent='読み込み中…';
-    var host=document.getElementById('v3d');
-    import('/viewer.js?v=5').then(function(m){
-      return m.mount(host,{modelUrl:'/model/t4.glb?v=2',onProgress:function(pr){b3.textContent='読み込み中… '+Math.round(pr*100)+'%'}});
-    }).then(function(){
-      b3.remove(); var im=document.querySelector('.jet>img'); if(im)im.style.display='none';
-    }).catch(function(){b3.disabled=false;b3.textContent='読み込めませんでした。もう一度'});
-  });
 
   /* つまずき: 押すと開く */
   document.querySelectorAll('#acc .it').forEach(function(it){

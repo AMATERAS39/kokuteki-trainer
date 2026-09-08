@@ -19,454 +19,483 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
+/* 寸法はすべて相対単位（rem・%・vw）。画面幅で伸縮させ、スマートフォン以外でも同じ割合で見えるようにする */
 :root{
-  --bg:#0b1017;--panel:#131b25;--panel2:#1c2632;--line:#223040;--line2:#34465a;
-  --text:#e9eef4;--muted:#9fadbc;--faint:#66788a;--accent:#f0a53a;--on-accent:#0b1017;
-  --display:"Zen Kaku Gothic New","Noto Sans JP",sans-serif;
-  --body:"Noto Sans JP",system-ui,sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --bg:#0b1017;--panel:#0f1620;--panel2:#141a1c;
+  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.16);--dash:rgba(255,255,255,.12);
+  --text:#e8eef5;--muted:#93a3b5;--faint:#6f8090;--soft:#a9b8c8;
+  --cyan:#5ad1e6;--amber:#ffb020;
+  --disp:"Zen Kaku Gothic New",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --wrap:70rem;
+  --pad:clamp(.875rem,3vw,1.375rem);
+  --sec:clamp(2.5rem,6vw,4rem);
+  --h1:clamp(1.9rem,5vw,3.6rem);
+  --h2:clamp(1.35rem,3.2vw,2.125rem);
+  --h3:clamp(1.05rem,2.2vw,1.3rem);
+  --body:clamp(.9rem,1.6vw,1.03rem);
+  --small:clamp(.82rem,1.4vw,.9rem);
+  --tiny:clamp(.68rem,1.2vw,.75rem);
   color-scheme:dark;
 }
-@media (prefers-color-scheme:light){
-  :root{
-    --bg:#f4f6f8;--panel:#fff;--panel2:#eef1f5;--line:#d5dde5;--line2:#b8c4d0;
-    --text:#0b1017;--muted:#4a5a6a;--faint:#6b7a8a;
-    color-scheme:light;
-  }
-}
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--text);font:400 .875rem/1.9 var(--body)}
-h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;text-wrap:pretty}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:var(--disp);-webkit-font-smoothing:antialiased;line-height:1.9}
+h1,h2,h3{margin:0;line-height:1.3;text-wrap:pretty}
 p{margin:0;text-wrap:pretty}
-a{color:var(--accent);text-decoration:none}
-img,svg{max-width:100%}
-.wrap{max-width:73.75rem;margin:0 auto}
-.pad{padding:1.5rem 1.125rem}
-.bar{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.125rem;font:500 .6875rem/1 var(--mono);color:var(--faint);border-bottom:1px solid var(--line)}
-.bar b{color:var(--text);font-weight:500}
-.bar nav{display:none;gap:2rem}
-.hero{position:relative;padding:1.25rem 1.125rem 1.75rem;border-bottom:1px solid var(--line);overflow:hidden}
-.hero>*{position:relative}
-.deco{position:absolute;right:-3.5rem;top:-1rem;opacity:.22;pointer-events:none}
-.heroart{display:none}   /* 大きい計器の絵は PC 幅だけ。スマートフォンでは右上の飾り（.deco）を出す */
-.eyebrow{font:500 .6875rem/1 var(--mono);color:var(--accent);letter-spacing:.08em}
-h1{margin-top:.75rem;font-size:1.75rem;line-height:1.45;letter-spacing:.01em}
-.lead{margin-top:.875rem;font-size:.875rem;line-height:1.9;color:var(--muted)}
-.cta{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:1.375rem;padding:1rem;background:var(--accent);color:var(--on-accent);border-radius:.625rem;font:700 1rem/1 var(--display)}
-.cta.sub{background:transparent;color:var(--text);border:1px solid var(--line2)}
-.note{margin-top:.625rem;text-align:center;font:400 .75rem/1 var(--body);color:var(--faint)}
-.facts{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
-.facts div{padding:1rem 1.125rem}
-.facts div+div{border-left:1px solid var(--line)}
-.facts dt{font:400 .6875rem/1 var(--body);color:var(--faint)}
-.facts dd{margin:.5rem 0 0;font:500 1.0625rem/1.4 var(--mono)}
-.facts .sep{color:var(--line2)}
-.band{padding:1.5rem 1.125rem;border-bottom:1px solid var(--line);background:var(--panel)}
-h2{font-size:1.125rem;line-height:1.6}
-.sec-lead{margin:.5rem 0 1.125rem;font-size:.8125rem;line-height:1.8;color:var(--faint)}
-.nums{display:flex;gap:.75rem;margin-top:1.125rem;padding-top:1rem;border-top:1px solid var(--line)}
-.nums div{flex:1}
-.nums b{display:block;font:500 1.375rem/1 var(--mono);color:var(--accent)}
-.nums span{display:block;margin-top:.375rem;font:400 .75rem/1.6 var(--body);color:var(--faint)}
-.cards{display:flex;flex-direction:column;gap:.75rem}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:.75rem;padding:1rem 1rem 1.125rem}
-.card header{display:flex;align-items:center;gap:.75rem}
-.badge{width:2.75rem;height:2.75rem;flex:none;border:1px solid var(--line2);border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg)}
-.card .n{font:500 .625rem/1 var(--mono);color:var(--accent)}
-.card h3{margin-top:.375rem;font-size:1.0625rem;line-height:1.3}
-.card>p{margin-top:.875rem;font-size:.8125rem;line-height:1.85}
-.tip{margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--line)}
-.tip dt{font:400 .6875rem/1 var(--body);color:var(--faint)}
-.tip dd{margin:.5rem 0 0;font-size:.8125rem;line-height:1.85;color:var(--muted)}
-figure{margin:1.125rem 0 0}
-figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:.625rem;background:var(--bg)}
-figcaption{margin-top:.5rem;font:400 .75rem/1.7 var(--body);color:var(--faint)}
-.start{display:flex;flex-direction:column;gap:.75rem}
-.plan{border:1px solid var(--line);border-radius:.75rem;padding:1.125rem;background:var(--panel)}
-.plan.pick{border-color:var(--accent);background:transparent}
-.plan .top{display:flex;align-items:baseline;justify-content:space-between}
-.plan h3{font-size:1rem;line-height:1.4}
-.plan .price{font:500 .8125rem/1 var(--mono)}
-.plan.pick .price{color:var(--accent)}
-.plan p{margin-top:.625rem;font-size:.8125rem;line-height:1.8;color:var(--muted)}
-.plan a{display:flex;align-items:center;justify-content:center;margin-top:1rem;padding:.875rem;border-radius:.5rem;font:700 .9375rem/1 var(--display)}
-.plan.pick a{background:var(--accent);color:var(--on-accent)}
-.plan.pay a{border:1px solid var(--line2);color:var(--text)}
-.tbl{width:100%;border-collapse:collapse;margin-top:1rem;font-size:.8125rem}
-.tbl th,.tbl td{padding:.625rem .5rem;border-bottom:1px solid var(--line);text-align:left}
-.tbl th{font:500 .75rem/1.5 var(--body);color:var(--faint);font-weight:400}
-.tbl td:first-child{font-family:var(--display);font-weight:700}
-.tbl td+td{font-family:var(--mono);color:var(--muted);white-space:nowrap}
-.terms{display:flex;flex-direction:column;gap:.625rem;margin-top:1rem}
-.term{border-left:2px solid var(--line2);padding:.25rem 0 .25rem .875rem}
-.term dt{font:700 .9375rem/1.5 var(--display)}
-.term dd{margin:.25rem 0 0;font-size:.8125rem;line-height:1.85;color:var(--muted)}
-.miss{display:flex;flex-direction:column;gap:.75rem;margin-top:1rem}
-.miss li{list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:.625rem;padding:.9375rem 1rem}
-.miss b{display:block;font:700 .9375rem/1.5 var(--display)}
-.miss p{margin-top:.375rem;font-size:.8125rem;line-height:1.85;color:var(--muted)}
-.miss ul{margin:0;padding:0}
-.faq{display:flex;flex-direction:column;gap:.625rem}
-.qa{border:1px solid var(--line);border-radius:.625rem;padding:.9375rem 1rem;background:var(--panel)}
-.qa .q{display:flex;gap:.5rem}
-.qa .q span{font:500 .8125rem/1.7 var(--mono);color:var(--accent)}
-.qa h3{margin:0;font:500 .875rem/1.7 var(--display)}
-.qa .a{display:flex;gap:.5rem;margin-top:.5rem}
-.qa .a span{font:500 .8125rem/1.85 var(--mono);color:var(--line2)}
-.qa .a p{font-size:.8125rem;line-height:1.85;color:var(--muted)}
-footer{padding:1.25rem 1.125rem;border-top:1px solid var(--line);background:var(--panel)}
-footer p{font:400 .75rem/1.85 var(--body);color:var(--faint)}
-footer .links{margin-top:.875rem;display:flex;flex-wrap:wrap;gap:1rem;font-size:.75rem}
-footer .sig{margin-top:1rem;font:500 .6875rem/1 var(--mono);color:var(--line2)}
-@media (min-width:64rem){
-  .bar{padding:1.125rem 2.5rem}
-  .bar nav{display:flex}
-  .bar nav a{color:var(--muted)}
-  .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:2.5rem;padding:3.5rem 2.5rem;align-items:center}
-  .deco{display:none}
-  .heroart{display:flex;align-items:center;justify-content:center}
-  h1{font-size:2.875rem;line-height:1.4;margin-top:1rem}
-  .lead{margin-top:1.25rem;max-width:34rem;font-size:1rem;line-height:1.95}
-  .btns{display:flex;gap:.75rem;margin-top:1.75rem}
-  .cta{margin-top:0;padding:1rem 1.75rem}
-  .note{text-align:left;margin-top:1rem}
-  .facts{border-top:1px solid var(--line)}
-  .facts div{padding:1.25rem 2.5rem}
-  .pad,.band{padding:3rem 2.5rem}
-  h2{font-size:1.75rem;line-height:1.5}
-  .sec-lead{margin-bottom:2rem;font-size:.9375rem}
-  .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem}
-  .card{border-radius:.875rem;padding:1.5rem}
-  .card h3{font-size:1.25rem}
-  .card>p,.tip dd{font-size:.875rem;line-height:1.9}
-  .sim{display:grid;grid-template-columns:.9fr 1.1fr;gap:2.5rem;align-items:center}
-  .start{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem}
-  .miss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
-  .terms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem 2rem}
-  .tbl{font-size:.875rem;max-width:44rem}
-  footer{padding:1.5rem 2.5rem}
-}
-@media (prefers-reduced-motion:no-preference){a{transition:opacity .12s}}
-a:hover{opacity:.85}
+a{color:var(--cyan);text-decoration:none}
+img{max-width:100%;height:auto;display:block}
+figure{margin:0}
+
+.prog{position:fixed;inset:0 0 auto 0;height:.125rem;z-index:60;background:rgba(255,255,255,.06)}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--amber));box-shadow:0 0 .75rem rgba(255,176,32,.6)}
+
+/* 画面上部の帯。ボタンは 1 行に横並び（nowrap で縦書きにしない）。
+   入りきらない幅では横に送る。帯の高さは 1 行ぶんに抑える */
+.bar{position:sticky;top:0;z-index:50;backdrop-filter:blur(.875rem);background:rgba(11,16,23,.82);border-bottom:1px solid var(--line)}
+.barin{max-width:var(--wrap);margin:0 auto;padding:.375rem var(--pad);display:flex;align-items:center;gap:clamp(.5rem,2vw,1.5rem)}
+.brand{font-family:var(--mono);font-weight:600;letter-spacing:.18em;color:var(--text);font-size:clamp(.8rem,2.2vw,.95rem);flex:none}
+.nav{display:flex;gap:.125rem;margin-left:auto;min-width:0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch}
+.nav::-webkit-scrollbar{display:none}
+.nav a{flex:none;white-space:nowrap;padding:.3rem .5rem;border-radius:.5rem;font-size:clamp(.7rem,2.2vw,.85rem);color:var(--muted);transition:color .2s,background .2s}
+.nav a:hover,.nav a.on{color:var(--text);background:rgba(90,209,230,.1)}
+
+main{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad) clamp(3rem,8vw,6rem)}
+section{padding:var(--sec) 0;border-top:1px solid var(--line)}
+section:first-of-type{border-top:0}
+h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
+.lead{color:var(--muted);font-size:var(--body);line-height:1.95;margin-top:.875rem}
+.sub{color:var(--muted);font-size:var(--small);margin-top:.875rem}
+.eyebrow{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan)}
+.cap{margin-top:.5rem;font-size:var(--tiny);color:var(--faint);line-height:1.7}
+
+@keyframes rise{from{opacity:0;transform:translateY(1.125rem)}to{opacity:1;transform:none}}
+@keyframes blink{0%,45%{opacity:1}55%,100%{opacity:.15}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-.44rem)}}
+@keyframes ring{0%{transform:scale(.85);opacity:.55}100%{transform:scale(1.45);opacity:0}}
+[data-reveal]{opacity:0;transform:translateY(1.125rem);transition:opacity .7s,transform .7s}
+[data-reveal].seen{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}[data-reveal]{opacity:1;transform:none}}
+
+/* 冒頭 */
+.hero{display:grid;grid-template-columns:1fr;gap:clamp(1.75rem,5vw,3rem);align-items:center;padding:clamp(2rem,6vw,4.5rem) 0 clamp(2.25rem,6vw,5rem)}
+@media (min-width:56rem){.hero{grid-template-columns:1.05fr .95fr}}
+.chip{display:inline-flex;align-items:center;gap:.55rem;padding:.35rem .75rem;border:1px solid rgba(90,209,230,.35);border-radius:999px;font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan);animation:rise .6s both}
+.chip i{width:.375rem;height:.375rem;border-radius:50%;background:var(--cyan);animation:blink 1.6s infinite}
+h1{font-size:var(--h1);line-height:1.22;font-weight:900;letter-spacing:-.01em;margin-top:1.25rem;animation:rise .7s .08s both}
+.hero .lead{max-width:52ch;margin-top:1.375rem;animation:rise .7s .18s both}
+.cta{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.875rem;animation:rise .7s .28s both}
+.btn{padding:.875rem 1.5rem;border-radius:.75rem;font-weight:700;font-size:var(--small);transition:transform .2s cubic-bezier(.2,.9,.3,1.4),box-shadow .2s,background .2s,border-color .2s}
+.btn.pri{background:var(--amber);color:#0b1017}
+.btn.pri:hover{transform:translateY(-.19rem);box-shadow:0 .875rem 2.125rem rgba(255,176,32,.32);color:#0b1017}
+.btn.sec{border:1px solid var(--line2);color:var(--text)}
+.btn.sec:hover{border-color:rgba(90,209,230,.6);background:rgba(90,209,230,.08);transform:translateY(-.19rem);color:var(--text)}
+.btn:active{transform:translateY(.06rem) scale(.98)}
+.facts{display:flex;gap:clamp(1.25rem,5vw,2.125rem);margin-top:2.25rem;padding-top:1.625rem;border-top:1px solid var(--line);animation:rise .7s .38s both}
+.facts dt{font-size:var(--tiny);letter-spacing:.18em;color:var(--faint);font-family:var(--mono)}
+.facts dd{margin:.4rem 0 0;font-family:var(--mono);font-size:clamp(1.05rem,2.6vw,1.45rem);font-weight:600}
+.facts .big{font-size:clamp(1.3rem,3.4vw,1.875rem);color:var(--amber);line-height:1}
+.facts .unit{font-size:var(--small);color:var(--muted);font-family:var(--disp)}
+
+/* 実際の画面を、端末の枠に入れて見せる */
+.art{position:relative;display:flex;justify-content:center;animation:rise .8s .2s both}
+.art .halo{position:absolute;top:8%;width:min(20rem,74vw);aspect-ratio:1;border-radius:50%;border:1px solid rgba(90,209,230,.25);animation:ring 3.6s ease-out infinite}
+.phone{position:relative;width:min(15rem,62vw);border-radius:1.75rem;padding:.5rem;background:linear-gradient(160deg,#1b2634,#0d131b);border:1px solid var(--line2);box-shadow:0 1.5rem 3.75rem rgba(0,0,0,.55);animation:floaty 7s ease-in-out infinite}
+.phone img{border-radius:1.375rem}
+.phone::after{content:"";position:absolute;left:50%;top:.9rem;width:22%;height:.28rem;border-radius:999px;background:rgba(255,255,255,.18);transform:translateX(-50%)}
+.shot{border:1px solid var(--line);border-radius:1rem;overflow:hidden;background:var(--bg)}
+
+/* 数字の札 */
+.tiles{display:grid;gap:.875rem}
+.tile{padding:1.125rem 1.25rem;border:1px solid var(--line);border-radius:.875rem;background:var(--panel);transition:border-color .3s,transform .3s}
+.tile:hover{transform:translateY(-.19rem)}
+.tile b{display:block;font-family:var(--mono);font-size:clamp(1.5rem,4vw,2rem);font-weight:600;color:var(--amber)}
+.tile b.cy{font-family:var(--disp);font-weight:900;color:var(--cyan)}
+.tile span{display:block;font-size:var(--small);color:var(--muted);margin-top:.25rem}
+.two{display:grid;grid-template-columns:1fr;gap:clamp(1.25rem,4vw,2.75rem);align-items:start;margin-top:1.375rem}
+@media (min-width:48rem){.two{grid-template-columns:1.15fr .85fr}}
+
+/* 種目のカード。図はアプリの実際の画面 */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(17.5rem,100%),1fr));gap:1.125rem;margin-top:2.125rem}
+.card{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:1.125rem;background:var(--panel);overflow:hidden;transition:border-color .35s,transform .35s,box-shadow .35s}
+.card:hover{border-color:rgba(90,209,230,.4);transform:translateY(-.25rem);box-shadow:0 1.25rem 2.75rem rgba(0,0,0,.45)}
+.card .pic{background:var(--bg);border-bottom:1px solid var(--line)}
+.card .pic img{width:100%}
+.card .in{padding:1.375rem 1.5rem 1.5rem}
+.card .n{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan)}
+.card h3{font-size:var(--h3);font-weight:700;margin-top:.4rem}
+.card>.in>p{color:var(--soft);font-size:var(--small);margin-top:.875rem}
+.card .tip{margin-top:1.125rem;padding-top:1rem;border-top:1px dashed var(--dash)}
+.card .tip dt{font-size:var(--tiny);letter-spacing:.16em;color:var(--amber);font-family:var(--mono)}
+.card .tip dd{margin:.5rem 0 0;color:var(--muted);font-size:var(--small)}
+
+/* 操縦の節 */
+.simgrid{display:grid;grid-template-columns:1fr;gap:1.125rem;margin-top:1.75rem}
+@media (min-width:52rem){.simgrid{grid-template-columns:1fr 1fr}}
+.pair{display:grid;grid-template-columns:1fr;gap:1.125rem;margin-top:1.125rem}
+@media (min-width:40rem){.pair{grid-template-columns:1fr 1fr}}
+.tall{max-width:min(22rem,62vw);margin:0 auto}
+
+/* 練習の表 */
+.tbl{margin-top:1.75rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
+.tr{display:grid;grid-template-columns:1.5fr .8fr .7fr .7fr 1fr;gap:.5rem;padding:.75rem clamp(.625rem,2vw,1rem);align-items:center;font-size:var(--small)}
+.tr+.tr{border-top:1px solid var(--line)}
+.th{background:rgba(255,255,255,.03);color:var(--faint);font-family:var(--mono);font-size:var(--tiny);letter-spacing:.1em}
+.tr b{font-weight:700}
+.tr .num{font-family:var(--mono);color:var(--muted)}
+.wbar{height:.375rem;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.wbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--amber));width:0;transition:width 1s ease}
+@media (max-width:34rem){.tr{grid-template-columns:1.4fr .7fr .7fr .7fr}.tr .wcol{display:none}}
+
+/* つまずき */
+.acc{margin-top:1.5rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
+.acc .it+.it{border-top:1px solid var(--line)}
+.acc button{width:100%;display:flex;align-items:center;gap:.75rem;padding:1rem clamp(.75rem,2vw,1.125rem);background:none;border:0;color:var(--text);font:700 var(--small)/1.6 var(--disp);text-align:left;cursor:pointer}
+.acc .mk{width:1.25rem;height:1.25rem;flex:none;display:grid;place-items:center;border-radius:.375rem;background:rgba(90,209,230,.12);color:var(--cyan);font-family:var(--mono);font-size:.75rem}
+.acc .bd{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.acc .bd p{padding:0 clamp(.75rem,2vw,1.125rem) 1rem clamp(2.75rem,6vw,3rem);color:var(--muted);font-size:var(--small)}
+.acc .it.open .bd{max-height:18rem}
+
+/* 用語 */
+.terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(16rem,100%),1fr));gap:1rem 1.75rem;margin-top:1.5rem}
+.term{border-left:.125rem solid rgba(90,209,230,.5);padding:.25rem 0 .25rem .875rem}
+.term dt{font-weight:700;font-size:var(--small)}
+.term dd{margin:.25rem 0 0;color:var(--muted);font-size:var(--small)}
+
+/* 価格 */
+.rate{margin-top:1.5rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
+.rr{display:grid;grid-template-columns:1.2fr 1fr 1fr .8fr;gap:.5rem;padding:.75rem clamp(.625rem,2vw,1rem);font-size:var(--small)}
+.rr+.rr{border-top:1px solid var(--line)}
+.rr .num{font-family:var(--mono);color:var(--muted)}
+.rr .hi{color:var(--amber);font-family:var(--mono);font-weight:600}
+
+/* 始め方 */
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(18rem,100%),1fr));gap:1.125rem;margin-top:1.875rem}
+.plan{padding:1.625rem;border:1px solid var(--line);border-radius:1.125rem;background:var(--panel);transition:transform .35s,border-color .35s,box-shadow .35s}
+.plan:hover{transform:translateY(-.25rem);box-shadow:0 1.25rem 2.75rem rgba(0,0,0,.45)}
+.plan.pay{border-color:rgba(255,176,32,.28);background:linear-gradient(var(--panel2),var(--panel))}
+.plan .top{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem}
+.plan h3{font-size:var(--h3);font-weight:700}
+.plan .tag{font-family:var(--mono);font-size:var(--tiny);color:var(--cyan)}
+.plan .yen{font-family:var(--mono);font-size:var(--small);color:var(--amber);font-weight:600}
+.plan p{color:var(--muted);font-size:var(--small);margin-top:.875rem}
+.plan .note{color:var(--faint);font-size:var(--tiny);margin-top:.75rem}
+.plan a{display:inline-block;margin-top:1.25rem;padding:.75rem 1.25rem;border-radius:.625rem;font-weight:700;font-size:var(--small)}
+.plan.free a{border:1px solid rgba(90,209,230,.5);color:var(--cyan)}
+.plan.free a:hover{background:rgba(90,209,230,.12)}
+.plan.pay a{background:var(--amber);color:#0b1017}
+
+/* 質問 */
+.qas{display:grid;gap:.75rem;margin-top:1.5rem}
+.qa{border:1px solid var(--line);border-radius:.875rem;padding:1rem clamp(.875rem,2vw,1.125rem);background:var(--panel)}
+.qa .q{display:flex;gap:.625rem}
+.qa .q span{font-family:var(--mono);font-size:var(--small);color:var(--cyan)}
+.qa h3{font-size:var(--small);font-weight:700;line-height:1.7}
+.qa .a{display:flex;gap:.625rem;margin-top:.5rem}
+.qa .a span{font-family:var(--mono);font-size:var(--small);color:var(--faint)}
+.qa .a p{color:var(--muted);font-size:var(--small)}
+
+footer{border-top:1px solid var(--line);background:var(--panel)}
+.fin{max-width:var(--wrap);margin:0 auto;padding:clamp(1.5rem,4vw,2rem) var(--pad)}
+footer p{color:var(--faint);font-size:var(--tiny);line-height:1.85}
+footer .links{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem;font-size:var(--small)}
+footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint)}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<div class="bar">
-  <b>TENRYU</b>
-  <nav><a href="#subjects">4 種目</a><a href="#practice">練習</a><a href="#terms">用語</a><a href="#why">価格</a><a href="#start">始め方</a><a href="#faq">質問</a></nav>
-  <span>GUIDE</span>
-</div>
+<div class="prog"><i id="prog"></i></div>
 
-<header class="hero">
-  <svg class="deco" width="240" height="240" viewBox="0 0 100 100" aria-hidden="true">
-    <defs><clipPath id="c1"><circle cx="50" cy="50" r="38"/></clipPath></defs>
-    <g clip-path="url(#c1)"><g transform="rotate(18 50 50) translate(0 6)">
-      <rect x="-30" y="-30" width="160" height="80" fill="#1c2632"/>
-      <rect x="-30" y="50" width="160" height="80" fill="#0b1017"/>
-      <line x1="-30" y1="50" x2="130" y2="50" stroke="#9fadbc" stroke-width=".9"/>
-      <line x1="38" y1="42" x2="62" y2="42" stroke="#34465a" stroke-width=".6"/>
-      <line x1="38" y1="58" x2="62" y2="58" stroke="#34465a" stroke-width=".6"/>
-    </g></g>
-    <circle cx="50" cy="50" r="38" fill="none" stroke="#34465a"/>
-    <path d="M32 50 L44 50 M56 50 L68 50" stroke="#f0a53a" stroke-width="2"/>
-    <circle cx="50" cy="50" r="1.8" fill="#f0a53a"/>
-    <path d="M50 8 l-3.5 6 h7 z" fill="#f0a53a"/>
-  </svg>
-  <div>
-    <div class="eyebrow">航空学生 適性検査</div>
-    <h1>方位と姿勢指示器を、<br>数秒で読めるようにする</h1>
-    <p class="lead">航空自衛隊 航空学生の適性検査で出る 4 種目を、実際の出題形式のまま練習するアプリ「TENRYU」の案内です。登録なしで、このページからそのまま始められます。</p>
-    <div class="btns">
-      <a class="cta" href="/">ブラウザで体験版を始める</a>
-      <a class="cta sub" href="https://apps.apple.com/app/id6808281696">App Store の完全版</a>
-    </div>
-  </div>
-  <div class="heroart">
-    <svg width="300" height="300" viewBox="0 0 100 100" aria-hidden="true">
-      <defs><clipPath id="c2"><circle cx="50" cy="50" r="38"/></clipPath></defs>
-      <g clip-path="url(#c2)"><g transform="rotate(-12 50 50) translate(0 -4)">
-        <rect x="-30" y="-30" width="160" height="80" fill="#1c2632"/>
-        <rect x="-30" y="50" width="160" height="80" fill="#0b1017"/>
-        <line x1="-30" y1="50" x2="130" y2="50" stroke="#9fadbc" stroke-width=".9"/>
-        <line x1="38" y1="42" x2="62" y2="42" stroke="#34465a" stroke-width=".6"/>
-        <line x1="38" y1="58" x2="62" y2="58" stroke="#34465a" stroke-width=".6"/>
-      </g></g>
-      <circle cx="50" cy="50" r="38" fill="none" stroke="#34465a"/>
-      <path d="M32 50 L44 50 M56 50 L68 50" stroke="#f0a53a" stroke-width="2"/>
-      <circle cx="50" cy="50" r="1.8" fill="#f0a53a"/>
-      <path d="M50 8 l-3.5 6 h7 z" fill="#f0a53a"/>
-    </svg>
+<header class="bar">
+  <div class="barin">
+    <a class="brand" href="#top">TENRYU</a>
+    <nav class="nav">
+      <a href="#subjects">4 種目</a>
+      <a href="#sim">操縦</a>
+      <a href="#practice">練習</a>
+      <a href="#pitfalls">つまずき</a>
+      <a href="#terms">用語</a>
+      <a href="#price">価格</a>
+      <a href="#start">始め方</a>
+      <a href="#faq">質問</a>
+    </nav>
   </div>
 </header>
 
-<dl class="facts">
-  <div><dt>一次試験</dt><dd>09/19<span class="sep"> · </span>09/26</dd></div>
-  <div><dt>第 1 日まで</dt><dd id="left">2026 年 9 月</dd></div>
-</dl>
+<main id="top">
 
-<section class="band">
-  <h2>知識ではなく、速さで決まる</h2>
-  <p class="lead">適性検査は覚えた量を測る試験ではありません。1 問あたり数秒。計器の絵を見て、迷わずに答えを選べるかどうかだけが問われます。読み方の手順を体に入れておくと、その数秒が余ります。</p>
-  <div class="nums">
-    <div><b>4</b><span>出題される種目</span></div>
-    <div><b>数秒</b><span>1 問あたりの持ち時間</span></div>
-  </div>
-</section>
+  <section class="hero">
+    <div>
+      <div class="chip"><i></i>GUIDE</div>
+      <h1>方位と姿勢指示器を、数秒で読めるようにする</h1>
+      <p class="lead">航空自衛隊 航空学生の適性検査で出る 4 種目を、実際の出題形式のまま練習するアプリ「TENRYU」の案内です。登録なしで、このページからそのまま始められます。</p>
+      <div class="cta">
+        <a class="btn pri" href="/">ブラウザで体験版を始める</a>
+        <a class="btn sec" href="https://apps.apple.com/app/id6808281696">App Store の完全版</a>
+      </div>
+      <dl class="facts">
+        <div><dt>一次試験</dt><dd>09/19 · 09/26</dd></div>
+        <div><dt>第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit">日</span></dd></div>
+      </dl>
+    </div>
+    <div class="art">
+      <div class="halo"></div>
+      <div class="phone">
+        <img src="/img/guide/home.webp" width="560" height="1217" alt="TENRYU のホーム画面。4 種目とシミュレーターが並ぶ" fetchpriority="high" decoding="async">
+      </div>
+    </div>
+  </section>
 
-<section class="pad" id="subjects">
-  <h2>適性検査の 4 種目</h2>
-  <p class="sec-lead">それぞれ何を答える問題か、どう読むと速いかをまとめます。</p>
-  <div class="cards">
+  <section data-reveal>
+    <h2>知識ではなく、速さで決まる</h2>
+    <div class="two">
+      <p class="lead">適性検査は覚えた量を測る試験ではありません。1 問あたり数秒。計器の絵を見て、迷わずに答えを選べるかどうかだけが問われます。読み方の手順を体に入れておくと、その数秒が余ります。</p>
+      <div class="tiles">
+        <div class="tile"><b>4</b><span>出題される種目</span></div>
+        <div class="tile"><b class="cy">数秒</b><span>1 問あたりの持ち時間</span></div>
+      </div>
+    </div>
+  </section>
 
-    <article class="card">
-      <header>
-        <div class="badge">
-          <svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="38" fill="#0b1017" stroke="#34465a"/>
-            <g stroke="#66788a" stroke-width="1.2">
-              <line x1="50" y1="14" x2="50" y2="20"/><line x1="50" y1="14" x2="50" y2="20" transform="rotate(45 50 50)"/>
-              <line x1="50" y1="14" x2="50" y2="20" transform="rotate(90 50 50)"/><line x1="50" y1="14" x2="50" y2="20" transform="rotate(135 50 50)"/>
-              <line x1="50" y1="14" x2="50" y2="20" transform="rotate(180 50 50)"/><line x1="50" y1="14" x2="50" y2="20" transform="rotate(225 50 50)"/>
-              <line x1="50" y1="14" x2="50" y2="20" transform="rotate(270 50 50)"/><line x1="50" y1="14" x2="50" y2="20" transform="rotate(315 50 50)"/>
-            </g>
-            <path d="M50 22 L44 50 L50 44 L56 50 Z" fill="#f0a53a"/>
-            <path d="M50 78 L44 50 L50 56 L56 50 Z" fill="#34465a"/>
-            <circle cx="50" cy="50" r="2" fill="#e9eef4"/>
-          </svg>
+  <section id="subjects" data-reveal>
+    <h2>適性検査の 4 種目</h2>
+    <p class="sub">それぞれ何を答える問題か、どう読むと速いかをまとめます。図はアプリの実際の画面です。</p>
+    <div class="grid">
+
+      <article class="card">
+        <figure class="pic"><img src="/img/guide/fig-heading.webp" width="640" height="556" alt="方位の問題。上から見た T-4 と N マークが方位計の中に描かれている" loading="lazy" decoding="async"></figure>
+        <div class="in">
+          <div class="n">01</div><h3>方位</h3>
+          <p>上から見た機体の絵と N マークから、機首がどの方位を向いているかを答えます。</p>
+          <dl class="tip"><dt>読み方のコツ</dt><dd>N マークの向きは毎回変わるので、画面の上を北だと思い込むと外します。N の位置を先に見て、そこから時計回りに 45 度ずつ数えます。</dd></dl>
         </div>
-        <div><div class="n">01</div><h3>方位</h3></div>
-      </header>
-      <p>上から見た機体の絵と N マークから、機首がどの方位を向いているかを答えます。</p>
-      <dl class="tip"><dt>読み方のコツ</dt><dd>N マークの向きは毎回変わるので、画面の上を北だと思い込むと外します。N の位置を先に見て、そこから時計回りに 45 度ずつ数えます。</dd></dl>
-    </article>
+      </article>
 
-    <article class="card">
-      <header>
-        <div class="badge">
-          <svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true">
-            <defs><clipPath id="c3"><circle cx="50" cy="50" r="38"/></clipPath></defs>
-            <g clip-path="url(#c3)"><g transform="rotate(20 50 50) translate(0 4)">
-              <rect x="-30" y="-30" width="160" height="80" fill="#1c2632"/>
-              <rect x="-30" y="50" width="160" height="80" fill="#0b1017"/>
-              <line x1="-30" y1="50" x2="130" y2="50" stroke="#9fadbc" stroke-width=".9"/>
-            </g></g>
-            <circle cx="50" cy="50" r="38" fill="none" stroke="#34465a"/>
-            <path d="M32 50 L44 50 M56 50 L68 50" stroke="#f0a53a" stroke-width="2"/>
-            <circle cx="50" cy="50" r="1.8" fill="#f0a53a"/>
-          </svg>
+      <article class="card">
+        <figure class="pic"><img src="/img/guide/fig-attitude.webp" width="640" height="535" alt="姿勢指示器の問題。南から見た T-4 が傾いて飛んでいる" loading="lazy" decoding="async"></figure>
+        <div class="in">
+          <div class="n">02</div><h3>姿勢指示器</h3>
+          <p>南から見た機体の姿勢に合う姿勢指示器を、4 つの絵から選びます。</p>
+          <dl class="tip"><dt>読み方のコツ</dt><dd>視点は常に南なので、機首がこちらを向くほど左右が逆に見えます。先に上下（機首の上げ下げ）、次に左右の傾きと、見る順番を固定します。</dd></dl>
         </div>
-        <div><div class="n">02</div><h3>姿勢指示器</h3></div>
-      </header>
-      <p>南から見た機体の姿勢に合う姿勢指示器を、4 つの絵から選びます。</p>
-      <dl class="tip"><dt>読み方のコツ</dt><dd>視点は常に南なので、機首がこちらを向くほど左右が逆に見えます。先に上下（機首の上げ下げ）、次に左右の傾きと、見る順番を固定します。</dd></dl>
-    </article>
+      </article>
 
-    <article class="card">
-      <header>
-        <div class="badge">
-          <svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="36" cy="44" r="26" fill="#0b1017" stroke="#34465a"/>
-            <path d="M36 26 L31 44 L36 40 L41 44 Z" fill="#66788a"/>
-            <circle cx="64" cy="58" r="26" fill="#131b25" stroke="#f0a53a"/>
-            <line x1="42" y1="58" x2="86" y2="58" stroke="#f0a53a" stroke-width="1.6"/>
-            <circle cx="64" cy="58" r="1.8" fill="#f0a53a"/>
-          </svg>
+      <article class="card">
+        <figure class="pic"><img src="/img/guide/fig-combo.webp" width="640" height="535" alt="方位×姿勢指示器の問題。同じ絵から方位と姿勢の両方を読む" loading="lazy" decoding="async"></figure>
+        <div class="in">
+          <div class="n">03</div><h3>方位×姿勢指示器</h3>
+          <p>同じ絵から方位と姿勢の両方を読み、姿勢指示器と方位指示器の組み合わせを選びます。</p>
+          <dl class="tip"><dt>読み方のコツ</dt><dd>読むものが 2 つに増えるぶん、時間の差が出ます。先に方位、次に上下と決めておくと、絵が変わっても手順が変わりません。</dd></dl>
         </div>
-        <div><div class="n">03</div><h3>方位×姿勢指示器</h3></div>
-      </header>
-      <p>同じ絵から方位と姿勢の両方を読み、姿勢指示器と方位指示器の組み合わせを選びます。</p>
-      <dl class="tip"><dt>読み方のコツ</dt><dd>読むものが 2 つに増えるぶん、時間の差が出ます。先に方位、次に上下と決めておくと、絵が変わっても手順が変わりません。</dd></dl>
-    </article>
+      </article>
 
-    <article class="card">
-      <header>
-        <div class="badge">
-          <svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="38" fill="#0b1017" stroke="#34465a"/>
-            <path d="M26 44 h12 a12 12 0 0 1 24 0 h12" stroke="#f0a53a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-            <line x1="50" y1="44" x2="50" y2="74" stroke="#66788a" stroke-width="3.5" stroke-linecap="round"/>
-          </svg>
+      <article class="card">
+        <figure class="pic"><img src="/img/guide/fig-control.webp" width="640" height="779" alt="操縦操作の問題。コックピットからの視界が 3 枚並んでいる" loading="lazy" decoding="async"></figure>
+        <div class="in">
+          <div class="n">04</div><h3>操縦操作</h3>
+          <p>コックピットからの視界 3 枚の変化を見て、そのあいだに行われた操作（操縦桿と方向舵）を選びます。</p>
+          <dl class="tip"><dt>読み方のコツ</dt><dd>操縦桿を右に倒せば機体は右に傾き、景色は左に傾きます。この対応を絵で暗記するのではなく、一度動きで確かめておくと迷いません。</dd></dl>
         </div>
-        <div><div class="n">04</div><h3>操縦操作</h3></div>
-      </header>
-      <p>コックピットからの視界 3 枚の変化を見て、そのあいだに行われた操作（操縦桿と方向舵）を選びます。</p>
-      <dl class="tip"><dt>読み方のコツ</dt><dd>操縦桿を右に倒せば機体は右に傾き、景色は左に傾きます。この対応を絵で暗記するのではなく、一度動きで確かめておくと迷いません。</dd></dl>
-    </article>
+      </article>
 
-  </div>
-</section>
+    </div>
+  </section>
 
-<section class="band sim" id="sim">
-  <div>
+  <section id="sim" data-reveal>
     <div class="eyebrow">3D シミュレーター</div>
     <h2 style="margin-top:.75rem">操縦操作は、視界の変化で覚える</h2>
     <p class="lead">操縦操作は、操作と視界の対応が身についていると速くなります。アプリには機体を 3D で動かせるシミュレーターが入っていて、操縦桿と方向舵を入れたときに外がどう動くかを、その場で確かめられます。視点は機内、計器だけ、後方、前方、地上の 5 つです。</p>
-  </div>
-  <figure>
-    <img src="/img/hero.webp" width="2894" height="970" alt="TENRYU の 3D シミュレーターで飛ぶ T-4 の機体とスモーク" loading="lazy" decoding="async">
-    <figcaption>アプリに入っている 3D シミュレーターの機体。編隊とスモークは完全版で使えます。</figcaption>
-  </figure>
-</section>
+    <div class="simgrid">
+      <figure>
+        <div class="shot tall"><img src="/img/guide/sim.webp" width="760" height="1651" alt="3D シミュレーターの画面。操縦桿と方向舵で自分で飛ばせる" loading="lazy" decoding="async"></div>
+        <figcaption class="cap">3D シミュレーター。左の操縦桿と右の方向舵で飛ばします。</figcaption>
+      </figure>
+      <figure>
+        <div class="shot tall"><img src="/img/guide/gallery.webp" width="760" height="1651" alt="見え方の画面。始めの姿勢と操作を選ぶと、視界の変化が 3 枚並ぶ" loading="lazy" decoding="async"></div>
+        <figcaption class="cap">「見え方」。始めの姿勢と操作を選ぶと、①から②③への視界が並びます。</figcaption>
+      </figure>
+    </div>
+    <div class="pair">
+      <figure>
+        <div class="shot"><img src="/img/guide/cupid.webp" width="900" height="414" alt="展示飛行モードのキューピッド。2 機がハートを描き、1 機が矢のように貫く" loading="lazy" decoding="async"></div>
+        <figcaption class="cap">展示飛行モードのキューピッド。体験版でも短め（約 4 分）なら見られます。</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="/img/guide/star.webp" width="900" height="414" alt="展示飛行モードのスタークロス。5 機の直線が交わって星になる" loading="lazy" decoding="async"></div>
+        <figcaption class="cap">スタークロス。地上に降りて、頭の上を抜けるところを見上げられます。</figcaption>
+      </figure>
+    </div>
+  </section>
 
-<section class="pad" id="practice">
-  <h2>練習の進め方</h2>
-  <p class="sec-lead">速さは、条件を決めて繰り返すと伸びます。アプリの既定はこの値です。</p>
-  <table class="tbl">
-    <thead><tr><th>種目</th><th>出題数</th><th>1 問</th><th>全体</th></tr></thead>
-    <tbody>
-      <tr><td>方位</td><td>20 問</td><td>5 秒</td><td>5 分</td></tr>
-      <tr><td>姿勢指示器</td><td>10 問</td><td>10 秒</td><td>5 分</td></tr>
-      <tr><td>方位×姿勢指示器</td><td>20 問</td><td>15 秒</td><td>8 分</td></tr>
-      <tr><td>操縦操作</td><td>10 問</td><td>20 秒</td><td>15 分</td></tr>
-    </tbody>
-  </table>
-  <p class="lead" style="margin-top:1.125rem">はじめは Easy で読み方の手順を決めます。手順が固まってから Normal と Hard に上げ、1 問の制限時間を縮めます。平均解答時間は種目ごとに残るので、縮んでいるかどうかで判断できます。記録は端末の中だけに置き、どこにも送りません。</p>
-</section>
+  <section id="practice" data-reveal>
+    <h2>練習の進め方</h2>
+    <p class="sub">速さは、条件を決めて繰り返すと伸びます。アプリの既定はこの値です。</p>
+    <div class="tbl">
+      <div class="tr th"><div>種目</div><div>出題数</div><div>1 問</div><div>全体</div><div class="wcol">1 問の重さ</div></div>
+      <div class="tr"><b>方位</b><div class="num">20 問</div><div class="num">5 秒</div><div class="num">5 分</div><div class="wcol"><div class="wbar"><i data-w="25"></i></div></div></div>
+      <div class="tr"><b>姿勢指示器</b><div class="num">10 問</div><div class="num">10 秒</div><div class="num">5 分</div><div class="wcol"><div class="wbar"><i data-w="50"></i></div></div></div>
+      <div class="tr"><b>方位×姿勢指示器</b><div class="num">20 問</div><div class="num">15 秒</div><div class="num">8 分</div><div class="wcol"><div class="wbar"><i data-w="75"></i></div></div></div>
+      <div class="tr"><b>操縦操作</b><div class="num">10 問</div><div class="num">20 秒</div><div class="num">15 分</div><div class="wcol"><div class="wbar"><i data-w="100"></i></div></div></div>
+    </div>
+    <p class="lead">はじめは Easy で読み方の手順を決めます。手順が固まってから Normal と Hard に上げ、1 問の制限時間を縮めます。平均解答時間は種目ごとに残るので、縮んでいるかどうかで判断できます。記録は端末の中だけに置き、どこにも送りません。</p>
+  </section>
 
-<section class="pad" id="miss" style="border-top:1px solid var(--line)">
-  <h2>つまずきやすいところ</h2>
-  <p class="sec-lead">読み方を決めていないと、同じところで毎回止まります。</p>
-  <ul class="miss">
-    <li><b>画面の上を北だと思い込む</b><p>方位では N マークの向きが毎回変わります。先に N の位置を見て、そこから時計回りに数えます。</p></li>
-    <li><b>南から見ていることを忘れる</b><p>姿勢指示器は南から見た絵です。機首がこちらを向くほど、左右が逆に見えます。</p></li>
-    <li><b>読む順番が絵ごとに変わる</b><p>方位×姿勢指示器は読むものが 2 つあります。先に方位、次に上下、と決めておけば手順が変わりません。</p></li>
-    <li><b>操縦桿の向きだけで答えを決める</b><p>操縦操作では、同じ操縦桿の向きで方向舵だけが違う選択肢が並びます。方向舵を踏んでいるかどうかまで見ないと外します。</p></li>
-  </ul>
-</section>
+  <section id="pitfalls" data-reveal>
+    <h2>つまずきやすいところ</h2>
+    <p class="sub">読み方を決めていないと、同じところで毎回止まります。</p>
+    <div class="acc" id="acc">
+      <div class="it"><button type="button"><span class="mk">＋</span><span>画面の上を北だと思い込む</span></button>
+        <div class="bd"><p>方位では N マークの向きが毎回変わります。先に N の位置を見て、そこから時計回りに数えます。</p></div></div>
+      <div class="it"><button type="button"><span class="mk">＋</span><span>南から見ていることを忘れる</span></button>
+        <div class="bd"><p>姿勢指示器は南から見た絵です。機首がこちらを向くほど、左右が逆に見えます。</p></div></div>
+      <div class="it"><button type="button"><span class="mk">＋</span><span>読む順番が絵ごとに変わる</span></button>
+        <div class="bd"><p>方位×姿勢指示器は読むものが 2 つあります。先に方位、次に上下、と決めておけば手順が変わりません。</p></div></div>
+      <div class="it"><button type="button"><span class="mk">＋</span><span>操縦桿の向きだけで答えを決める</span></button>
+        <div class="bd"><p>操縦操作では、同じ操縦桿の向きで方向舵だけが違う選択肢が並びます。方向舵を踏んでいるかどうかまで見ないと外します。</p></div></div>
+    </div>
+  </section>
 
-<section class="pad" id="terms" style="border-top:1px solid var(--line)">
-  <h2>用語</h2>
-  <p class="sec-lead">問題文と選択肢に出てくる言葉です。</p>
-  <dl class="terms">
-    <div class="term"><dt>姿勢指示器</dt><dd>機体の傾きと機首の上げ下げを、地平線の絵で示す計器です。空側と地側の境目が地平線で、その傾きが左右、中央の記号との上下関係が機首の上げ下げにあたります。</dd></div>
-    <div class="term"><dt>方位指示器</dt><dd>機首が向いている方位を示す計器です。上に来ている目盛りが、いま向いている方位です。</dd></div>
-    <div class="term"><dt>バンク</dt><dd>機体の左右の傾きです。機首に対して右の翼が下がっていれば右バンクです。</dd></div>
-    <div class="term"><dt>ピッチ</dt><dd>機首の上げ下げです。上を向いていれば機首上げ、下を向いていれば機首下げです。</dd></div>
-    <div class="term"><dt>操縦桿</dt><dd>倒すと機体が傾き（バンク）、引く・押すと機首が上下します（ピッチ）。右に倒せば右バンクになり、景色は左へ傾いて見えます。</dd></div>
-    <div class="term"><dt>方向舵</dt><dd>足のペダルで踏み、機首を左右へ振ります。右を踏めば機首は右を向き、景色は左へ流れます。</dd></div>
-  </dl>
-</section>
+  <section id="terms" data-reveal>
+    <h2>用語</h2>
+    <p class="sub">問題文と選択肢に出てくる言葉です。</p>
+    <dl class="terms">
+      <div class="term"><dt>姿勢指示器</dt><dd>機体の傾きと機首の上げ下げを、地平線の絵で示す計器です。空側と地側の境目が地平線で、その傾きが左右、中央の記号との上下関係が機首の上げ下げにあたります。</dd></div>
+      <div class="term"><dt>方位指示器</dt><dd>機首が向いている方位を示す計器です。上に来ている目盛りが、いま向いている方位です。</dd></div>
+      <div class="term"><dt>バンク</dt><dd>機体の左右の傾きです。機首に対して右の翼が下がっていれば右バンクです。</dd></div>
+      <div class="term"><dt>ピッチ</dt><dd>機首の上げ下げです。上を向いていれば機首上げ、下を向いていれば機首下げです。</dd></div>
+      <div class="term"><dt>操縦桿</dt><dd>倒すと機体が傾き（バンク）、引く・押すと機首が上下します（ピッチ）。右に倒せば右バンクになり、景色は左へ傾いて見えます。</dd></div>
+      <div class="term"><dt>方向舵</dt><dd>足のペダルで踏み、機首を左右へ振ります。右を踏めば機首は右を向き、景色は左へ流れます。</dd></div>
+    </dl>
+  </section>
 
-<section class="band" id="why">
-  <h2 id="whyh">なぜ 2,000 円か</h2>
-  <p class="lead" id="whyp">一次試験までのあいだ、完全版を 2,000 円にしています。試験が終わったら 1,000 円に下げます。</p>
-  <table class="tbl">
-    <thead><tr><th>令和 7 年度 航空学生</th><th>応募</th><th>採用</th><th>倍率</th></tr></thead>
-    <tbody>
-      <tr><td>航空要員</td><td>1,354 人</td><td>70 人</td><td>19.3 倍</td></tr>
-      <tr><td>海上要員</td><td>237 人</td><td>55 人</td><td>4.3 倍</td></tr>
-    </tbody>
-  </table>
-  <p class="sec-lead" style="margin-top:.5rem">出典: 防衛省「自衛官等の充足・採用状況」（2026 年 3 月 31 日現在）。女子は航空要員 26.8 倍、海上要員 6.0 倍。</p>
-  <p class="lead" style="margin-top:1.125rem">20 人に 1 人も通らない試験のなかで、適性検査は<b>直前でいちばん動くところ</b>です。学力はいまから積み上がりません。身体検査は変えられません。面接は水物です。適性検査だけは、残りの日数でも変わります。知識ではなく速さの勝負だからです。</p>
-  <p class="lead" style="margin-top:1.125rem">そして、いまこれを練習できるアプリは他にありません。App Store で「姿勢指示器」と検索して出てくるのは、このアプリだけです（2026 年 9 月 8 日に確認）。数年前まであった同じ目的のアプリは、App Store からも Google Play からも消えました。作ったのも、それが理由です。</p>
-  <p class="lead" style="margin-top:1.125rem">問題集を 1 冊買えば 1,500 円から 2,000 円します。海外向けの同じようなアプリは 2,820 円です。とても狭き門だからこそ、買ってくれた方を応援し、他と差をつけられるように、強気の価格にしました。高いと思う方は、体験版で雰囲気をつかんでください。4 種目とも試せます。</p>
-</section>
+  <section id="price" data-reveal>
+    <h2 id="whyh">なぜ 2,000 円か</h2>
+    <p class="lead" id="whyp">一次試験までのあいだ、完全版を 2,000 円にしています。試験が終わったら 1,000 円に下げます。</p>
+    <div class="rate">
+      <div class="rr th" style="color:var(--faint);font-family:var(--mono);font-size:var(--tiny)"><div>令和 7 年度 航空学生</div><div>応募</div><div>採用</div><div>倍率</div></div>
+      <div class="rr"><b>航空要員</b><div class="num">1,354 人</div><div class="num">70 人</div><div class="hi">19.3 倍</div></div>
+      <div class="rr"><b>海上要員</b><div class="num">237 人</div><div class="num">55 人</div><div class="num">4.3 倍</div></div>
+    </div>
+    <p class="sub">出典: 防衛省「自衛官等の充足・採用状況」（2026 年 3 月 31 日現在）。女子は航空要員 26.8 倍、海上要員 6.0 倍。</p>
+    <p class="lead">20 人に 1 人も通らない試験のなかで、適性検査は<b>直前でいちばん動くところ</b>です。学力はいまから積み上がりません。身体検査は変えられません。面接は水物です。適性検査だけは、残りの日数でも変わります。知識ではなく速さの勝負だからです。</p>
+    <p class="lead">そして、いまこれを練習できるアプリは他にありません。App Store で「姿勢指示器」と検索して出てくるのは、このアプリだけです（2026 年 9 月 8 日に確認）。数年前まであった同じ目的のアプリは、App Store からも Google Play からも消えました。作ったのも、それが理由です。</p>
+    <p class="lead">問題集を 1 冊買えば 1,500 円から 2,000 円します。海外向けの同じようなアプリは 2,820 円です。とても狭き門だからこそ、買ってくれた方を応援し、他と差をつけられるように、強気の価格にしました。高いと思う方は、体験版で雰囲気をつかんでください。4 種目とも試せます。</p>
+  </section>
 
-<section class="pad" id="start" style="border-top:1px solid var(--line)">
-  <h2>始め方は 2 つ</h2>
-  <p class="sec-lead">まずブラウザで試して、続けるならアプリ版へ。</p>
-  <div class="start">
-    <div class="plan pick">
-      <div class="top"><h3>ブラウザで試す</h3><span class="price">体験版</span></div>
-      <p>4 種目とも試せます。3D シミュレーターも自分で操縦できます。難易度は Easy、出題数は既定の半分までです。</p>
-      <a href="/">体験版を開く</a>
+  <section id="start" data-reveal>
+    <h2>始め方は 2 つ</h2>
+    <p class="sub">まずブラウザで試して、続けるならアプリ版へ。</p>
+    <div class="plans">
+      <div class="plan free">
+        <div class="top"><h3>ブラウザで試す</h3><span class="tag">体験版</span></div>
+        <p>4 種目とも試せます。3D シミュレーターも自分で操縦できます。展示飛行モードも短めなら見られます。難易度は Easy、出題数は既定の半分までです。</p>
+        <a href="/">体験版を開く</a>
+      </div>
+      <div class="plan pay">
+        <div class="top"><h3>アプリ版（完全版）</h3><span class="yen" id="price">2,000 円</span></div>
+        <p>買い切り、広告なし。難易度 Normal と Hard、出題数と制限時間の指定、編隊とスモーク、展示飛行の全演目と長さ、写真の保存が使えます。iPhone・iPad は App Store から。Android 版は準備中です。</p>
+        <p class="note" id="pricenote">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</p>
+        <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
+      </div>
     </div>
-    <div class="plan pay">
-      <div class="top"><h3>アプリ版（完全版）</h3><span class="price" id="price">2,000 円</span></div>
-      <p>買い切り、広告なし。難易度 Normal と Hard、出題数と制限時間の指定、編隊とスモーク、展示飛行の全演目、写真の保存が使えます。iPhone・iPad は App Store から。Android 版は準備中です。</p>
-      <p id="pricenote" style="margin-top:.5rem;color:var(--accent)">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</p>
-      <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
-    </div>
-  </div>
-</section>
+  </section>
 
-<section class="pad" id="faq" style="border-top:1px solid var(--line)">
-  <h2>よくある質問</h2>
-  <div class="faq">
-    <div class="qa">
-      <div class="q"><span>Q</span><h3>一次試験はいつですか。</h3></div>
-      <div class="a"><span>A</span><p>2026 年の一次試験は 9 月 19 日と 9 月 26 日です。日程と会場は募集要項で確認してください。</p></div>
+  <section id="faq" data-reveal>
+    <h2>よくある質問</h2>
+    <div class="qas">
+      <div class="qa"><div class="q"><span>Q</span><h3>一次試験はいつですか。</h3></div><div class="a"><span>A</span><p>2026 年の一次試験は 9 月 19 日と 9 月 26 日です。日程と会場は募集要項で確認してください。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>航空学生の倍率はどれくらいですか。</h3></div><div class="a"><span>A</span><p>令和 7 年度は、航空要員が応募 1,354 人に対して採用 70 人で 19.3 倍、海上要員が応募 237 人に対して採用 55 人で 4.3 倍でした（防衛省「自衛官等の充足・採用状況」）。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>このアプリだけで対策になりますか。</h3></div><div class="a"><span>A</span><p>適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>体験版と完全版の違いは何ですか。</h3></div><div class="a"><span>A</span><p>体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数が既定の半分までに限られ、編隊とスモーク、展示飛行の長さ、写真の保存は完全版です。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>Android では使えますか。</h3></div><div class="a"><span>A</span><p>ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用で、Google Play 版は準備中です。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>出題は本番と同じですか。</h3></div><div class="a"><span>A</span><p>市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div><div class="a"><span>A</span><p>買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。</p></div></div>
     </div>
-    <div class="qa">
-      <div class="q"><span>Q</span><h3>航空学生の倍率はどれくらいですか。</h3></div>
-      <div class="a"><span>A</span><p>令和 7 年度は、航空要員が応募 1,354 人に対して採用 70 人で 19.3 倍、海上要員が応募 237 人に対して採用 55 人で 4.3 倍でした（防衛省「自衛官等の充足・採用状況」）。</p></div>
-    </div>
-    <div class="qa">
-      <div class="q"><span>Q</span><h3>このアプリだけで対策になりますか。</h3></div>
-      <div class="a"><span>A</span><p>適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。</p></div>
-    </div>
-    <div class="qa">
-      <div class="q"><span>Q</span><h3>体験版と完全版の違いは何ですか。</h3></div>
-      <div class="a"><span>A</span><p>体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。難易度が Easy だけ、出題数が既定の半分までに限られ、編隊とスモーク、展示飛行の全演目、写真の保存は完全版です。</p></div>
-    </div>
-    <div class="qa">
-      <div class="q"><span>Q</span><h3>Android では使えますか。</h3></div>
-      <div class="a"><span>A</span><p>ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用で、Google Play 版は準備中です。</p></div>
-    </div>
-    <div class="qa">
-      <div class="q"><span>Q</span><h3>出題は本番と同じですか。</h3></div>
-      <div class="a"><span>A</span><p>市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。</p></div>
-    </div>
-    <div class="qa">
-      <div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div>
-      <div class="a"><span>A</span><p>買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。</p></div>
-    </div>
-  </div>
-</section>
+  </section>
+
+</main>
 
 <footer>
-  <p>このサイトと TENRYU は個人が作ったもので、防衛省・航空自衛隊の公式ではありません。出題内容は市販の問題集と受検した人の話をもとにした練習用の再現で、試験の出題形式や採点基準を保証するものではありません。試験の詳細は必ず募集要項で確認してください。</p>
-  <div class="links">
-    <a href="/">体験版</a>
-    <a href="https://apps.apple.com/app/id6808281696">App Store</a>
-    <a href="https://note.com/amateras87/n/n304f337b3d21">開発の記事</a>
-    <a href="/privacy">プライバシーポリシー</a>
+  <div class="fin">
+    <p>このサイトと TENRYU は個人が作ったもので、防衛省・航空自衛隊の公式ではありません。出題内容は市販の問題集と受検した人の話をもとにした練習用の再現で、試験の出題形式や採点基準を保証するものではありません。試験の詳細は必ず募集要項で確認してください。機体の 3D モデルは「航空自衛隊アクロバットチーム T-4ブルーインパルス」（3Dえいじくん 様）を購入して使っています。</p>
+    <div class="links">
+      <a href="/">体験版</a>
+      <a href="https://apps.apple.com/app/id6808281696">App Store</a>
+      <a href="https://note.com/amateras87/n/n304f337b3d21">開発の記事</a>
+      <a href="/privacy">プライバシーポリシー</a>
+    </div>
+    <div class="sig">TENRYU · 2026</div>
   </div>
-  <div class="sig">TENRYU · 2026</div>
 </footer>
 
-</div>
-
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-08","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/hero.webp","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
+</script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
 {"@type":"Question","name":"一次試験はいつですか。","acceptedAnswer":{"@type":"Answer","text":"2026 年の一次試験は 9 月 19 日と 9 月 26 日です。日程と会場は募集要項で確認してください。"}},
 {"@type":"Question","name":"航空学生の倍率はどれくらいですか。","acceptedAnswer":{"@type":"Answer","text":"令和 7 年度は、航空要員が応募 1,354 人に対して採用 70 人で 19.3 倍、海上要員が応募 237 人に対して採用 55 人で 4.3 倍でした（防衛省「自衛官等の充足・採用状況」）。"}},
 {"@type":"Question","name":"このアプリだけで対策になりますか。","acceptedAnswer":{"@type":"Answer","text":"適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。"}},
-{"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。難易度が Easy だけ、出題数が既定の半分までに限られ、編隊とスモーク、展示飛行の全演目、写真の保存は完全版です。"}},
+{"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数が既定の半分までに限られ、編隊とスモーク、展示飛行の長さ、写真の保存は完全版です。"}},
 {"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用で、Google Play 版は準備中です。"}},
 {"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
 {"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。"}}]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-08","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/hero.webp","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"2000","priceCurrency":"JPY"}}
 </script>
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"1000","priceCurrency":"JPY"}}
-</script>
+
 <script>
-/* 一次試験の第 1 日までの残り日数。日本時間の 0 時を基準に数える */
 (function(){
-  var el=document.getElementById('left');if(!el)return;
-  var days=['2026-09-19T00:00:00+09:00','2026-09-26T00:00:00+09:00'];
-  var now=Date.now(),next=null;
-  for(var i=0;i<days.length;i++){var t=Date.parse(days[i]);if(t>now){next=t;break}}
-  if(next===null){el.textContent='終了';return}
-  var d=Math.ceil((next-now)/86400000);
-  el.textContent=d<=0?'当日':'あと '+d+' 日';
-})();
-/* 価格は一次試験の終わりで自動的に切り替える（直し忘れを防ぐ）。9/27 から 1,000 円 */
-(function(){
-  if(Date.now() < Date.parse('2026-09-27T00:00:00+09:00'))return;
-  var p=document.getElementById('price'); if(p)p.textContent='1,000 円';
-  var n=document.getElementById('pricenote'); if(n)n.remove();
-  var h=document.getElementById('whyh'); if(h)h.textContent='価格について';
-  var w=document.getElementById('whyp'); if(w)w.textContent='完全版は買い切り 1,000 円です。';
+  /* 一次試験の第 1 日までの残り日数。日本時間の 0 時を基準に数える */
+  var days=['2026-09-19T00:00:00+09:00','2026-09-26T00:00:00+09:00'], now=Date.now(), next=null;
+  for(var i=0;i<days.length;i++){var t=Date.parse(days[i]); if(t>now){next=t;break}}
+  var el=document.getElementById('days');
+  if(el) el.textContent = next===null ? '—' : Math.max(0,Math.ceil((next-now)/86400000));
+
+  /* 価格は一次試験の終わりで自動的に切り替える（直し忘れを防ぐ）。9/27 から 1,000 円 */
+  if(now >= Date.parse('2026-09-27T00:00:00+09:00')){
+    var p=document.getElementById('price'); if(p)p.textContent='1,000 円';
+    var n=document.getElementById('pricenote'); if(n)n.remove();
+    var h=document.getElementById('whyh'); if(h)h.textContent='価格について';
+    var w=document.getElementById('whyp'); if(w)w.textContent='完全版は買い切り 1,000 円です。';
+  }
+
+  /* 上の細い線で読み進み具合を出す */
+  var bar=document.getElementById('prog');
+  var onScroll=function(){
+    var d=document.documentElement, max=d.scrollHeight-d.clientHeight;
+    bar.style.width = (max>0 ? (d.scrollTop/max*100) : 0) + '%';
+  };
+  addEventListener('scroll',onScroll,{passive:true}); onScroll();
+
+  /* 節が見えたら浮かび上がらせる。棒グラフもそこで伸ばす */
+  var io = 'IntersectionObserver' in window ? new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(!e.isIntersecting)return; e.target.classList.add('seen');
+      e.target.querySelectorAll('.wbar i').forEach(function(b){ b.style.width=b.dataset.w+'%' });
+      io.unobserve(e.target); });
+  },{rootMargin:'0px 0px -12% 0px'}) : null;
+  document.querySelectorAll('[data-reveal]').forEach(function(s){ io ? io.observe(s) : s.classList.add('seen') });
+  if(!io) document.querySelectorAll('.wbar i').forEach(function(b){ b.style.width=b.dataset.w+'%' });
+
+  /* 上の帯: いま見ている節を光らせる */
+  var links=[].slice.call(document.querySelectorAll('.nav a'));
+  var spy=function(){
+    var y=scrollY+innerHeight*0.3, cur=null;
+    links.forEach(function(a){ var s=document.querySelector(a.getAttribute('href')); if(s&&s.offsetTop<=y)cur=a });
+    links.forEach(function(a){ a.classList.toggle('on', a===cur) });
+  };
+  addEventListener('scroll',spy,{passive:true}); spy();
+
+  /* つまずき: 押すと開く */
+  document.querySelectorAll('#acc .it').forEach(function(it){
+    it.querySelector('button').addEventListener('click',function(){
+      var open=it.classList.toggle('open');
+      it.querySelector('.mk').textContent = open ? '−' : '＋';
+    });
+  });
 })();
 </script>
 </body>

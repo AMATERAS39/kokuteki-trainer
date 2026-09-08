@@ -31,6 +31,9 @@ const standOut = k => ({ x: STANDS[k].x + Math.sin(STANDS[k].b * D) * 50, y: STA
 const TAXI_X = 270, TAXI_N = 590, TAXI_S = -600, TAXI_END = -640;
 const EXIT_Y = 240;                              // 着陸後の出口（減速して止まる y = +70〜+170 のすぐ先）。ここから誘導路へ出て、滑走路を早く空ける
 const LAND_FAR = 3600;                           // 着陸の最終進入を始める距離（滑走路の南、延長線上）
+/* 着陸へ回り込むときの待ちの位置（滑走路の東 LAND_DW_X、進入の入口よりさらに南 LAND_DW_Y）。
+   瞬間移動をやめたので（v04.76）、ここを回ってから延長線に乗る */
+const LAND_DW_X = 1400, LAND_DW_Y = 1600;
 const TAXI_V = 12, TAXI_TURN = 24;               // 地上の速さ（m/s）と曲がる速さ（度/秒）
 const TK_GAP = 7;                                // 2 機ずつの離陸の間隔（秒）
 const DIA_GAP = 0.7;                             // ダイヤモンド・テイクオフの、機体ごとのわずかな時間差（秒）
@@ -1128,6 +1131,10 @@ export function mount(container, opt = {}) {
     if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(bq).add(b.p); emit(emitPos, color, null, 0, i + 1); }
   }
   let chgT = -1;                           // チェンジオーバー・ターン: 隊形が組めてからの時間（秒）。-1 は待っているあいだ
+  /* 瞬間移動をしない進入（利用者の指示 13）。スタークロスの次の課目と、着陸で立てる。
+     立っているあいだは、進入の入口まで実際に飛ぶ */
+  let noJumpIn = false;
+  let landLeg = 0;                         // 着陸の回り込み: 0 = 南東の待ちの位置へ、1 = 延長線へ
   let smokeAll = false;                    // この課目のあいだは、隊形を組み替えてもスモークを止めない
   let rainOn = false;                      // レインフォールで降りているあいだ（引き起こしを止める）   // 進入の段階（in: 門へ、align: 正面の中心へ、do: 技）
   const GATE = { x: 0, y: 0, z: SHOW.ALT_IN };
@@ -1261,7 +1268,7 @@ export function mount(container, opt = {}) {
     /* 進入はいつも南から北向き。向きを選ぶと、南向きのとき接地点が帯の外（y = -860）になり、
        僚機（いつも北向き）と逆向きに降りることにもなる（実測: 1 番機が (-16, -916) に接地） */
     landN = true;
-    landStep = 0; landSide = 0;
+    landStep = 0; landSide = 0; landLeg = 0;
     /* 着陸して滑走路へ戻るまでのあいだも、曲を頭から流す（無音の時間を作らない）。
        滑走路で待機に戻ったら、離陸に合わせてもう一度頭から流し直す */
     landRun = true; landDesc = -1; landMusOn = false;
@@ -1359,6 +1366,9 @@ export function mount(container, opt = {}) {
       if (auto && !oneShot && PROGRAM[i].id !== 'dtake' && !tkOn && gmode === 'fly')
         mates.forEach((h, k) => { const u = h.userData; if (!nf.offs[k] && u.shown && !u.ground && !u.gp && !u.tk) { h.visible = false; u.shown = false; u.rejoin = true; } }); }
     reIn = 0; if (PROGRAM[i].id !== 'takeoff') aimN = 0;   // 離陸ではアプリが「先頭機を追う」と指すので消さない
+    /* スタークロスの次の課目は、瞬間移動せずに入口まで飛ぶ（利用者の指示 13）。
+       ここではまだ step_i が「前の課目」なので、それで判じる */
+    noJumpIn = !!(auto && !oneShot && PROGRAM[step_i] && PROGRAM[step_i].id === 'star');
     step_i = i; manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h; phaseT = 0; formScale = 1; figAim = null; aimLeader = false;
     if (PROGRAM[i].id !== 'touch' && pathLag > 0) endPath();
     const m = PROGRAM[i];
@@ -1477,11 +1487,29 @@ export function mount(container, opt = {}) {
       if (manPhase === 'land') {           // 着陸: 旋回はしない。遠くの延長線上へ移ってから、まっすぐ降りる
         const sgn = 1, tdY = LAND_TD_Y;
         if (landStep === 0) {
-          /* 課目の終わりから、いまの向きのまま遠くへ。壁の位置を越えたら、滑走路の延長線上（南 LAND_FAR、
-             北向き、勾配の上の高さ）へ移る。見えない距離で行うので、飛んで回り込むより自然に見える */
-          holdBank(0); holdPitch(clamp((Math.max(st.z, 200) - st.z) * 0.08, -4, 6)); autoIn.r = 0;
+          /* 着陸の進入へ入る。**瞬間移動しない**（利用者の指示 13）。
+             滑走路の南東の待ちの位置へ回り込んでから、延長線（南 LAND_FAR、北向き）に乗る。
+             いきなり入口を狙うと、北から来て入口で 180 度回ることになるので、2 段に分ける。
+             高さは、その位置での勾配の高さへ向けて下げていく。
+             どうしても合わないとき（4 分）だけ、これまでどおり位置を移す */
+          autoIn.r = 0;
+          const exX = RWY.x, exY = RWY.y - LAND_FAR;
+          const wz = 3 + (tdY - exY) * LAND_SLOPE;
+          if (landLeg === 0) {
+            const dwX = RWY.x + LAND_DW_X, dwY = exY - LAND_DW_Y;
+            steerTo(dwX, dwY, Math.max(wz, 220));
+            if (Math.hypot(dwX - st.x, dwY - st.y) < 600) landLeg = 1;
+          } else {
+            steerTo(exX, exY, wz);
+          }
+          const dEx = Math.hypot(exX - st.x, exY - st.y), dHx = Math.abs(wrap180(RWY.h - st.h));
+          if (landLeg === 1 && dEx < 450 && dHx < 35) {
+            landStep = 1; landDesc = 0; landSide = 0; landLeg = 0;
+            gearOn = false; lightsOn = false; applyGear();
+            st.cue = '進入';
+          }
           const far0 = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
-          if (far0 > JUMP_FAR || phaseT > 45) {
+          if (landStep === 0 && phaseT > 240 && (far0 > JUMP_FAR || phaseT > 300)) {
             st.x = RWY.x; st.y = RWY.y - LAND_FAR; st.z = 3 + (tdY - st.y) * LAND_SLOPE; st.h = RWY.h;
             spdK = 1; spdWant = 1; levelAttitude();
             seedHistory(100); slowAim = SLOW_AIM; mates.forEach(h => { h.userData.hold = 0; }); if (opt.onJump) opt.onJump();
@@ -1509,7 +1537,9 @@ export function mount(container, opt = {}) {
           att.multiply(dq.setFromAxisAngle(AY, bankL * D));
           readAttitude();
           /* anthem: 最後尾の接地（先頭 + 追従 5 機 × LAND_LAG）の LAND_TOTAL 秒前に頭から流す */
-          if (!landMusOn && anthemIdx() >= 0 && actx && landDesc >= LAND_LAST - LAND_TOTAL) {
+          /* anthem は「最終機が初期位置（駐機場）に戻りきる」1 分 6.5 秒前から頭で流す（利用者の指示 15）。
+             以前は最後尾の接地を基準にしていた（v04.75 まで）ので、102 秒ぶん早く鳴っていた */
+          if (!landMusOn && anthemIdx() >= 0 && actx && landDesc >= LAND_LAST + LAND_PARK - LAND_TOTAL) {
             landMusOn = true; const ai = anthemIdx(); musIdx = ai; playTrack(ai); musCut = LAND_TOTAL;
           }
           autoIn.x = 0; autoIn.y = 0; autoIn.r = 0; smIn.x = 0; smIn.y = 0; smIn.r = 0;
@@ -1528,7 +1558,10 @@ export function mount(container, opt = {}) {
           /* 追従機が道をたどって降りてくるあいだは縦隊のまま（戻すと単機のとき追従機が隠れ、空中で止まる。実測） */
           formation = (pathLag > 0 && mates.some(h => h.userData.shown && !h.userData.pfDone)) ? 'trail' : userForm;
           formScale = 1;
-        } else if (phaseT > 120) { auto = false; oneShot = false; manPhase = 'do'; st.show = ''; }
+        /* 時間は「制限」ではなく「目安」（利用者の指示 13）。回り込んで延長線に乗り、
+           3.6 km の最終進入を降りるので、瞬間移動をやめたぶん時間がかかる。
+           ここは詰まったときの受け皿として置く（v04.75 までは 120 秒で、回り込みの途中で着陸をやめていた） */
+        } else if (phaseT > 420) { auto = false; oneShot = false; manPhase = 'do'; st.show = ''; }
         return autoIn;                        // 地面回避（safety）は呼ばない。呼ぶと降りられない
       }
       if (manPhase === 'gather') {         // 隊形が組めるまで待つ。観覧位置のまわりを回って待つので、遠くへ流れない
@@ -1577,7 +1610,19 @@ export function mount(container, opt = {}) {
         /* 機内から見ているとき（一人称）は移さない。移すと景色が跳ぶのが分かる（利用者の指示: 瞬間移動は使うが、機内で見ているときはバレないように）。
            その場合は移す先（jx, jy）まで実際に飛び、そこで向き直して入る。地上から見ているときは、見えない距離で移す（従来どおり） */
         /* v04.29: 視点によらず移す。移す瞬間はアプリ側（onJump）で地上視点に戻す（機内・三人称のまま移さない） */
-        if (dO < JUMP_FAR) { const bj = Math.atan2(jx - GROUND_EYE.x, jy - GROUND_EYE.y); steerTo(GROUND_EYE.x + Math.sin(bj) * (JUMP_FAR + 600), GROUND_EYE.y + Math.cos(bj) * (JUMP_FAR + 600), GATE.z); }
+        if (noJumpIn) {
+          /* 瞬間移動しない進入（スタークロスのあと）。入口まで実際に飛んで、向きが合ったら始める。
+             どうしても合わないときだけ、これまでどおり移す（演目が止まらないように） */
+          steerTo(jx, jy, GATE.z);
+          const dJ = Math.hypot(jx - st.x, jy - st.y), dH = Math.abs(wrap180(inH - st.h));
+          if ((dJ < 260 && dH < 40) || phaseT > 150) {
+            hist.length = 0; clearSmoke();
+            mates.forEach(h => { h.userData.hold = 0; h.userData.qw = null; });
+            slowAim = SLOW_AIM; beginMirror(m, false);
+            manPhase = 'align'; phaseT = 0;
+          }
+        }
+        else if (dO < JUMP_FAR) { const bj = Math.atan2(jx - GROUND_EYE.x, jy - GROUND_EYE.y); steerTo(GROUND_EYE.x + Math.sin(bj) * (JUMP_FAR + 600), GROUND_EYE.y + Math.cos(bj) * (JUMP_FAR + 600), GATE.z); }
         /* 向きは 60 度以内まで合わせれば移す（移す先で向きは進入の向きに置き直す）。
            8 度まで待つと、遠くで 180 度回り切るのに 17 秒かかった（実測 v04.24）。隊形が組めるのは待つ */
         else if (Math.abs(wrap180(inH - st.h)) > 60 || (!matesReady() && phaseT < 60)) {   // 向きをおおむね合わせ、隊形が組めるのを待ってから移す
@@ -2760,6 +2805,10 @@ export function mount(container, opt = {}) {
   const LAND_LEAD_TD = 83;                 // 延長線上（南 3.6 km）へ移ってから先頭が接地するまで（実測 83.2 秒）
   const LAND_PAIR_GAP = 14;                // 組ごとの接地の間隔（秒）。最後尾は 33 + 14 × 3 = 75 秒
   const LAND_LAST = LAND_LEAD_TD + 5 * 18.0;  // 先頭の降下開始から最後尾の接地まで（追従 5 機が 18 秒ずつ遅れて降りる）
+  /* 最後尾が接地してから、全機が駐機場に停まりきるまで（秒）。
+     利用者の指示 15 の「最終機が初期位置に戻りきる」はここ。実測 v04.76（6 機・探針で通した）:
+     最後尾の接地が降下開始から 177 秒、全機が停まりきったのが 279 秒 → 102 秒 */
+  const LAND_PARK = 102;
   let landMusOn = false;                   // anthem を流し始めたか（着陸で一度だけ）
   let landDesc = -1;
   let landClock = -1;                      // 1 番機が接地してからの時間（秒）。-1 はまだ

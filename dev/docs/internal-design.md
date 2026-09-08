@@ -3092,3 +3092,47 @@ v04.69 で browser 側の scroll 連動をやめて JS に戻したところ、*
 5 行とも印が付き、濃さは 1。いちばん上へ戻すと 5 行とも印が外れる（巻き戻りが残っている）。
 `prefers-reduced-motion` の指定は、この検証用の画面では効いていない（設定が入っていないため）ので、
 **規則が正しく読まれていること**（`.bar{backdrop-filter:none}` と飾りの `animation:none`）までを確かめた。
+
+## v04.72 動きの性質を、設定に合わせて変える／速さを落とす
+
+利用者から手引きをもらった。要点は 3 つ。
+
+1. **「視覚効果を減らす」では、動きを消すのではなく性質を変える**。大きく動かす・拡大縮小をやめ、濃さの変化だけにする。
+2. **動いている最中だけ GPU へのヒントを出す**（`will-change`）。
+3. **重い効果（背景のぼかし・濃い影）を、動いている最中に重ねない**。
+
+### 1. 性質を変える
+
+```css
+@media (prefers-reduced-motion: reduce){
+  .an,.an.up,.an.l,.an.r{transform:none;transition:opacity .6s ease}
+  .an.wipe{opacity:0;clip-path:none;transition:opacity .6s ease}
+  .an.on{transform:none;clip-path:none;transition-delay:calc(var(--i,0) * 55ms)}
+  .wordmark,.subtitle,.hero .lead,.cta,.facts,.jetback{animation:fade .7s both}
+}
+```
+
+`translate` も `scale` も `clip-path` もやめ、**濃さだけ**にした。見出しの入り（左から / 下から / 右上から）も同じく濃さだけにする。
+動き自体は残るので、「この設定でも動かす」という決めは守れている。
+
+### 2. GPU へのヒントは、動いている最中だけ
+
+`will-change` を最初から全部に置くやり方は取らなかった。この画面には `.an` が **64 個**あり、
+ずっと置くと 64 枚の層を抱えることになって、かえって重くなる。
+
+JS が印（`.mv`）を付けるのは**切り替えた瞬間だけ**で、2 秒で外す。`.an.mv{will-change:opacity,transform}`、
+「視覚効果を減らす」では `will-change:opacity` だけにする。
+
+実測: `.mv` があるとき `will-change` は `opacity, transform`、外れると `auto` に戻る。
+
+### 3. 重い効果
+
+v04.71 で入れた「上の帯のぼかしと、動き続ける飾りを止める」はそのまま。濃い影は `.card` の `:hover` だけで、
+指で触る画面では出ないので、そのままにした。
+
+### 速さ
+
+利用者から「動作が早すぎる」。0.7 秒 → **1.15 秒**（`cubic-bezier(.16,1,.3,1)`）、ずれは 60ms → 95ms。
+「視覚効果を減らす」では 0.6 秒・ずれ 55ms。
+
+実測（幅 700）: 遷移の長さ 1.15s、最後の行の遅れ 0.38s（`--i` は 4）。行はすべて出て、`.mv` も外れている。

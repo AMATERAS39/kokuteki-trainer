@@ -3,10 +3,13 @@
   // 配信 URL: https://kokuteki.amaterasu-vocab.com/（custom_domain なので、デプロイ時に DNS レコードも自動で作られる）
   "name": "kokuteki-trainer",
   "compatibility_date": "2026-09-02",
+  // 平均回答時間の受け渡し（GET/POST /api/avg）だけを受け持つ。ファイルのある道は今までどおり静的配信が返す。
+  "main": "worker.js",
+  "kv_namespaces": [{ "binding": "STATS", "id": "fda6a8261e674280833822b5b8c5bf53" }],
   "observability": { "enabled": true },
   // routes を書くと workers.dev が自動で無効になるので、動作確認用に明示的に有効化（https://kokuteki-trainer.ama-sunrise.workers.dev/）
   "workers_dev": true,
-  "assets": { "directory": "./" },
+  "assets": { "directory": "./", "binding": "ASSETS" },
   // custom_domain で DNS を自動作成しつつ、明示ルートも置く。vocab-srs 側に "*.amaterasu-vocab.com/*" のワイルドカードルートがあり、
   // ホスト名が具体的なルートのほうが優先されるため、こちらが kokuteki のリクエストを確実に受け取れる。
   "routes": [

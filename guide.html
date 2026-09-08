@@ -82,15 +82,25 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
 @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-.44rem)}}
 @keyframes ring{0%{transform:scale(.85);opacity:.55}100%{transform:scale(1.45);opacity:0}}
 /* 現れ方。**「視覚効果を減らす」が入っていても動かす**（利用者の指示） */
-.an{opacity:0}
+/* 現れ方。動かすのは CSS の遷移に任せ、JS は「画面に入った」印（on）を付け外しするだけにする。
+   毎こま JS で書き込むと、指の動きは合成側で進むので必ず遅れ、端末によってはがたつく（v04.71 で取りやめ）。
+   browser 側の scroll 連動（animation-timeline:view()）も使わない。
+   iPad の Safari では「使える」と答えるのに範囲の指定（animation-range）が効かず、
+   画面から上へ抜けるまで出来上がらなかった（v04.69 で取りやめ） */
+.an{opacity:0;transition:opacity .7s cubic-bezier(.2,.85,.25,1),transform .7s cubic-bezier(.2,.85,.25,1),clip-path .7s cubic-bezier(.2,.85,.25,1)}
 .an.up{transform:translateY(2.25rem) scale(.985)}
 .an.l{transform:translateX(-2.75rem)}
 .an.r{transform:translateX(2.75rem)}
 .an.wipe{opacity:1;clip-path:inset(0 100% 0 0)}
-/* 現れ方は JS が位置から出して書き込む。
-   browser 側の仕組み（animation-timeline:view()）は使わない。
-   iPad の Safari では「使える」と答えるのに範囲の指定（animation-range）が効かず、
-   画面から上へ抜けるまで出来上がらない。表の最後の行が半分で止まって見えた（v04.69 で取りやめ） */
+.an.on{opacity:1;transform:none;clip-path:inset(0 0 0 0);transition-delay:calc(var(--i,0) * 60ms)}
+/* 「視覚効果を減らす」が入っているとき。
+   現れ方（上の .an）はそのまま出す。利用者の指示で、この設定でも動かすと決めてある。
+   止めるのは、ずっと動き続ける飾りと、上の帯のぼかし。
+   どちらも巻いているあいだ、こまごまと描き直す元になり、指の動きが引っかかる */
+@media (prefers-reduced-motion: reduce){
+  .bar{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(11,16,23,.96)}
+  .stage .sweep,.jetback img,.art .halo,.phone,.chip i{animation:none}
+}
 
 /* 見出しの舞台。円と弧の幾何学模様を背景に敷く */
 .stage{position:relative;overflow:hidden;background:
@@ -646,47 +656,46 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
               : el.classList.contains('l') ? 'l'
               : el.classList.contains('r') ? 'r' : 'up' };
   });
-  var cl=function(v){ return v<0?0:v>1?1:v };
-  var ease=function(t){ return 1-Math.pow(1-t,3) };
-  /* 画面の下から 98% のところで動きだし、26% ぶん上がったところで出来上がる。
-     順番（--i）のぶんだけ遅らせるので、並んだものは左から順に現れる。
-     画面のまん中より下で出来上がる形にしてある。上のほうまで来ないと出来上がらないと、
-     表のように行が並ぶものは「最後の行だけ半分」に見えてしまうため */
-  var at=function(r,vh,i){ return cl((vh*.98-r.top)/(vh*.26) - i*.05) };
-  /* 先に全部の位置を読み、そのあとで全部に書く。
-     1 つずつ「読んで書く」を繰り返すと、書くたびに版組みが起き直して、指の動きから遅れる */
-  var eIt=new Array(items.length);
-  var paint=function(){
-    var vh=innerHeight, n;
-    for(n=0;n<items.length;n++) eIt[n]=ease(at(items[n].el.getBoundingClientRect(),vh,items[n].i));
+  /* 画面の下から 88% のところまで来たら出す。下へ戻して 96% より下になったら、また引っ込める。
+     出したり引っ込めたりが小刻みに起きないよう、出す線と引っ込める線をずらしてある。
+     上へ抜けたもの（top が負）は出したまま。動かすのは CSS の遷移なので、指の動きとは別に進む */
+  var spy=null;
+  var rects=new Array(items.length);
+  var sync=function(){
+    var vh=innerHeight, n, r, on;
+    for(n=0;n<items.length;n++) rects[n]=items[n].el.getBoundingClientRect();
     for(n=0;n<items.length;n++){
-      var it=items[n], e=eIt[n], st=it.el.style;
-      if(e===it.last)continue;                        /* 変わっていないものは触らない */
-      it.last=e;
-      if(it.k==='wipe'){ st.clipPath='inset(0 '+((1-e)*100).toFixed(1)+'% 0 0)'; continue }
-      st.opacity=e.toFixed(3);
-      st.transform = it.k==='l' ? 'translateX('+(-2.75*(1-e)).toFixed(2)+'rem)'
-                   : it.k==='r' ? 'translateX('+( 2.75*(1-e)).toFixed(2)+'rem)'
-                   : 'translateY('+(2.25*(1-e)).toFixed(2)+'rem) scale('+(.985+.015*e).toFixed(4)+')';
+      var it=items[n]; r=rects[n]; on=!!it.on;
+      if(!on){ if(r.top < vh*.88) on=true }
+      else   { if(r.top > vh*.96) on=false }
+      if(on!==!!it.on){ it.on=on; it.el.classList.toggle('on', on) }
     }
+    if(spy)spy();
   };
-  var tick=false, onScr=function(){ if(tick)return; tick=true; requestAnimationFrame(function(){tick=false;paint()}) };
+  var tick=false, onScr=function(){ if(tick)return; tick=true; requestAnimationFrame(function(){tick=false;sync()}) };
   addEventListener('scroll',onScr,{passive:true}); addEventListener('resize',onScr);
   document.addEventListener('scroll',onScr,{passive:true,capture:true});   /* 入れ物側が巻いている場合 */
-  paint(); addEventListener('load',paint);
-  setTimeout(paint,300); setTimeout(paint,1200);
+  sync(); addEventListener('load',sync);
+  setTimeout(sync,300); setTimeout(sync,1200);
   /* scroll が飛んでこない画面（入れ物側が巻いている場合）でも動くように、少しずつ見に行く。
      白紙にしない備えも、この見回りが担う。位置で判じているので、見えているものは必ず出る */
-  setInterval(paint,400);
+  setInterval(sync,400);
 
-  /* 上の帯: いま見ている節を光らせる */
-  var links=[].slice.call(document.querySelectorAll('.nav a'));
-  var spy=function(){
-    var y=scrollY+innerHeight*0.3, cur=null;
-    links.forEach(function(a){ var s=document.querySelector(a.getAttribute('href')); if(s&&s.offsetTop<=y)cur=a });
-    links.forEach(function(a){ a.classList.toggle('on', a===cur) });
+  /* 上の帯: いま見ている節を光らせる。
+     節の位置は毎回引き直さず、上の見回り（sync）と同じ拍で見る（巻くたびに版組みを起こさないため） */
+  var links=[].slice.call(document.querySelectorAll('.nav a')).map(function(a){
+    return { a:a, sec:document.querySelector(a.getAttribute('href')) };
+  }).filter(function(l){ return l.sec });
+  var cur=null;
+  spy=function(){
+    var y=innerHeight*0.3, now=null;
+    links.forEach(function(l){ if(l.sec.getBoundingClientRect().top<=y)now=l.a });
+    if(now===cur)return;
+    if(cur)cur.classList.remove('on');
+    if(now)now.classList.add('on');
+    cur=now;
   };
-  addEventListener('scroll',spy,{passive:true}); spy();
+  spy();
 
   /* カードの図は、アプリが実際に描いている部品（engine.js）をそのまま出す。
      読み込めなかったときは、図の枠ごと消して文章だけにする */

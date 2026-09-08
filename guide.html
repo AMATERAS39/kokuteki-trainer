@@ -87,19 +87,10 @@ h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em}
 .an.l{transform:translateX(-2.75rem)}
 .an.r{transform:translateX(2.75rem)}
 .an.wipe{opacity:1;clip-path:inset(0 100% 0 0)}
-/* 画面の巻きに合わせて動かす仕組みが browser 側にあるときは、それに任せる。
-   合成側で動くので、指の動きから遅れない（JS で毎こま書き込むと、端末によってはがたつく）。
-   使えるかどうかは JS が見て、使えるときだけ html に svt を付ける */
-@keyframes aUp{from{opacity:0;transform:translateY(2.25rem) scale(.985)}to{opacity:1;transform:none}}
-@keyframes aL{from{opacity:0;transform:translateX(-2.75rem)}to{opacity:1;transform:none}}
-@keyframes aR{from{opacity:0;transform:translateX(2.75rem)}to{opacity:1;transform:none}}
-@keyframes aW{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
-@keyframes aBar{from{width:0}to{width:var(--w)}}
-html.svt .an{animation:aUp linear both;animation-timeline:view();animation-range:entry 8% cover 32%}
-html.svt .an.l{animation-name:aL}
-html.svt .an.r{animation-name:aR}
-html.svt .an.wipe{animation-name:aW}
-html.svt .wbar i{animation:aBar linear both;animation-timeline:view();animation-range:entry 8% cover 32%}
+/* 現れ方は JS が位置から出して書き込む。
+   browser 側の仕組み（animation-timeline:view()）は使わない。
+   iPad の Safari では「使える」と答えるのに範囲の指定（animation-range）が効かず、
+   画面から上へ抜けるまで出来上がらない。表の最後の行が半分で止まって見えた（v04.69 で取りやめ） */
 
 /* 見出しの舞台。円と弧の幾何学模様を背景に敷く */
 .stage{position:relative;overflow:hidden;background:
@@ -660,16 +651,15 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   var bars=[].slice.call(document.querySelectorAll('.wbar i'));
   var cl=function(v){ return v<0?0:v>1?1:v };
   var ease=function(t){ return 1-Math.pow(1-t,3) };
-  /* 画面の下から 96% のところで動きだし、34% ぶん上がったところで出来上がる。
-     順番（--i）のぶんだけ遅らせるので、並んだものは左から順に現れる */
-  var at=function(r,vh,i){ return cl((vh*.96-r.top)/(vh*.34) - i*.06) };
+  /* 画面の下から 98% のところで動きだし、26% ぶん上がったところで出来上がる。
+     順番（--i）のぶんだけ遅らせるので、並んだものは左から順に現れる。
+     画面のまん中より下で出来上がる形にしてある。上のほうまで来ないと出来上がらないと、
+     表のように行が並ぶものは「最後の行だけ半分」に見えてしまうため */
+  var at=function(r,vh,i){ return cl((vh*.98-r.top)/(vh*.26) - i*.05) };
   /* 先に全部の位置を読み、そのあとで全部に書く。
      1 つずつ「読んで書く」を繰り返すと、書くたびに版組みが起き直して、指の動きから遅れる */
-  var svt=false;
-  try{ svt=!!(window.CSS&&CSS.supports&&CSS.supports('animation-timeline','view()')) }catch(e){}
   var eIt=new Array(items.length), eBar=new Array(bars.length);
   var paint=function(){
-    if(svt)return;                                    /* browser 側が動かしているときは、書き込まない */
     var vh=innerHeight, n;
     for(n=0;n<items.length;n++) eIt[n]=ease(at(items[n].el.getBoundingClientRect(),vh,items[n].i));
     for(n=0;n<bars.length;n++)  eBar[n]=ease(at(bars[n].getBoundingClientRect(),vh,2));
@@ -685,38 +675,6 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     }
     for(n=0;n<bars.length;n++) bars[n].style.width=(eBar[n]*(+bars[n].dataset.w)).toFixed(1)+'%';
   };
-  /* browser 側で動かせるなら、そちらに任せる（合成側で動くので、指の動きから遅れない）。
-     ただし「使える」と答えても実際には動かない置かれ方がある（画面の巻きを外側が受け持っている場合など）。
-     時計が止まったままなら、黙って JS の側に戻す。文章が出ないまま残るのがいちばん困るため */
-  var toJs=function(){
-    if(!svt)return;
-    svt=false;
-    document.documentElement.classList.remove('svt');
-    items.forEach(function(it){ it.last=undefined });
-    paint();
-  };
-  if(svt){
-    document.documentElement.classList.add('svt');
-    bars.forEach(function(b){ b.style.setProperty('--w', b.dataset.w+'%') });
-    var live=function(){
-      if(!svt)return;
-      var dead=items.length>0;
-      for(var n=0;n<items.length&&dead;n++){
-        items[n].el.getAnimations().forEach(function(a){
-          if(a.timeline&&a.timeline!==document.timeline&&a.timeline.currentTime!=null)dead=false;
-        });
-      }
-      if(dead){ toJs(); return }
-      /* 時計は動いている。念のため、画面に入っているのに出ていないものがないかも見る */
-      var bad=items.some(function(it){
-        var r=it.el.getBoundingClientRect();
-        if(r.top>innerHeight*.7||r.bottom<0)return false;
-        return +getComputedStyle(it.el).opacity<.05;
-      });
-      if(bad)toJs();
-    };
-    [300,1200,3000].forEach(function(ms){ setTimeout(live,ms) });
-  }
   var tick=false, onScr=function(){ if(tick)return; tick=true; requestAnimationFrame(function(){tick=false;paint()}) };
   addEventListener('scroll',onScr,{passive:true}); addEventListener('resize',onScr);
   document.addEventListener('scroll',onScr,{passive:true,capture:true});   /* 入れ物側が巻いている場合 */

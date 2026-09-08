@@ -925,6 +925,39 @@ body:not([data-view="home"]) .back{display:inline-flex}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+<script>
+/* 更新したときは、更新前に見ていた場所に戻す（勝手に上へ飛ばない）。
+   絵や図はあとから入って背が伸びるので、入り終わるまで何度か置き直す。
+   利用者が自分で動かしたら、そこで置き直すのをやめる */
+(function(){
+  try{ history.scrollRestoration='manual' }catch(e){}
+  var K='aat.scrollpos';
+  var el=function(){ return document.scrollingElement||document.documentElement };
+  var ypos=function(){ return Math.round(el().scrollTop||window.scrollY||0) };
+  var save=function(){
+    try{ sessionStorage.setItem(K,JSON.stringify({h:location.hash||'',y:ypos()})) }catch(e){}
+  };
+  /* 動かすたびに控える。閉じる合図（pagehide）が来ない画面もあるので、それだけには頼らない */
+  var t=0;
+  addEventListener('scroll',function(){ if(t)return; t=setTimeout(function(){ t=0; save() },350) },{passive:true});
+  addEventListener('pagehide',save);
+  addEventListener('beforeunload',save);
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden')save() });
+
+  var d=null; try{ d=JSON.parse(sessionStorage.getItem(K)) }catch(e){}
+  if(!d||!(d.y>0)||(d.h||'')!==(location.hash||''))return;
+  var stop=false, off=function(){ stop=true };
+  ['wheel','touchstart','keydown','pointerdown'].forEach(function(e){ addEventListener(e,off,{passive:true,once:true}) });
+  var go=function(){
+    if(stop)return;
+    if(el().scrollHeight-innerHeight < d.y-4)return;    /* まだ背が足りない。次の機会に */
+    if(Math.abs(ypos()-d.y)>2)scrollTo(0,d.y);
+  };
+  addEventListener('DOMContentLoaded',go);
+  addEventListener('load',go);
+  [60,200,600,1200,2000].forEach(function(ms){ setTimeout(go,ms) });
+})();
+</script>
 </head>
 <body>
 <!-- RIKYU AI 納品アイコン（24px グリッド・線幅2・currentColor） -->
@@ -1222,7 +1255,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.65';
+const APP_VER='v04.66';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1249,6 +1282,10 @@ async function checkKey(){
 }
 const stats=Object.assign({heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
 let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
+/* 立ち上がりの一度目だけは、画面の頭へ飛ばさない。
+   更新したときに、更新前に見ていた場所へ戻すため（戻すのは <head> の中の仕掛け） */
+let booting=true;
+function toTop(){if(!booting)window.scrollTo({top:0})}
 let session=null,sessTimerId=null;   // 計測セッション {n,c,t,start,ended}
 let phase='';                         // chooser | intro | practice | session | sim | summary
 let practiceLeft=0;
@@ -1416,7 +1453,7 @@ function next(){
     if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}   // 説明から入った練習は計測に進まない
     startMeasured();return}
   if(session&&session.ended){showSummary();return}
-  q=genQ();render();window.scrollTo({top:0});
+  q=genQ();render();toTop();
 }
 
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
@@ -1492,7 +1529,7 @@ function showSetup(){
   toggle($('#skipChk'),()=>MS().skipExplain,on=>setMS('skipExplain',on));
   toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro)});
   $('#setupGo').addEventListener('click',()=>{if(!hideIntro[mode])showIntro();else startMeasured()});
-  window.scrollTo({top:0});
+  toTop();
 }
 function showChooser(){
   setPhase('chooser');showPane('chooser');
@@ -1503,7 +1540,7 @@ function showChooser(){
   $('#chMeasure').addEventListener('click',()=>{location.hash='#train/control/measure'});
   $('#chSim').addEventListener('click',()=>{location.hash='#train/control/sim'});
   $('#chGallery').addEventListener('click',()=>{location.hash='#train/control/gallery'});
-  window.scrollTo({top:0});
+  toTop();
 }
 function showIntro(){
   setPhase('intro','説明');showPane('intro');
@@ -1511,12 +1548,12 @@ function showIntro(){
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${ms.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
     <div class="acts"><button class="btn" id="introGo">練習を始める（3 問）${ic('next','s')}</button></div>`;
   $('#introGo').addEventListener('click',afterIntro);
-  window.scrollTo({top:0});
+  toTop();
 }
 function afterIntro(){startPractice()}
 function startPractice(){
   setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessTimer').hidden=true;
-  q=genQ();render();window.scrollTo({top:0});
+  q=genQ();render();toTop();
 }
 function startMeasured(){
   setBack(null);
@@ -1546,7 +1583,7 @@ function showSummary(){
   $('#again').addEventListener('click',()=>startMeasured());
   $('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});
   sendRec();
-  window.scrollTo({top:0});
+  toTop();
 }
 /* この端末の記録（種目ごとの 問数・正解数・合計の解答時間）を送る。
    合言葉を持たない端末では何もしない。通信の設定にも従う */
@@ -1579,7 +1616,7 @@ function startSim(){
     $('#setForm').addEventListener('change',e=>store.set('simForm',e.target.value));
     $('#setProps').addEventListener('change',e=>store.set('simProps',e.target.value==='1'));
     $('#setupSim').addEventListener('click',runSim);
-    window.scrollTo({top:0});
+    toTop();
   }).catch(()=>runSim());
 }
 function runSim(opt){applyScene();
@@ -2287,7 +2324,7 @@ function runSim(opt){applyScene();
         sim.h.setFormation('solo');sim.smoke=false;sim.h.setSmoke(false);paint();paintGL()}
     })
     .catch(err=>{if(sim===mySim)$('#simLoad').textContent='3D を読み込めませんでした。通信状態を確認してください。';console.error(err)});
-  window.scrollTo({top:0});
+  toTop();
 }
 function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('keydown',sim.kd);window.removeEventListener('keyup',sim.ku);
   if(sim.mqP&&sim.onOri)sim.mqP.removeEventListener('change',sim.onOri);
@@ -2342,7 +2379,7 @@ function showGallery(){applyScene();
   $('#gPlay').addEventListener('click',galPlay);
   $('#gStop').addEventListener('click',galStop);
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
-  galDraw();galMove();window.scrollTo({top:0});
+  galDraw();galMove();toTop();
 }
 /* いまの選択から ①②③ の姿勢と見出しを作る。
    2 つ選んだときは「同時に行う」か「操縦桿 → 方向舵 の順に行う」（方向舵が先になる出題はない） */
@@ -2863,7 +2900,7 @@ async function initAbout(){
   }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
 }
 const VIEWS=['home','train','settings','about','news','contact','inbox','buy'];
-function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});window.scrollTo({top:0})}
+function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});toTop()}
 let currentHash='';
 function route(){
   const h=location.hash.replace(/^#/,'');let [v,arg,sub]=h.split('/');
@@ -2943,7 +2980,7 @@ async function redeemCode(k){
   return h===FULL_HASH;
 }
 window.addEventListener('hashchange',route);
-checkRec();checkKey().finally(()=>{route();$('#footVer').textContent=APP_VER;checkNews();initFeedback()});
+checkRec();checkKey().finally(()=>{route();booting=false;$('#footVer').textContent=APP_VER;checkNews();initFeedback()});
 
 /* PWA と更新ボタン。新しい sw.js はインストールできしだい有効になる（待機させると、更新ボタンのない古い版の端末が移れない）。
    ただしページは勝手に読み込み直さない: 新しい版が有効になったら更新ボタンに赤い点を出し、押されたら読み込み直す。

@@ -4,7 +4,7 @@ const CACHE = 'aat-v04.76';
    ここを消してしまうと、更新のたびに 5.6 MB を取り直すことになり、オフラインで 3D が動かなくなる */
 const BIG = 'aat-big-v1';
 const BIG_RE = /\/model\/|\.glb($|\?)/;
-const ASSETS = ['./', './index.html', './engine.js?v=44', './viewer.js?v=5', './feedback.js?v=2', './sim3d.js?v=129',
+const ASSETS = ['./', './index.html', './engine.js?v=44', './viewer.js?v=5', './feedback.js?v=2', './sim3d.js?v=130',
   './vendor/three/three.module.js', './vendor/three/addons/loaders/GLTFLoader.js', './vendor/three/addons/controls/OrbitControls.js', './vendor/three/addons/utils/BufferGeometryUtils.js', './manifest.webmanifest', './privacy.html', './news.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './icons/favicon-96.png', './img/t4-top.webp', './img/hero.webp?v=3',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),

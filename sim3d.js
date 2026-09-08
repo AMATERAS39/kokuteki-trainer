@@ -522,15 +522,16 @@ export function mount(container, opt = {}) {
   smokeGeo.setAttribute('alife', new THREE.BufferAttribute(sLife, 1));
   smokeGeo.setAttribute('avel', new THREE.BufferAttribute(sVel, 3));
   const smokeMat = new THREE.ShaderMaterial({
-    /* 遠くの煙は、そのままだと画面では細く薄くなって見えない（地上から見るキューピッドなど）。
-       200 m より遠いところでは、離れるほど 太さと濃さを増す（uFarS / uFarA）。
-       一人称では自分と僚機の煙がすぐ近くを通るので、増し方も上限も小さくする。
-       粒ごとに焼き付けず毎コマ計算するので、視点を変えるとその場で太さが変わる。
+    /* 太さは遠近だけで決める。**遠ざかるほど太くするのはやめた**（利用者の指示 10。v04.76）。
+       煙の太さは実物のまま同じで、画面では遠いほど細くなる。細くなりすぎて線が消えないよう、
+       画面の中での太さに下限を置く（uMinPx。これが「描画系では細くなりすぎないように」）。
+       濃さだけは遠いところで足す（uFarA）。遠くの煙は空に溶けて見えなくなるため。
+       一人称では自分と僚機の煙がすぐ近くを通るので、下限・上限とも小さくする。
        uMinPx / uMaxPx: 画面の中での太さの下限・上限（画素） */
     uniforms: { uTime: { value: 0 }, uLife: { value: SMOKE_LIFE }, uMinPx: { value: 10 }, uMaxPx: { value: 90 },
-                uFarS: { value: 0.8 }, uFarA: { value: 1.2 } },
+                uFarA: { value: 1.2 } },
     transparent: true, depthWrite: false,
-    vertexShader: `attribute vec3 acolor; attribute vec3 avel; attribute float birth; attribute float asize; attribute float alife; uniform float uTime, uLife, uMinPx, uMaxPx, uFarS, uFarA;
+    vertexShader: `attribute vec3 acolor; attribute vec3 avel; attribute float birth; attribute float asize; attribute float alife; uniform float uTime, uLife, uMinPx, uMaxPx, uFarA;
       varying vec3 vC; varying float vA;
       void main(){ float age = (uTime - birth) / max(1.0, alife); vA = clamp(1.0 - age, 0.0, 1.0); vA *= sqrt(vA);
         vC = acolor;
@@ -538,12 +539,12 @@ export function mount(container, opt = {}) {
         vec4 mv = modelViewMatrix * vec4(position + avel * max(0.0, uTime - birth), 1.0);
         float far = clamp((-mv.z - 200.0) / 800.0, 0.0, 1.0);      // 200 m から 1 km で 0 → 1
         vA = clamp(vA * (1.0 + uFarA * far), 0.0, 1.0);
-        /* 太さ: 出た直後から少しずつ広がる。遠いほど画面では細くなるので、下限を決めて
-           遠くの演目でも線が見えるようにする（下限・上限は視点で変える） */
+        /* 太さ: 出た直後から少しずつ広がる。距離では太らせない（遠近で細くなるだけ）。
+           細くなりすぎると線が点々に見えるので、画面の中での下限で止める（下限・上限は視点で変える） */
         /* 出たての太さ 6 は、画面では 1.2 m ほど（240 m 先で 6 画素）。粒の間は 2.4 m なので線が点々に見えた。
            出たてを 12（約 2.5 m）にして、粒どうしを重ねる。広がり方（age で太る）はそのまま */
         float sz = 12.0 + 54.0 * pow(clamp(age, 0.0, 1.0), 0.5);
-        gl_PointSize = clamp(sz * asize * (1.0 + uFarS * far) * (240.0 / max(1.0, -mv.z)), uMinPx * asize, uMaxPx * asize);
+        gl_PointSize = clamp(sz * asize * (240.0 / max(1.0, -mv.z)), uMinPx * asize, uMaxPx * asize);
         gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `varying vec3 vC; varying float vA;
       void main(){ float d = length(gl_PointCoord - vec2(0.5)); if (d > 0.5) discard;
@@ -1961,7 +1962,10 @@ export function mount(container, opt = {}) {
         } else {
           chgT += dt;
           if (chgT < 3.5) { joinFast = true; formation = 'split'; formScale = 1; }        // 交互に開く
-          else { joinFast = false; formation = 'delta'; formScale = 1.7; }               // デルタに
+          /* 散開直後は扇編隊。5 機とも 1 番機と同じ高さに並ぶ（利用者の指示 11。v04.76）。
+             以前はデルタ（6 機の隊形）にしていたため、席の無いはずの 6 番機に席ができて、
+             課目の途中で合流して現れていた。扇は 5 機の隊形なので、6 番機は合流するまで出てこない */
+          else { joinFast = false; formation = 'fan'; formScale = 1.7; }                 // 扇に
           if (chgT < 7) { const se = keyPt(135, 4000); steerTo(se.x, se.y, GATE.z); }    // 頂点で南東へ曲がる
           else holdBank(0);                                                              // 整った速度ベクトルのまま
         }
@@ -2938,8 +2942,11 @@ export function mount(container, opt = {}) {
       const emit0 = smokeOn && smokeT >= SMOKE_DT && !(auto && gmode === 'takeoff');
       if (smokeOn && smokeT >= SMOKE_DT) smokeT = 0;
       /* 離陸を待っているあいだは、後ろへ吹き出して流れる煙で点検する（その場にとどまらない）。
-         滑走を始めたら止める（そこからは飛んでいる煙にする） */
-      if (smokeOn && gmode === 'stand' && auto) {
+         **待機位置に着いた機体から、各自で出す**（利用者の指示 6。v04.76）。
+         スモークの入り切り（smokeOn）とは別で、整列の点検としていつも出す。
+         1 番機は道を走り終えた時点で gmode が 'stand' になる＝待機位置に着いたとき。
+         追従機は自分の並ぶ場所に着いた時（parked）から。滑走を始めたら止める（そこからは飛んでいる煙にする） */
+      if (gmode === 'stand' && auto) {
         checkSmoke(plane.position, att, cols0[0], dt);
         const nChk = FORMATIONS[formation].n;
         mates.forEach((h, i) => { if (i + 1 < nChk && h.userData.shown && h.userData.parked) checkSmoke(h.position, h.quaternion, cols0[(i + 1) % cols0.length], dt); });
@@ -3630,11 +3637,11 @@ export function mount(container, opt = {}) {
     cockpit.visible = !out && inCockpit;
     applyBody();   /* 計器だけの見せ方では、乗っている機体そのものも消す（外がそのまま見える） */
     baseFov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; applyFov(); camPos.set(0, 0, 0);
-    /* 煙の太さ: 一人称はすぐ近くを通るので控えめに、それ以外（特に地上）は遠くでも見えるように */
+    /* 煙の太さ: 一人称はすぐ近くを通るので控えめに、それ以外（特に地上）は遠くでも線が消えないように。
+       距離で太らせるのはやめたので（v04.76）、遠くの見え方はこの下限が受け持つ */
     const near1 = v === 'first';
     smokeMat.uniforms.uMinPx.value = near1 ? 4 : 10;
     smokeMat.uniforms.uMaxPx.value = near1 ? 60 : 90;
-    smokeMat.uniforms.uFarS.value = near1 ? 0.3 : 0.8;
     smokeMat.uniforms.uFarA.value = near1 ? 0.6 : 1.2;
     /* 地上に入ったときは、演目の正面（北）を向く。目で追う設定なら、そのあと機体を追いかける */
     if (v === 'ground') { gYaw = 0; gPitch = 0.06; look.y = 0; look.p = 0; if (!auto && !follow) gAim(); }

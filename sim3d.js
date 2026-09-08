@@ -2293,6 +2293,31 @@ export function mount(container, opt = {}) {
   /* 追従機の向きを入れ替える。1 コマで回れる角度に上限をつける（乗っている機体が一瞬で回らないように）。
      宙返りの頂点などで置き方が切り替わっても、画面は目で追える速さまでしか回らない */
   const MAX_TURN = 180 * D;        // [°/s]
+  /* 機首を「実際に動いた向き」へ向ける（利用者の指摘。v04.76）。
+     位置だけ動かして向きを 1 番機のままにすると、機体が真横に滑って見える。
+     実測 v04.75（ダイヤモンド・テイクオフのあと）: 進んでいる向きが機首から 2 番機 49 度・4 番機 58 度ずれていた。
+     ずれの元は 2 つ。隊形へ寄せる動きと、旋回のときの「腕の長さ × 回る速さ」の振り回し。
+     どちらも実際の動きに出るので、動いた向きへ機首を回す。回すのは「いまの機首から動いた向きへ」の
+     最短の回転なので、翼の傾き（ロール）はそのまま残る。
+     かける強さ w は「まだ寄せている」「離れている」ぶんだけ。隊形に収まると 0 になり、
+     ふつうの編隊飛行（全機が同じ動き）では何も変わらない */
+  function aimNose(holder, u, q, dt, far, prev) {
+    if (dt <= 0.0005) return;
+    crabV.copy(holder.position).sub(prev).divideScalar(dt);
+    const sp = crabV.length();
+    /* 寄せ終わりに近づくまでは、まるごと向け直す（半端にかけると横滑りが残る。
+       実測 v04.76: 半端だと 4 番機で 22 度残り、まるごとで 6 度になった） */
+    const w = clamp(Math.max((1 - (u.k === undefined ? 1 : u.k)) * 4, far * 2), 0, 1);
+    if (sp < 5 || w < 0.01) return;
+    crabF.set(0, 1, 0).applyQuaternion(q);
+    crabV.divideScalar(sp);
+    const ang = crabF.angleTo(crabV);
+    if (ang < 0.004) return;
+    crabAx.crossVectors(crabF, crabV);
+    if (crabAx.lengthSq() < 1e-8) return;
+    crabAx.normalize();
+    q.premultiply(crabQ.setFromAxisAngle(crabAx, Math.min(ang, 0.9) * w));
+  }
   function turnMate(holder, q, dt) {
     if (!dt) { holder.quaternion.copy(q); return; }
     const a = holder.quaternion.angleTo(q), lim = MAX_TURN * dt;
@@ -2300,6 +2325,9 @@ export function mount(container, opt = {}) {
   }
   const fwd2 = new THREE.Vector3(), moFlat = new THREE.Vector3();
   const moW = new THREE.Vector3(), mirWas = new THREE.Vector3();
+  /* 寄せているあいだの「進んでいる向き」を機首に反映するための入れ物 */
+  const crabV = new THREE.Vector3(), crabF = new THREE.Vector3(), crabAx = new THREE.Vector3(),
+        crabP = new THREE.Vector3(), crabQ = new THREE.Quaternion();
   const lookF = new THREE.Vector3(), lookAx = new THREE.Vector3(), lookQ = new THREE.Quaternion();
   const basePos = new THREE.Vector3(), offNow = new THREE.Vector3(), retFrom = new THREE.Vector3();   // 追従機は「1 番機から見たずれ」で置く
   /* いまの位置から u.want へ向かう道を引き直す。外へ膨らませて、まっすぐ突っ込まないようにする */
@@ -2311,7 +2339,9 @@ export function mount(container, opt = {}) {
     /* 近寄る速さを抑える（12 m/s まで）。速く寄せると、進入のあいだに速さが急に変わって見える。
        隊形は開始位置までに整っていればよいので、時間をかけて寄せる */
     u.dur = joinFast ? clamp(d / 45, 1.2, 3) : clamp(d / 12, 10, 40);
-    const amt = Math.min(90, d * 0.28);
+    /* 離陸のあとの寄せは膨らませない。実測 v04.75（ダイヤモンド・テイクオフ）:
+       膨らみのせいで 2 番機が 28 m 沈み、3 番機が 1 番機より 25 m 高く浮き、4 番機は上下に揺れていた */
+    const amt = u.tkJoin ? 0 : Math.min(90, d * 0.28);
     u.bow.set((u.from.x >= 0 ? 1 : -1) * amt, 0, amt * 0.3);
   }
   let corkT = -1;                                  // 0 以上ならコークスクリューの最中（2 番機が周りを回る）
@@ -2815,13 +2845,31 @@ export function mount(container, opt = {}) {
   }
   /* 順番待ちの機（queue >= 0）: その滑走路を前に使う機（2 つ前の番号。番号 -1 は 1 番機）が滑走を始めたら、滑走路へ出て並び、並んだら滑走する */
   const rolling = k => k < 0 ? (gmode === 'takeoff' || gmode === 'fly') : !!(mates[k] && mates[k].userData.tk && mates[k].userData.tk.t >= mates[k].userData.tk.wait);
+  /* その点が、いまのカメラの視界に入っているか（見えているか）。
+     展示飛行モードで、後から上がる 5・6 番機を「見えていないあいだに」出すのに使う（利用者の指示 7） */
+  const vSee = new THREE.Vector3(), vFwd2 = new THREE.Vector3();
+  function inCamView(p) {
+    vSee.copy(p).sub(cam.position);
+    vFwd2.set(0, 0, -1).applyQuaternion(cam.quaternion);
+    if (vSee.dot(vFwd2) <= 0) return false;                 // カメラの後ろ
+    vSee.copy(p).project(cam);
+    return Math.abs(vSee.x) < 1.15 && Math.abs(vSee.y) < 1.15;
+  }
+  const QUEUE_WAIT_MAX = 25;                                // 見られ続けているときの上限（秒）。演目が止まらないように
   function queueStep() {
     mates.forEach((h, i) => {
       const u = h.userData;
       if (u.queue === undefined || u.queue < 0 || !u.parked || u.gp || u.tk) return;
       if (!tkOn && gmode !== 'takeoff' && gmode !== 'fly') return;   // 1 番機がまだ待っている
       const r = (u.queue % 2), prev = i - 2;                       // 使う滑走路（0 = 滑走路 1、1 = 滑走路 2）と、前にその滑走路を使った機
-      if (!rolling(prev)) return;
+      if (!rolling(prev)) { u.qT0 = 0; return; }
+      /* 展示飛行モードでは、見られているあいだは出さない（ダイヤモンド・テイクオフの最中に、
+         追いかけている視界の中で 5・6 番機が上がってしまわないように）。
+         ずっと見られているときのために、待ちの上限を置く */
+      if (auto && (showLoop || showThru)) {
+        if (!u.qT0) u.qT0 = clock;
+        if (inCamView(h.position) && clock - u.qT0 < QUEUE_WAIT_MAX) return;
+      }
       const gx = RWY.x + (r ? RWY2 : 0);
       u.queue = -1; u.parked = false; u.lineSpot = [gx, RWY.y];
       u.gp = { pts: [[gx, TAXI_S], [gx, RWY.y]], idx: 0, v: 0, h: u.gh, hEnd: RWY.h, wait: 0 };
@@ -2840,7 +2888,9 @@ export function mount(container, opt = {}) {
         t.y += t.v * Math.cos(TK_ANG * D) * dt;
         t.z += t.v * Math.sin(TK_ANG * D) * dt;
         if (t.z > TK_UP) {                            // ここから編隊へ寄せる
-          t.done = true; u.from = null;
+          /* 離陸からの寄せは、道を膨らませない（利用者の指摘 4。v04.76）。
+             上がっていく列はもう自然な形なので、膨らませると上下にふらつく */
+          t.done = true; u.from = null; u.tkJoin = true;
           qa.copy(att).invert();
           mo.set(t.x, t.y, t.z).sub(plane.position).applyQuaternion(qa);
           u.cur.copy(mo);
@@ -3082,6 +3132,7 @@ export function mount(container, opt = {}) {
       u.cur.lerpVectors(u.from, u.want, ek).addScaledVector(u.bow, Math.sin(Math.PI * u.k));
       }
       const settled = u.k > 0.97;
+      if (settled && u.tkJoin) u.tkJoin = false;   // 離陸からの寄せが済んだ（次からはふつうに膨らませる）
       /* 離れていく機体は、十分に離れて小さくなってから消す */
       if (!target && (settled || u.cur.length() > 520)) { holder.visible = false; u.shown = false; return; }
       holder.visible = true;
@@ -3134,6 +3185,7 @@ export function mount(container, opt = {}) {
         holder.position.lerpVectors(retFrom, mp, e2);
         turnMate(holder, qa.copy(u.ret.q).slerp(mq, e2), dt);
       } else if (u.shown) {
+        crabP.copy(holder.position);     // 動かす前の位置（実際に動いた向きを測るため）
         /* なますのは「世界の中での位置」ではなく「1 番機から見たずれ」。
            位置そのものをなますと、編隊ごと 60 m/s で進むぶんまで毎コマ引きずられ、
            コマの長さのばらつきがそのまま速さのばらつきになる（その機体に乗るとガタつく）。
@@ -3142,6 +3194,7 @@ export function mount(container, opt = {}) {
         offNow.copy(holder.position).sub(basePos);
         offNow.lerp(mo, 1 - Math.exp(-dt / (0.06 + far * 0.8)));
         holder.position.copy(basePos).add(offNow);
+        aimNose(holder, u, mq, dt, far, crabP);
         turnMate(holder, mq, dt);
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
       u.shown = true;

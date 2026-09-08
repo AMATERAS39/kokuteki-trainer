@@ -698,6 +698,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .demo .btn{margin:0;flex:none;width:auto;height:2.125rem;font-size:.75rem;padding:0 .75rem;white-space:nowrap}
 /* 鍵のかかったボタン（体験版）。押せることは押せるが、押すと完全版の案内を出す */
 .iconbtn.lock{opacity:.45}
+/* 操作一覧の歯車: 出すときは左回り、しまうときは右回り（利用者の指示）。
+   回るのは中の絵だけ。「視覚効果を減らす」では 929 行の transition:none で自動的に止まる */
+#simUI .ic{transition:transform .5s cubic-bezier(.2,.7,.3,1)}
 /* PC のキーの凡例。操作するものの近くに小さく出す（指の端末では出さない） */
 @media (pointer:fine){
   .keyhint{display:block;font-family:var(--mono);font-size:.5625rem;line-height:1.2;color:var(--faint);text-align:center;margin-top:.125rem}
@@ -1041,7 +1044,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-sky" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></symbol>
 <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" style="stroke-width:3"/><circle cx="12" cy="12" r="2.5"/><path d="M12 6v3.5M12 14.5V18M6 12h3.5M14.5 12H18"/></symbol>
 <symbol id="i-light" viewBox="0 0 24 24"><circle cx="9" cy="12" r="4"/><path d="M13 9l8-3M13 12h8M13 15l8 3"/></symbol>
-<symbol id="i-ui" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h2M7 17h2"/></symbol>
+<!-- i-cog = 歯車（操作一覧）。上の i-gear は降着装置（タイヤ）なので別物 -->
+<symbol id="i-cog" viewBox="0 0 24 24"><path d="M9.96 4.89L10.23 1.95L13.77 1.95L14.04 4.89L15.59 5.53L17.85 3.64L20.36 6.15L18.47 8.41L19.11 9.96L22.05 10.23L22.05 13.77L19.11 14.04L18.47 15.59L20.36 17.85L17.85 20.36L15.59 18.47L14.04 19.11L13.77 22.05L10.23 22.05L9.96 19.11L8.41 18.47L6.15 20.36L3.64 17.85L5.53 15.59L4.89 14.04L1.95 13.77L1.95 10.23L4.89 9.96L5.53 8.41L3.64 6.15L6.15 3.64L8.41 5.53Z"/><circle cx="12" cy="12" r="3.0"/></symbol>
 <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5h3.5L8 6h8l1.5 2.5H21v11H3z"/><circle cx="12" cy="13.5" r="3.6"/></symbol>
 <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
 <symbol id="m-orbit" viewBox="0 0 24 24"><path d="M4 16a8 8 0 0 1 16 0"/><path d="m17 13.4 3 2.6 3-2.6"/></symbol><symbol id="m-pass" viewBox="0 0 24 24"><circle cx="12" cy="7" r="1.4"/><circle cx="8" cy="10.5" r="1.4"/><circle cx="16" cy="10.5" r="1.4"/><circle cx="4" cy="14" r="1.4"/><circle cx="20" cy="14" r="1.4"/><path d="M2 20h20"/></symbol><symbol id="m-land" viewBox="0 0 24 24"><path d="M2 21h20"/><path d="M4 5c2.5 7.5 7 12 13 14"/><path d="m17.6 15.6.7 3.6-3.7-.2"/></symbol>
@@ -1278,7 +1282,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.75';
+const APP_VER='v04.76';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1655,7 +1659,7 @@ function runSim(opt){applyScene();
       <div class="showname" id="showName" hidden></div>
       <div class="pausemsg" id="pauseMsg" hidden>一時停止中（画面を 2 回叩くと再開）</div>
       <div class="trickdesc" id="trickDesc" hidden></div>
-      <button class="iconbtn landback" id="simBack" aria-label="戻る" title="操縦操作の選択に戻る"><svg class="ic"><use href="#i-back"/></svg></button>
+      <button class="iconbtn landback" id="simBack" aria-label="一つ前に戻る" title="一つ前（シミュレーターの設定）に戻る"><svg class="ic"><use href="#i-back"/></svg></button>
       <button class="btn takeoff" id="simTakeoff" hidden>テイクオフ</button>
       <button class="zoomlbl" id="zoomLbl" hidden>×1.0</button>
       <div class="vload" id="simLoad">3D を読み込み中…</div>
@@ -1678,7 +1682,7 @@ function runSim(opt){applyScene();
       <select id="simColor" aria-label="スモークの色"></select>
       <button class="btn ghost sm portrait" id="simBack2">選択に戻る</button>
       <button class="iconbtn showui" id="simLock" aria-label="画面をロック" aria-pressed="false" title="画面をロック（操作を受け付けなくする。もう一度押すと解除）"><svg class="ic"><use href="#i-lock"/></svg></button>
-      <button class="iconbtn showui" id="simUI" aria-label="操作を出す／しまう" title="操作を出す／しまう"><svg class="ic"><use href="#i-ui"/></svg></button>
+      <button class="iconbtn showui" id="simUI" aria-label="操作一覧を出す／しまう" title="操作一覧を出す／しまう"><svg class="ic"><use href="#i-cog"/></svg></button>
       <button class="iconbtn showui landscape" id="simSmall" aria-label="画面を小さくする" title="戻る・計測へ進むを出す"><svg class="ic"><use href="#i-vthird"/></svg></button>
       <button class="iconbtn" id="simSkipIn" aria-label="開始位置へ" title="進入を飛ばして、技の開始位置へ" hidden><svg class="ic"><use href="#i-next"/></svg></button>
       <button class="iconbtn" id="simSkip" aria-label="滑走路へ戻る" title="着陸してから滑走路へ戻るまでを飛ばす" hidden><svg class="ic"><use href="#i-next"/></svg></button>
@@ -1874,14 +1878,24 @@ function runSim(opt){applyScene();
   sim.mqP.addEventListener('change',sim.onOri);
   setViewTo(sim.viewName,sim.fpMode);
   sim.onOri();
-  $('#simBack').addEventListener('click',()=>{location.hash='#train/control'});
+  /* 横画面の左上の矢印は「一つ前」へ。選択画面まで 2 段飛ばしていたのをやめ、
+     まずシミュレーターの設定画面（編隊・オブジェクト）に戻す。そこでは見出しが戻るので、
+     選択画面・ホームへは見出しのボタンで進む（利用者の指摘 3、v04.76） */
+  $('#simBack').addEventListener('click',()=>{startSim()});
   $('#simBack2').addEventListener('click',()=>{location.hash='#train/control'});
   /* 操作をしまう／出す。自動操縦を入れると自動でしまう（鑑賞のため）。押せばいつでも戻せる */
   /* 画面を小さくする: 横画面モードのまま、戻る・計測へ進むを右下に出す（PC は常に横画面モードのため） */
   $('#simSmall').addEventListener('click',()=>{const on=!$('#sim').classList.contains('showacts');
     $('#sim').classList.toggle('showacts',on)});
-  $('#simUI').addEventListener('click',()=>{const on=!$('#sim').classList.contains('uihide');
-    $('#sim').classList.toggle('uihide',on);sim.uiHidden=on});
+  /* 歯車の回り: 操作一覧を出すときは左回り、しまうときは右回り。8 枚歯なので半回転で同じ絵に戻る */
+  let uiDeg=0;
+  const uiTurn=open=>{const ic=$('#simUI')&&$('#simUI').querySelector('.ic');if(!ic)return;
+    uiDeg+=open?-180:180;ic.style.transform='rotate('+uiDeg+'deg)'};
+  /* 操作一覧の出し入れはここだけ（自動操縦からも呼ぶ）。変わったときだけ歯車を回す */
+  const setUIHide=on=>{const S=$('#sim');if(S.classList.contains('uihide')===on)return;
+    S.classList.toggle('uihide',on);sim.uiHidden=on;uiTurn(!on)};
+  sim.setUIHide=setUIHide;
+  $('#simUI').addEventListener('click',()=>{setUIHide(!$('#sim').classList.contains('uihide'))});
   $('#simSkip').addEventListener('click',()=>{if(sim.h&&sim.h.skipTaxi())toast('滑走路に戻りました')});
   /* 進入を飛ばす: 技をひとつだけ行うとき（展示飛行モードでないとき）だけ出す。押すと開始位置から始まる */
   $('#simSkipIn').addEventListener('click',()=>{if(sim.h&&sim.h.skipEntry())toast('開始位置へ')});
@@ -2145,12 +2159,12 @@ function runSim(opt){applyScene();
         const on=sim.h.autoState(), lp=sim.h.loopState();
         if(on&&!show&&!lp){                        /* 押した: 自動操縦を止める */
           sim.h.setAuto(false);paintAuto();showLabel('');
-          $('#sim').classList.remove('uihide');sim.uiHidden=false;
+          sim.setUIHide(false);
           toast('自動操縦を止めました');return}
         if(on&&!show&&lp){                         /* 押した: 展示飛行モードを止める（自動操縦も切る） */
           sim.h.setLoop(false,true);demoAllow();aBtn.classList.remove('loop');
           sim.h.setAuto(false);paintAuto();showLabel('');
-          $('#sim').classList.remove('uihide');sim.uiHidden=false;
+          sim.setUIHide(false);
           toast('展示飛行モードを止めました');return}
         if(on&&show&&lp){                          /* なぞった: 展示飛行モードを止める */
           sim.h.setLoop(false,true);demoAllow();aBtn.classList.remove('loop');
@@ -2159,12 +2173,12 @@ function runSim(opt){applyScene();
         if(!on){                                   /* 自動操縦を入れる */
           /* 夜に演目を始めるときは、昼の空で作り直してから始める（演目は昼に見せる） */
           if(document.body.dataset.scene!=='day'){toast('演目は昼の空で行います');
-            runSim({scene:'day',autoStart:true,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
+            runSim({scene:'day',autoStart:true,showStart:!!show,view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
               gear:sim.h.gearState(),lights:sim.h.lightState(),follow:sim.h.followState()});return}
           sim.h.setAuto(true);paintAuto();showLabel(sim.h.state.show||'');
           /* 地上から演目を見るときは、機体を目で追う（自分で向けていると演技を見失う） */
           if(sim.viewName==='ground'&&!sim.h.followState()){sim.h.setFollow(true);store.set('simFollow',true);paintFollow()}
-          if(landFull()){$('#sim').classList.add('uihide');sim.uiHidden=true;   /* 横画面は鑑賞のため操作をしまう */
+          if(landFull()){sim.setUIHide(true);   /* 横画面は鑑賞のため操作をしまう */
             if(sim.viewName!=='ground'&&sim.setViewTo)sim.setViewTo('ground')}
           if(!show){toast('自動操縦。上へなぞると展示飛行モード（離陸から着陸まで）');return}}
         {                                          /* 展示飛行モード（通し）。体験版でも同じものを見せる（長さだけ短め） */
@@ -2174,24 +2188,29 @@ function runSim(opt){applyScene();
           toast(sim.demo?'展示飛行モード（体験版は短めの通し）。「離陸準備」で滑走路へ進み、「テイクオフ」で離陸します'
                         :'展示飛行モード。「離陸準備」で滑走路へ進み、「テイクオフ」で離陸します');
           paintAuto();return}};
+      /* なぞったあとに来る click は 1 回だけ捨てる。触る端末では click が別のこまで遅れて届くので、
+         0 ミリ秒の待ちで印を外すと「押した」と読まれ、入れた展示飛行モードがその場で切れていた（v04.76）。
+         印は次に触った時（pointerdown）に必ず消すので、click が来ない端末でも次の一押しは効く */
       aBtn.addEventListener('click',e=>{if(aBtn._swiped){aBtn._swiped=false;return}autoStep(false)});
       /* 上へ 18 px 以上なぞる = 展示飛行モード（音のボタンと同じ要領。横一列なので上下でなぞる） */
       { let hint=null;
         const showHint=on=>{if(!hint){hint=document.createElement('span');hint.className='shint up';aBtn.appendChild(hint)}
           if(!on){hint.hidden=true;return}
           hint.innerHTML='<span>'+(sim.h.loopState()?'通し 切':'展示飛行')+'</span>';hint.hidden=false;hint.classList.remove('hot')};
-        aBtn.addEventListener('pointerdown',e=>{if(e.button)return;const y0=e.clientY;let last=y0;
+        aBtn.addEventListener('pointerdown',e=>{if(e.button)return;aBtn._swiped=false;const y0=e.clientY;let last=y0;
           try{aBtn.setPointerCapture(e.pointerId)}catch(_){}
           showHint(true);
           const mv=ev=>{last=ev.clientY;hint.classList.toggle('hot',y0-last>=18)};
           const up=ev=>{aBtn.removeEventListener('pointermove',mv);aBtn.removeEventListener('pointerup',up);aBtn.removeEventListener('pointercancel',up);
             showHint(false);
             if(y0-(ev.clientY??last)<18)return;
-            aBtn._swiped=true;setTimeout(()=>{aBtn._swiped=false},0);
+            aBtn._swiped=true;
             autoStep(true)};
           aBtn.addEventListener('pointermove',mv);aBtn.addEventListener('pointerup',up);aBtn.addEventListener('pointercancel',up)}); }
       paintAuto();
-      if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
+      /* 昼の空へ作り直したあとも、なぞって呼ばれたときは展示飛行モードまで進める（作り直しで意図が落ちていた。v04.76） */
+      if(opt.showStart)setTimeout(()=>{if(sim&&sim.h&&!sim.h.loopState())autoStep(true)},50);
+      else if(opt.autoStart||opt.auto)setTimeout(()=>{if(sim&&sim.h&&!sim.h.autoState())aBtn.click()},50);
       if(opt.trick!==undefined)setTimeout(()=>{if(sim&&sim.h&&sim.h.runManeuver(opt.trick))showLabel(opt.trickName||'')},60);
       /* 技: 自分で操縦しているときでも、選んだ技をひとつだけ自動で行う（終わると操縦が戻る） */
       const tBtn=$('#simTrickBtn'),tList=$('#simTrickMenu'),tMenu=$('#trickWheel'),tSvg=$('#trickWheelSvg'),tName=$('#trickWheelName');
@@ -2315,14 +2334,14 @@ function runSim(opt){applyScene();
           else{setAir(true);if(musHas())setMus(true);showBadge('音 入',true)}
           paintSo()});
         /* 上下 18 px 以上なぞる: 上は飛行音、下は曲。横一列のボタンなので上下（隣のボタンに指が重ならない） */
-        soBtn.addEventListener('pointerdown',e=>{if(e.button)return;const y0=e.clientY;let last=y0;
+        soBtn.addEventListener('pointerdown',e=>{if(e.button)return;soBtn._swiped=false;const y0=e.clientY;let last=y0;
           try{soBtn.setPointerCapture(e.pointerId)}catch(_){}
           hints(true);
           const mv=ev=>{last=ev.clientY;const dy=y0-last;hintU.classList.toggle('hot',dy>=18);hintD.classList.toggle('hot',dy<=-18)};
           const up=ev=>{soBtn.removeEventListener('pointermove',mv);soBtn.removeEventListener('pointerup',up);soBtn.removeEventListener('pointercancel',up);
             hints(false);
             const dy=y0-(ev.clientY??last);if(Math.abs(dy)<18)return;
-            soBtn._swiped=true;setTimeout(()=>{soBtn._swiped=false},0);
+            soBtn._swiped=true;
             if(dy>0){const on=!sim.h.soundState();setAir(on);showBadge(on?'飛行音 入':'飛行音 切',on)}
             else{if(!musHas()){toast('設定の「演目の曲」で曲を選んでください');return}const on=!musOn();if(setMus(on))showBadge(on?'曲 入':'曲 切',on)}
             paintSo()};

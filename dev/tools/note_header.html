@@ -5,7 +5,7 @@
     python -m http.server 8779
     "C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu       --hide-scrollbars --force-device-scale-factor=1 --window-size=1280,670       --virtual-time-budget=9000 --screenshot=<出力先.png>       "http://127.0.0.1:8779/dev/tools/note_header.html?cb=1&k=dir"
 
-  k は dir（方位）/ ai（姿勢指示器）/ combo（方位×姿勢指示器）/ ck（操縦操作）/ sim（シミュレーター）。
+  k は app（アプリ全体）/ dir（方位）/ ai（姿勢指示器）/ combo（方位×姿勢指示器）/ ck（操縦操作）/ sim（シミュレーター）。
   ※ Chrome は同じ住所を控えるので、直したら cb= の数字を変えること（変えないと古い絵のまま出てくる）。
   ※ 案内サイトの見出し（記事 1 用）は、この雛形ではなく本物のページを撮る:
      --window-size=1280,780 で https://kokuteki.amaterasu-vocab.com/guide を撮り、上から 62 px の位置で 670 px 切り出す
@@ -51,6 +51,7 @@ h1.sm{font-size:56px}
 .one{width:340px}
 .two > *{width:250px}
 .three > *{width:222px}
+.jet{width:820px;max-width:none;margin-left:-120px;filter:drop-shadow(0 20px 40px rgba(0,0,0,.6))}
 .shot{width:400px;border:1px solid rgba(255,255,255,.16);border-radius:22px;overflow:hidden;
   box-shadow:0 24px 60px rgba(0,0,0,.55)}
 .shot img{width:100%;display:block}
@@ -126,6 +127,10 @@ figure{margin:0}
       return '<figure>' + E.svgCockpit(v[0], v[1], 0, i/2, false, true) +
              '<div class="cklab">' + v[2] + '</div></figure>';
     }).join('');
+  } else if (k === 'app') {
+    set('APP', '適性検査の対策アプリ', '4 種目と 3D シミュレーター', true);
+    art.className = 'art';
+    art.innerHTML = '<img class="jet" src="/img/guide/header.webp" alt="">';
   } else if (k === 'sim') {
     set('SIMULATOR', '3D シミュレーター', '操縦桿と方向舵で、見え方を確かめる', true);
     art.className = 'art';

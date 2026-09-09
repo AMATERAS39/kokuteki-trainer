@@ -287,6 +287,20 @@ footer{border-top:1px solid var(--line);background:var(--panel)}
 footer p{color:var(--faint);font-size:var(--tiny);line-height:1.85}
 footer .links{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem;font-size:var(--small)}
 footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint)}
+/* 問い合わせ欄。最下部に小さく置く（利用者の指示）。送信はメールの下書きを開くだけで、
+   このページからはどこへも送らない（置き場所を持たない） */
+footer .ask{margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--line)}
+footer .ask h2{font-size:var(--small);font-weight:700;color:var(--soft);margin:0 0 .375rem}
+footer .ask p{margin:0}
+footer .askl{display:block;font-size:var(--tiny);color:var(--faint);margin:.75rem 0 .25rem}
+footer .ask textarea,footer .ask input{width:100%;background:var(--bg);color:var(--text);
+  border:1px solid var(--line2);border-radius:.5rem;padding:.5rem .625rem;font:inherit;font-size:var(--small)}
+footer .ask textarea{resize:vertical;min-height:4.5rem;line-height:1.7}
+footer .ask textarea:focus,footer .ask input:focus{outline:none;border-color:rgba(90,209,230,.6)}
+footer .askrow{display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;margin-top:.25rem}
+footer .askrow > div{flex:1 1 16rem;min-width:0}
+footer .ask .btn{padding:.5625rem 1.125rem;white-space:nowrap}
+footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-height:1.85}
 </style>
 <script>
 /* 更新したときは、更新前に見ていた場所に戻す（勝手に上へ飛ばない）。
@@ -590,6 +604,21 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
 <footer>
   <div class="fin">
     <p>このサイトと TENRYU は個人が作ったもので、防衛省・航空自衛隊の公式ではありません。出題内容は市販の問題集と受検した人の話をもとにした練習用の再現で、試験の出題形式や採点基準を保証するものではありません。試験の詳細は必ず募集要項で確認してください。機体の 3D モデルは「航空自衛隊アクロバットチーム T-4ブルーインパルス」（3Dえいじくん 様）を購入して使っています。</p>
+    <form class="ask" id="ask" novalidate>
+      <h2>お問い合わせ</h2>
+      <p>不具合のご報告、ご要望、取材のご依頼など。返信が要るときは、返信先も書いてください。</p>
+      <label class="askl" for="askBody">お問い合わせの内容</label>
+      <textarea id="askBody" rows="3" placeholder="例: 姿勢指示器の Hard で、選択肢の絵が…"></textarea>
+      <div class="askrow">
+        <div>
+          <label class="askl" for="askFrom">返信先メール（任意）</label>
+          <input id="askFrom" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com">
+        </div>
+        <button class="btn sec" type="submit">メールで送る</button>
+      </div>
+      <p class="askn">押すと、お使いのメールアプリに下書きが開きます。このページからはどこへも送りません。
+        下書きが開かないときは <a href="mailto:voyages_worsted_0a@icloud.com">voyages_worsted_0a@icloud.com</a> へ直接お送りください。</p>
+    </form>
     <div class="links">
       <a href="/">体験版</a>
       <a href="https://apps.apple.com/app/id6808281696">App Store</a>
@@ -599,6 +628,23 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     <div class="sig">TENRYU · 2026</div>
   </div>
 </footer>
+
+<script>
+/* 問い合わせ欄: 入れてもらった文からメールの下書きを組み立てて開く。
+   置き場所（サーバー）を持たないので、このページからはどこへも送らない */
+(function(){
+  var f=document.getElementById('ask'); if(!f)return;
+  f.addEventListener('submit',function(e){
+    e.preventDefault();
+    var b=document.getElementById('askBody'), m=document.getElementById('askFrom');
+    var t=(b.value||'').trim(); if(!t){ b.focus(); return }
+    var body=t+((m.value||'').trim()?'\n\n返信先: '+m.value.trim():'')
+      +'\n\n---\n見ていたページ: '+location.href+'\nお使いの環境: '+navigator.userAgent
+      +'\n（この 2 行は不具合を調べるためのものです。要らなければ消してください）';
+    location.href='mailto:voyages_worsted_0a@icloud.com?subject='+encodeURIComponent('TENRYU へのお問い合わせ')+'&body='+encodeURIComponent(body);
+  });
+})();
+</script>
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-08","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/guide/ogp.jpg","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}

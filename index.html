@@ -121,14 +121,14 @@ svg text{user-select:none}
 .menulist button:hover{background:var(--panel)}
 .menulist button{display:flex;align-items:center;gap:.5rem;white-space:nowrap}
 .menulist .dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);flex:none}
+/* 外へ出る項目の印。アプリの中の画面ではなく、案内サイトが開くことを示す */
+.menulist .ext{width:.875rem;height:.875rem;margin-left:auto;color:var(--faint);flex:none}
 .menubtn.has{position:relative}
 .menubtn.has::after{content:"";position:absolute;top:.5rem;right:.5rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--bad);box-shadow:0 0 0 .125rem var(--bg)}
 /* 画面下の固定表示: 左に版、右に著作権 */
 .foot{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:1rem;
   padding:.25rem 1rem calc(.25rem + env(safe-area-inset-bottom));font-family:var(--mono);font-size:.625rem;letter-spacing:.04em;color:var(--faint);
   background:linear-gradient(180deg,transparent,var(--bg) 45%);pointer-events:none;z-index:15}
-/* 案内ページへの link。フッターは pointer-events:none なので、link だけ押せるように戻す */
-.foot a{color:var(--faint);pointer-events:auto;text-decoration:underline;text-underline-offset:.15em}
 /* お知らせ */
 .news{display:flex;flex-direction:column;gap:.75rem;margin-top:.75rem}
 .news .it{border:1px solid var(--line);border-radius:.75rem;padding:.75rem .875rem;background:var(--panel2)}
@@ -1047,6 +1047,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" style="stroke-width:3"/><circle cx="12" cy="12" r="2.5"/><path d="M12 6v3.5M12 14.5V18M6 12h3.5M14.5 12H18"/></symbol>
 <symbol id="i-light" viewBox="0 0 24 24"><circle cx="9" cy="12" r="4"/><path d="M13 9l8-3M13 12h8M13 15l8 3"/></symbol>
 <!-- i-cog = 歯車（操作一覧）。上の i-gear は降着装置（タイヤ）なので別物 -->
+<symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-8.5 8.5"/><path d="M18 14v5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 19V8a1.5 1.5 0 0 1 1.5-1.5H10"/></symbol>
 <symbol id="i-cog" viewBox="0 0 24 24"><path d="M9.96 4.89L10.23 1.95L13.77 1.95L14.04 4.89L15.59 5.53L17.85 3.64L20.36 6.15L18.47 8.41L19.11 9.96L22.05 10.23L22.05 13.77L19.11 14.04L18.47 15.59L20.36 17.85L17.85 20.36L15.59 18.47L14.04 19.11L13.77 22.05L10.23 22.05L9.96 19.11L8.41 18.47L6.15 20.36L3.64 17.85L5.53 15.59L4.89 14.04L1.95 13.77L1.95 10.23L4.89 9.96L5.53 8.41L3.64 6.15L6.15 3.64L8.41 5.53Z"/><circle cx="12" cy="12" r="3.0"/></symbol>
 <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5h3.5L8 6h8l1.5 2.5H21v11H3z"/><circle cx="12" cy="13.5" r="3.6"/></symbol>
 <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
@@ -1080,6 +1081,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
             <button data-go="inbox" id="inboxItem" hidden>受信箱</button>
             <button data-go="settings">設定</button>
             <button data-go="about">アプリの説明</button>
+            <button data-url="https://kokuteki.amaterasu-vocab.com/guide">適性検査について<svg class="ic ext"><use href="#i-ext"/></svg></button>
             <button data-act="restore">購入を復元</button>
             <button data-go="buy">全機能版について</button>
           </div>
@@ -1225,7 +1227,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   </div>
 </div>
 
-<footer class="foot"><span id="footVer"></span><a href="/guide">適性検査について</a><span>© 2026 AMATERAS</span></footer>
+<footer class="foot"><span id="footVer"></span><span>© 2026 AMATERAS</span></footer>
 <div class="toast" id="toast" hidden></div>
 <div class="install" id="install">
   <img src="icons/icon-192.png" alt="">
@@ -1284,7 +1286,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.79';
+const APP_VER='v04.80';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2944,6 +2946,10 @@ function closeMenu(){menuList.hidden=true;menuBtn.setAttribute('aria-expanded','
 menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuList.hidden;menuBtn.setAttribute('aria-expanded',String(!menuList.hidden));if(!menuList.hidden)markNewsSeen()});
 menuList.querySelectorAll('[data-act="restore"]').forEach(b=>b.addEventListener('click',()=>{closeMenu();restorePurchase()}));
 menuList.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{closeMenu();if(!confirmLeave())return;leaveSession();location.hash='#'+b.dataset.go}));
+/* 案内サイトは、アプリの中の画面ではないので別の窓で開く。
+   住所は絶対（アプリ版は capacitor:// で動くので、/guide では届かない） */
+menuList.querySelectorAll('[data-url]').forEach(b=>b.addEventListener('click',()=>{closeMenu();
+  try{window.open(b.dataset.url,'_blank','noopener')}catch(e){location.href=b.dataset.url}}));
 document.addEventListener('click',e=>{if(!menuList.hidden&&!e.target.closest('.menu'))closeMenu()});
 let viewer=null,viewerLoading=false;
 /* 3D ビューアの計器: 選んでいる向き（方位 h・ピッチ p、バンクなし）の見え方。真上・真下は方位が定まらないので方位指示器を薄くする */

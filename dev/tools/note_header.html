@@ -1,0 +1,141 @@
+<!doctype html>
+<!-- note の見出し画像を作る雛形（1280×670）。各種目は、アプリが実際に描く部品（engine.js）をそのまま出す。
+
+  撮り方（リポジトリ直下で配信してから、ヘッドレス Chrome で撮る）
+    python -m http.server 8779
+    "C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu       --hide-scrollbars --force-device-scale-factor=1 --window-size=1280,670       --virtual-time-budget=9000 --screenshot=<出力先.png>       "http://127.0.0.1:8779/dev/tools/note_header.html?cb=1&k=dir"
+
+  k は dir（方位）/ ai（姿勢指示器）/ combo（方位×姿勢指示器）/ ck（操縦操作）/ sim（シミュレーター）。
+  ※ Chrome は同じ住所を控えるので、直したら cb= の数字を変えること（変えないと古い絵のまま出てくる）。
+  ※ 案内サイトの見出し（記事 1 用）は、この雛形ではなく本物のページを撮る:
+     --window-size=1280,780 で https://kokuteki.amaterasu-vocab.com/guide を撮り、上から 62 px の位置で 670 px 切り出す
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>note 見出し</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#0b1017;--text:#e8eef5;--muted:#93a3b5;--faint:#6f8090;--soft:#a9b8c8;
+  --cyan:#5ad1e6;--amber:#ffb020;
+  --disp:"Zen Kaku Gothic New",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg)}
+/* note の見出し画像の寸法 */
+.hdr{position:relative;width:1280px;height:670px;overflow:hidden;color:var(--text);
+  font-family:var(--disp);
+  background:
+    radial-gradient(120% 90% at 78% 8%,rgba(90,209,230,.12),transparent 62%),
+    radial-gradient(90% 70% at 20% 60%,rgba(255,176,32,.08),transparent 62%),
+    linear-gradient(#0d141d,#0b1017)}
+.deco{position:absolute;inset:0;width:100%;height:100%;opacity:.6}
+.in{position:relative;z-index:2;height:100%;display:grid;grid-template-columns:1fr 1fr;
+  align-items:center;gap:2rem;padding:0 72px}
+.txt{max-width:30rem}
+.eyebrow{font-family:var(--mono);font-size:20px;letter-spacing:.22em;color:var(--cyan)}
+.wm{font-family:var(--mono);font-weight:600;letter-spacing:.16em;font-size:34px;line-height:1;
+  margin-top:26px;background:linear-gradient(180deg,#ffffff,#9fb4c6);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{margin:14px 0 0;font-size:74px;font-weight:900;letter-spacing:-.02em;line-height:1.15}
+h1.sm{font-size:56px}
+.sub{margin-top:20px;font-size:23px;color:var(--muted);line-height:1.8}
+.art{display:flex;align-items:center;justify-content:center;gap:22px}
+.art svg{display:block}
+/* 枠から出ないよう、絵の高さに上限を置く（姿勢指示器が下で切れていた） */
+.art svg,.art figure,.art > div{max-height:500px}
+.art svg{height:auto}
+.one{width:340px}
+.two > *{width:250px}
+.three > *{width:222px}
+.shot{width:400px;border:1px solid rgba(255,255,255,.16);border-radius:22px;overflow:hidden;
+  box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.shot img{width:100%;display:block}
+/* アプリの部品（engine.js の SVG）を、アプリと同じ色で描くための変数 */
+.app{
+  --bezel:#2b3644;--card:#0d1219;--glare:#07090c;--hud:#8ce99a;--inst-ink:#fff;
+  --line:#223040;--line2:#34465a;--sky:#2b6cb0;--earth:#7b4a22;--accent:#f0a53a;--faint:#66788a;
+  --ck-sky-top:#2f86e0;--ck-sky-hz:#b4dcf7;--ck-earth:#9a6535;--ck-mtn:#6b8199;--ck-mtn2:#8a9db1;--ck-snow:#f6f9fc;--ck-sun:#ffd95a;
+  --display:var(--disp);--mono:var(--mono);
+}
+.cklab{margin-top:8px;font-family:var(--mono);font-size:16px;color:var(--faint);text-align:center}
+figure{margin:0}
+</style>
+</head>
+<body>
+<div class="hdr" id="hdr">
+  <svg class="deco" viewBox="0 0 1280 670" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#5ad1e6" stop-opacity=".55"/><stop offset="1" stop-color="#5ad1e6" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="ga" x1="1" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffb020" stop-opacity=".5"/><stop offset="1" stop-color="#ffb020" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <g fill="none" stroke-width="1" transform="translate(60,10)">
+      <circle cx="936" cy="161" r="250" stroke="url(#gl)"/>
+      <circle cx="936" cy="161" r="186" stroke="rgba(255,255,255,.10)" stroke-dasharray="2 10"/>
+      <g stroke="rgba(90,209,230,.35)"><path d="M936 -99 v26 M1196 161 h-26 M936 421 v-26 M676 161 h26"/></g>
+      <circle cx="936" cy="161" r="312" stroke="rgba(255,255,255,.06)"/>
+      <path d="M624 161 a312 312 0 0 1 312 -312" stroke="url(#ga)" stroke-width="2"/>
+    </g>
+  </svg>
+  <div class="in">
+    <div class="txt">
+      <div class="eyebrow" id="eb">01 SUBJECT</div>
+      <div class="wm">TENRYU</div>
+      <h1 id="t">方位</h1>
+      <p class="sub" id="s">航空学生 適性検査の読み方</p>
+    </div>
+    <div class="art app" id="art"></div>
+  </div>
+</div>
+<script src="/engine.js?v=44"></script>
+<script>
+(function(){
+  var E = window.AAT;
+  var q = new URLSearchParams(location.search), k = q.get('k') || 'dir';
+  var art = document.getElementById('art');
+  var set = function(eb, t, s, small){
+    document.getElementById('eb').textContent = eb;
+    document.getElementById('t').textContent = t;
+    document.getElementById('t').className = small ? 'sm' : '';
+    document.getElementById('s').textContent = s;
+  };
+  var D = E ? E.DIR14.find(function(d){ return d.id === 'north' }) : null;
+  if (k === 'dir') {
+    set('01 SUBJECT', '方位', 'N マークから時計回りに数える');
+    art.className = 'art app one';
+    art.innerHTML = E.figTopDown(135, 45);
+  } else if (k === 'ai') {
+    set('02 SUBJECT', '姿勢指示器', '南から見ていることを忘れない');
+    art.className = 'art app one';
+    art.innerHTML = E.svgAI(20, 8);
+  } else if (k === 'combo') {
+    set('03 SUBJECT', '方位×姿勢指示器', '読む順番を先に決める', true);
+    art.className = 'art app two';
+    art.innerHTML = '<div>' + E.svgAI(-15, -10) + '</div><div>' + E.svgHI(120, 0) + '</div>';
+  } else if (k === 'ck') {
+    set('04 SUBJECT', '操縦操作', '3 枚の視界から操作を当てる');
+    art.className = 'art app three';
+    art.innerHTML = [[0,0,'①'],[18,-4,'②'],[32,-9,'③']].map(function(v,i){
+      return '<figure>' + E.svgCockpit(v[0], v[1], 0, i/2, false, true) +
+             '<div class="cklab">' + v[2] + '</div></figure>';
+    }).join('');
+  } else if (k === 'sim') {
+    set('SIMULATOR', '3D シミュレーター', '操縦桿と方向舵で、見え方を確かめる', true);
+    art.className = 'art';
+    art.innerHTML = '<div class="shot"><img src="/img/guide/sim3d.webp" alt=""></div>';
+  }
+  /* 画像も字も入り終わってから撮れるように、印を立てる */
+  var done = function(){ document.documentElement.setAttribute('data-ready', '1') };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ setTimeout(done, 300) });
+  else setTimeout(done, 800);
+})();
+</script>
+</body>
+</html>

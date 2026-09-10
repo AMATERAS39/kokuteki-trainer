@@ -571,9 +571,9 @@ export function mount(container, opt = {}) {
   function emit(pos, colorHex, vel, life, key, size) {
     smokeCol.set(smokeBoost ? '#ffffff' : colorHex);   // ローパスの煙は白
     /* sz は粒 1 つの太さの倍率。ローパス（smokeBoost）は 2.4 のまま。
-       ほかは 1 → 3 にしたが、太すぎるという指摘で 2 へ下げた（v04.84）。size を渡すとそれを使う（離陸待機中の点検の煙） */
+       ほかは 1 → 3 にしたが、太すぎるという指摘で 2（v04.84）→ 1.33（v04.85）へ下げた。size を渡すとそれを使う（離陸待機中の点検の煙） */
     const n = smokeBoost ? 3 : 1, j = smokeBoost ? 2.5 : 0, lf = life || lifeNow;
-    const sz = smokeBoost ? 2.4 : (size || 2);
+    const sz = smokeBoost ? 2.4 : (size || 1.33);
     const put = (x, y, z, birth) => {
       for (let k = 0; k < n; k++) {
         const i = sHead % SMOKE_N; sHead++;

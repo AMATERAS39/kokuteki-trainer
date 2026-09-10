@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1017">
+<!-- TENRYU 意匠ノート。案内ページ（kokuteki.amaterasu-vocab.com/guide）の意匠を、
+     他のサイトへ持ち出せる形にまとめたもの。この資料自体が同じ意匠で組んである。
+     ブラウザでそのまま開ける（通信は Google Fonts の書体だけ） -->
+<title>TENRYU 意匠ノート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* この資料は、説明している意匠そのもので組んである。
+   色・書体・寸法・動きは kokuteki.amaterasu-vocab.com/guide の実物と同じ値 */
+:root{
+  --bg:#0b1017;--panel:#0f1620;--panel2:#141a1c;
+  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.16);--dash:rgba(255,255,255,.12);
+  --text:#e8eef5;--muted:#93a3b5;--faint:#6f8090;--soft:#a9b8c8;
+  --cyan:#5ad1e6;--amber:#ffb020;
+  --disp:"Zen Kaku Gothic New",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --wrap:64rem;
+  --pad:clamp(.875rem,3vw,1.375rem);
+  --sec:clamp(2.25rem,5vw,3.5rem);
+  --h2:clamp(1.3rem,3vw,1.9rem);
+  --h3:clamp(1rem,2vw,1.18rem);
+  --body:clamp(.9rem,1.6vw,1rem);
+  --small:clamp(.82rem,1.4vw,.9rem);
+  --tiny:clamp(.68rem,1.2vw,.75rem);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;overflow-x:clip;background:var(--bg);color:var(--text);
+  font-family:var(--disp);line-height:1.9;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;line-height:1.35;text-wrap:balance}
+p,ul,ol{margin:0}
+a{color:var(--cyan);text-decoration:none;border-bottom:1px solid rgba(90,209,230,.3)}
+a:hover{border-bottom-color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+code{font-family:var(--mono);font-size:.92em;color:var(--soft)}
+
+/* 上の帯 */
+.bar{position:sticky;top:0;z-index:50;background:rgba(11,16,23,.9);
+  backdrop-filter:blur(.75rem);border-bottom:1px solid var(--line)}
+.barin{max-width:var(--wrap);margin:0 auto;padding:.5rem var(--pad);
+  display:flex;align-items:center;gap:clamp(.5rem,2vw,1.25rem)}
+.brand{font-family:var(--mono);font-weight:600;letter-spacing:.18em;
+  font-size:clamp(.72rem,2vw,.85rem);flex:none;color:var(--text)}
+.tocn{display:flex;gap:.125rem;margin-left:auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tocn::-webkit-scrollbar{display:none}
+.tocn a{flex:none;white-space:nowrap;padding:.25rem .45rem;border-radius:.5rem;border:0;
+  font-size:clamp(.66rem,2vw,.78rem);color:var(--muted);transition:color .2s,background .2s}
+.tocn a:hover{color:var(--text);background:rgba(90,209,230,.1)}
+
+main{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad) clamp(3rem,7vw,5rem)}
+section{padding:var(--sec) 0;border-top:1px solid var(--line)}
+.top{padding-top:clamp(2rem,6vw,3.5rem);border-top:0}
+.eyebrow{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan)}
+h2{font-size:var(--h2);font-weight:900;letter-spacing:-.01em;margin-top:.5rem}
+h3{font-size:var(--h3);font-weight:700;margin-top:2rem}
+h4{font-size:var(--small);font-weight:700;color:var(--soft);margin-top:1.25rem}
+.lead{color:var(--muted);font-size:var(--body);line-height:1.95;margin-top:1rem;max-width:60ch}
+p+p,p+ul,ul+p,h3+p,h4+p,.note+p{margin-top:.75rem}
+li{margin-top:.375rem}
+ul{padding-left:1.15rem}
+li::marker{color:var(--faint)}
+.note{color:var(--faint);font-size:var(--tiny);line-height:1.8;margin-top:.75rem}
+
+/* 題 */
+.hero h1{font-family:var(--mono);font-weight:600;letter-spacing:.14em;
+  font-size:clamp(2rem,7vw,3.4rem);line-height:1.1;
+  background:linear-gradient(180deg,#ffffff,#9fb4c6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{margin-top:.75rem;font-size:clamp(1rem,2.6vw,1.3rem);font-weight:700;color:var(--cyan)}
+.src{margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:1.5rem}
+.src div{min-width:8rem}
+.src dt{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.16em;color:var(--faint)}
+.src dd{margin:.3rem 0 0;font-family:var(--mono);font-size:var(--small);color:var(--soft)}
+
+/* 仕様の並び */
+.spec{margin-top:1.25rem;border:1px solid var(--line);border-radius:.875rem;overflow:hidden}
+.sr{display:grid;grid-template-columns:minmax(7rem,1fr) minmax(6rem,1fr) 1.7fr;gap:.5rem 1rem;
+  padding:.7rem clamp(.7rem,2vw,1rem);font-size:var(--small);align-items:baseline}
+.sr+.sr{border-top:1px solid var(--line)}
+.sh{background:rgba(255,255,255,.03);color:var(--faint);font-family:var(--mono);
+  font-size:var(--tiny);letter-spacing:.1em}
+.sr b{font-weight:700}
+.sr .v{font-family:var(--mono);color:var(--amber);font-variant-numeric:tabular-nums;word-break:break-all}
+.sr .w{color:var(--muted)}
+@media (max-width:38rem){
+  .sr{grid-template-columns:1fr;gap:.15rem;padding:.8rem clamp(.7rem,2vw,1rem)}
+  .sh{display:none}
+  .sr .v::before{content:"値 ";color:var(--faint);font-size:var(--tiny);letter-spacing:.1em}
+  .sr .w::before{content:"なぜ ";color:var(--faint);font-family:var(--mono);font-size:var(--tiny);letter-spacing:.1em}
+}
+
+/* 色見本 */
+.sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(9rem,100%),1fr));gap:.75rem;margin-top:1.25rem}
+.sw div{border:1px solid var(--line);border-radius:.75rem;overflow:hidden;background:var(--panel)}
+.sw i{display:block;height:3rem}
+.sw p{padding:.55rem .7rem .7rem}
+.sw b{display:block;font-family:var(--mono);font-size:var(--tiny);color:var(--text);letter-spacing:.04em}
+.sw span{display:block;font-size:var(--tiny);color:var(--faint);margin-top:.15rem;line-height:1.6}
+
+/* 書体の見本 */
+.tsc{margin-top:1.25rem;border:1px solid var(--line);border-radius:.875rem;padding:clamp(.9rem,3vw,1.4rem);background:var(--panel)}
+.tsc > div{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem 1rem;padding:.5rem 0}
+.tsc > div + div{border-top:1px dashed var(--dash)}
+.tsc .tag{font-family:var(--mono);font-size:var(--tiny);color:var(--faint);letter-spacing:.14em;flex:none;width:5rem}
+.e1{font-size:clamp(1.9rem,5vw,3.6rem);font-weight:900;letter-spacing:-.01em;line-height:1.1}
+.e2{font-size:clamp(1.35rem,3.2vw,2.125rem);font-weight:900;letter-spacing:-.01em}
+.e3{font-size:clamp(1.05rem,2.2vw,1.3rem);font-weight:700}
+.eb{font-size:clamp(.9rem,1.6vw,1.03rem);color:var(--muted)}
+.es{font-size:clamp(.82rem,1.4vw,.9rem);color:var(--muted)}
+.et{font-family:var(--mono);font-size:clamp(.68rem,1.2vw,.75rem);letter-spacing:.2em;color:var(--cyan)}
+
+/* 動きの見本 */
+.demo{margin-top:1.25rem;border:1px solid var(--line);border-radius:.875rem;background:var(--panel);overflow:hidden}
+.dtop{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:.7rem clamp(.7rem,2vw,1rem);
+  border-bottom:1px solid var(--line);background:rgba(255,255,255,.03)}
+.dtop b{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.14em;color:var(--faint);margin-right:auto}
+.btn{font-family:var(--disp);font-size:var(--tiny);font-weight:700;color:var(--text);
+  background:none;border:1px solid var(--line2);border-radius:.5rem;padding:.4rem .8rem;cursor:pointer;
+  transition:transform .2s cubic-bezier(.2,.9,.3,1.4),border-color .2s,background .2s}
+.btn:hover{border-color:rgba(90,209,230,.6);background:rgba(90,209,230,.08);transform:translateY(-.12rem)}
+.btn:active{transform:translateY(.06rem) scale(.98)}
+.btn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber);background:rgba(255,176,32,.1)}
+.stagearea{padding:clamp(.9rem,3vw,1.4rem);display:grid;gap:.6rem;overflow-x:clip}
+.chip{border:1px solid var(--line);border-radius:.75rem;padding:.7rem .9rem;background:var(--bg);
+  font-size:var(--small);display:flex;gap:.6rem;align-items:baseline}
+.chip em{font-family:var(--mono);font-style:normal;font-size:var(--tiny);color:var(--cyan);letter-spacing:.1em;flex:none}
+.chip span{color:var(--muted)}
+/* ここからが本体の現れ方の写し */
+.an{opacity:0;transition:opacity 1.15s cubic-bezier(.16,1,.3,1),transform 1.15s cubic-bezier(.16,1,.3,1),clip-path 1.15s cubic-bezier(.16,1,.3,1)}
+.an.up{transform:translateY(2.25rem) scale(.985)}
+.an.l{transform:translateX(-2.75rem)}
+.an.r{transform:translateX(2.75rem)}
+.an.wipe{opacity:1;clip-path:inset(0 100% 0 0)}
+.an.on{opacity:1;transform:none;clip-path:inset(0 0 0 0);transition-delay:calc(var(--i,0) * 95ms)}
+.an.mv{will-change:opacity,transform}
+/* 「減らす」設定のときの見え方を、この箱の中だけで再現する */
+.demo.red .an,.demo.red .an.up,.demo.red .an.l,.demo.red .an.r{transform:none;transition:opacity .6s ease}
+.demo.red .an.wipe{opacity:0;clip-path:none;transition:opacity .6s ease}
+.demo.red .an.on{opacity:1;transform:none;clip-path:none;transition-delay:calc(var(--i,0) * 55ms)}
+
+/* 常に動くもの */
+.amb{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(11rem,100%),1fr));gap:.75rem;margin-top:1.25rem}
+.amb figure{margin:0;border:1px solid var(--line);border-radius:.875rem;background:var(--panel);overflow:hidden}
+.ambbox{height:6rem;display:grid;place-items:center;position:relative;overflow:hidden;background:var(--bg)}
+.amb figcaption{padding:.5rem .7rem .7rem;font-size:var(--tiny);color:var(--faint);line-height:1.7;border-top:1px solid var(--line)}
+.amb figcaption b{display:block;font-family:var(--mono);color:var(--soft);letter-spacing:.1em;margin-bottom:.15rem}
+.o-spin{width:3.4rem;height:3.4rem;border-radius:50%;border:1px solid rgba(90,209,230,.5);
+  border-right-color:transparent;animation:turn 5s linear infinite}
+@keyframes turn{to{transform:rotate(360deg)}}
+.o-sweep{position:absolute;inset:0;background:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.12) 50%,transparent 62%);
+  animation:sweep 8s ease-in-out infinite}
+@keyframes sweep{0%,100%{transform:translateX(-60%)}50%{transform:translateX(60%)}}
+.o-float{width:2.6rem;height:4rem;border-radius:.5rem;border:1px solid var(--line2);
+  background:linear-gradient(160deg,#1b2634,#0d131b);animation:floaty 7s ease-in-out infinite}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-.44rem)}}
+.o-ring{width:2.4rem;height:2.4rem;border-radius:50%;border:1px solid rgba(90,209,230,.35);animation:ring 3.6s ease-out infinite}
+@keyframes ring{0%{transform:scale(.85);opacity:.55}100%{transform:scale(1.45);opacity:0}}
+.o-blink{width:.5rem;height:.5rem;border-radius:50%;background:var(--cyan);animation:blink 1.6s infinite}
+@keyframes blink{0%,45%{opacity:1}55%,100%{opacity:.15}}
+.o-hover{width:4.4rem;height:1.6rem;border-radius:.3rem;background:linear-gradient(90deg,#cfd8e2,#8fa1b4);animation:hover 10s ease-in-out infinite}
+@keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-14%)}}
+
+/* 落とし穴 */
+.pit{margin-top:1.25rem;display:grid;gap:.75rem}
+.pit article{border:1px solid var(--line);border-left:2px solid rgba(255,176,32,.55);
+  border-radius:.25rem .875rem .875rem .25rem;padding:.9rem clamp(.8rem,2.5vw,1.15rem);background:var(--panel)}
+.pit h4{margin:0;font-size:var(--small);color:var(--text)}
+.pit p{margin-top:.4rem;color:var(--muted);font-size:var(--small)}
+.pit .fix{margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--dash);color:var(--soft);font-size:var(--small)}
+.pit .fix b{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.14em;color:var(--amber);display:block}
+
+/* 骨格コード */
+pre{margin:1rem 0 0;background:var(--panel);border:1px solid var(--line);border-radius:.875rem;
+  padding:clamp(.8rem,2.5vw,1.1rem);overflow-x:auto;font-family:var(--mono);
+  font-size:clamp(.66rem,1.3vw,.78rem);line-height:1.85;color:var(--soft);white-space:pre}
+pre b{color:var(--cyan);font-weight:400}
+pre i{color:var(--faint);font-style:normal}
+
+footer{border-top:1px solid var(--line);background:var(--panel)}
+.fin{max-width:var(--wrap);margin:0 auto;padding:clamp(1.25rem,4vw,2rem) var(--pad);
+  color:var(--faint);font-size:var(--tiny);line-height:1.85}
+@media (prefers-reduced-motion:reduce){
+  .an,.an.up,.an.l,.an.r{transform:none;transition:opacity .6s ease}
+  .an.wipe{opacity:0;clip-path:none;transition:opacity .6s ease}
+  .an.on{opacity:1;transform:none;clip-path:none;transition-delay:calc(var(--i,0) * 55ms)}
+  .o-spin,.o-sweep,.o-float,.o-ring,.o-blink,.o-hover{animation:none}
+  .bar{backdrop-filter:none}
+}
+</style>
+</head>
+<body>
+
+
+<header class="bar">
+  <div class="barin">
+    <span class="brand">TENRYU 意匠ノート</span>
+    <nav class="tocn">
+      <a href="#core">芯</a><a href="#color">色</a><a href="#type">文字</a><a href="#size">寸法</a>
+      <a href="#reveal">現れ方</a><a href="#amb">常時</a><a href="#touch">反応</a><a href="#reduce">減らす</a>
+      <a href="#scroll">スクロール</a><a href="#pit">落とし穴</a><a href="#code">骨格</a><a href="#meta">検索</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="top hero">
+  <p class="eyebrow">DESIGN NOTES — kokuteki.amaterasu-vocab.com/guide</p>
+  <h1>TENRYU</h1>
+  <p class="sub">意匠ノート｜色・文字・動き・落とし穴</p>
+  <p class="lead">航空学生の適性検査アプリ「TENRYU」の案内ページで使っている意匠を、そのまま持ち出せる形に書き出したものです。
+    この資料自体が同じ配色・同じ書体・同じ動きで組んであるので、見本はすべて本物と同じ値で動きます。</p>
+  <dl class="src">
+    <div><dt>地</dt><dd>#0b1017</dd></div>
+    <div><dt>導線</dt><dd>#5ad1e6</dd></div>
+    <div><dt>強調</dt><dd>#ffb020</dd></div>
+    <div><dt>書体</dt><dd>Zen Kaku Gothic New / IBM Plex Mono</dd></div>
+    <div><dt>最大幅</dt><dd>70rem</dd></div>
+  </dl>
+</section>
+
+<section id="core">
+  <p class="eyebrow">01 — PRINCIPLES</p>
+  <h2>設計の芯</h2>
+  <p class="lead">個々の値より先に、この 5 つを決めておくと迷わなくなります。</p>
+
+  <h3>1. 計器の世界から色と書体を取る</h3>
+  <p>題材は航空機の計器です。だから地は黒に近い紺（#0b1017）、線は白の半透明、数字とラベルは等幅。
+    導線に使う青緑（#5ad1e6）は計器の目盛りの色、強調の橙（#ffb020）は警告灯の色から取っています。
+    <b>題材の中にある色を使う</b>と、飾りではなく必然に見えます。</p>
+
+  <h3>2. 強い色は 1 ページに 1 系統だけ</h3>
+  <p>橙は「数字」と「主要ボタン」だけに使い、それ以外は青緑と灰で通します。
+    強い色を 2 つ同じ強さで置くと、どちらも効かなくなります。</p>
+
+  <h3>3. 寸法は px で置かない</h3>
+  <p>すべて rem・%・vw・clamp。画面幅で伸縮し、端末の文字サイズ設定にも追従します。
+    ブレークポイントも <code>rem</code> で置きます（<code>@media (min-width:48rem)</code>）。</p>
+
+  <h3>4. 動かすのは CSS、JS は印を付けるだけ</h3>
+  <p>現れ方は CSS の遷移に任せ、JS は「画面に入った」という class を付け外しするだけにします。
+    毎コマ JS で <code>opacity</code> や <code>transform</code> を書くと、指の動きは合成側で進むので必ず遅れ、がたつきます。</p>
+
+  <h3>5. 図はアプリが実際に描いている部品を出す</h3>
+  <p>案内ページのカードに出ている計器の絵は、スクリーンショットではなくアプリ本体の描画関数（<code>engine.js</code>）を
+    そのまま読み込んで描いています。<b>説明と実物がずれない</b>のが利点で、読み込めなかったときは図の枠ごと消して文章だけにします。</p>
+</section>
+
+<section id="color">
+  <p class="eyebrow">02 — COLOR</p>
+  <h2>色</h2>
+  <p class="lead">面は 3 段、文字は 4 段、差し色は 2 つ。線は色ではなく<b>白の半透明</b>で置きます。</p>
+
+  <div class="sw">
+    <div><i style="background:#0b1017"></i><p><b>--bg #0b1017</b><span>地。いちばん奥</span></p></div>
+    <div><i style="background:#0f1620"></i><p><b>--panel #0f1620</b><span>カード・帯・表の面</span></p></div>
+    <div><i style="background:#141a1c"></i><p><b>--panel2 #141a1c</b><span>強調カードのグラデの上端</span></p></div>
+    <div><i style="background:#e8eef5"></i><p><b>--text #e8eef5</b><span>本文</span></p></div>
+    <div><i style="background:#a9b8c8"></i><p><b>--soft #a9b8c8</b><span>カードの中の説明</span></p></div>
+    <div><i style="background:#93a3b5"></i><p><b>--muted #93a3b5</b><span>補足・リード文</span></p></div>
+    <div><i style="background:#6f8090"></i><p><b>--faint #6f8090</b><span>ラベル・注記</span></p></div>
+    <div><i style="background:#5ad1e6"></i><p><b>--cyan #5ad1e6</b><span>導線・小見出し・リンク</span></p></div>
+    <div><i style="background:#ffb020"></i><p><b>--amber #ffb020</b><span>数字・主要ボタン</span></p></div>
+  </div>
+
+  <h4>線は 3 段の半透明で持つ</h4>
+  <div class="spec">
+    <div class="sr sh"><b>名前</b><span>値</span><span>使いどころ</span></div>
+    <div class="sr"><b>--line</b><span class="v">rgba(255,255,255,.08)</span><span class="w">面の区切り。節と節、カードの枠</span></div>
+    <div class="sr"><b>--line2</b><span class="v">rgba(255,255,255,.16)</span><span class="w">入力欄・副ボタンの枠（少し強い）</span></div>
+    <div class="sr"><b>--dash</b><span class="v">rgba(255,255,255,.12)</span><span class="w">カードの中の破線の仕切り</span></div>
+  </div>
+  <p class="note">半透明にしておくと、地の上でもカードの上でも同じ 1 本で通ります。面ごとに線の色を作る必要がありません。</p>
+
+  <h4>透過の差し色</h4>
+  <p>青緑と橙は、そのままではなく薄めて面にも使います。
+    <code>rgba(90,209,230,.1)</code> は帯のボタンの下地、<code>.12</code> は記号の下地、<code>.35〜.6</code> は枠。
+    橙は <code>rgba(255,176,32,.28)</code> で有料プランのカードの枠、<code>.32</code> で押したときの影に使います。</p>
+
+  <h4>面の重ね方</h4>
+  <p>見出しの舞台だけは、単色ではなく放射のグラデーションを 2 枚重ねています。
+    右上に青緑、左下に橙を、どちらも 8〜12% の薄さで置き、その上に暗い縦のグラデーションを敷きます。</p>
+  <pre>background:
+  radial-gradient(120% 90% at 78% 8%,  rgba(90,209,230,.12), transparent 62%),
+  radial-gradient(90% 70% at 20% 60%,  rgba(255,176,32,.08), transparent 62%),
+  linear-gradient(#0d141d, #0b1017);</pre>
+</section>
+
+<section id="type">
+  <p class="eyebrow">03 — TYPE</p>
+  <h2>文字</h2>
+  <p class="lead">2 書体だけ。日本語の本文と見出しに Zen Kaku Gothic New、ラベル・数字・記号に IBM Plex Mono。
+    <b>役割で分ける</b>ので、迷ったら「読ませる文字か、読み取らせる記号か」で決めます。</p>
+
+  <div class="tsc">
+    <div><span class="tag">--h1</span><span class="e1">見出し</span></div>
+    <div><span class="tag">--h2</span><span class="e2">節の見出し</span></div>
+    <div><span class="tag">--h3</span><span class="e3">カードの見出し</span></div>
+    <div><span class="tag">--body</span><span class="eb">本文。1 行 44 字ほどで折り返します。</span></div>
+    <div><span class="tag">--small</span><span class="es">カードの中の説明、表の中身。</span></div>
+    <div><span class="tag">--tiny</span><span class="et">EYEBROW / ラベル</span></div>
+  </div>
+
+  <div class="spec">
+    <div class="sr sh"><b>変数</b><span>値</span><span>意図</span></div>
+    <div class="sr"><b>--h1</b><span class="v">clamp(1.9rem,5vw,3.6rem)</span><span class="w">画面幅で伸びる。上限を決めて大画面で暴れさせない</span></div>
+    <div class="sr"><b>--h2</b><span class="v">clamp(1.35rem,3.2vw,2.125rem)</span><span class="w">weight 900・字間 −.01em で締める</span></div>
+    <div class="sr"><b>--h3</b><span class="v">clamp(1.05rem,2.2vw,1.3rem)</span><span class="w">weight 700</span></div>
+    <div class="sr"><b>--body</b><span class="v">clamp(.9rem,1.6vw,1.03rem)</span><span class="w">行間 1.9。日本語は広めに取る</span></div>
+    <div class="sr"><b>--small</b><span class="v">clamp(.82rem,1.4vw,.9rem)</span><span class="w">説明文・表</span></div>
+    <div class="sr"><b>--tiny</b><span class="v">clamp(.68rem,1.2vw,.75rem)</span><span class="w">等幅・字間 .18〜.2em のラベル</span></div>
+  </div>
+
+  <h4>効いている細かい決め</h4>
+  <ul>
+    <li>本文 <code>line-height:1.9</code>、リード文 <code>1.95</code>、見出し <code>1.3</code>。日本語は欧文より行間を広く取る。</li>
+    <li>見出しは字間を <b>詰める</b>（−.01em）、等幅のラベルは <b>開ける</b>（.18〜.2em）。この対比が計器らしさを作る。</li>
+    <li><code>text-wrap:pretty</code> を見出しと段落に。1 行だけ取り残される折り返しを防ぐ。</li>
+    <li>リード文は <code>max-width:44ch</code>。読ませる文は幅を切る。</li>
+    <li>ワードマークは等幅 + 縦のグラデーションを <code>background-clip:text</code> で流す。金属の板のように見える。</li>
+  </ul>
+  <pre><b>.wordmark</b>{
+  font-family:var(--mono); font-weight:600; letter-spacing:.16em;
+  font-size:clamp(3rem,13vw,7rem); line-height:1;
+  background:linear-gradient(180deg,#ffffff,#9fb4c6);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}</pre>
+</section>
+
+<section id="size">
+  <p class="eyebrow">04 — LAYOUT</p>
+  <h2>寸法とレイアウト</h2>
+
+  <div class="spec">
+    <div class="sr sh"><b>変数</b><span>値</span><span>役割</span></div>
+    <div class="sr"><b>--wrap</b><span class="v">70rem</span><span class="w">本文の最大幅。中央寄せの共通の器</span></div>
+    <div class="sr"><b>--pad</b><span class="v">clamp(.875rem,3vw,1.375rem)</span><span class="w">左右の余白。全部ここから取る</span></div>
+    <div class="sr"><b>--sec</b><span class="v">clamp(2.5rem,6vw,4rem)</span><span class="w">節の上下。節の区切りは 1px の線だけ</span></div>
+  </div>
+
+  <h4>並べ方は 3 通りだけ</h4>
+  <ul>
+    <li><b>自動で折り返す格子</b> — <code>repeat(auto-fit,minmax(min(17.5rem,100%),1fr))</code>。
+      <code>min(…,100%)</code> を挟むのが要点で、これがないと狭い画面ではみ出す。</li>
+    <li><b>2 分割</b> — <code>1fr</code> から <code>@media (min-width:48rem)</code> で <code>1.15fr .85fr</code> へ。</li>
+    <li><b>表</b> — <code>grid-template-columns:1.6fr .8fr .7fr .7fr</code>。狭い画面では比率だけ変えて、崩さない。</li>
+  </ul>
+
+  <h4>ブレークポイント</h4>
+  <p>34rem・40rem・48rem・52rem・56rem。<b>すべて rem</b> なので、端末の文字サイズを大きくしている人には、
+    その人にとっての「狭い画面」で切り替わります。px で置くとこれができません。</p>
+
+  <h4>上の帯</h4>
+  <p><code>position:sticky</code> + <code>backdrop-filter:blur(.875rem)</code> + 82% の不透明度。
+    中のリンクは <code>flex</code> の <code>nowrap</code> で 1 行に固定し、入りきらない幅では
+    <code>overflow-x:auto</code> で横に送ります（スクロールバーは隠す）。<b>縦に折り返させない</b>のが決めです。</p>
+</section>
+
+<section id="reveal">
+  <p class="eyebrow">05 — REVEAL</p>
+  <h2>現れ方</h2>
+  <p class="lead">この意匠のいちばんの特徴です。節の中身が、画面の下から入るあいだに出来上がり、
+    上へ巻き戻すと<b>そのぶん戻ります</b>。動きは 4 種類だけ。</p>
+
+  <div class="demo" id="demo">
+    <div class="dtop">
+      <b>MOTION SAMPLE</b>
+      <button class="btn" id="replay" type="button">もう一度</button>
+      <button class="btn" id="red" type="button" aria-pressed="false">「視覚効果を減らす」の見え方</button>
+    </div>
+    <div class="stagearea" id="stage">
+      <div class="chip an up" style="--i:0"><em>up</em><span>浮かび上がる — 見出し・段落・札。既定はこれ</span></div>
+      <div class="chip an l" style="--i:1"><em>l</em><span>左から — カード（奇数番）・用語・質問</span></div>
+      <div class="chip an r" style="--i:2"><em>r</em><span>右から — カード（偶数番）</span></div>
+      <div class="chip an wipe" style="--i:3"><em>wipe</em><span>左から右へ拭う — 表の行（clip-path）</span></div>
+      <div class="chip an up" style="--i:4"><em>--i:4</em><span>遅れは 95 ミリ秒ずつ。7 番目で頭打ち</span></div>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="sr sh"><b>項目</b><span>値</span><span>意図</span></div>
+    <div class="sr"><b>時間</b><span class="v">1.15s</span><span class="w">長め。ゆっくり出るほど「効果」ではなく「佇まい」に見える</span></div>
+    <div class="sr"><b>加減速</b><span class="v">cubic-bezier(.16,1,.3,1)</span><span class="w">最初に速く、終わりで長く伸びる。止まり際が静か</span></div>
+    <div class="sr"><b>ずらし</b><span class="v">--i × 95ms</span><span class="w">並びの順に 1 つずつ遅らせる</span></div>
+    <div class="sr"><b>ずらしの上限</b><span class="v">7</span><span class="w">8 番目以降は待たせない（下のほうが遅すぎるのを防ぐ）</span></div>
+    <div class="sr"><b>移動量</b><span class="v">2.25〜2.75rem</span><span class="w">up は同時に scale .985。近づいてくる感じが出る</span></div>
+    <div class="sr"><b>出す線</b><span class="v">画面の下から 88%</span><span class="w">下端より少し内側で出し始める</span></div>
+    <div class="sr"><b>戻す線</b><span class="v">画面の下から 96%</span><span class="w">出す線とずらす（同じだと境界で小刻みに点滅する）</span></div>
+  </div>
+
+  <h4>順番の決め方</h4>
+  <p><code>--i</code> は <b>並びの順（文書の順）</b>で振ります。選び手（<code>.card</code> → <code>.tile</code> → <code>h2</code> …）の順で振ると、
+    札が見出しより先に出るなど、ばらばらに見えます。集めたあとに <code>compareDocumentPosition</code> で並べ替えてから振ります。</p>
+  <p>カードの左右交互は、<b>カードだけを数える別のカウンタ</b>で決めます。並びの順の番号（偶奇）で決めると、
+    カードが偶数番ばかりに当たって全部が同じ側から入ります。</p>
+
+  <h4>JS の役割は 3 つだけ</h4>
+  <ul>
+    <li>読み込み時に <code>.an</code> と種類（up / l / r / wipe）と <code>--i</code> を付ける。</li>
+    <li>スクロールのたびに位置を見て <code>.on</code> を付け外しする。</li>
+    <li>動いているあいだだけ <code>.mv</code>（＝<code>will-change</code>）を付け、2 秒で外す。</li>
+  </ul>
+</section>
+
+<section id="amb">
+  <p class="eyebrow">06 — AMBIENT</p>
+  <h2>常に動いているもの</h2>
+  <p class="lead">見出しの舞台にだけ置きます。<b>どれも非常に遅い</b>のが決めで、
+    速い動きは 1 つもありません。目に留まらない速さだから、うるさくなりません。</p>
+
+  <div class="amb">
+    <figure><div class="ambbox"><i class="o-spin"></i></div><figcaption><b>SPIN 90s / 140s</b>背景の円と弧。2 枚を逆向きに、90 秒と 140 秒で回す</figcaption></figure>
+    <figure><div class="ambbox"><i class="o-sweep"></i></div><figcaption><b>SWEEP 8s</b>斜めの光が横切る。白 5% の帯</figcaption></figure>
+    <figure><div class="ambbox"><i class="o-float"></i></div><figcaption><b>FLOATY 7s</b>端末の枠が上下に 0.44rem</figcaption></figure>
+    <figure><div class="ambbox"><i class="o-hover"></i></div><figcaption><b>HOVER 10s</b>機体が上下に 1.4%。飛んでいる感じ</figcaption></figure>
+    <figure><div class="ambbox"><i class="o-ring"></i></div><figcaption><b>RING 3.6s</b>輪が広がって消える。1 か所だけ</figcaption></figure>
+    <figure><div class="ambbox"><i class="o-blink"></i></div><figcaption><b>BLINK 1.6s</b>点が明滅。チップの中の 0.375rem の丸</figcaption></figure>
+  </div>
+
+  <h4>入場（読み込んだ直後の一度きり）</h4>
+  <p>見出しの中身だけは、スクロールを待たずに順に入ります。
+    ワードマークが左から（<code>inL .9s .05s</code>）、副題が左から（<code>.18s</code>）、リード文が下から（<code>rise .9s .32s</code>）、
+    ボタン（<code>.46s</code>）、数字の帯（<code>.58s</code>）。機体の絵だけは右上から回り込んで入ります（<code>inR 1.3s .25s</code>）。</p>
+  <p class="note">遅らせる幅は 0.05 秒から 0.58 秒。この <b>半秒ほどの中に全部を収める</b>のが、待たされずに順序が見える上限です。</p>
+</section>
+
+<section id="touch">
+  <p class="eyebrow">07 — INTERACTION</p>
+  <h2>触ったときの反応</h2>
+  <p class="lead">押せるものは、必ず「浮く」か「沈む」。色だけを変えるのはやめています。</p>
+
+  <div class="spec">
+    <div class="sr sh"><b>対象</b><span>変化</span><span>備考</span></div>
+    <div class="sr"><b>主ボタン hover</b><span class="v">translateY(−.19rem)</span><span class="w">＋ 橙 32% の影を下に落とす</span></div>
+    <div class="sr"><b>副ボタン hover</b><span class="v">border → 青緑 60%</span><span class="w">＋ 下地に青緑 8%、同じく −.19rem</span></div>
+    <div class="sr"><b>押した瞬間</b><span class="v">translateY(.06rem) scale(.98)</span><span class="w">全ボタン共通。沈む</span></div>
+    <div class="sr"><b>カード hover</b><span class="v">translateY(−.25rem)</span><span class="w">＋ 枠が青緑 40%、黒 45% の影</span></div>
+    <div class="sr"><b>札 hover</b><span class="v">translateY(−.19rem)</span><span class="w">影なし。軽く持ち上げるだけ</span></div>
+    <div class="sr"><b>加減速</b><span class="v">cubic-bezier(.2,.9,.3,1.4)</span><span class="w">終点を少し行き過ぎて戻る。指に吸い付く</span></div>
+    <div class="sr"><b>入力欄 focus</b><span class="v">outline を消し border を青緑 60%</span><span class="w">枠そのものが光る</span></div>
+  </div>
+  <p class="note">現れ方は 1.15 秒、触った反応は 0.2〜0.35 秒。<b>「読むための動き」は遅く、「操作の返事」は速く</b>と分けています。</p>
+
+  <h4>開閉（つまずきの箱）</h4>
+  <p><code>max-height:0 → 18rem</code> を <code>.35s ease</code> で。記号は <code>＋</code> と <code>−</code> を差し替えるだけ。
+    高さを <code>auto</code> にできないので上限を決め打ちしますが、中身が短いので不自然になりません。</p>
+</section>
+
+<section id="reduce">
+  <p class="eyebrow">08 — REDUCED MOTION</p>
+  <h2>「視覚効果を減らす」への向き合い方</h2>
+  <p class="lead">ここは普通と違う判断をしています。<b>動きを消さず、動きの性質を変えます。</b></p>
+  <p>現れ方まで消すと、この設定の人だけ「何も出てこないページ」になり、内容が伝わりません。
+    そこで、出ること自体は残し、次のように置き換えます。</p>
+
+  <div class="spec">
+    <div class="sr sh"><b>ふつう</b><span>減らす設定</span><span>理由</span></div>
+    <div class="sr"><b>移動・拡大・切り出し</b><span class="v">濃さの変化だけ</span><span class="w">版組みも塗り直しも起きない。いちばん軽い</span></div>
+    <div class="sr"><b>1.15 秒</b><span class="v">0.6 秒</span><span class="w">待たせない</span></div>
+    <div class="sr"><b>ずらし 95ms</b><span class="v">55ms</span><span class="w">順序は残す</span></div>
+    <div class="sr"><b>帯のぼかし</b><span class="v">やめて不透明度 96%</span><span class="w">巻くたびの塗り直しを止める</span></div>
+    <div class="sr"><b>常に動く飾り</b><span class="v">全部止める</span><span class="w">読む邪魔になるものから消す</span></div>
+    <div class="sr"><b>will-change</b><span class="v">opacity だけ</span><span class="w">層を抱えない</span></div>
+  </div>
+  <p class="note">上の「現れ方」の見本にある切り替えボタンで、実際の見え方を比べられます。</p>
+</section>
+
+<section id="scroll">
+  <p class="eyebrow">09 — SCROLL</p>
+  <h2>スクロールまわりの作法</h2>
+
+  <h3>読み進み具合の線</h3>
+  <p>画面の最上部に 0.125rem の線を固定し、青緑から橙へのグラデーションで幅を伸ばします。
+    <code>scrollTop / (scrollHeight − clientHeight)</code> の百分率を <code>width</code> に入れるだけ。</p>
+
+  <h3>いま見ている節を光らせる</h3>
+  <p>画面の高さの <b>30% の線</b>を基準に、その線を越えた最後の節を「いま」とします。
+    節の位置は毎回引き直さず、現れ方の見回りと<b>同じ拍</b>で見ます（別々に走らせると、巻くたびに版組みが 2 回起きます）。</p>
+
+  <h3>更新したら元の場所へ戻す</h3>
+  <p>これがいちばん厄介でした。効いた形はこうです。</p>
+  <ul>
+    <li><code>history.scrollRestoration='manual'</code> にして、ブラウザ任せをやめる。</li>
+    <li>位置は <b>動かすたびに</b> <code>sessionStorage</code> へ控える（350ms の間引き付き）。
+      <code>pagehide</code> だけに頼ると、来ない画面がある。</li>
+    <li>戻すのは <b>hash が一致したときだけ</b>。URL に節の名前が残っているとブラウザがそこへ飛ばすため。</li>
+    <li>戻すときは <code>scroll-behavior</code> を一時的に <code>auto</code> にして<b>一足飛び</b>に置く。
+      なめらかに戻すと、途中で指が触れて止まり、節の切れ目に置き去りになる。</li>
+    <li>絵が入ると背が伸びるので、<b>60 / 200 / 600 / 1200 / 2000 ミリ秒</b>で置き直す。
+      ただし利用者が自分で動かしたら（wheel / touchstart / keydown / pointerdown）そこでやめる。</li>
+    <li>巻いているのが <code>html</code> か <code>body</code> かは置かれ方で変わるので、両方見て大きいほうを取る。</li>
+  </ul>
+
+  <h3>見回りの拍</h3>
+  <p><code>scroll</code> は <code>requestAnimationFrame</code> で 1 コマ 1 回に間引き、
+    さらに <b>400ms ごとの見回り</b>も回します。入れ物側が巻いていて <code>scroll</code> が飛んでこない置かれ方でも、
+    位置で判じているので必ず出ます。<b>白紙のまま止まる事故の備え</b>にもなります。</p>
+  <p>矩形は <b>先に全部読んでから</b>、そのあとで class を付けます。読みと書きを交互にすると、その回数だけ版組みが起きます。</p>
+</section>
+
+<section id="pit">
+  <p class="eyebrow">10 — PITFALLS</p>
+  <h2>落とし穴</h2>
+  <p class="lead">どれも実際に踏んで、直したものです。他のサイトでも同じ形で出ます。</p>
+
+  <div class="pit">
+    <article>
+      <h4>横を <code>overflow-x:hidden</code> で切ると、指が一瞬止まる</h4>
+      <p><code>hidden</code> は body 自身を巻き取り箱にしてしまい、横へずらす動きのたびに「どちらへ巻くか」の取り合いが起きます。</p>
+      <p class="fix"><b>直し</b><code>overflow-x:clip</code> を使う。clip は巻き取り箱を作りません。ただし <code>html</code> が <code>visible</code> のときは body に効かないので、内側の器（<code>main</code>）に掛けます。</p>
+    </article>
+    <article>
+      <h4><code>animation-timeline: view()</code> を当てにしない</h4>
+      <p>iPad の Safari は「使える」と答えるのに <code>animation-range</code> が効かず、画面から上へ抜けるまで出来上がりませんでした。表の最後の行が半分で止まって見えます。</p>
+      <p class="fix"><b>直し</b>自前の位置判定 ＋ CSS の遷移に戻す。使えるかどうかを聞いて分岐するのではなく、<b>使わない</b>と決める。</p>
+    </article>
+    <article>
+      <h4>毎コマ JS で <code>opacity</code> や <code>transform</code> を書かない</h4>
+      <p>指の動きは合成側で進むので、JS の書き込みは必ず遅れます。端末によってはがたつきます。</p>
+      <p class="fix"><b>直し</b>JS は class の付け外しだけ。動かすのは CSS の遷移に任せる。</p>
+    </article>
+    <article>
+      <h4><code>will-change</code> を付けっぱなしにしない</h4>
+      <p>60 個を超える要素に付けたままにすると、その数だけ層を抱えて<b>かえって重く</b>なります。</p>
+      <p class="fix"><b>直し</b>動き始めに付け、2 秒後に外す（<code>.mv</code> のような一時的な class で）。</p>
+    </article>
+    <article>
+      <h4>同じ重みの指定を、別の塊で二度書かない</h4>
+      <p><code>@media</code> の中に <code>.an.wipe{opacity:0}</code> と書いたところ、塊の外の <code>.an.on{opacity:1}</code> が打ち消され、表が永久に出なくなりました。</p>
+      <p class="fix"><b>直し</b>打ち消される側の値は、<b>同じ塊の中で書き直す</b>。</p>
+    </article>
+    <article>
+      <h4><code>overflow</code> のある箱の中身を、縦にずらす動きで出さない</h4>
+      <p>箱からはみ出したぶんが切り落とされ、下のほうの要素が欠けます。</p>
+      <p class="fix"><b>直し</b>中身ではなく<b>箱ごと</b>動かす。</p>
+    </article>
+    <article>
+      <h4>出る順は「集めた順」ではなく「並びの順」</h4>
+      <p>選び手の並びで番号を振ると、札が見出しより先に出るなど、ばらばらに見えます。</p>
+      <p class="fix"><b>直し</b>集めたあとに <code>compareDocumentPosition</code> で並べ替えてから振る。</p>
+    </article>
+    <article>
+      <h4>左右交互は、全体の番号の偶奇で決めない</h4>
+      <p>並びの順の番号で決めると、カードが偶数番ばかりに当たって<b>全部が同じ側</b>から入ります。</p>
+      <p class="fix"><b>直し</b>交互にしたいものだけを数える、専用のカウンタを持つ。</p>
+    </article>
+    <article>
+      <h4><code>scroll-behavior:smooth</code> と位置の復元は相性が悪い</h4>
+      <p>なめらかに戻している途中で指が触れると止まり、中途半端な場所に置き去りになります。</p>
+      <p class="fix"><b>直し</b>戻す瞬間だけ <code>auto</code> に切り替え、終わったら元に戻す。</p>
+    </article>
+    <article>
+      <h4>画像で背が伸びるので、復元は一度では足りない</h4>
+      <p>読み込み直後は紙が短く、控えた位置まで戻れません。</p>
+      <p class="fix"><b>直し</b>数百ミリ秒おきに数回やり直す。ただし利用者が自分で動かしたら即やめる。</p>
+    </article>
+    <article>
+      <h4>CSS の塊を丸ごと差し替えるときは、消える class を数える</h4>
+      <p>置き換えで <code>.btn</code> の定義ごと落としたことがあります。</p>
+      <p class="fix"><b>直し</b>HTML の <code>class="…"</code> を全部集め、<code>&lt;style&gt;</code> の中に定義があるかを突き合わせる短い処理を回す。</p>
+    </article>
+    <article>
+      <h4>検索結果の印（favicon）は 48 の倍数だけを出す</h4>
+      <p>64×64 を混ぜていたため、Google に使われていませんでした。中身だけ差し替えても、住所が同じだと古い印が出続けます。</p>
+      <p class="fix"><b>直し</b>96 と 192 だけにする。<code>/favicon.ico</code> も置く。描き直したら住所に <code>?v=2</code> を付けて取り直させる。</p>
+    </article>
+  </div>
+</section>
+
+<section id="code">
+  <p class="eyebrow">11 — SKELETON</p>
+  <h2>そのまま持ち出せる骨格</h2>
+  <p class="lead">現れ方の仕掛けは、この 2 つだけで動きます。</p>
+
+  <h4>CSS</h4>
+  <pre><i>/* 動かすのは CSS。JS は .on を付け外しするだけ */</i>
+<b>.an</b>{opacity:0;transition:opacity 1.15s cubic-bezier(.16,1,.3,1),
+                    transform 1.15s cubic-bezier(.16,1,.3,1),
+                    clip-path 1.15s cubic-bezier(.16,1,.3,1)}
+<b>.an.up</b>  {transform:translateY(2.25rem) scale(.985)}
+<b>.an.l</b>   {transform:translateX(-2.75rem)}
+<b>.an.r</b>   {transform:translateX(2.75rem)}
+<b>.an.wipe</b>{opacity:1;clip-path:inset(0 100% 0 0)}
+<b>.an.on</b>  {opacity:1;transform:none;clip-path:inset(0 0 0 0);
+           transition-delay:calc(var(--i,0) * 95ms)}
+<b>.an.mv</b>  {will-change:opacity,transform}   <i>/* 動いている 2 秒だけ */</i>
+
+<b>main</b>{overflow-x:clip}                     <i>/* hidden ではなく clip */</i>
+
+@media (prefers-reduced-motion:reduce){
+  <i>/* 消さない。性質を変える */</i>
+  .an,.an.up,.an.l,.an.r{transform:none;transition:opacity .6s ease}
+  .an.wipe{opacity:0;clip-path:none;transition:opacity .6s ease}
+  .an.on{opacity:1;transform:none;clip-path:none;
+         transition-delay:calc(var(--i,0) * 55ms)}
+}</pre>
+
+  <h4>JS</h4>
+  <pre><i>/* 1. 印を付ける（並びの順に --i、カードだけ左右交互） */</i>
+var prep=function(sec){
+  var groups=['.card','.tile','.tr','.qa','h2','.lead'];   <i>// 動かしたいもの</i>
+  var seen=[];
+  groups.forEach(function(g){
+    sec.querySelectorAll(g).forEach(function(el){ if(seen.indexOf(el)&lt;0) seen.push(el) });
+  });
+  seen.sort(function(a,b){ return (a.compareDocumentPosition(b) &amp; 4) ? -1 : 1 });
+  var cn=0;
+  seen.forEach(function(el,n){
+    var card=el.classList.contains('card');
+    var k = el.classList.contains('tr') ? 'wipe'
+          : card ? ((cn++ % 2) ? 'r' : 'l') : 'up';
+    el.classList.add('an',k);
+    el.style.setProperty('--i', Math.min(n,7));
+  });
+};
+document.querySelectorAll('[data-reveal]').forEach(prep);
+
+<i>/* 2. 位置を見て .on を付け外しする（出す 88% / 戻す 96%） */</i>
+var items=[].slice.call(document.querySelectorAll('.an')).map(function(el){return {el:el}});
+var rects=new Array(items.length);
+var sync=function(){
+  var vh=innerHeight,n,on;
+  for(n=0;n&lt;items.length;n++) rects[n]=items[n].el.getBoundingClientRect();   <i>// 先に全部読む</i>
+  for(n=0;n&lt;items.length;n++){
+    var it=items[n], r=rects[n]; on=!!it.on;
+    if(!on){ if(r.top &lt; vh*.88) on=true } else { if(r.top &gt; vh*.96) on=false }
+    if(on!==!!it.on){
+      it.on=on;
+      it.el.classList.add('mv');
+      it.el.classList.toggle('on',on);
+      clearTimeout(it.t); it.t=setTimeout(function(){it.el.classList.remove('mv')},2000);
+    }
+  }
+};
+var tick=false;
+addEventListener('scroll',function(){ if(tick)return; tick=true;
+  requestAnimationFrame(function(){tick=false;sync()}) },{passive:true});
+addEventListener('resize',sync); sync(); setInterval(sync,400);   <i>// 見回りが備え</i></pre>
+</section>
+
+<section id="meta">
+  <p class="eyebrow">12 — HEAD</p>
+  <h2>検索とメタ</h2>
+  <p class="lead">意匠ではありませんが、同じ器の一部として決めておくと後で困りません。</p>
+
+  <div class="spec">
+    <div class="sr sh"><b>項目</b><span>値</span><span>効き方</span></div>
+    <div class="sr"><b>サイト名</b><span class="v">WebSite / name</span><span class="w">検索結果の上に出る名前。<b>入口のページの指定だけ</b>が効く。短い名前にする</span></div>
+    <div class="sr"><b>題</b><span class="v">&lt;title&gt;</span><span class="w">太字の見出し。<b>末尾にサイト名を入れない</b>（別枠に出るので重なり、切れる原因になる）</span></div>
+    <div class="sr"><b>説明</b><span class="v">meta description</span><span class="w">薄い文。ただし本文から作り直されることがある</span></div>
+    <div class="sr"><b>印</b><span class="v">48 の倍数の四角</span><span class="w">96 と 192。<code>/favicon.ico</code> も置く</span></div>
+    <div class="sr"><b>正の住所</b><span class="v">link rel=canonical</span><span class="w">同じ内容が複数の住所で出るのを防ぐ</span></div>
+    <div class="sr"><b>og:site_name</b><span class="v">サイト名と同じ</span><span class="w">入口と各ページでそろえる</span></div>
+    <div class="sr"><b>og:image</b><span class="v">1200 × 630</span><span class="w">寸法も一緒に書く</span></div>
+    <div class="sr"><b>theme-color</b><span class="v">地と同じ色</span><span class="w">スマホの帯が地に溶ける</span></div>
+    <div class="sr"><b>viewport</b><span class="v">viewport-fit=cover</span><span class="w">切り欠きのある端末で端まで敷く</span></div>
+  </div>
+
+  <h4>構造化データは役割で分ける</h4>
+  <ul>
+    <li><b>WebSite</b> — 入口のページだけ。サイト名のため。</li>
+    <li><b>Article</b> — 読み物のページ。見出し・説明・日付・書き手。</li>
+    <li><b>FAQPage</b> — 質問の節をそのまま。検索結果に質問が並ぶことがある。</li>
+    <li><b>SoftwareApplication</b> — アプリの名前・分類・価格・入手先。</li>
+  </ul>
+  <p class="note">書いた日と直した日（<code>datePublished</code> / <code>dateModified</code>）は、直したときに必ず更新します。</p>
+</section>
+
+</main>
+
+<footer>
+  <div class="fin">
+    TENRYU 意匠ノート — 実物は <a href="https://kokuteki.amaterasu-vocab.com/guide">kokuteki.amaterasu-vocab.com/guide</a>。
+    この資料の色・書体・寸法・動きは、すべてその実物と同じ値で組んであります。
+  </div>
+</footer>
+
+<script>
+(function(){
+  var demo=document.getElementById('demo'), stage=document.getElementById('stage');
+  var chips=[].slice.call(stage.querySelectorAll('.an'));
+  var play=function(){
+    chips.forEach(function(c){ c.classList.remove('on'); c.classList.add('mv') });
+    /* 一度戻してから、次のコマで出す（遷移をやり直させる） */
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      chips.forEach(function(c){ c.classList.add('on') });
+    })});
+    clearTimeout(play.t);
+    play.t=setTimeout(function(){ chips.forEach(function(c){ c.classList.remove('mv') }) }, 2600);
+  };
+  document.getElementById('replay').addEventListener('click', play);
+  var red=document.getElementById('red');
+  red.addEventListener('click', function(){
+    var on=demo.classList.toggle('red');
+    red.setAttribute('aria-pressed', String(on));
+    play();
+  });
+
+  /* 画面に入ったら一度だけ流す。見えている状態で置いておき、押せばやり直せる */
+  var seen=false;
+  var look=function(){
+    if(seen)return;
+    var r=stage.getBoundingClientRect();
+    if(r.top < innerHeight*0.9 && r.bottom > 0){ seen=true; play() }
+  };
+  addEventListener('scroll', look, {passive:true});
+  look();
+  /* 見えていないまま置かれたときのために、少し待って出す */
+  setTimeout(function(){ if(!seen){ seen=true; play() } }, 1200);
+})();
+</script>
+
+</body>
+</html>

@@ -3665,3 +3665,14 @@ App Store と Google Play に登録している URL（`https://kokuteki.amateras
   外部テストへ出さないなら `codemagic.yaml` の `submit_to_testflight` を false にすればこの失敗は出なくなる。
 - **「このバージョンの新機能」の文は書いてある**（`dev/docs/appstore/ストア掲載文.md` の同名の節。4.26 → 4.77 の差、アプリの中の変化だけ）。
 - 掲載文の**プロモーションテキストが「16 課目」**のままで、いまは着陸を除いて **19 課目**（説明のほうは 19 で合っている）。審査なしで直せる。
+
+### App Store とビルドの様子（2026-09-10）
+
+- 利用者いわく **4.8 が審査待ち**。審査中の版があるあいだは、App Store Connect で次の版を作れない。
+  操縦操作の直し（v04.81）を早く出すなら、**4.8 を取り下げて 4.82 で出し直す**ほうが速い。**利用者の判断待ち。**
+- 利用者の指示は「操縦操作の修正をビルドする」。`main` は v04.82 まで push 済みで中身は入っているが、**ビルドは未着手**。
+  版の数字はビルド時に `index.html` の `APP_VER` から作られるので、次のビルドは自動で 4.82 になる。
+- **始められない理由**: `codemagic.yaml` に起動の決まりが無く（push では走らない）、画面から Start new build を押すしかない。
+  前回は Chrome の拡張（Claude in Chrome）でログイン済みの画面を操作したが、いま拡張がつながっていない。
+  API の合言葉（CM API token）は控えていないので curl でも始められず、**代行ログインはしない**決め。
+  手で始めるなら https://codemagic.io/apps → kokuteki-trainer → Start new build → branch `main` → workflow `TENRYU iOS（App Store）`。

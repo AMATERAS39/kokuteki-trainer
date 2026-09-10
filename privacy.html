@@ -2,54 +2,179 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>プライバシーポリシー - TENRYU</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1017">
+<title>プライバシーポリシー</title>
+<meta name="description" content="TENRYU（航空学生 適性検査トレーニング）のプライバシーポリシー。個人情報は収集せず、練習の記録は端末の中だけに保存します。">
+<link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/privacy">
+<link rel="icon" href="/favicon.ico" sizes="48x48 96x96">
+<link rel="icon" href="/icons/favicon-96.png?v=2" sizes="96x96">
+<link rel="icon" href="/icons/icon-192.png?v=2" sizes="192x192">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="TENRYU">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="プライバシーポリシー">
+<meta property="og:url" content="https://kokuteki.amaterasu-vocab.com/privacy">
+<meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
-  :root{color-scheme:dark light}
-  body{margin:0;padding:1.5rem 1rem 3rem;max-width:40rem;margin-inline:auto;font-family:"Zen Kaku Gothic New","Noto Sans JP",system-ui,sans-serif;line-height:1.8;background:#0b1017;color:#e6ebf2}
-  h1{font-size:1.25rem;margin:0 0 .25rem}
-  h2{font-size:1rem;margin:1.5rem 0 .25rem;color:#f2a93b}
-  p,li{font-size:.9375rem;margin:.25rem 0}
-  ul{padding-left:1.2em}
-  .meta{font-size:.8125rem;color:#9aa5b4}
-  a{color:#f2a93b}
-  @media (prefers-color-scheme:light){body{background:#f5f7fa;color:#172130}.meta{color:#5b6675}}
+/* 案内ページ（/guide）と同じ意匠。寸法はすべて相対単位 */
+:root{
+  --bg:#0b1017;--panel:#0f1620;
+  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.16);
+  --text:#e8eef5;--muted:#93a3b5;--faint:#6f8090;--soft:#a9b8c8;
+  --cyan:#5ad1e6;--amber:#ffb020;
+  --disp:"Zen Kaku Gothic New",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --wrap:52rem;
+  --pad:clamp(.875rem,3vw,1.375rem);
+  --sec:clamp(1.75rem,4vw,2.5rem);
+  --body:clamp(.9rem,1.6vw,1rem);
+  --small:clamp(.82rem,1.4vw,.9rem);
+  --tiny:clamp(.68rem,1.2vw,.75rem);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;overflow-x:clip;background:var(--bg);color:var(--text);
+  font-family:var(--disp);line-height:1.9;-webkit-font-smoothing:antialiased}
+h1,h2{margin:0;line-height:1.35;text-wrap:pretty}
+p,ul{margin:0}
+a{color:var(--cyan);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:.15em}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+.bar{position:sticky;top:0;z-index:50;backdrop-filter:blur(.875rem);
+  background:rgba(11,16,23,.82);border-bottom:1px solid var(--line)}
+.barin{max-width:var(--wrap);margin:0 auto;padding:.5rem var(--pad);
+  display:flex;align-items:center;gap:1rem}
+.brand{font-family:var(--mono);font-weight:600;letter-spacing:.18em;color:var(--text);
+  font-size:clamp(.8rem,2.2vw,.95rem);flex:none}
+.back{margin-left:auto;font-size:var(--small);color:var(--muted);padding:.3rem .5rem;border-radius:.5rem}
+.back:hover{color:var(--text);background:rgba(90,209,230,.1);text-decoration:none}
+
+main{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad) clamp(2.5rem,6vw,4rem)}
+.head{padding:clamp(2rem,5vw,3rem) 0 var(--sec)}
+.eyebrow{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan)}
+h1{font-size:clamp(1.5rem,4vw,2.25rem);font-weight:900;letter-spacing:-.01em;margin-top:.625rem}
+.meta{margin-top:.875rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint);letter-spacing:.06em}
+.intro{margin-top:1.25rem;color:var(--muted);font-size:var(--body);max-width:34rem}
+
+section{padding:var(--sec) 0;border-top:1px solid var(--line)}
+h2{font-size:var(--body);font-weight:700}
+h2 .n{font-family:var(--mono);font-size:var(--tiny);color:var(--amber);letter-spacing:.14em;margin-right:.625rem}
+section p{margin-top:.75rem;color:var(--soft);font-size:var(--small)}
+section ul{margin-top:.75rem;padding-left:1.15rem;color:var(--soft);font-size:var(--small)}
+li{margin-top:.25rem}
+li::marker{color:var(--faint)}
+.who{margin-top:.875rem;border:1px solid var(--line);border-radius:.875rem;overflow:hidden}
+.wr{display:grid;grid-template-columns:minmax(7rem,1fr) 2fr;gap:.5rem 1rem;
+  padding:.7rem clamp(.7rem,2vw,1rem);font-size:var(--small);align-items:baseline}
+.wr+.wr{border-top:1px solid var(--line)}
+.wr b{font-weight:700}
+.wr span{color:var(--muted)}
+@media (max-width:30rem){.wr{grid-template-columns:1fr;gap:.15rem}}
+
+footer{border-top:1px solid var(--line);background:var(--panel)}
+.fin{max-width:var(--wrap);margin:0 auto;padding:clamp(1.25rem,4vw,2rem) var(--pad)}
+footer p{color:var(--faint);font-size:var(--tiny);line-height:1.85}
+footer .links{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem;font-size:var(--small)}
+footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint)}
+@media (prefers-reduced-motion:reduce){.bar{backdrop-filter:none;background:rgba(11,16,23,.96)}}
 </style>
 </head>
 <body>
-<h1>プライバシーポリシー</h1>
-<p class="meta">アプリ名: TENRYU　制定日: 2026 年 9 月 2 日</p>
 
-<h2>1. 収集する情報</h2>
-<p>本アプリは、氏名・メールアドレス・位置情報などの個人情報を収集しません。利用者を識別する情報を外部のサーバーへ送信することもありません。</p>
+<header class="bar">
+  <div class="barin">
+    <a class="brand" href="/guide">TENRYU</a>
+    <a class="back" href="/guide">案内ページへ戻る</a>
+  </div>
+</header>
 
-<h2>2. 端末内に保存する情報</h2>
-<ul>
-  <li>設定（出題数、制限時間、表記、背景など）</li>
-  <li>練習の記録（出題数、正解数、解答時間）</li>
-  <li>説明画面の表示有無、シミュレーターの視点、全機能版の有効化の状態</li>
-</ul>
-<p>これらは端末のブラウザ領域（localStorage）にのみ保存され、外部へ送信されません。アプリのデータを削除すると消えます。</p>
+<main>
 
-<h2>3. 通信について</h2>
-<p>本アプリは Web 技術で作られており、起動時や更新時に次の事業者のサーバーと通信します。その際、通信に必要な情報（IP アドレス、端末や閲覧ソフトの種類など）が各事業者に送られることがあります。</p>
-<ul>
-  <li>アプリの配信: Cloudflare（配信サーバー）</li>
-  <li>文字の書体: Google Fonts</li>
-  <li>3D 表示の部品: jsDelivr（three.js の配信）</li>
-</ul>
-<p>各事業者での取り扱いは、それぞれのプライバシーポリシーに従います。一度読み込んだ内容は端末に保存され、以後はオフラインでも動作します。</p>
+  <div class="head">
+    <p class="eyebrow">PRIVACY POLICY</p>
+    <h1>プライバシーポリシー</h1>
+    <p class="meta">TENRYU（航空学生 適性検査トレーニング）　制定 2026 年 9 月 2 日　改定 2026 年 9 月 10 日</p>
+    <p class="intro">個人情報は集めません。練習の記録は端末の中だけに保存し、外へ送りません。以下はその詳細です。</p>
+  </div>
 
-<h2>4. 広告・アクセス解析</h2>
-<p>広告は表示しません。アクセス解析ツールも使用していません。</p>
+  <section>
+    <h2><span class="n">01</span>収集する情報</h2>
+    <p>本アプリと本サイトは、氏名、メールアドレス、位置情報などの個人情報を収集しません。
+      利用者を識別する情報を外部のサーバーへ送信することもありません。</p>
+  </section>
 
-<h2>5. 子どもの利用</h2>
-<p>年齢を問わず利用できます。子どもからも個人情報を収集しません。</p>
+  <section>
+    <h2><span class="n">02</span>端末の中に保存する情報</h2>
+    <ul>
+      <li>設定（出題数、制限時間、表記、背景など）</li>
+      <li>練習の記録（出題数、正解数、解答時間）</li>
+      <li>説明画面の表示の有無、シミュレーターの視点、全機能版の有効化の状態</li>
+    </ul>
+    <p>これらは端末のブラウザ領域（localStorage）にだけ保存され、外部へ送信されません。
+      アプリのデータを削除すると消えます。</p>
+  </section>
 
-<h2>6. 変更</h2>
-<p>本ポリシーを変更する場合は、このページで公開します。</p>
+  <section>
+    <h2><span class="n">03</span>通信について</h2>
+    <p>本アプリは Web の技術で作られており、起動時と更新時に次の事業者のサーバーと通信します。
+      その際、通信に必要な情報（IP アドレス、端末や閲覧ソフトの種類など）が各事業者に送られることがあります。</p>
+    <div class="who">
+      <div class="wr"><b>Cloudflare</b><span>本アプリと本サイトの配信</span></div>
+      <div class="wr"><b>Google Fonts</b><span>文字の書体の配信</span></div>
+    </div>
+    <p>各事業者での取り扱いは、それぞれのプライバシーポリシーに従います。
+      3D 表示に使う部品と機体のデータは本アプリの中に持っているため、外部の配信サービスとは通信しません。
+      一度読み込んだ内容は端末に保存され、以後はオフラインでも動作します。</p>
+  </section>
 
-<h2>7. お問い合わせ</h2>
-<p>メール: <a href="mailto:voyages_worsted_0a@icloud.com">voyages_worsted_0a@icloud.com</a></p>
+  <section>
+    <h2><span class="n">04</span>案内ページに出る平均回答時間</h2>
+    <p>案内ページの札に出る平均回答時間は、作者が自分の端末で測った記録です。
+      利用者の記録を集めたものではありません。個々の端末から記録が送られることはありません。</p>
+  </section>
+
+  <section>
+    <h2><span class="n">05</span>広告とアクセス解析</h2>
+    <p>広告は表示しません。アクセス解析の道具も使っていません。</p>
+  </section>
+
+  <section>
+    <h2><span class="n">06</span>子どもの利用</h2>
+    <p>年齢を問わず利用できます。子どもからも個人情報を収集しません。</p>
+  </section>
+
+  <section>
+    <h2><span class="n">07</span>変更</h2>
+    <p>本ポリシーを変更する場合は、このページで公開します。</p>
+  </section>
+
+  <section>
+    <h2><span class="n">08</span>お問い合わせ</h2>
+    <p>メール: <a href="mailto:voyages_worsted_0a@icloud.com">voyages_worsted_0a@icloud.com</a><br>
+      案内ページの最下部にある問い合わせ欄からも送れます。</p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="fin">
+    <p>このサイトと TENRYU は個人が作ったもので、防衛省や航空自衛隊の公式ではありません。
+      機体の 3D モデルは「航空自衛隊アクロバットチーム T-4ブルーインパルス」（3Dえいじくん 様）を購入して使っています。</p>
+    <div class="links">
+      <a href="/guide">案内ページ</a>
+      <a href="/">体験版</a>
+      <a href="https://apps.apple.com/app/id6808281696">App Store</a>
+    </div>
+    <div class="sig">TENRYU · 2026</div>
+  </div>
+</footer>
+
 </body>
 </html>

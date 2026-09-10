@@ -3645,3 +3645,23 @@ v04.75 で絵を描き直したのに、検索結果の印が古いままだっ�
 
 正解が奥になる割合は変えていない（12,000 問中 2,441 問。直す前は 2,381 問）。
 
+
+## v04.82 プライバシーポリシーを案内サイトの一部にする
+
+利用者の指示: 「プライバシーポリシーをサイト内に埋め込んで、サイトからも行けるようにして。」
+
+`privacy.html` は素の HTML に最低限の CSS を当てただけのページで、案内サイト（`/guide`）とは別物に見えていた。
+App Store と Google Play に登録している URL（`https://kokuteki.amaterasu-vocab.com/privacy`）なので、道は変えずに中身を組み直した。
+
+**意匠**: `guide.html` と同じ色・書体・寸法の変数を持たせ、上に貼りつく帯、`--wrap` 幅の `main`、同じ体裁の脚を置いた。
+節には `01`〜`08` の番号を振った（順に読むものなので、番号が内容を表す）。
+寸法はすべて `rem` と `clamp()`。書体は案内サイトと同じ Zen Kaku Gothic New と IBM Plex Mono。
+
+**行き方**: 案内サイトの上の帯（`.nav`）の末尾に「プライバシー」を足した。脚の link はそのまま。
+上の帯の見張り（`spy`）は `document.querySelector(href)` を呼ぶので、**`#` で始まらない印を先に外す**（`/privacy` を渡すと選択子として不正で落ちる）。
+
+**記載を実際に合わせた**:
+- 通信先から jsDelivr を消した。`index.html` の importmap は `./vendor/three/three.module.js`（同梱）を指していて、jsDelivr は開発用の `dev/render/render.html` と `mobile/copy-web.js` の見張りにしか出てこない。実際に外へ出るのは Cloudflare（配信）と Google Fonts（書体）だけ。
+- 案内ページの札に出る平均回答時間について 1 節を足した。あれは作者の端末の記録で、利用者からは集めていない（`/api/avg` に送れるのは合言葉を持つ端末だけ）。
+
+**まだやっていない**: アプリの中（メニュー）からプライバシーポリシーへ行く口。`privacy.html` は `sw.js` の `ASSETS` と `mobile/copy-web.js` の `FILES` に入っていて包みには同梱されているが、画面のどこからも呼んでいない。

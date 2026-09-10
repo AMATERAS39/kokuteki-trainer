@@ -372,6 +372,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <a href="#price">価格</a>
       <a href="#start">始め方</a>
       <a href="#faq">質問</a>
+      <a href="/privacy">プライバシー</a>
     </nav>
   </div>
 </header>
@@ -759,7 +760,9 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 
   /* 上の帯: いま見ている節を光らせる。
      節の位置は毎回引き直さず、上の見回り（sync）と同じ拍で見る（巻くたびに版組みを起こさないため） */
-  var links=[].slice.call(document.querySelectorAll('.nav a')).map(function(a){
+  var links=[].slice.call(document.querySelectorAll('.nav a')).filter(function(a){
+    return (a.getAttribute('href')||'').charAt(0)==='#';   /* ほかのページへ行く印は見張らない */
+  }).map(function(a){
     return { a:a, sec:document.querySelector(a.getAttribute('href')) };
   }).filter(function(l){ return l.sec });
   var cur=null;

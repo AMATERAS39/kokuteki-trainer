@@ -185,11 +185,20 @@
        （右だけ／右 + 右方向舵／右 + 左方向舵）を必ず混ぜる。Hard は 2 つ、Normal は 1 つ。
        操縦桿の向きだけで答えが決まらないようにする。方向舵だけの正解のときは、逆の方向舵を必ず混ぜる */
     const stickOf = a => (OP_BY_ID[a[0]].group === 'stick' ? a[0] : null);
-    const same = stickOf(ops) ? cands.filter(c => stickOf(c) === stickOf(ops) && key(c) !== key(ops))
-                              : cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops));
+    /* 「操縦桿 奥」を含む選択肢は、1 つの出題に 1 つだけにする（利用者の指摘 2026-09-10）。
+       機首下げの状態から操縦桿を奥に倒すと、地面が画面を埋めてしまい、そのあと何をしても変化が読めない。
+       「奥だけ」と「奥＋方向舵」が並ぶと、絵からは見分けられず、答えが決まらなくなる。
+       正解が奥のときは誤答に奥を出さず、正解が奥でないときは誤答の奥を 1 つまでにする */
+    const isFwd = c => c[0] === 'stick-forward' || c[1] === 'stick-forward';
+    let fwdRoom = isFwd(ops) ? 0 : 1;
+    const same = (stickOf(ops) ? cands.filter(c => stickOf(c) === stickOf(ops) && key(c) !== key(ops))
+                               : cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops)))
+                 .filter(c => !isFwd(c) || fwdRoom > 0);
     const nSame = lv === 'hard' ? Math.min(2, same.length) : Math.min(1, same.length);
     const disSame = pickDistractors(same, () => true, nSame);
-    const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c)), 3 - disSame.length);
+    disSame.forEach(c => { if (isFwd(c)) fwdRoom--; });
+    const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c))
+                                                && (!isFwd(c) || fwdRoom-- > 0), 3 - disSame.length);
     const dis = disSame.concat(disRest);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
     return { type: 'control', ops, frames, init, single, simul, opts, level: lv, hud: lv !== 'hard' };

@@ -36,7 +36,6 @@ const LAND_FAR = 3600;                           // 着陸の最終進入を始�
 const LAND_DW_X = 1400, LAND_DW_Y = 1600;
 const TAXI_V = 12, TAXI_TURN = 24;               // 地上の速さ（m/s）と曲がる速さ（度/秒）
 const TK_GAP = 7;                                // 2 機ずつの離陸の間隔（秒）
-const DIA_GAP = 0.7;                             // ダイヤモンド・テイクオフの、機体ごとのわずかな時間差（秒）
 const TK_ANG = 9;                                // 浮いたあとの上昇角（度）
 const TK_UP = 70;                                // この高さまで上がったら編隊へ寄せる（m）
 
@@ -78,7 +77,8 @@ export const SMOKE_COLORS = {
   rainbow:{ ja: 'カラフル', c: ['#ffffff', '#ff7fb6', '#6ee7a0', '#ffd84d', '#6ec1ff', '#c79bff'] }
 };
 export const SMOKE_LIFE = 29;                    // 煙が消えるまで（秒）。宙返り 2 周ぶん（25°/s で 1 周 14.4 秒）
-const SMOKE_MAX = 1400;                          // 1 機あたりの粒の数（0.04 秒ごとに 1 つ。濃い煙のときは 3 つ）
+const SMOKE_MAX = 4200;                          // 1 機あたりの粒の数（濃い煙のときは 1 か所に 3 つ）。
+                                                 // v04.83: 粒の間を 1/2.5 にしたぶん増やした（利用者の指示 第 3 便 8）
 const SMOKE_DT = 0.04;
 /* 編隊に入るとき・抜けるときの位置（先頭機から見て後ろの遠く）。ここから所定の位置へ 4 秒かけて寄る */
 const ENTRY = [[-170, -620, 40], [170, -620, 40], [-250, -800, -30], [250, -800, -30], [0, -960, 60]];
@@ -563,12 +563,17 @@ export function mount(container, opt = {}) {
      コマ落ちのときは粒の間が開いて点々に見える。機ごと（key: 0 = 1 番機、1〜 = 編隊機）に前の粒の位置を覚え、
      間が SMOKE_STEP（ふつうの速さの 0.04 秒ぶん = 2.4 m）を超えたら、そのあいだに粒を足して線にする。
      出し始め（前の粒から 0.6 秒以上・200 m 以上）はつながない（切っていた間を埋めてしまうため） */
-  const SMOKE_STEP = SPEED * SMOKE_DT;
+  /* 粒どうしの間。ふつうの速さの 0.04 秒ぶん（2.4 m）では点々に見えたので、1/2.5（0.96 m）にする。
+     太さ（下）と合わせて、どこから見ても線に見えるようにする（利用者の指示 第 3 便 8） */
+  const SMOKE_STEP = SPEED * SMOKE_DT / 2.5;
   const lastEmit = [];                              // key → { x, y, z, t }
   const gapMax = [];                                // key → 前の粒との最大の間（m。確かめ用）
-  function emit(pos, colorHex, vel, life, key) {
+  function emit(pos, colorHex, vel, life, key, size) {
     smokeCol.set(smokeBoost ? '#ffffff' : colorHex);   // ローパスの煙は白
-    const n = smokeBoost ? 3 : 1, j = smokeBoost ? 2.5 : 0, lf = life || lifeNow, sz = smokeBoost ? 2.4 : 1;
+    /* sz は粒 1 つの太さの倍率。ローパス（smokeBoost）は 2.4 のまま。
+       ほかは 1 → 3 にする（利用者の指示 第 3 便 7）。size を渡すとそれを使う（離陸待機中の点検の煙） */
+    const n = smokeBoost ? 3 : 1, j = smokeBoost ? 2.5 : 0, lf = life || lifeNow;
+    const sz = smokeBoost ? 2.4 : (size || 3);
     const put = (x, y, z, birth) => {
       for (let k = 0; k < n; k++) {
         const i = sHead % SMOKE_N; sHead++;
@@ -597,10 +602,12 @@ export function mount(container, opt = {}) {
   const chkV = new THREE.Vector3(), chkP = new THREE.Vector3(), gfw = new THREE.Vector3();
   const cfw = new THREE.Vector3(), crt = new THREE.Vector3();   // 探針でカメラの向きを読むための入れ物
   function checkSmoke(pos, q, colorHex, dt) {
-    if (Math.random() > Math.min(1, dt * 30)) return;      // 1 秒に 30 粒ほど
+    /* 点々に見えないよう、粒を細かく多く出す（利用者の指示 第 3 便 8・9）。1 秒に 90 粒ほど */
+    if (Math.random() > Math.min(1, dt * 90)) return;
     chkV.set((Math.random() - 0.5) * 3, -(16 + Math.random() * 8), 1.5 + Math.random() * 2).applyQuaternion(q);
     chkP.set(0, -6.9, -0.3).applyQuaternion(q).add(pos);
-    emit(chkP, colorHex, chkV, 2.4);
+    /* 離陸待機中の煙は、ローパスと同じくらいの太さにする（利用者の指示 第 3 便 9） */
+    emit(chkP, colorHex, chkV, 2.4, undefined, 2.4);
   }
   /* 誰が煙を出すか。表の隊形ではなく、**そのときの位置**で決める。
      自分の真後ろ（左右がそろい、高さもそろい、進む向きの後ろ）に他機がいる機体は出さない
@@ -621,6 +628,13 @@ export function mount(container, opt = {}) {
     smList.length = 0; smList.push(smSlot(0, plane.position, att));
     mates.forEach((h, i) => { if (h.userData.shown) smList.push(smSlot(i + 1, h.position, h.quaternion)); });
     const list = smList;
+    /* 編隊で飛んでいるあいだは、「真後ろに他機」の位置の決まりを使わない（利用者の指示 第 2 便 5・10）。
+       ダイヤモンドでは 4 番機が 1 番機の真後ろに入るため、この決まりで煙が途切れ途切れになっていた。
+       実際の展示飛行でも、真後ろの機は煙を出したまま飛ぶ。
+       自分で操縦しているとき（編隊を組んでいない）はこれまでどおり */
+    const tkJoining = mates.some(h => h.userData.tkJoin);   // 離陸から隊形への寄せの途中
+    const formFly = smokeAll || tkOn || tkJoining || gmode === 'stand'
+                    || (((FORMATIONS[formation] ? FORMATIONS[formation].n : 1) > 1) && matesReady());
     for (const a of list) {
       smQ.copy(a.q).invert();
       let behind = false;
@@ -633,18 +647,25 @@ export function mount(container, opt = {}) {
          後ろにいる状態が 1.0 秒続いてから切り、後ろにいない状態が 0.4 秒続いてから戻す（遅れ smBehindT） */
       const k = a.k;
       smBehindT[k] = behind ? Math.min(2, (smBehindT[k] || 0) + smDt) : Math.max(-2, Math.min(0, (smBehindT[k] || 0)) - smDt);
-      if (smBehindT[k] >= 1.0) { smokeOnArr[k] = false; smWhyArr[k] = 'behind'; }
+      if (!formFly && smBehindT[k] >= 1.0) { smokeOnArr[k] = false; smWhyArr[k] = 'behind'; }
     }
     /* 1 番機（操縦している機体）は、上の位置の判定だけで決める。
        ほかの機体は、隊形ができあがるまでは出さない。できあがったその瞬間に、条件を満たすものが一斉に出す。
        「できあがった」は、道引きが終わっているか、全機が 1 番機の近く（200 m 以内）にいるか。
        ワイド・トゥ・デルタ・ループのように間隔を毎コマ変える課目では、道を引き直し続けるので
        道引きの進み具合だけで見ると、ずっと未完成の扱いになってスモークが止まってしまう */
-    const ready = smokeAll || matesReady() || mates.every(h => !h.userData.shown || h.userData.cur.length() < 200);
+    /* 整列中（stand）と離陸中（tkOn）は、並びそのものが隊形なので出来上がっていると見る。
+       これがないと、ダイヤモンド・テイクオフのあいだ従機が一度も煙を出さない
+       （実測: 離陸から上昇中ずっと notready）。利用者の指示 第 1 便 6・第 2 便 5・10 */
+    const ready = smokeAll || tkOn || tkJoining || gmode === 'stand' || matesReady()
+                  || mates.every(h => !h.userData.shown || h.userData.cur.length() < 200);
     for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) { smokeOnArr[k] = false; smWhyArr[k] = ready ? 'hidden' : 'notready'; }
     /* 編隊に入っていない機（合流の途中 k < 0.9）は出さない。入った瞬間から出せるようになる（出すかどうかは上の位置の決まり）。
        課目のあいだ全機で出すもの（smokeAll）は除く */
-    if (!smokeAll) for (let k = 1; k < n; k++) { const u = mates[k - 1].userData; if ((u.k === undefined ? 1 : u.k) < 0.9) { smokeOnArr[k] = false; smWhyArr[k] = 'join'; } }
+    if (!smokeAll) for (let k = 1; k < n; k++) { const u = mates[k - 1].userData;
+      /* 離陸からの寄せ（tkJoin）は除く。すでに隊形の形のまま上がっているので、
+         ここで切るとダイヤモンド・テイクオフの直後に煙が途切れる（実測） */
+      if (!u.tkJoin && (u.k === undefined ? 1 : u.k) < 0.9) { smokeOnArr[k] = false; smWhyArr[k] = 'join'; } }
     /* 隊形に席のない機（例: チェンジオーバー・ターンのトレイルに入らない 6 番機）は出さない。smokeAll でも出さない */
     { const fo = FORMATIONS[formation] ? FORMATIONS[formation].offs : null; if (fo) for (let k = 1; k < n; k++) if (!fo[k - 1]) { smokeOnArr[k] = false; smWhyArr[k] = 'slot'; } }
     /* レター・エイト: 合流するまで先頭機は出し続ける（追いつく 1 機が後ろに入ると「後ろに機体がいる」規則で
@@ -747,30 +768,34 @@ export function mount(container, opt = {}) {
      先頭が脚をしまっても 5・6 番機は滑走が済むまで出している。ライトは自分の滑走・上昇のあいだだけ同じ扱い */
   const mateOnGround = u => !!(u.ground || u.parked || u.gp || (u.queue !== undefined && u.queue >= 0) || (u.tk && !u.tk.done));
   function refreshMateGear() {
-    const gShow = gearOn || treeMode, lShow = lightsOn || (treeMode && treeLit);
+    /* クリスマスツリー・ローパスでは、タイヤとライトをスモークと同じ瞬間に入り切りする（利用者の指示 第 3 便 5）。
+       これまでは 脚が課目の始めから出て、ライトは正面を向いてから点いていて、時刻が別々だった。
+       毎コマ呼ばれるこの関数で決めるので、1 番機ぶんもここで決める */
+    const treeSm = k => treeMode && smokeOnArr[k] !== false;
+    if (gearSets[0]) gearSets[0].visible = gearOn || treeSm(0);
+    if (lightSets[0]) lightSets[0].visible = lightsOn || treeSm(0);
     mates.forEach((h, i) => {
       const g = gearSets[i + 1], L = lightSets[i + 1]; if (!g) return;
       const u = h.userData;
-      const gv2 = gShow || mateOnGround(u);
+      const gv2 = gearOn || treeSm(i + 1) || mateOnGround(u);
       if (u.gearVis !== undefined && u.gearVis !== gv2 && seat === i + 1) gearSound(gv2);   // その機に乗っているときは、その機の脚の音
       u.gearVis = gv2;
       g.visible = gv2;
       /* ライト: 着陸のあいだは自分の進入で点ける（接地点の手前 1.8 km）。それ以外は全体の指示に従う（地上では消す） */
       if (landRun && !u.ground && !u.parked && h.position.z > 6 && (LAND_TD_Y - h.position.y) < 1800 && (LAND_TD_Y - h.position.y) > -50) u.lampOn = true;
-      if (L) L.visible = (lightsOn && !landRun && !mateOnGround(u)) || (treeMode && treeLit) || !!(u.tk && !u.tk.done) || !!u.lampOn;
+      if (L) L.visible = (lightsOn && !landRun && !mateOnGround(u)) || treeSm(i + 1) || !!(u.tk && !u.tk.done) || !!u.lampOn;
     });
   }
   /* 脚とライトは別々に出し入れできる。昼以外はライトを自動で点けておく（手で消せる）。
      ローパスのあいだは両方出し、終わったら手で決めていた状態に戻す */
-  let gearOn = false, lightsOn = false, treeMode = false, treeLit = false;   // ライトは標準でオフ（離着陸・ローパスだけ）   // treeLit: ローパスのライトを点けたか（正面を向いてから）
+  let gearOn = false, lightsOn = false, treeMode = false;   // ライトは標準でオフ（離着陸・ローパスだけ）
   let gearPrev = null, gearSndN = 0;
   let landCfg = false;                     // 着陸体制（タイヤ・ライトを出した）。このあいだはスモークを入れない       // タイヤの出し入れの音を鳴らすための、前の状態と鳴らした回数（確かめ用）
   function applyGear() {
     const gShow = gearOn || treeMode;
     if (gearPrev !== null && gShow !== gearPrev && seat === 0) gearSound(gShow);   // 出し入れが切り替わったときだけ鳴らす（1 番機に乗っているとき）
     gearPrev = gShow;
-    if (gearSets[0]) gearSets[0].visible = gShow;
-    if (lightSets[0]) lightSets[0].visible = lightsOn || (treeMode && treeLit);   // ローパスのライトは、正面を向いてから点ける
+    /* 1 番機の脚とライトの出し入れは refreshMateGear が毎コマ決める（ローパスではスモークと同じ瞬間にするため） */
     refreshMateGear();
     shimmerSets.forEach(S => { S.visible = treeMode && curView === 'ground'; });   // 蜃気楼は地上から見たときだけ
   }
@@ -784,7 +809,6 @@ export function mount(container, opt = {}) {
   }
   function setTreeMode(on) {
     treeMode = !!on;
-    if (!treeMode) treeLit = false;
     smokeBoost = treeMode; spdWant = treeMode ? 0.6 : 1;
     applyGear();
   }
@@ -853,6 +877,14 @@ export function mount(container, opt = {}) {
   let slowAim = 0;
   const SWEEP_T = 1.8;                     // 見る先が大きく変わったときに、均一に振り向く時間（秒）
   let sweep = null;                        // 振り向きの途中 { vy, vp, t }
+  /* 瞬間移動を隠す（利用者の指示 第 3 便 6）。機体が消えたり離れた場所に現れたりすると、
+     見る先（機体の平均）が 1 コマで飛び、そこで首が振られて「いま移した」と分かってしまう。
+     飛んだぶんを控えておき、見る先に足し戻してから、少しずつ 0 へ戻す。
+     こうすると、消えた瞬間の首の動きが 0 になり、そのあと気付かないうちに新しい先へ向く */
+  const AIM_JUMP = 60;                     // 1 コマでこれ以上飛んだら「移した」と見る（m。ふつうの動きは 1 コマ 5 m ほど）
+  const AIM_EASE = 2.5;                    // 控えた飛びを返しきるまで（秒）
+  const aimPrev = new THREE.Vector3(), aimOff = new THREE.Vector3(), aimTmp = new THREE.Vector3();
+  let aimHas = false;
   let follow = false;                                              // 機体を目で追うか（切ってあれば向けた方向のまま）
   const gRay = new THREE.Raycaster(), down = new THREE.Vector3(0, 0, -1);
   function gAim() {   // いまの立ち位置から機体の方へ向ける
@@ -1148,9 +1180,13 @@ export function mount(container, opt = {}) {
   const wrap180 = a => ((a + 180) % 360 + 360) % 360 - 180;
   const lerp = (a, b, t) => a + (b - a) * clamp(t, 0, 1);
   /* 目標の点へ向く（方位のずれ → バンク、高さのずれ → ピッチ） */
+  /* 舵取りで倒せるバンクの上限（度）。ふつうは 52。
+     旋回半径は速さの 2 乗で伸びるので、速い課目では上限を上げないと曲がりきれない
+     （実測: 60 m/s・52 度で半径 287 m、81 m/s なら 525 m）。課目の始めに 52 へ戻す */
+  let bankLim = 52;
   function steerTo(tx, ty, tz) {
     const wantH = ((Math.atan2(tx - st.x, ty - st.y) / D) % 360 + 360) % 360;
-    const wantB = clamp(wrap180(wantH - st.h) * 1.4, -52, 52);
+    const wantB = clamp(wrap180(wantH - st.h) * 1.4, -bankLim, bankLim);
     autoIn.x = clamp((wantB - st.b) / 22, -1, 1);
     /* 高さの合わせ方。差だけで機首の角度を決めると、行き過ぎて上下に揺れる（実測: 上昇中に
        機首が 29 度 → -18 度 → 24 度 と振れ、急上昇と急降下を繰り返して見えた）。
@@ -1186,9 +1222,11 @@ export function mount(container, opt = {}) {
   const DTAKE_R = 330;                     // ダイヤモンド・テイクオフのあと、原点のまわりを回る輪の半径（m）。v04.24: 520 → 330（近くで見せる）
   let dtT = -1;                            // その一周の経過（秒）。-1 はまだ上がっている途中
   let tkWp = 0, tkT = 0, tkT2 = 0;         // タック・クロスの通過点の番号、背面へ回す経過、外側へ戻す経過（秒）
-  let oproX = false, oproUp = false, oproZ = -1;   // オポジット: 交差したか、機首を上げ終えたか、進入の高さ
+  let oproX = false, oproUp = false, oproZ = -1, oproBack = false;   // オポジット: 交差したか、機首を上げ終えたか、進入の高さ、視線を 1 番機に戻したか
   let rollBoost = 1;                       // 横転の速さの倍率（オポジットの連続ロールで上げる）
-  const OPRO_ROLL = 2.2;                   // オポジットの連続ロールの速さ（ふつうの 2.2 倍 = 132 度/秒）
+  const OPRO_ROLL = 3.2;                   // オポジットの連続ロールの速さ（ふつうの 3.2 倍 = 192 度/秒。利用者の指示 第 2 便 8）
+  const OPRO_SPD = 1.8;                    // 進入と離脱の速さ（利用者の指示 第 2 便 6。1.4 → 1.8）
+  const OPRO_DZ = 9;                       // 交差での上下の離れ（m）。横は鏡なので必ず 0 で交わり、この値がそのまま最接近距離になる
   let noTurn = false;                      // 連続ロールのあいだ、傾きで向きを変えない
   let smokeNone = false;                   // 課目の終わりに、全機いっせいにスモークを切る
   function orbitEye(z) {
@@ -1383,7 +1421,8 @@ export function mount(container, opt = {}) {
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
     e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
-    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; oproX = false; oproUp = false; oproZ = -1; noTurn = false; smokeNone = false; rollBoost = 1;
+    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; oproX = false; oproUp = false; oproZ = -1; oproBack = false; noTurn = false; smokeNone = false; rollBoost = 1;
+    bankLim = 52;                            // 舵取りのバンクの上限は、課目ごとに決め直す
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
     GATE.z = Math.max(ALT_MIN, (m.alt || SHOW.ALT_IN) * ALT_K);   // 地上から見やすいように少し低くする（低い課目はそのまま）
@@ -1851,11 +1890,7 @@ export function mount(container, opt = {}) {
       case 'tree': {                             // クリスマスツリー・ローパス: 減速・脚出し・ライト・濃い煙で頭上を低く抜ける
         if (!treeMode) setTreeMode(true);
         const e6 = eyeDir();
-        /* ライトは、観覧位置の正面を向いてから点ける（回り込んでいる途中で点けない） */
-        if (!treeLit) {
-          const bear6 = ((Math.atan2(e6.ex - st.x, e6.ey - st.y) / D) % 360 + 360) % 360;
-          if (Math.abs(wrap180(bear6 - st.h)) < 30) { treeLit = true; applyGear(); }
-        }
+        /* タイヤとライトはスモークと同じ瞬間に入り切りする（refreshMateGear が毎コマ決める。利用者の指示 第 3 便 5） */
         steerTo(e6.ex - e6.dx * 700, e6.ey - e6.dy * 700, m.alt || 110);
         holdBank(clamp(st.b + autoIn.x * 22, -12, 12));                   // 隊形を保つため、傾きは小さく
         const past6 = (st.x - e6.ex) * e6.dx + (st.y - e6.ey) * e6.dy;
@@ -1920,15 +1955,18 @@ export function mount(container, opt = {}) {
            交差の瞬間から機首上げ 30 度と連続ロール。そのまま東・西の無限遠へ */
         beginMirror(m);
         const east = showLocal(st.x, st.y).side;               // 正面から見て右の距離（正が右）
-        if (east < 60) oproX = true;
+        /* 交差点そのもので演技を始める。以前は 60 m 手前で立てていたため、
+           見ている側には「交差点が正面からずれている」と見えた（利用者の指示 第 2 便 7） */
+        if (east < 0) oproX = true;
         if (!oproX) {                                          // 交差まで: 線に沿って西向きに高速で、水平を保ったまま
           if (oproZ < 0) oproZ = st.z;
-          spdWant = 1.4;
+          spdWant = OPRO_SPD;
           holdBank(0);                                          // 進入の線には乗せてあるので、舵で向きを直さない（水平のまま）
           holdPitch(clamp((oproZ - st.z) * 0.1, -3, 3));       // 高さもそのまま
           autoIn.r = 0;
         } else {                                               // 交差の瞬間から: 機首上げ 30 度と、高速の連続ロール
           noTurn = true;                                       // 回しているあいだ、傾きで向きを変えない（進路が流れない）
+          spdWant = OPRO_SPD;                                  // 抜けるまで速さを落とさない
           rollBoost = OPRO_ROLL;                               // 交差した直後から速く回す
           /* まず機首を 30 度へ（いっぱいに引いて約 1 秒）。回しながら引くと、舵の向きが回って
              機首が上がらない（実測: 機首が ±8 度で振れるだけ）。上がったら舵を中立にして速く回す */
@@ -1936,7 +1974,21 @@ export function mount(container, opt = {}) {
           else { oproUp = true; autoIn.x = 1; autoIn.y = 0; }
           autoIn.r = 0;
         }
-        if (east < -1500 || manT > 60) { spdWant = 1; rollBoost = 1; nextManeuver(); }   // 左の無限遠で終わり
+        /* 地上の視線（利用者の指示 第 2 便 9）。
+           進入のあいだは 1 番機を追う → 交差の直前（手前 400 m）から交差点で構える →
+           交差して、機体が画面の外へ出たら、進入で追っていた機に戻る。
+           距離ではなく inCamView で判じるのは、逐語が「画面外に機体が入ったら」だから。
+           figAim を外すときの slowAim は、視線が飛ぶのを防ぐ（タック・クロスと同じ） */
+        { const cx = showPt(showLocal(st.x, st.y).along, 0);
+          const near = !oproX && east < 400;
+          /* 一度画面の外に出たら、そこからは 1 番機を追い続ける（留め金）。
+             留め金がないと、機体が画面に戻るたびに交差点へ引き返した（実測） */
+          if (oproX && !inCamView(plane.position)) oproBack = true;
+          if ((near || oproX) && !oproBack) {
+            if (!figAim) figAim = new THREE.Vector3(cx.x, cx.y, st.z); else figAim.set(cx.x, cx.y, st.z);
+            aimLeader = false;
+          } else { if (figAim) { figAim = null; slowAim = 6; } aimLeader = true; } }
+        if (east < -1500 || manT > 60) { spdWant = 1; rollBoost = 1; figAim = null; aimLeader = false; nextManeuver(); }   // 左の無限遠で終わり
         break;
       }
       case 'tuck': {
@@ -1946,6 +1998,7 @@ export function mount(container, opt = {}) {
            相手は「進行方向に沿った線」の鏡なので、こちらが外へ膨らめば相手は逆へ膨らみ、線の上で交差する。
            2 機とも背面のまま入る（左右の鏡は背面を背面のまま映す） */
         beginMirror(m);
+        spdWant = TUCK_SPD;                                            // 利用者の指示 第 3 便 4（もう少し高速で）
         const e = mir, rx = e.dy, ry = -e.dx;                          // 線の右手
         const s0 = (st.x - e.ox) * e.dx + (st.y - e.oy) * e.dy;        // 線に沿った位置
         const n0 = (st.x - e.ox) * rx + (st.y - e.oy) * ry;            // 線からの離れ（右が正）
@@ -1968,11 +2021,11 @@ export function mount(container, opt = {}) {
           { const ee2 = clamp((-TUCK_SIDE - n0) * Math.min(1, dt * 0.8), -25 * dt, 25 * dt);
             st.x += rx * ee2; st.y += ry * ee2; }
           autoIn.x = 0; autoIn.y = 0; smIn.x = 0; smIn.y = 0;
-        } else if (tkT2 < 1.2) {
+        } else if (tkT2 < TUCK_ROLL_T) {
           /* 会場の手前: 外側（線から離れる側）へ 1.2 秒でロールする。背面 180 度 → 50 度。
              ここも姿勢を直接決める（背面のままふつうの舵取りに渡すと、向きの読みが 180 度あいまいになる） */
           tkT2 += dt;
-          const k2 = clamp(tkT2 / 1.2, 0, 1), e2 = k2 * k2 * (3 - 2 * k2);
+          const k2 = clamp(tkT2 / TUCK_ROLL_T, 0, 1), e2 = k2 * k2 * (3 - 2 * k2);
           att.setFromAxisAngle(AZ, -lineH * D);
           /* 背面（180 度）から、そのまま同じ向きに回して 310 度（＝外向き 50 度）へ。
              逆回し（180 → 50）にすると内側へ切り込み、膨らむ前に一度 14 m まで近づいた（実測 v04.76） */
@@ -1983,9 +2036,12 @@ export function mount(container, opt = {}) {
           /* 少し膨らんでから、目の前で線を横切る（相手は鏡なので、そこで交差する） */
           /* 2 つ目は交差点そのもの（線の上）。ここを狙うから、相手（鏡）とちょうど目の前で交差する。
              ここを通り過ぎた点にすると、線を早くに横切ってしまう（実測 v04.76: 正面から 139 m 手前で交差した） */
-          const w = tkWp === 0 ? pt(sC - 380, -TUCK_BULGE) : pt(sC - 120, 0);
+          /* 速い課目なので、この段だけバンクを深くして曲がりを詰める（利用者の指示 第 3 便 4）。
+             上限 52 度のままだと戻りきる前に正面を通り過ぎた（実測: 交差点が正面から 268 m 西） */
+          bankLim = TUCK_BANK;
+          const w = tkWp === 0 ? pt(sC - TUCK_W1, -TUCK_BULGE) : pt(sC - TUCK_W2, 0);
           steerTo(w.x, w.y, GATE.z);
-          if (Math.hypot(w.x - st.x, w.y - st.y) < (tkWp === 0 ? 140 : 80)) tkWp++;
+          if (Math.hypot(w.x - st.x, w.y - st.y) < (tkWp === 0 ? 130 : 40)) tkWp++;
         } else {
           /* 交差したそのまま通過していく（円は描かない） */
           holdBank(0); holdPitch(clamp((GATE.z - st.z) * 0.1, -8, 8));
@@ -1998,7 +2054,7 @@ export function mount(container, opt = {}) {
           if (atCross) { if (!figAim) figAim = new THREE.Vector3(cP.x, cP.y, GATE.z); aimLeader = false; }
           else { if (figAim) { figAim = null; slowAim = 6; } aimLeader = true; } }
         const dOt = Math.hypot(st.x - GROUND_EYE.x, st.y - GROUND_EYE.y);
-        if ((tkWp >= 2 && dOt > 1400) || manT > 85) nextManeuver();
+        if ((tkWp >= 2 && dOt > 1400) || manT > 85) { spdWant = 1; nextManeuver(); }
         break;
       }
       case 'change': {                           // チェンジオーバー・ターン: 北東から入り、頂点で開いて南東の無限遠へ
@@ -2353,22 +2409,40 @@ export function mount(container, opt = {}) {
      最短の回転なので、翼の傾き（ロール）はそのまま残る。
      かける強さ w は「まだ寄せている」「離れている」ぶんだけ。隊形に収まると 0 になり、
      ふつうの編隊飛行（全機が同じ動き）では何も変わらない */
+  /* 機首を、その機体が実際に進んだ向きに合わせる（利用者の指示 第 3 便 1・2）。
+     v04.83 まで: 寄せの途中（u.k が小さい）と、離れた機体（far）だけに掛けていた。
+     隊形に収まると重みが 0 になり、1 番機の姿勢をそのまま写していたので、
+     宙返りのように各機の弧の半径が違う課目で、進む向きと機首が食い違った
+     （実測 v04.82: デルタ・ループで通しの中央値 31.9 度、最大 73.4 度）。
+     いまは常に掛ける。各機が自分の動きから機首を決めるので、腹で滑ることがない。
+     進んだ向きは、なましてから使う（1 コマぶんの生の動きだと、動きの小さいコマで向きが暴れ、
+     その機体に乗っていると画面が振り回される）。
+     位置を移した（瞬間移動）コマは、その動きを向きと読まずに捨てる */
+  const AIM_VEL_T = 0.08;                  // 進んだ向きをなます時間（秒）
+  /* 僚機が出せる速さの上限（1 番機の速さの何倍まで）。利用者の指示 第 3 便 2・3。
+     編隊で回るとき、外側の機は実際に速く飛ぶので 1 倍では足りない（実測: デルタ・ロールで最大 2.0 倍）。
+     2.5 倍を天井にすると、ふつうの演技には触らずに、飛べない振り回しだけが切れる
+     （実測 v04.82: 寄せ切る前に課目が始まると 421 m/s = 7 倍で動いていた） */
+  const MATE_SPD_MAX = 2.5;
+  const flyV = new THREE.Vector3();
+  const AIM_VEL_JUMP = 20;                 // 1 コマでこれ以上動いたら、位置を移したコマと見る（m）
   function aimNose(holder, u, q, dt, far, prev) {
     if (dt <= 0.0005) return;
-    crabV.copy(holder.position).sub(prev).divideScalar(dt);
+    crabV.copy(holder.position).sub(prev);
+    if (crabV.lengthSq() > AIM_VEL_JUMP * AIM_VEL_JUMP) { u.velS = null; return; }
+    crabV.divideScalar(dt);
     const sp = crabV.length();
-    /* 寄せ終わりに近づくまでは、まるごと向け直す（半端にかけると横滑りが残る。
-       実測 v04.76: 半端だと 4 番機で 22 度残り、まるごとで 6 度になった） */
-    const w = clamp(Math.max((1 - (u.k === undefined ? 1 : u.k)) * 4, far * 2), 0, 1);
-    if (sp < 5 || w < 0.01) return;
-    crabF.set(0, 1, 0).applyQuaternion(q);
+    if (sp < 5) return;
     crabV.divideScalar(sp);
-    const ang = crabF.angleTo(crabV);
+    if (!u.velS) u.velS = crabV.clone();
+    else u.velS.lerp(crabV, 1 - Math.exp(-dt / AIM_VEL_T)).normalize();
+    crabF.set(0, 1, 0).applyQuaternion(q);
+    const ang = crabF.angleTo(u.velS);
     if (ang < 0.004) return;
-    crabAx.crossVectors(crabF, crabV);
+    crabAx.crossVectors(crabF, u.velS);
     if (crabAx.lengthSq() < 1e-8) return;
     crabAx.normalize();
-    q.premultiply(crabQ.setFromAxisAngle(crabAx, Math.min(ang, 0.9) * w));
+    q.premultiply(crabQ.setFromAxisAngle(crabAx, Math.min(ang, 0.9)));
   }
   function turnMate(holder, q, dt) {
     if (!dt) { holder.quaternion.copy(q); return; }
@@ -2589,7 +2663,9 @@ export function mount(container, opt = {}) {
               z0: GATE.z, vert: false, fresh: !masked, dz: TUCK_DZ };
       tkWp = 0; tkT = 0; tkT2 = 0; return true;
     }
-    startMirror(); mir.dz = 14; mir.fresh = !masked;
+    /* 鏡の上下のずらし。オポジット（'h'）は至近距離で交差させる（利用者の指示 第 2 便 6）。
+       横は鏡なので必ず 0 で交わるので、この値がそのまま最接近距離になる */
+    startMirror(); mir.dz = m.mirror === 'h' ? OPRO_DZ : 14; mir.fresh = !masked;
     if (m.mirror === 'v') { mir.vert = true; tkWp = 0; }
     return true;
   }
@@ -2605,7 +2681,13 @@ export function mount(container, opt = {}) {
   /* タック・クロス（v04.76 で作り直し）。TUCK_SIDE: 鏡の線からの離れ（2 機の間はこの 2 倍）。
      TUCK_DZ: 相手を上へずらす高さ（交差でぶつからないように）。
      TUCK_ROLL_D: 交差点の手前どれだけでロールを始めるか。TUCK_BULGE: 外側への膨らみ */
-  const TUCK_SIDE = 14, TUCK_DZ = 14, TUCK_ROLL_D = 900, TUCK_BULGE = 90;
+  /* v04.83: ゆったりしすぎだという指摘（利用者の指示 第 3 便 4）で、
+     速さを 1.35 倍、散開（外へのロール）を始める位置を 900 → 700 m、ふくらみを 90 → 60 m にした */
+  const TUCK_SIDE = 14, TUCK_DZ = 14, TUCK_ROLL_D = 700, TUCK_BULGE = 60;
+  const TUCK_SPD = 1.35;                   // 進入から抜けるまでの速さ
+  const TUCK_BANK = 72;                    // 膨らみと戻りのあいだのバンクの上限（度）
+  const TUCK_W1 = 452, TUCK_W2 = 262;      // 膨らみの頂点と、線へ戻る狙い（交差点からの手前の距離、m）
+  const TUCK_ROLL_T = 1.0;                 // 外へロールしきるまで（秒）。1.2 → 1.0
   const tkQ = new THREE.Quaternion(), mirV = new THREE.Vector3(), mirQi = new THREE.Quaternion();
   /* 鏡で置いたあとの位置を、1 番機から見た相対位置として控える。課目が終わって隊形へ戻るとき、
      ここから寄せ始める（控えないと、隊形の古い位置から寄せ始めた形になり、相手が 800 m 跳ぶ。実測 v04.27） */
@@ -2897,17 +2979,18 @@ export function mount(container, opt = {}) {
   const tgtP = new THREE.Vector3();
   let tkOn = false;                       // 離陸の最中か（全機が編隊へ移るまで true）
   /* kind: 'pairs' = 2 本の滑走路から 2 機ずつ、TK_GAP 秒おき。
-     'diamond' = ひし形のまま 4 機が一斉に（ダイヤモンド・テイクオフ） */
+     'diamond' = 滑走路 1 本にひし形に並んだまま 4 機が一斉に（ダイヤモンド・テイクオフ） */
   function startTakeoff(kind) {
     tkOn = true;
     mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; h.userData.rejoin = false; });   // 着陸の段取りと合流の印は消す
-    const dia = kind === 'diamond';
     /* 滑走路に並んでいる機（lineSpot）だけ滑走を始める。取り付けで待つ機は、前の機が滑走を始めてから並び、並んでから滑走する（queueStep）。
-       ダイヤモンドは 滑走路 1 本に 2 機ずつ: 先頭 → 両滑走路の前 → 後ろ、とわずかな時間差 */
+       ダイヤモンドは 滑走路 1 本に 4 機がひし形に並んでいて、その形のまま一斉に出る */
     mates.forEach((h, i) => {
       const u = h.userData;
       if (!u.shown || !u.lineSpot || u.queue >= 0) { if (!u.shown) u.tk = null; return; }
-      const wait = dia ? (i === 0 ? DIA_GAP : i === 1 ? DIA_GAP : DIA_GAP * 2) : 0;
+      /* ダイヤモンドは、整列の時点でひし形に並んでいるので時間差を置かない。
+         置くと前後の間隔が変わって形が崩れる（利用者の指示 第 2 便 2） */
+      const wait = 0;
       u.tk = { t: 0, v: 0, x: u.lineSpot[0], y: u.lineSpot[1], z: 3, air: false, done: false, wait };
       u.ground = false;
     });
@@ -3068,7 +3151,9 @@ export function mount(container, opt = {}) {
          追従機は自分の並ぶ場所に着いた時（parked）から。滑走を始めたら止める（そこからは飛んでいる煙にする） */
       if (gmode === 'stand' && auto) {
         checkSmoke(plane.position, att, cols0[0], dt);
-        const nChk = FORMATIONS[formation].n;
+        /* 待機位置に着いた機は全部出す（利用者の指示 第 1 便 6）。
+           隊形の席の数で区切ると、隊形が小さいときに並んでいる機が出さなかった */
+        const nChk = mates.length + 1;
         mates.forEach((h, i) => { if (i + 1 < nChk && h.userData.shown && h.userData.parked) checkSmoke(h.position, h.quaternion, cols0[(i + 1) % cols0.length], dt); });
         smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true;
         smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true;
@@ -3264,6 +3349,13 @@ export function mount(container, opt = {}) {
         offNow.copy(holder.position).sub(basePos);
         offNow.lerp(mo, 1 - Math.exp(-dt / (0.06 + far * 0.8)));
         holder.position.copy(basePos).add(offNow);
+        /* 飛べる動きに収める（利用者の指示 第 3 便 2・3）。席へ移る動きが実機の速さを超えたら、
+           そのコマの動きを上限で切る。席から遅れるぶんは次のコマで詰める（実際の編隊もそうする） */
+        if (dt > 0.0005) {
+          flyV.copy(holder.position).sub(crabP);
+          const d2 = flyV.length(), lim2 = SPEED * Math.max(0.3, spdK) * MATE_SPD_MAX * dt;
+          if (d2 > lim2 && d2 > 1e-6) { flyV.multiplyScalar(lim2 / d2); holder.position.copy(crabP).add(flyV); }
+        }
         aimNose(holder, u, mq, dt, far, crabP);
         turnMate(holder, mq, dt);
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
@@ -3319,6 +3411,13 @@ export function mount(container, opt = {}) {
         mates.forEach(mt => { const u = mt.userData; if (!mt.visible) return; if (taking && (u.parked || u.gp || (u.ground && !u.tk))) return; focus.add(mt.position); fn++; });
         focus.multiplyScalar(1 / fn);
       }
+      /* 見る先が飛んだら、その飛びを控えて足し戻す（上の AIM_JUMP の説明） */
+      if (aimHas && focus.distanceTo(aimPrev) > AIM_JUMP) aimOff.add(aimTmp.copy(aimPrev).sub(focus));
+      aimPrev.copy(focus); aimHas = true;
+      if (aimOff.lengthSq() > 0.01) {
+        focus.add(aimOff);
+        aimOff.multiplyScalar(Math.max(0, 1 - (dt || 0.016) / AIM_EASE));
+      } else aimOff.set(0, 0, 0);
       tmp.copy(focus).sub(gEye);
       const wy = Math.atan2(tmp.x, tmp.y), wp = Math.asin(clamp(tmp.z / Math.max(1, tmp.length()), -1, 1));
       const ddt = dt || 0.016;
@@ -3919,11 +4018,14 @@ export function mount(container, opt = {}) {
       const n = (auto || standWait) ? 6 : FORMATIONS[formation].n;   // 展示飛行は 6 機とも出す
       const others = k => mates.filter((h, j) => j !== k - 1 && j + 1 < n).map(h => h.position).concat(k === 0 ? [] : [plane.position]);
       gPath.turnDir = pickTurn(st.x, st.y, st.h, others(0));
-      /* 最初の課目がダイヤモンド・テイクオフなら 滑走路 1 本に 2 機ずつ（4 機）、ほかは 1 機ずつ（2 機）。残りは取り付けで順番を待つ */
+      /* 最初の課目がダイヤモンド・テイクオフなら 滑走路 1 本に 4 機をダイヤモンドの形で並べる（利用者の指示 第 2 便 1・2）。ほかは 1 機ずつ（2 機）。残りは取り付けで順番を待つ */
       let f0 = 0; for (let k = 0; k < PROGRAM.length; k++) if (okMan(PROGRAM[k])) { f0 = k; break; }
       if (showThru && chunk && chunk.length) f0 = chunk[0];
       tkKind = PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs';
-      const LINE = tkKind === 'diamond' ? [[RWY2, 0], [0, -34], [RWY2, -34]] : [[RWY2, 0]];   // 並ぶ機の位置（RWY からのずれ）。残りは待つ
+      /* 並ぶ機の位置（RWY からのずれ）。残りは待つ。
+         ダイヤモンドは FORMATIONS.diamond と同じ並びを滑走路 1 本の上に作る。
+         横の広がりは ±16 m（翼端を入れて ±21 m ほど）で、縁の線 ±23.5 m の内側に入る */
+      const LINE = tkKind === 'diamond' ? [[-16, -16], [16, -16], [0, -32]] : [[RWY2, 0]];
       mates.forEach((h, i) => { const u = h.userData; if (i + 1 >= n) return;
         u.parked = false; u.shown = true; h.visible = true; u.tk = null; u.ground = true;
         if (i < LINE.length) {                                     // 滑走路に並ぶ
@@ -3968,12 +4070,16 @@ export function mount(container, opt = {}) {
                        r: +(Math.asin(clamp(-cr.z, -1, 1)) / D).toFixed(1) };
       return { cam: camDir, gear: gearOn, lights: lightsOn, landCfg, aud: aNodes ? aNodes.map(n => +n.g.gain.value.toFixed(3)) : null, seat, xwait: gPath ? !!gPath.xwait : false, lineup: st.lineup, gIdx: gPath ? gPath.idx : -1, pathLag, audio: actx ? actx.state : null, view: curView, gearSnd: gearSndN, slow: +slowAim.toFixed(1), fig: fig ? +fig.t.toFixed(1) : null, e8solo: e8 ? e8.solo : null, e8done: e8 ? e8.done : null, origin: { x: GROUND_EYE.x, y: GROUND_EYE.y }, along: +showLocal(st.x, st.y).along.toFixed(0), bloom: !!bloomS, rainDive, land: { desc: +landDesc.toFixed(1), step: landStep, musOn: landMusOn, musIdx, musCut: +musCut.toFixed(1), mates: mates.map(h => ({ pf: !!h.userData.pfDone, parked: !!h.userData.parked, on: !!h.userData.shown, ld: h.userData.ld ? { on: h.userData.ld.on, step: h.userData.ld.step, done: h.userData.ld.done } : null })) }, ready: matesReady(), phase: manPhase, show: st.show, step: step_i, cue: st.cue, gz: GATE.z, gx: GATE.x, gy: GATE.y, fr: showFr,
                aim: { x: focus.x, y: focus.y, z: focus.z },
+               /* 1 番機の機首の向き */
+               mf0: (() => { const v = gfw.copy(AY).applyQuaternion(plane.quaternion); return [+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)]; })(),
                form: formation, scale: formScale, smoke: smokeOnArr.slice(), smWhy: smWhyArr.slice(),
                bloomC: bloomS ? { x: +bloomS.c.x.toFixed(1), y: +bloomS.c.y.toFixed(1) } : null,
                gearM: mates.map((h, i) => gearSets[i + 1] ? +gearSets[i + 1].visible : -1),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown,
                  mh: +((Math.atan2(gfw.copy(AY).applyQuaternion(h.quaternion).x, gfw.y) / D % 360 + 360) % 360).toFixed(1),
                  mb: +(Math.asin(clamp(gfw.copy(AX).applyQuaternion(h.quaternion).z, -1, 1)) / D).toFixed(1),
+                 /* 機首の向き（3 次元の単位ベクトル）。進む向きとのめを測るのに使う */
+                 mf: (() => { const v = gfw.copy(AY).applyQuaternion(h.quaternion); return [+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)]; })(),
                  /* 機体の上がどちらを向いているか（1 = 背が上、-1 = 背面）。傾きの値だけでは背面と水平を見分けられない */
                  mup: +gfw.copy(AZ).applyQuaternion(h.quaternion).z.toFixed(2), lamp: lightSets[mates.indexOf(h) + 1] ? +lightSets[mates.indexOf(h) + 1].visible : -1, k: h.userData.k === undefined ? null : +h.userData.k.toFixed(2), xwait: h.userData.gp ? !!h.userData.gp.xwait : false, tk: h.userData.tk ? (h.userData.tk.done ? 2 : h.userData.tk.air ? 1 : 0) : null })) };
     },

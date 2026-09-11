@@ -93,7 +93,7 @@ svg text{user-select:none}
 .hdr{padding:max(1rem,env(safe-area-inset-top)) 0 .75rem}
 @media (display-mode:standalone){.hdr{padding-top:max(3.5rem,env(safe-area-inset-top))}}
 .brand{display:flex;align-items:center;gap:.5rem}
-.brand .name{flex:1;min-width:0;text-align:center;font-family:var(--display);font-weight:700;font-size:.9375rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand .name{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--display);font-weight:700;font-size:.9375rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .homebtn{width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent);flex:none}
 @media (hover:hover){.homebtn:hover{background:var(--panel)}}
 /* 戻るボタンは、出ていないときも場所を空けておく（出入りでタイトルやボタンが動かないように）。
@@ -1070,7 +1070,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="brand">
         <button class="homebtn" id="backHome" aria-label="ホーム"><svg class="ic"><use href="#i-home"/></svg></button>
         <button class="homebtn" id="backStep" aria-label="戻る" title="一つ前の画面に戻る" hidden><svg class="ic"><use href="#i-back"/></svg></button>
-        <div class="name">TENRYU</div>
+        <h1 class="name">TENRYU</h1>
         <button class="updbtn" id="updBtn" aria-label="更新"><svg class="ic"><use href="#i-update"/></svg></button>
         <button class="updbtn fullbtn" id="fullBtn" aria-label="全画面" title="全画面にする（もう一度押すか Esc で戻る）" hidden><svg class="ic"><use href="#i-full"/></svg></button>
         <div class="menu">
@@ -1286,7 +1286,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.85';
+const APP_VER='v04.86';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */

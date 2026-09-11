@@ -16,15 +16,15 @@
 <link rel="icon" href="icons/icon-192.png?v=2" sizes="192x192">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
-<title>TENRYU | パイロット適性検査トレーニング</title>
-<meta name="description" content="パイロット適性検査（航空自衛隊 航空学生の適性検査）を、制限時間つきで反復練習できるアプリ。方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目と、操縦操作の見え方を確かめる 3D シミュレーターが入っています。ブラウザでそのまま試せます。">
+<title>TENRYU | 航空学生 適性検査トレーニング</title>
+<meta name="description" content="航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査を、制限時間つきで反復練習できるアプリ。方位判読・姿勢判読・その複合・操縦操作の 4 種目と、操縦操作の見え方を確かめる 3D シミュレーターが入っています。ブラウザでそのまま試せます。">
 <link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TENRYU">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://kokuteki.amaterasu-vocab.com/">
-<meta property="og:title" content="TENRYU | パイロット適性検査トレーニング">
-<meta property="og:description" content="航空学生の適性検査対策。方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
+<meta property="og:title" content="TENRYU | 航空学生 適性検査トレーニング">
+<meta property="og:description" content="航空学生の適性検査対策。方位判読・姿勢判読・その複合・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
 <meta property="og:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -33,7 +33,7 @@
 <meta name="twitter:description" content="方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
 <meta name="twitter:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"TENRYU","alternateName":"TENRYU 航空学生 適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/"}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ, iOS, Android","inLanguage":"ja","description":"航空自衛隊 航空学生の適性検査（方位・姿勢指示器・方位×姿勢指示器・操縦操作）を反復練習する学習アプリ。操縦操作の見え方を確かめる 3D シミュレーターつき。","offers":{"@type":"Offer","price":"0","priceCurrency":"JPY"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ, iOS, Android","inLanguage":"ja","description":"航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査（方位判読・姿勢判読・その複合・操縦操作）を反復練習する学習アプリ。操縦操作の見え方を確かめる 3D シミュレーターつき。","offers":{"@type":"Offer","price":"0","priceCurrency":"JPY"}}</script>
 <!-- three.js はこのアプリの中に置く（外の CDN だと、更新のたびに取り直しになり オフラインで 3D が動かない） -->
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
 <style>
@@ -1289,7 +1289,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.89';
+const APP_VER='v04.90';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */

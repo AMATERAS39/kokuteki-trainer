@@ -425,13 +425,15 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
     return `<div class="att">${panel(front ? 'front' : 'rear', bankRot, front ? '前方から見た図' : '後方から見た図')}${panel(sideRight ? 'right' : 'left', pitchRot, sideRight ? '右側面から見た図' : '左側面から見た図')}</div>`;
   }
 
-  /* 14 方向の絵（南からの固定視点）と読み方の凡例 */
+  /* 14 方向の絵（南からの固定視点）と読み方の凡例。
+     北は画面の奥（紙面の表から裏）なので、**円に ×**で示す（矢の羽を後ろから見た形）。
+     以前は斜めの矢印で描いていたが、奥行きなのか斜めの向きなのかが紛らわしかった（利用者の指摘 2026-09-11） */
   /* bank: 0 なら bi-<id>.webp、右バンク 30 なら bi-<id>-r30.webp、左バンク 60 なら bi-<id>-l60.webp */
   function figDir14(d, bank = 0) {
     const suffix = bank ? `-${bank > 0 ? 'r' : 'l'}${Math.abs(bank)}` : '';
     return `<div class="d14"><img src="img/bi-${d.id}${suffix}.webp" alt="第三者視点（南から）" style="width:100%;height:auto;display:block">
-<svg class="d14legend" viewBox="0 0 76 54" aria-hidden="true"><g stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 44V14M13 19l5-5 5 5"/><path d="M18 44h36M49 39l5 5-5 5"/><path d="M18 44l14-11M27 33l5-0 0 5"/></g>
-<g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="18" y="10" text-anchor="middle">上</text><text x="58" y="48">東</text><text x="36" y="30">北</text></g></svg></div>`;
+<svg class="d14legend" viewBox="0 0 76 54" aria-hidden="true"><g stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 35V12M17 17l5-5 5 5"/><path d="M27 40h27M49 35l5 5-5 5"/><circle cx="22" cy="40" r="5"/><path d="M18.5 36.5l7 7M25.5 36.5l-7 7"/></g>
+<g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="22" y="9" text-anchor="middle">上</text><text x="58" y="44">東</text><text x="14" y="44" text-anchor="end">北</text></g></svg></div>`;
   }
 
   global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,

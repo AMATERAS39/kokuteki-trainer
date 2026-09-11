@@ -1431,7 +1431,15 @@ export function mount(container, opt = {}) {
     const gated = m.entry === 'front' || m.at !== undefined || m.rwy;
     if (((FORMATIONS[formation] || {}).n || 1) > 1 && !matesReady() && !gated) {   // 隊形が要る課目は、組んでから始める
       manPhase = 'gather'; phaseT = 0; st.cue = '隊形を組みます'; markOn = false;
-    } else if (m.front !== false) { planEntry(m); manPhase = 'in'; }   // 門のある課目は、離れながら隊形を組む（待たない）
+    } else if (m.front !== false) {
+      /* 進入の始めから、隊形を組み上がった形にする（利用者の指示 2026-09-12）。
+         以前は「離れながら組む」で、僚機は進入のあいだずっと 1 番機を追いかけていた
+         （実測: 平均 148 m/s・最大 150 m/s（上限）・1 番機から最大 867 m）。
+         そのため反対側から超高速で来て急転回するように見えた。
+         1 番機と同じところから進入させる */
+      snapForm = true;
+      planEntry(m); manPhase = 'in';
+    }
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
     else { manPhase = 'do'; st.cue = ''; markOn = false; }
   }
@@ -1620,7 +1628,7 @@ export function mount(container, opt = {}) {
            （チェンジオーバー・ターンのスモークが出ない、コークスクリューが遠くへ行く、などの元） */
         if (matesReady() || phaseT > 150) {
           spdWant = 1;                                                  // 離陸待ちで落としていた速さを戻す
-          if (m.entry === 'front' || m.at !== undefined || m.rwy) { planEntry(m); manPhase = 'in'; phaseT = 0; }
+          if (m.entry === 'front' || m.at !== undefined || m.rwy) { snapForm = true; planEntry(m); manPhase = 'in'; phaseT = 0; }
           else { manPhase = 'do'; st.cue = ''; markOn = false; phaseT = 0; }
         }
         safety();
@@ -1658,6 +1666,7 @@ export function mount(container, opt = {}) {
           if ((dJ < 260 && dH < 40) || phaseT > 150) {
             hist.length = 0; clearSmoke();
             mates.forEach(h => { h.userData.hold = 0; h.userData.qw = null; });
+            snapForm = true;                     // 僚機も隊形の位置へ置き直す
             slowAim = SLOW_AIM; beginMirror(m, false);
             manPhase = 'align'; phaseT = 0;
           }
@@ -1673,6 +1682,7 @@ export function mount(container, opt = {}) {
           att.setFromAxisAngle(AZ, -inH * D); readAttitude();
           hist.length = 0; clearSmoke();
           mates.forEach(h => { h.userData.hold = 0; h.userData.qw = null; });   // 無限遠で待たせていた機は、ここで現れる（移した先なので見えない）
+          snapForm = true;                       // 僚機も隊形の位置へ置き直す（1 番機と同じところから進入する）
           slowAim = SLOW_AIM;                    // 地上の視線は、均一に振り向く（追いかけて飛ばない）
           beginMirror(m, true);                  // 交差する課目の相手は、この瞬間に鏡の位置へ移す（跳びが見えない）
           if (opt.onJump) opt.onJump();
@@ -1705,7 +1715,7 @@ export function mount(container, opt = {}) {
           /* 始める位置より ずっと内側に居るときは、門まで戻って入り直す。
              近くから始めると、遠くから向かってくる見せ場がなくなる */
           if (along < (m.far || FRONT_START) * 0.35 && reIn < 1) {
-            reIn++; planEntry(m); manPhase = 'in'; phaseT = 0; safety(); return autoIn;
+            reIn++; snapForm = true; planEntry(m); manPhase = 'in'; phaseT = 0; safety(); return autoIn;
           }
           const cone = along * 0.14 + 40;
           if ((along < (m.far || FRONT_START) && side < cone && Math.abs(wrap180(wantH - st.h)) < 25) || phaseT > 45) endEntry();
@@ -2041,7 +2051,13 @@ export function mount(container, opt = {}) {
           bankLim = TUCK_BANK;
           const w = tkWp === 0 ? pt(sC - TUCK_W1, -TUCK_BULGE) : pt(sC - TUCK_W2, 0);
           steerTo(w.x, w.y, GATE.z);
-          if (Math.hypot(w.x - st.x, w.y - st.y) < (tkWp === 0 ? 130 : 40)) tkWp++;
+          /* 1 つ目（膨らみの頂点）は距離で進める。
+             2 つ目は**実際に線へ戻れたか**（線からの離れ n0 が 0 に戻ったか）で進める。
+             距離で進めると、戻りきる前に「通過」の段へ移ってしまい、線へ戻らないまま離れていった
+             （実測 2026-09-12: ロール後に間隔が 31 → 224 m と開き続け、交差しなかった）。
+             相手は線の鏡なので、線へ戻った瞬間がそのまま交差になる */
+          if (tkWp === 0) { if (Math.hypot(w.x - st.x, w.y - st.y) < 130) tkWp++; }
+          else if (n0 > -3) tkWp++;
         } else {
           /* 交差したそのまま通過していく（円は描かない） */
           holdBank(0); holdPitch(clamp((GATE.z - st.z) * 0.1, -8, 8));
@@ -2470,6 +2486,12 @@ export function mount(container, opt = {}) {
     const amt = u.tkJoin ? 0 : Math.min(90, d * 0.28);
     u.bow.set((u.from.x >= 0 ? 1 : -1) * amt, 0, amt * 0.3);
   }
+  /* 進入で 1 番機の位置を移した（瞬間移動した）とき、僚機を隊形の位置に置き直す印。
+     置き直さないと、僚機は前の隊形のずれ（u.cur）を持ったまま移した先に現れ、
+     そこから膨らみつきで寄せ直すので、**反対側から超高速で来て急転回する**ように見えた
+     （利用者の指摘 2026-09-12。チェンジオーバー・ターンを単体で選んだとき）。
+     1 番機と同じところから進入させるため、移した瞬間に隊形を組み上がった形にする */
+  let snapForm = false;
   let corkT = -1;                                  // 0 以上ならコークスクリューの最中（2 番機が周りを回る）
   /* 描き物の課目（キューピッド・スタークロス）。編隊では描けない形なので、機体を式で置く。
      1 番機（操作する機体）は隠して、2 番機以降で描く。図は観覧位置の正面の空に立てた面の上に描く */
@@ -2682,11 +2704,16 @@ export function mount(container, opt = {}) {
      TUCK_DZ: 相手を上へずらす高さ（交差でぶつからないように）。
      TUCK_ROLL_D: 交差点の手前どれだけでロールを始めるか。TUCK_BULGE: 外側への膨らみ */
   /* v04.83: ゆったりしすぎだという指摘（利用者の指示 第 3 便 4）で、
-     速さを 1.35 倍、散開（外へのロール）を始める位置を 900 → 700 m、ふくらみを 90 → 60 m にした */
-  const TUCK_SIDE = 14, TUCK_DZ = 14, TUCK_ROLL_D = 700, TUCK_BULGE = 60;
-  const TUCK_SPD = 1.35;                   // 進入から抜けるまでの速さ
-  const TUCK_BANK = 72;                    // 膨らみと戻りのあいだのバンクの上限（度）
-  const TUCK_W1 = 452, TUCK_W2 = 262;      // 膨らみの頂点と、線へ戻る狙い（交差点からの手前の距離、m）
+     速さを 1.35 倍、散開（外へのロール）を始める位置を 900 → 700 m、ふくらみを 90 → 60 m にした。
+     v04.91: さらに「ロールから交差までの時間を 2 倍短く。機体の速度ではなく軌道を変える」（第 5 便）。
+     速さはそのままに、**道のりを半分**にした（700 → 350 m）。ふくらみは変えない（利用者「膨らみはよい」）。
+     道のりが半分でふくらみが同じぶん、曲がりはきつくなるのでバンクの上限を上げる
+     （必要な半径の見積り: 横 108 m を 175 m で出し入れ → 半径 約 196 m → 81 m/s で約 74 度） */
+  const TUCK_SIDE = 14, TUCK_DZ = 14, TUCK_ROLL_D = 350, TUCK_BULGE = 60;
+  const TUCK_SPD = 1.35;                   // 進入から抜けるまでの速さ（第 5 便で「速度は変えない」）
+  const TUCK_BANK = 83;                    // 膨らみと戻りのあいだのバンクの上限（度）。52 → 72 → 83。
+                                           // 道のりを半分にしてもふくらみを保つには、旋回半径 約 84 m が要る（81 m/s で約 83 度）
+  const TUCK_W1 = 230, TUCK_W2 = 60;       // 膨らみの頂点と、線へ戻る狙い（交差点からの手前の距離、m。W1 > W2）
   const TUCK_ROLL_T = 1.0;                 // 外へロールしきるまで（秒）。1.2 → 1.0
   const tkQ = new THREE.Quaternion(), mirV = new THREE.Vector3(), mirQi = new THREE.Quaternion();
   /* 鏡で置いたあとの位置を、1 番機から見た相対位置として控える。課目が終わって隊形へ戻るとき、
@@ -3277,7 +3304,7 @@ export function mount(container, opt = {}) {
       /* どの編隊の変更でも、いまの位置から新しい位置へなめらかに移る。
          隊形から外れる機体は後ろの遠く（ENTRY）へ離れていき、届いたら消える */
       fwant.set(target ? target[0] * formScale : e[0], target ? target[1] * formScale : e[1], target ? target[2] * formScale : e[2]);
-      if (spreadOn && target) {                                 // 散開の最中: 行き先をそのまま位置にする（放射状に広がる）
+      if ((spreadOn && target) || snapForm) {                    // 散開の最中と、進入で位置を移した直後: 行き先をそのまま位置にする
         u.want.copy(fwant); u.cur.copy(fwant); u.from = null; u.k = 1;
       } else {
       if (!u.from || u.want.distanceTo(fwant) > 6) { u.want.copy(fwant); startJoin(u); }   // 行き先が変わったら道を引き直す
@@ -3363,6 +3390,7 @@ export function mount(container, opt = {}) {
       /* 出すかどうかは位置で決めてある（真後ろに他機がいなければ出す）。隊形を移している最中も切らない */
       if (target && on[i + 1] && emitting) { emitPos.set(0, -6.9, -0.3).applyQuaternion(mq).add(holder.position); emit(emitPos, cols[(i + 1) % cols.length], null, 0, i + 1); }
     });
+    snapForm = false;                          // 全機を置き直したので印を下ろす
     if (emitting) { smokeGeo.attributes.position.needsUpdate = true; smokeGeo.attributes.acolor.needsUpdate = true; smokeGeo.attributes.birth.needsUpdate = true; smokeGeo.attributes.asize.needsUpdate = true; smokeGeo.attributes.alife.needsUpdate = true; }
     smokeMat.uniforms.uTime.value = clock;
   }
@@ -4122,7 +4150,8 @@ export function mount(container, opt = {}) {
       att.setFromAxisAngle(AZ, -hh * D); readAttitude();
       spdK = 1; spdWant = 1;
       hist.length = 0; clearSmoke();
-      mates.forEach(h => { const u = h.userData; u.hold = 0; u.k = 1; u.from = null; u.qw = null; });   // 隊形は組み上がった形にする
+      mates.forEach(h => { const u = h.userData; u.hold = 0; u.k = 1; u.from = null; u.qw = null; });
+      snapForm = true;                           // 隊形は組み上がった形にする（置き直しは placeMates で行う）
       slowAim = SLOW_AIM; beginMirror(m, true); if (opt.onJump) opt.onJump();
       endEntry(); return true; },
     entryState() { return auto && (manPhase === 'in' || manPhase === 'align'); },

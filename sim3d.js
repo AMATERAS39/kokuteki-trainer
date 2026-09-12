@@ -571,9 +571,10 @@ export function mount(container, opt = {}) {
   function emit(pos, colorHex, vel, life, key, size) {
     smokeCol.set(smokeBoost ? '#ffffff' : colorHex);   // ローパスの煙は白
     /* sz は粒 1 つの太さの倍率。ローパス（smokeBoost）は 2.4 のまま。
-       ほかは 1 → 3 にしたが、太すぎるという指摘で 2（v04.84）→ 1.33（v04.85）へ下げた。size を渡すとそれを使う（離陸待機中の点検の煙） */
+       ほかは 1 → 3 にしたが、太すぎるという指摘で 2（v04.84）→ 1.33（v04.85）→ 1（2026-09-12「現在の 3/4」）へ下げた。
+       size を渡すとそれを使う（離陸待機中の点検の煙） */
     const n = smokeBoost ? 3 : 1, j = smokeBoost ? 2.5 : 0, lf = life || lifeNow;
-    const sz = smokeBoost ? 2.4 : (size || 1.33);
+    const sz = smokeBoost ? 2.4 : (size || 1);
     const put = (x, y, z, birth) => {
       for (let k = 0; k < n; k++) {
         const i = sHead % SMOKE_N; sHead++;
@@ -2066,10 +2067,14 @@ export function mount(container, opt = {}) {
           autoIn.y = -TUCK_PULL;
           if (n0 > -3) tkWp = 2;
         } else {
-          /* 交差したあとは、操縦桿を元の位置（中立）に戻すだけで、交差の瞬間の姿勢のまま抜けていく
-             （利用者の説明 第 8 便:「その後は、操縦桿は元の位置にしたまま交差の瞬間のまま通過する」）。
-             以前は holdBank(0) で水平に戻していたが、それでは決めの姿勢が交差の直後に崩れる */
-          autoIn.x = 0; autoIn.y = 0;
+          /* 交差したあとは操縦桿を離す。**翼だけ**が水平に戻り、機首の上下はそのまま
+             （利用者の説明 2026-09-12:「交差した時点のまま操縦桿を離すという意味」
+             「機体水平と水平面に平行は異なる」）。
+             「機体水平」＝翼が水平になること。「水平面に平行」＝機首も水平になること。この 2 つは別物。
+             交差したときの上昇角を保ち、舵も当てないので方角も変えずに抜けていく。
+             ここは 2 度取り違えた。1 度目は姿勢を丸ごと固定（バンク 48 度・機首上げ 29 度のまま）、
+             2 度目は holdPitch(0) まで当てて水平面に平行にしてしまった */
+          holdBank(0); autoIn.y = 0;
         }
         autoIn.r = 0;
         /* 地上の視線: 2 機は線の左右に離れて飛ぶので、平均を見ると何もない空を見る。
@@ -3540,6 +3545,13 @@ export function mount(container, opt = {}) {
         }
       }
     }
+    /* 視点が向いている方角を毎コマ控える。方位計はいつでもこれを出す（利用者の指示 2026-09-12:
+       「方位は、常に視点が向いてる方角を示す」）。機体の方位（st.h）ではなく、
+       見回し（首振り）まで含めたカメラの向き。3 つの視点の組み立てが終わったこの位置で読む。
+       以前は機内・三人称で st.h を出していたため、見回しても方位計が動かなかった。
+       地上視点では cam を lookAt で組んでいるので、この値は st.gh と一致する */
+    cfw.set(0, 0, -1).applyQuaternion(cam.quaternion);
+    st.vh = ((Math.atan2(cfw.x, cfw.y) / D) % 360 + 360) % 360;
     sky.position.copy(cam.position);
   }
 

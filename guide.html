@@ -153,18 +153,27 @@ main{overflow-x:clip}
   animation:inL .9s .05s both}
 .subtitle{margin-top:.875rem;margin-bottom:0;font-size:clamp(1.05rem,3.4vw,1.75rem);font-weight:700;color:var(--cyan);
   letter-spacing:.02em;animation:inL .9s .18s both}
+/* 見出しの三段目（利用者の指示 2026-09-12）。括弧で続けずに改行して見せる。
+   h1 の内側に置くので、検索で使う「方位判読・姿勢判読」は見出しに残る */
+.subsub{display:block;margin-top:.35rem;font-size:.66em;letter-spacing:.08em;color:rgba(90,209,230,.8)}
 .hero .lead{max-width:44ch;margin-top:1.25rem;animation:rise .9s .32s both}
 .jetback{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;animation:inR 1.3s .25s both}
-.jetback .m{position:absolute;right:-26%;top:29%;transform:translateY(-50%);width:min(28rem,78%)}
+/* 機体は上へ。機首が大見出し（TENRYU）とサブタイトルの間に収まる高さにする
+   （利用者の指示 2026-09-12「説明が、機体と被って見えにくい」→「もう少しだけ上に。
+   機首がいい感じにタイトルとサブタイトルの間に収まるくらい。少しのサブタイトルとの被りはよい」）。
+   中心の高さ 29% → 22% → 17% */
+.jetback .m{position:absolute;right:-26%;top:17%;transform:translateY(-50%);width:min(28rem,78%)}
 .jetback img{width:100%;max-width:none;opacity:.85;filter:drop-shadow(0 1.25rem 2.5rem rgba(0,0,0,.6));
   animation:hover 10s ease-in-out infinite}
-/* 文字が読めるように、左から暗い幕をかける */
+/* 文字が読めるように、左から暗い幕をかける。
+   機体を上げた（29% → 22%）ぶん、狭い画面ではサブタイトルの末尾が機体の胴体の真裏に来て沈んだので、
+   薄まり方を後ろへずらし、中間の濃さも上げた（2026-09-12）。機体の先端は従来どおり見える */
 .jetback::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(95deg,#0b1017 2%,rgba(11,16,23,.78) 26%,rgba(11,16,23,.28) 52%,transparent 74%)}
+  background:linear-gradient(95deg,#0b1017 2%,rgba(11,16,23,.80) 34%,rgba(11,16,23,.40) 62%,transparent 84%)}
 @keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.4%)}}
 .hero>.txt{position:relative;z-index:1}
 @media (min-width:56rem){
-  .jetback .m{right:-4%;top:33%;width:min(46rem,56%)}
+  .jetback .m{right:-4%;top:21%;width:min(46rem,56%)}   /* 広い画面でも同じく上へ（33% → 26% → 21%） */
   .jetback::after{background:linear-gradient(95deg,#0b1017 2%,rgba(11,16,23,.72) 22%,rgba(11,16,23,.18) 46%,transparent 64%)}
   .hero>.txt{max-width:38rem}
 }
@@ -414,7 +423,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     <div class="txt">
       <div class="chip"><i></i>GUIDE</div>
       <div class="wordmark">TENRYU</div>
-      <h1 class="subtitle">航空学生 適性検査（方位判読・姿勢判読）の対策</h1>
+      <h1 class="subtitle">航空学生 適性検査トレーニング<span class="subsub">方位判読・姿勢判読</span></h1>
       <p class="lead">航空学生の一次試験は、学科試験と適性検査に分かれます。その適性検査で出る方位判読・姿勢判読・操縦操作の 4 種目を、本番と同じ制限時間で練習できるアプリです。航空自衛隊でも海上自衛隊でも、出る課目は同じです。</p>
       <div class="cta">
         <a class="btn pri" href="/">ブラウザで体験版を始める</a>
@@ -580,7 +589,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       </div>
       <div class="plan pay">
         <div class="top"><h3>アプリ版（完全版）</h3><span class="yen" id="price">2,000 円</span></div>
-        <p>買い切り、広告なし。難易度 Normal と Hard、出題数と制限時間の指定、編隊とスモーク、展示飛行の全演目と長さ、写真の保存が使えます。iPhone・iPad は App Store から。Android 版は準備中です。</p>
+        <p>買い切り、広告なし。難易度 Normal と Hard、出題数と制限時間の指定、編隊とスモーク、展示飛行の全演目と長さ、写真の保存が使えます。iPhone・iPad は App Store から。<strong>Android 版は公開前のテストを行っており、テスターを募集しています</strong>（参加方法は下の「よくある質問」にあります）。</p>
         <p class="note" id="pricenote">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</p>
         <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
       </div>
@@ -598,7 +607,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <div class="qa"><div class="q"><span>Q</span><h3>航空学生の倍率はどれくらいですか。</h3></div><div class="a"><span>A</span><p>令和 7 年度は、航空要員が応募 1,354 人に対して採用 70 人で 19.3 倍、海上要員が応募 237 人に対して採用 55 人で 4.3 倍でした（防衛省「自衛官等の充足・採用状況」）。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>このアプリだけで対策になりますか。</h3></div><div class="a"><span>A</span><p>適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>体験版と完全版の違いは何ですか。</h3></div><div class="a"><span>A</span><p>体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、展示飛行の長さ、写真の保存は完全版です。</p></div></div>
-      <div class="qa"><div class="q"><span>Q</span><h3>Android では使えますか。</h3></div><div class="a"><span>A</span><p>ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用で、Google Play 版は準備中です。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>Android では使えますか。</h3></div><div class="a"><span>A</span><p>ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用です。<strong>Android 版は公開前のテストを行っており、テスターを募集しています。</strong>参加するには、まず <a href="https://groups.google.com/g/tenryu-testers">Google グループ「tenryu-testers」</a>に参加し、そのうえで <a href="https://play.google.com/apps/testing/com.amaterasuvocab.kokuteki">テスト参加ページ</a>を開いてください。グループに参加した Google アカウントで Google Play にログインしている必要があります。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>出題は本番と同じですか。</h3></div><div class="a"><span>A</span><p>市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div><div class="a"><span>A</span><p>買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。</p></div></div>
     </div>
@@ -660,7 +669,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 {"@type":"Question","name":"航空学生の倍率はどれくらいですか。","acceptedAnswer":{"@type":"Answer","text":"令和 7 年度は、航空要員が応募 1,354 人に対して採用 70 人で 19.3 倍、海上要員が応募 237 人に対して採用 55 人で 4.3 倍でした（防衛省「自衛官等の充足・採用状況」）。"}},
 {"@type":"Question","name":"このアプリだけで対策になりますか。","acceptedAnswer":{"@type":"Answer","text":"適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。"}},
 {"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、展示飛行の長さ、写真の保存は完全版です。"}},
-{"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用で、Google Play 版は準備中です。"}},
+{"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"ブラウザ版はどの端末でも動きます。App Store の完全版は iPhone・iPad 用です。Android 版は公開前のテストを行っており、テスターを募集しています。Google グループ「tenryu-testers」に参加したうえで、テスト参加ページ https://play.google.com/apps/testing/com.amaterasuvocab.kokuteki を開いてください。"}},
 {"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
 {"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。"}}]}
 </script>

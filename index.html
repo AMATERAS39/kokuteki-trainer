@@ -1289,7 +1289,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.95';
+const APP_VER='v04.96';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1646,7 +1646,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=140').then(mod=>{
+  import('./sim3d.js?v=141').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1974,11 +1974,18 @@ function runSim(opt){applyScene();
     if(sim.h&&sim.h.lookState){const lk=sim.h.lookState(),off=Math.max(Math.abs(lk.y),Math.abs(lk.p));
       const el=$('#sim'),had=el.classList.contains('lookaway'),away=had?off>12:off>20;
       if(away!==had)el.classList.toggle('lookaway',away)}
-    /* 方位計は、いつでも「視点が向いている方角」を示す（利用者の指示 2026-09-12）。
-       3D 側が毎コマ視点の方位 vh を入れる。地上から見ているときの gh も同じ考え方。
-       以前は機内・三人称で機体の方位（s.h）を出していたので、見回しても方位計が動かなかった */
-    const hdg=typeof s.vh==='number'?s.vh:((sim.viewName==='ground'&&typeof s.gh==='number')?s.gh:s.h);
-    his.forEach(h=>h.querySelector('.hi-c').setAttribute('transform',`rotate(${-hdg})`));
+    /* 方位計は視点によって出すものが変わる（利用者の指示 2026-09-12）。
+       ・一人称（機内）は、いつでも機体の方位。機体に載っている計器なので、視線を動かしても動かない
+       ・地上視点は、いつでも視線の方角
+       ・三人称は、ふだんは機体の方位（＝計器の表記）。視線を動かしているあいだだけ視線の方角にし、
+         中央の印も地上視点と同じ「見ている人」にする。視線を中央へ戻せば計器の表記に戻る
+       どちらを出すかは 3D 側が s.vhUse で知らせる（視線をどれだけ動かしているかは 3D 側しか持っていない）。
+       中央の印（gnd）も毎コマここで切り替える。視点を変えた瞬間に一度だけ付け外しする作りでは、
+       三人称で視線を動かしたり戻したりする切り替えに追従できない */
+    const useView=!!s.vhUse&&typeof s.vh==='number';
+    const hdg=useView?s.vh:s.h;
+    his.forEach(h=>{h.querySelector('.hi-c').setAttribute('transform',`rotate(${-hdg})`);
+      h.classList.toggle('gnd',useView);});
     /* 着陸・地上走行・待機の案内と、離陸ボタン */
     const tk=$('#simTakeoff');
     /* 押したら「もう押せる」見た目にしない。曲に合わせて待っているあいだと加速中は、その旨を出して押せなくする */
@@ -2036,7 +2043,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=140').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=141').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}

@@ -2104,11 +2104,16 @@ export function mount(container, opt = {}) {
           if (Math.hypot(vx - st.x, vy - st.y) < 150 || manT > 60) { chgT = 0; smokeAll = true; }   // 頂点で一斉に開く
         } else {
           chgT += dt;
-          if (chgT < 3.5) { joinFast = true; formation = 'split'; formScale = 1; }        // 交互に開く
-          /* 散開直後は扇編隊。5 機とも 1 番機と同じ高さに並ぶ（利用者の指示 11。v04.76）。
+          /* 散開したら、そのまま 1 番機と平行に並んで扇になる（利用者の指示 2026-09-12:
+             「散開直後、そのまま一番機と平行に並び、扇形となる」）。
+             以前は「交互に開く（split）」を 3.5 秒はさんでから扇へ移していたため、
+             1 番機と平行に並ぶまでに二段階かかって見えた。
+             開き始めの速さは joinFast で保ち、隊形は初めから扇にする */
+          /* 扇編隊は 5 機とも 1 番機と同じ高さに並ぶ（利用者の指示 11。v04.76）。
              以前はデルタ（6 機の隊形）にしていたため、席の無いはずの 6 番機に席ができて、
              課目の途中で合流して現れていた。扇は 5 機の隊形なので、6 番機は合流するまで出てこない */
-          else { joinFast = false; formation = 'fan'; formScale = 1.7; }                 // 扇に
+          joinFast = chgT < 3.5;                                                         // 開き始めだけ速く寄せる
+          formation = 'fan'; formScale = 1.7;                                            // 初めから扇
           if (chgT < 7) { const se = keyPt(135, 4000); steerTo(se.x, se.y, GATE.z); }    // 頂点で南東へ曲がる
           else holdBank(0);                                                              // 整った速度ベクトルのまま
         }

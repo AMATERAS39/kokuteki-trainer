@@ -546,7 +546,11 @@ body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--c
 .frame .v{border-radius:.625rem;overflow:hidden;border:1px solid var(--line)}
 
 /* 回答ボタン（共通状態） */
-.ab{position:relative;min-height:3.25rem;border-radius:.75rem;border:1px solid var(--line2);background:var(--panel2);color:var(--text);
+/* touch-action:manipulation はボタン自身にも指定する（利用者の指摘 2026-09-12:
+   選択式の問題でダブルタップすると拡大される）。body には元から入れてあるが、
+   ホーム画面に置いた PWA では末端のボタンまで効かないことがある。
+   none ではなく manipulation にするのは、none だと画面の縦スクロールまで止まるため */
+.ab{position:relative;min-height:3.25rem;border-radius:.75rem;border:1px solid var(--line2);background:var(--panel2);color:var(--text);touch-action:manipulation;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.125rem;padding:.375rem;transition:border-color .12s,background .12s}
 @media (hover:hover){.ab:hover:not(:disabled){border-color:var(--muted)}}
 .ab.sel{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
@@ -1289,7 +1293,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v04.98';
+const APP_VER='v04.99';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */

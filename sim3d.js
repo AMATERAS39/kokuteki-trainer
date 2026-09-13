@@ -6,9 +6,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const D = Math.PI / 180;
-export const LIMIT = 1800;                       // 壁までの距離（原点から、m）。壁は近づくまで見えない（place で薄くする）
+export const LIMIT = 3300;                       // 壁までの距離（原点から、m）。壁は近づくまで見えない（place で薄くする）。1800 → 3300（利用者の指示 2026-09-13「制限範囲を拡大」。地面 8 km 角の内側）
 const WALL_FADE = 400;                           // 壁が見えはじめる距離（m）。これより遠いと透明
-export const CEIL = 3000;                        // 天井（m）。宙返りができる高さを取る
+export const CEIL = 4000;                        // 天井（m）。宙返りができる高さを取る（3000 → 4000、2026-09-13）
 export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
@@ -195,8 +195,8 @@ export function mount(container, opt = {}) {
 
   /* 地面（格子つき）と滑走路 */
   const lineCol = hex(col.earth.clone().lerp(new THREE.Color(night ? 0xc0ccdd : 0xffffff), night ? 0.6 : 0.45));
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.MeshLambertMaterial({ map: gridTexture(hex(col.earth), lineCol) }));
-  ground.material.map.repeat.set(14, 14); ground.material.map.offset.set(0.5, 0.5);   // 原点が格子の交点に来る
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ map: gridTexture(hex(col.earth), lineCol) }));
+  ground.material.map.repeat.set(20, 20); ground.material.map.offset.set(0.5, 0.5);   // 原点が格子の交点に来る（1 枚 500 m。壁 3.3 km の外まで地面がある）
   world.add(ground);
   /* 滑走路は 2 本（2 機ずつ離陸するため）。地上視点の立ち位置あてのレイキャストで使うので、1 つの入れ物にまとめる */
   const runway = new THREE.Group(); world.add(runway);
@@ -310,8 +310,8 @@ export function mount(container, opt = {}) {
   /* 空間の中の山は 8 つ（12 から減らした。多すぎて見え方の目印が埋もれる、との利用者の指摘）。遠景の環も 24 → 16 */
   [[-900, -300], [900, -100], [-700, 1100], [800, 1150], [1100, 800], [-500, -1000], [1150, -1150], [-1250, 100]]
     .forEach(([x, y], i) => mountain(x, y, 180 + (i % 4) * 60, 140 + (i % 3) * 50, i % 4 === 3));
-  for (let i = 0; i < 16; i++) {                            // 遠景の環（壁の外）
-    const a = i / 16 * Math.PI * 2 + rnd() * 0.2, r = 2200 + rnd() * 500, hgt = 400 + rnd() * 500;
+  for (let i = 0; i < 16; i++) {                            // 遠景の環（壁の外。壁を 3.3 km に広げたので 3.9〜4.4 km へ、2026-09-13）
+    const a = i / 16 * Math.PI * 2 + rnd() * 0.2, r = 3900 + rnd() * 500, hgt = 400 + rnd() * 500;
     mountain(r * Math.cos(a), r * Math.sin(a), hgt, 300 + rnd() * 300, hgt > 650);
   }
 
@@ -603,6 +603,7 @@ export function mount(container, opt = {}) {
   /* スロットル（利用者の指示 2026-09-13「速度を変えられるスロットを操縦スティックの上に。実機と同じく縦。機内にも連動するレバー」）。
      0（アイドル）〜1（全開）。手動操縦の速さは 0.6〜1.5 倍（36〜90 m/s）。0.444 で 1 倍（60 m/s）。レバーは前に押すほど速い */
   let throttle = 0.444, thrLever = null;
+  const pedals = [null, null], rudAim = { r: 0 };   // 機内のペダル（左・右）と、表示用になました方向舵の入力
   const THR_MIN = 0.6, THR_MAX = 1.5;
   const interior = new THREE.Group(); stickHolder.add(interior);
   {
@@ -640,6 +641,7 @@ export function mount(container, opt = {}) {
     for (const s of [-1, 1]) {
       const ped = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.03, 0.16), panelMat.console);
       ped.position.set(s * 0.16, 3.36, -0.82); ped.rotation.x = 0.45; interior.add(ped);
+      pedals[s > 0 ? 1 : 0] = ped;   // 方向舵に連動して前後に動かす（drawStick）
       const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.30, 8), metal); arm.position.set(s * 0.16, 3.44, -0.90); arm.rotation.x = 1.2; interior.add(arm);
     }
     /* 床（腰から下の暗い内壁）。側壁の平板は置かない: 一人称で左に「板」として見えた（利用者の指摘 2026-09-13。pick() で PlaneGeometry と特定）。
@@ -2617,7 +2619,9 @@ export function mount(container, opt = {}) {
   }
   let lineupPrev = false;                  // 前のコマで「全機が並んだ」状態だったか（曲を止める合図に使う）
   /* ===== 手動操縦の物理（v2） ===== */
-  const PHY = { ALPHA0: 3.5 * D, KY: 14, TAU_A: 0.35, TAU_B: 0.45, A_PULL: 10.5 * D, A_PUSH: 7 * D, BETA_MAX: 10 * D };
+  /* TAU_B: 横滑り角が指令へ追いつく時定数。踏んでも離しても同じ（風見安定）。0.45 秒だと、離した瞬間に機首が 1 秒足らずで進路へ戻り
+     「反動」に見えた（利用者の指摘 2026-09-13）。実機のヨーの固有周期は 1〜2 秒なので 0.8 秒に。戻る動きそのものは物理（横滑りが消えて機首が相対風に並ぶ） */
+  const PHY = { ALPHA0: 3.5 * D, KY: 14, TAU_A: 0.35, TAU_B: 0.8, A_PULL: 10.5 * D, A_PUSH: 7 * D, BETA_MAX: 10 * D };
   PHY.KL = 9.81 / PHY.ALPHA0;                 // 揚力傾斜（m/s² / rad）。釣り合いの迎角で揚力＝重力になる値
   const vel = new THREE.Vector3(), pAcc = new THREE.Vector3(), pTmp = new THREE.Vector3();
   /* 速度を機首から作り直す: 速度＝機首の向き（迎角 0）。昇降舵の指令が 0.35 秒ほどで迎角を釣り合いまで立ち上げ、
@@ -4291,6 +4295,9 @@ export function mount(container, opt = {}) {
     cockpit.updateWorldMatrix(true, false);
     stickHolder.matrix.copy(cockpit.matrixWorld);
     if (thrLever) thrLever.position.y = 2.75 + 0.20 * throttle;   // レバーは画面のスロットルに連動（前へ押すほど速い）
+    /* ペダルは方向舵に連動（利用者の指示 2026-09-13）。右を踏むと右のペダルが前へ出て左が戻る。急に動かすと機械らしくないので 0.09 秒でならす */
+    rudAim.r += ((auto ? smIn.r : input.r) - rudAim.r) * (1 - Math.exp(-0.016 / 0.09));
+    if (pedals[1]) { pedals[1].position.y = 3.36 + 0.06 * rudAim.r; pedals[0].position.y = 3.36 - 0.06 * rudAim.r; }
     /* 計器盤の姿勢指示器と方位指示器は、乗っている機体の姿勢で描く */
     { const so = cockpit.parent || plane, mine = so === plane, a = mine ? st : attOfQ(so.quaternion);
       const v = gmode === 'fly' ? SPEED * Math.max(0.2, spdK) : gv, fz = mine ? (velOk ? vel.z / v : fwd.z) : hudV1.z;   // 地上では滑走の速さ。手動は速度ベクトルの上下（機首ではない）。hudV1 は attOfQ が置いた機首の向き

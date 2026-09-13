@@ -14,8 +14,8 @@ export const DIRS = [
 
 /* motion: 「動きで見る」の三人称。3D モデルの展示ではなく、設定した操作パターンの動きを外から見るもの（利用者の指示 2026-09-13）。
    案内用の飾り（床の格子・方位の矢印・東西南北の札）は出さず、地平線と地面の格子だけの空に機体を置く（一人称の景色と同じ関係で読める） */
-export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, motion = false } = {}) {
-  const W = () => container.clientWidth, H = () => Math.round(container.clientWidth * 3 / 4);
+export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, motion = false, aspect = 4 / 3 } = {}) {
+  const W = () => container.clientWidth, H = () => Math.round(container.clientWidth / aspect);   // aspect: 幅／高さ（「動きで見る」は一人称の視界と同じ 3:2）
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setSize(W(), H()); renderer.setClearColor(0x000000, 0);

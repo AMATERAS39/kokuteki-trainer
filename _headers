@@ -1,0 +1,5 @@
+# Cloudflare Workers の静的アセットの応答ヘッダー。
+# お知らせ（news.json）はアプリ版（capacitor://localhost）が本番から読むので、別オリジンからの読み取りを許す。
+# ファイルのある道は Worker より先に静的配信が返すため、worker.js の同じ処理はここでは効かない（2026-09-13 に実測）。
+/news.json
+  Access-Control-Allow-Origin: *

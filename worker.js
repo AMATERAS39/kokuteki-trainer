@@ -65,7 +65,8 @@ export default {
       return json({ error: 'method' }, 405);
     }
 
-    /* お知らせは、アプリ版（capacitor://localhost）が本番から読む。別オリジンなので CORS の許可を付けて返す（2026-09-13） */
+    /* お知らせは、アプリ版（capacitor://localhost）が本番から読む。別オリジンなので CORS の許可を付けて返す（2026-09-13）。
+       ただしファイルのある道は Worker より先に静的配信が返すので、実際に効くのは `_headers` の指定（ここは念のため） */
     if (url.pathname === '/news.json' && request.method === 'GET') {
       const res = await env.ASSETS.fetch(request);
       const h = new Headers(res.headers); h.set('access-control-allow-origin', '*');

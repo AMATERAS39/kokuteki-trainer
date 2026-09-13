@@ -82,6 +82,8 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   /* 姿勢をそのまま入れる（動かして見せるとき。毎コマ呼ぶ） */
   function setAttitude(h, p, b) { animating = false; pivot.quaternion.copy(targetQuat(h, p, b)); }
   function resetCamera() { cam.position.copy(HOME); controls.target.set(0, 0, 0); controls.update(); }
+  /* 決めた角度から見る（「動きで見る」の三人称: 後方・横・上など。ドラッグで自由に回せるのは変わらない） */
+  function setCamera(x, y, z) { cam.position.set(x, y, z); controls.target.set(0, 0, 0); controls.update(); }
 
   let running = true, raf = 0;
   function frame(now) {
@@ -95,7 +97,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   window.addEventListener('resize', onResize);
 
   return {
-    setDir, setAttitude, resetCamera,
+    setDir, setAttitude, resetCamera, setCamera,
     pause() { running = false; cancelAnimationFrame(raf); },
     resume() { if (!running) { running = true; raf = requestAnimationFrame(frame); } },
     dispose() { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); controls.dispose(); renderer.dispose(); renderer.domElement.remove(); }

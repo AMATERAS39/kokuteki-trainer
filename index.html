@@ -1313,7 +1313,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.06';
+const APP_VER='v05.07';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1947,8 +1947,8 @@ function runSim(opt){applyScene();
   sim.onOri=()=>{if(!sim||!sim.h)return;
     /* 縦画面は検証画面なので速さは 60 m/s 固定（スロットルは効かせない・見せない）。横画面はスロットルどおり（利用者の指示 2026-09-13） */
     if(sim.h.lockSpeed)sim.h.lockSpeed(sim.mqP.matches);
-    /* 縦画面はスロー再生（時間の進み 0.3 倍）。ロール・ピッチ・移動が同じ比で遅くなり、見え方の変化を追える（利用者の指示「極めてゆっくり」） */
-    if(sim.h.setTimeScale)sim.h.setTimeScale(sim.mqP.matches?0.3:1);
+    /* スロー再生（setTimeScale 0.3）は縦画面には掛けない（利用者が取り消し 2026-09-13。ゆっくりの三人称は「見え方」の「動きで見る」で行う） */
+    if(sim.h.setTimeScale)sim.h.setTimeScale(1);
     if(sim.mqP.matches){if(sim.viewName!=='first'||sim.fpMode!=='inst')setViewTo('first','inst');sim.h.setProps(true)}
     else sim.h.setProps(isFull()?store.get('simProps',true):true)};
   sim.mqP.addEventListener('change',sim.onOri);
@@ -2452,7 +2452,8 @@ function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('
 /* ===== 操縦操作: 操作パターンの見え方（操作を選ぶと①→②③を縦に表示。操縦桿と方向舵は同時に選べる）
    3 枚の下に「動きで見る」を置く。その操作をしたときの見え方を、一人称（風防ごしの景色）と
    三人称（外から見た機体）で動かして見せる。操作はできない（見え方を確かめるだけ） ===== */
-const gal={sel:[],init:'level',view:'first',play:false,seq:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う
+const gal={sel:[],init:'level',view:'first',play:false,seq:false,slow:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う、slow: ゆっくり（3.5 倍の時間。利用者の指示 2026-09-13「極めてゆっくり」。三人称にすると既定で入る）
+const galSpeed=()=>gal.slow?3.5:1;
 /* 初期状態（①の姿勢）。出題の「初期状態: ランダム」と同じ幅にそろえる */
 const GAL_INIT={level:{ja:'水平飛行',b:'水平',s:{bank:0,pitch:0,yaw:0}},rbank:{ja:'右バンク',b:'右バンク',s:{bank:30,pitch:0,yaw:0}},lbank:{ja:'左バンク',b:'左バンク',s:{bank:-30,pitch:0,yaw:0}},
   up:{ja:'機首上げ',b:'機首上げ',s:{bank:0,pitch:10,yaw:0}},down:{ja:'機首下げ',b:'機首下げ',s:{bank:0,pitch:-10,yaw:0}}};
@@ -2473,7 +2474,7 @@ function showGallery(){applyScene();
       <h4 class="gsimh">動きで見る${dm?'（完全版）':''}</h4>
       <div class="sub">同じ操作を動かして確かめます（ここでは操縦できません）。</div>
       <div class="gsimbar">
-        <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
+        <div class="gp" style="grid-template-columns:1fr 1fr 1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button><button class="ab" data-gs="1">標準</button><button class="ab" data-gs="slow">ゆっくり</button></div>
         <div class="gp" style="grid-template-columns:1fr 1fr"><button class="btn" id="gPlay">スタート</button><button class="btn ghost" id="gStop">ストップ</button></div>
       </div>
       <div class="gmove" id="gmove"></div>
@@ -2493,7 +2494,8 @@ function showGallery(){applyScene();
     if(b.dataset.lock){toast('体験版では水平飛行からの見え方だけです。ほかの初期状態は完全版で使えます');return}
     gal.init=b.dataset.init;galDraw()}));
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw();galApply(gal.play?null:0)}));
-  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{if(gal.view===b.dataset.gv)return;gal.view=b.dataset.gv;galMove()}));
+  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{if(gal.view===b.dataset.gv)return;gal.view=b.dataset.gv;gal.slow=gal.view==='third';galMove()}));
+  $('#gallery').querySelectorAll('[data-gs]').forEach(b=>b.addEventListener('click',()=>{gal.slow=b.dataset.gs==='slow';galDraw();if(gal.play){galT0=performance.now()}}));
   $('#gPlay').addEventListener('click',galPlay);
   $('#gStop').addEventListener('click',galStop);
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
@@ -2521,6 +2523,7 @@ function galDraw(){
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
   $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.classList.toggle('sel',b.dataset.init===gal.init));
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
+  $('#gallery').querySelectorAll('[data-gs]').forEach(b=>b.classList.toggle('sel',(b.dataset.gs==='slow')===gal.slow));
   $('#gseqRow').classList.toggle('off',gal.sel.length<2);
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
   const fr=galFrames(),f=fr.f;
@@ -2540,8 +2543,14 @@ function galMove(){
   if(galViewer){galViewer.dispose();galViewer=null}
   box.innerHTML=gal.view==='first'
     ?`<div class="gfp">${E.svgCockpit(f[0].bank,f[0].pitch,f[0].yaw,0,false)}</div>`
-    :`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">3D モデルを読み込み中…</div></div>`;
+    :`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">3D モデルを読み込み中…</div></div>
+      <div class="gp gang" style="grid-template-columns:repeat(5,1fr)"><button class="ab" data-ang="back">後方</button><button class="ab" data-ang="right">右横</button><button class="ab" data-ang="left">左横</button><button class="ab" data-ang="top">上</button><button class="ab" data-ang="quarter">斜め後ろ</button></div>
+      <div class="sub">操作はできません。指でなぞると好きな角度に回せ、つまむと近づけます。北が奥です。</div>`;
+  /* 三人称の角度（利用者の指示 2026-09-13「従来の動きを三人称でいろんな角度から見られるように」）。機体は原点、北が +y */
+  const ANG={back:[0,-22,6],right:[22,0,4],left:[-22,0,4],top:[0,-6,24],quarter:[14,-16,8]};
+  box.querySelectorAll('[data-ang]').forEach(b=>b.addEventListener('click',()=>{const a=ANG[b.dataset.ang];gal.ang=b.dataset.ang;if(galViewer&&a)galViewer.setCamera(...a);box.querySelectorAll('[data-ang]').forEach(x=>x.classList.toggle('sel',x===b))}));
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
+  $('#gallery').querySelectorAll('[data-gs]').forEach(b=>b.classList.toggle('sel',(b.dataset.gs==='slow')===gal.slow));
   if(gal.view==='third')galMountViewer();
   galApply(0);
   if(wasPlaying)galPlay();
@@ -2551,10 +2560,13 @@ let galViewer=null,galViewerLoading=false,galRaf=0,galT0=0;
 function galMountViewer(){
   const host=$('#gviewer');if(!host||galViewerLoading)return;
   galViewerLoading=true;
-  import('./viewer.js?v=5').then(mod=>mod.mount(host,{onProgress:pr=>{const l=$('#gvload');if(l)l.textContent=`3D モデルを読み込み中… ${Math.round(pr*100)}%`}}))
+  import('./viewer.js?v=6').then(mod=>mod.mount(host,{onProgress:pr=>{const l=$('#gvload');if(l)l.textContent=`3D モデルを読み込み中… ${Math.round(pr*100)}%`}}))
     .then(v=>{galViewerLoading=false;
       if(!document.body.contains(host)){v.dispose();return}   // 画面が変わっていたら捨てる
-      galViewer=v;const l=$('#gvload');if(l)l.remove();galApply(gal.play?null:0);})
+      galViewer=v;const l=$('#gvload');if(l)l.remove();
+      /* 既定の角度は後方（操縦者と同じ向きで機体の動きを見る）。選んであった角度があればそれ */
+      { const a=gal.ang||'back', b=$('#gmove')&&$('#gmove').querySelector(`[data-ang="${a}"]`); if(b)b.click(); else v.setCamera(0,-22,6); }
+      galApply(gal.play?null:0);})
     .catch(()=>{galViewerLoading=false;const l=$('#gvload');if(l)l.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）'});
 }
 function galDispose(){galStop();if(galViewer){galViewer.dispose();galViewer=null}}
@@ -2563,7 +2575,7 @@ const GAL_SEQ=[{hold:0.8},{move:2.0},{hold:0.5},{move:2.0},{hold:1.4}];
 const GAL_DUR=GAL_SEQ.reduce((a,s)=>a+(s.hold||s.move),0);
 /* 経過時間 t（秒）の姿勢にする。t が null なら、いまの時刻から求める */
 function galApply(t){
-  if(t===null)t=gal.play?((performance.now()-galT0)/1000)%GAL_DUR:0;
+  if(t===null)t=gal.play?((performance.now()-galT0)/1000/galSpeed())%GAL_DUR:0;
   const f=galFrames().f;
   let u=0,seg=0,rest=t,done=false;
   for(const s of GAL_SEQ){const d=s.hold||s.move;
@@ -2578,13 +2590,13 @@ function galApply(t){
     const box=$('#gmove'),sv=box&&box.querySelector('svg');if(!sv)return;
     const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw'),yg=sv.querySelector('.ck-yawg');
     if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
-    if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0) scale(${(1+E.CK.grow*prog).toFixed(3)})`);
+    if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);   /* 前進の拡大（grow）は外した。静止画と同じ（非物理で、目印の動きの法則の邪魔）*/
     if(yg)yg.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
   }else if(galViewer){
     galViewer.setAttitude(st.yaw,st.pitch,st.bank);   // 方位はヨーのぶんだけ振れる
   }
   const se=$('#gstep');
-  if(se)se.textContent=gal.play?`${'①②③'[Math.round(u)]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`
+  if(se)se.textContent=gal.play?`${'①②③'[Math.round(u)]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°${gal.slow?'　（ゆっくり: 実際の 3.5 倍の時間）':''}`
     :'スタートを押すと、①→②→③の見え方が動きで分かります';
 }
 /* ===== 解説の中の見え方（操縦操作・完全版）=====
@@ -2606,7 +2618,7 @@ function fbSimApply(t){
   const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw'),yg=sv.querySelector('.ck-yawg');
   if(yg)yg.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
   if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
-  if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0) scale(${(1+E.CK.grow*prog).toFixed(3)})`);
+  if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
   const lb=$('#fbSimStep');
   if(lb)lb.textContent=`${'①②③'[Math.round(u)]} のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`;
 }
@@ -2631,7 +2643,7 @@ function galPlay(){
   gal.play=true;galT0=performance.now();
   cancelAnimationFrame(galRaf);
   const step=now=>{if(!gal.play)return;
-    galApply(((now-galT0)/1000)%GAL_DUR);
+    galApply(((now-galT0)/1000/galSpeed())%GAL_DUR);
     galRaf=requestAnimationFrame(step)};
   galRaf=requestAnimationFrame(step);
 }
@@ -3034,7 +3046,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=5');
+    const mod=await import('./viewer.js?v=6');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');

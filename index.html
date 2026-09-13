@@ -221,6 +221,13 @@ svg text{user-select:none}
 .sim .ctl{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.5rem;align-items:center}
 .sim .stick{position:relative;width:clamp(6.5rem,20dvh,9rem);aspect-ratio:1;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);margin:0 auto;touch-action:none;display:flex;align-items:center;justify-content:center;user-select:none}
 .sim .stkwrap h4{margin-bottom:.375rem}
+/* スロットル: 操縦桿の上に縦のバー（実機と同じ縦。利用者の指示 2026-09-13）。上へ押すほど速い */
+.sim .thr{display:flex;flex-direction:column;align-items:center;gap:.2rem;margin:0 auto .5rem;width:max-content}
+.sim .thrbar{position:relative;width:1.5rem;height:clamp(3.75rem,13dvh,5.5rem);border-radius:.75rem;background:var(--panel2);border:1px solid var(--line2);touch-action:none;user-select:none;cursor:ns-resize}
+.sim .thrbar::before{content:'';position:absolute;left:50%;top:.5rem;bottom:.5rem;width:2px;margin-left:-1px;background:var(--line2);border-radius:1px}
+.sim .thrknob{position:absolute;left:-.4rem;width:2.3rem;height:1rem;border-radius:.3rem;background:#8a939e;border:2px solid #3a424c;transform:translateY(-50%);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.sim .thrlb{font-size:.6rem;color:var(--muted);letter-spacing:.05em}
+body[data-view="train"][data-phase="sim"] .sim .thrbar{background:radial-gradient(ellipse at 50% 70%,rgba(42,50,60,.85) 0,rgba(28,38,50,.7) 60%);backdrop-filter:blur(2px)}
 .sim .stick{border-radius:1rem;background:radial-gradient(ellipse at 50% 70%,#2a323c 0,var(--panel2) 60%)}
 .sim .stick .grip{width:58%;height:auto;pointer-events:none;filter:drop-shadow(0 .375rem .5rem rgba(0,0,0,.55));transition:transform .06s linear;transform-origin:50% 85%}
 .sim .pedal{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--panel2),#1d232b);border-color:var(--line2)}
@@ -1305,7 +1312,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.03';
+const APP_VER='v05.04';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1671,7 +1678,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=145').then(mod=>{
+  import('./sim3d.js?v=146').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1731,7 +1738,7 @@ function runSim(opt){applyScene();
     <div class="wheel" id="trickWheel" hidden><svg id="trickWheelSvg" viewBox="-160 -160 320 320"></svg><div class="wc" id="trickWheelName">技を選ぶ</div></div>
     <div class="instrow" id="instRow">${inst}</div>
     <div class="ctl">
-      <div class="stkwrap"><h4>操縦桿</h4><div class="stick" id="stick"><span class="lb t">奥</span><span class="lb b">手前</span><span class="lb l">左</span><span class="lb r">右</span>
+      <div class="stkwrap"><div class="thr" id="thr" title="スロットル（上へ押すほど速い）"><div class="thrbar" id="thrBar"><div class="thrknob" id="thrKnob"></div></div><span class="thrlb">スロットル</span></div><h4>操縦桿</h4><div class="stick" id="stick"><span class="lb t">奥</span><span class="lb b">手前</span><span class="lb l">左</span><span class="lb r">右</span>
         <svg class="grip" id="knob" viewBox="-40 -60 80 120" aria-hidden="true"><circle class="plain" cx="0" cy="0" r="26" fill="#8a939e" stroke="#3a424c" stroke-width="3"/><g class="col"><ellipse cx="0" cy="44" rx="22" ry="8" fill="#0d1116" opacity=".7"/><rect x="-5" y="-4" width="10" height="46" rx="4" fill="#8a939e"/><path d="M-14,-50 h28 a10,10 0 0 1 10,10 v34 a10,10 0 0 1 -10,10 h-28 a10,10 0 0 1 -10,-10 v-34 a10,10 0 0 1 10,-10z" fill="#14171b" stroke="#3a424c" stroke-width="2"/><rect x="-10" y="-42" width="8" height="8" rx="2" fill="#c0392b"/><rect x="2" y="-42" width="8" height="8" rx="2" fill="#5b6570"/><rect x="-9" y="-26" width="18" height="4" rx="2" fill="#3a424c"/><rect x="-9" y="-16" width="18" height="4" rx="2" fill="#3a424c"/></g></svg></div><span class="keyhint">W A S D ／ 斜め Q E Z C</span></div>
       <div class="rud"><h4>方向舵</h4><div class="pedals"><button class="ab pedal" data-r="-1" aria-label="方向舵 左"><span class="pl">L</span><span class="pk">O</span></button><button class="ab pedal" data-r="1" aria-label="方向舵 右"><span class="pl">R</span><span class="pk">P</span></button></div></div>
     </div>
@@ -1742,6 +1749,12 @@ function runSim(opt){applyScene();
   sim={h:null,keys:new Set(),ptr:null,rud:new Map(),wheelDir:0,wheelUntil:0};
   /* 操縦桿（左）: 円の中でドラッグ。上 = 奥（機首下げ）、右 = 右バンク。離すと中央に戻る */
   const stick=$('#stick'),knob=$('#knob');
+  /* スロットル（縦）: 0 = 下（アイドル、36 m/s）〜 1 = 上（全開、90 m/s）。0.444 で 60 m/s。3D のレバーも連動する */
+  {const bar=$('#thrBar'),kn=$('#thrKnob');sim.thr=0.444;const paintThr=()=>{kn.style.top=((1-sim.thr)*100).toFixed(1)+'%'};paintThr();
+   const setThr=y=>{const r=bar.getBoundingClientRect();sim.thr=Math.max(0,Math.min(1,1-(y-r.top)/r.height));paintThr();if(sim.h&&sim.h.setThrottle)sim.h.setThrottle(sim.thr)};
+   bar.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();try{bar.setPointerCapture(e.pointerId)}catch(x){}setThr(e.clientY)});
+   bar.addEventListener('pointermove',e=>{if(bar.hasPointerCapture&&bar.hasPointerCapture(e.pointerId))setThr(e.clientY)});
+   sim.paintThr=paintThr}
   /* PC: 操縦桿は W（奥）/ S（手前）/ A（左）/ D（右）と矢印、マウスホイール奥・手前。方向舵は O（左）/ P（右）と、視界の上での右クリック（右） */
   const applyInput=()=>{if(!sim||!sim.h)return;const i=sim.h.input,k=sim.keys;
     if(sim.ptr===null){const wheel=sim.wheelUntil>performance.now()?sim.wheelDir:0;
@@ -2072,7 +2085,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=145').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=146').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2081,6 +2094,7 @@ function runSim(opt){applyScene();
       sim.h=mod.mount($('#simView'),{onState,view,onPanel,onJump:()=>{if(sim&&sim.flashSim)sim.flashSim();
         /* 位置を移す瞬間は、機体に付いた視点（機内・三人称）にしておかない。地上視点に戻す（利用者の決め） */
         if(sim&&sim.setViewTo&&sim.viewName!=='ground'&&landFull()){sim.setViewTo('ground');sim.camHold=false}}});$('#simLoad').remove();applyInput();
+      if(sim.h.setThrottle)sim.h.setThrottle(sim.thr);   /* 画面のスロットルの位置を 3D へ（速さとレバー） */
       /* 作り直しの最中に押された自動操縦のボタンは、読み込みが済んでから効かせる（下の autoStep を後で呼ぶ） */
       const autoReplay=autoQueue;autoQueue=0;
       /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。

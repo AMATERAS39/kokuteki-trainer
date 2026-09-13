@@ -420,7 +420,8 @@ export function mount(container, opt = {}) {
       const sun = new THREE.Mesh(new THREE.SphereGeometry(R * Math.tan(PX(15)), 24, 12), new THREE.MeshBasicMaterial({ color: col.sun, fog: false }));
       sun.position.set(R * Math.sin(az) * Math.cos(el), R * Math.cos(az) * Math.cos(el), H0 + R * Math.sin(el)); ex.add(sun); }
     { const lm = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false, fog: false });   // 地面の線（太さと間隔は高さに比例）
-      const w = 2.5 * H0 / 80, L = 400000, gap = 150 * H0 / 80;
+      /* 横の線は 300 m おき: 機体は 2 秒で 400 m 進むので、線が流れて前へ進んでいることが分かる（高さに比例させた 1,875 m おきでは、進んでいないように見えた。利用者の指摘） */
+      const w = 2.5 * H0 / 80, L = 400000, gap = 300;
       [-7, -5, -3.5, -2.2, -1.2, -0.5, 0.5, 1.2, 2.2, 3.5, 5, 7].forEach(k => { const d = 130 / 240 * k * H0;
         const l = new THREE.Mesh(new THREE.PlaneGeometry(w, L), lm); l.position.set(d, 0, 0); l.renderOrder = -1; ex.add(l); });
       for (let yy = -60000; yy <= 60000; yy += gap) { const l = new THREE.Mesh(new THREE.PlaneGeometry(L, w), lm); l.position.set(0, yy, 0); l.renderOrder = -1; ex.add(l); } }
@@ -1253,6 +1254,12 @@ export function mount(container, opt = {}) {
   /* 姿勢の台本（「見え方」の「動きで見る」）。出題の絵と同じ姿勢 { bank, pitch, yaw } をそのまま機体に置き、位置は動かさない。
      出題の絵は「操作 1 つ＝機体の軸まわりの回転 1 つ」の約束で、前進や重力による流れを持たないので、その世界のまま再現する（利用者の指示 2026-09-13） */
   const poseQ = new THREE.Quaternion(); let posed = false;
+  /* 航跡（試験の世界だけ）: 置いた位置をつないだ細い線。三人称ではカメラが機体に付いてくるので、前へ進んでいることがこの線で分かる。
+     スモークは機体のすぐ後ろのカメラから見ると太い塊になって機体を隠した（2026-09-13） */
+  const TRAIL_N = 4000, trailPos = new Float32Array(TRAIL_N * 3); let trailLen = 0;
+  const trailGeo = new THREE.BufferGeometry(); trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3)); trailGeo.setDrawRange(0, 0);
+  { const tl = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, fog: false }));
+    tl.frustumCulled = false; tl.visible = exam; world.add(tl); }
   let curView = view, seat = 0;   // seat: 0=1 番機、1〜5=2〜6 番機（視点だけ移る）
   let inCockpit = true;           // 一人称の見せ方。true=機内（計器盤と操縦桿が見える）、false=計器だけ（外がそのまま見える）
   let paused = false;             // 演目の一時停止（画面を 2 回叩く）
@@ -4470,6 +4477,11 @@ export function mount(container, opt = {}) {
       poseQ.setFromAxisAngle(AZ, -a.yaw * D).multiply(dq.setFromAxisAngle(AX, a.pitch * D)).multiply(dq.setFromAxisAngle(AY, a.bank * D));
       posed = true; att.copy(poseQ); readAttitude(); velOk = false;
       st.x = START.x + (a.dx || 0); st.y = START.y + (a.dy || 0); st.z = (exam ? EXAM_H : START.z) + (a.dz || 0);
+      if (exam && trailLen < TRAIL_N) {   // 航跡: 2 m 以上進んだら点を足す
+        const i = trailLen * 3, j = i - 3;
+        if (!trailLen || Math.hypot(st.x - trailPos[j], st.y - trailPos[j + 1], st.z - trailPos[j + 2]) > 2) {
+          trailPos[i] = st.x; trailPos[i + 1] = st.y; trailPos[i + 2] = st.z; trailLen++;
+          trailGeo.attributes.position.needsUpdate = true; trailGeo.setDrawRange(0, trailLen); } }
     },
     setTimeScale(k) { timeScale = clamp(+k || 1, 0.05, 1); return timeScale; },
     /* 一人称の見せ方を変える。切ると機内が消えて、外の景色がそのまま見える（縦画面はいつもこちら） */
@@ -4800,6 +4812,7 @@ export function mount(container, opt = {}) {
     clearMusic() { stopMusic(); musGen++; musDec.clear(); musList = []; musBuf = null; musLead = 0; musWait = -1; musDelay = 0; },
     setSmoke(on) { if (on && landCfg && auto) return false; smokeOn = !!on; return smokeOn; },   // 着陸体制の錠は自動操縦のあいだだけ
     smokeState() { return smokeOn; },
+    clearTrail() { trailLen = 0; trailGeo.setDrawRange(0, 0); },   // 「動きで見る」: 周回の頭で、前の周の航跡を消す
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },
     level() { levelAttitude(); st.ground = false; landCfg = false; if (gmode !== 'fly') { gmode = 'fly'; st.z = Math.max(st.z, 60); spdK = 1; } },
     home() { gmode = 'fly'; gv = 0; spdK = 1; spdWant = 1; Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false }); levelAttitude(); camPos.set(0, 0, 0); hist.length = 0; clearSmoke(); },

@@ -1141,10 +1141,11 @@ export function mount(container, opt = {}) {
     st.p = Math.asin(clamp(fwd.z, -1, 1)) / D;
     st.b = Math.atan2(-bright.dot(WUP), bup.dot(WUP)) / D;
   }
-  function levelAttitude() { att.setFromAxisAngle(AZ, -st.h * D); readAttitude(); }
+  function levelAttitude() { att.setFromAxisAngle(AZ, -st.h * D); readAttitude(); velOk = false; }   // 姿勢を直書きしたら速度も作り直す
   readAttitude();
   const N_MAX = 4;                     // 旋回に使える荷重倍数の上限（4 G）。横倒しでも旋回が暴れないようにする
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
+  let velOk = false;                    // 手動操縦の速度ベクトル vel が今の機首と合っているか（自動操縦・地上・姿勢の直書きのあとは false。physStep が作り直す）
   let curView = view, seat = 0;   // seat: 0=1 番機、1〜5=2〜6 番機（視点だけ移る）
   let inCockpit = true;           // 一人称の見せ方。true=機内（計器盤と操縦桿が見える）、false=計器だけ（外がそのまま見える）
   let paused = false;             // 演目の一時停止（画面を 2 回叩く）
@@ -2592,6 +2593,44 @@ export function mount(container, opt = {}) {
     if (musWait <= 0) { gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs'); }
   }
   let lineupPrev = false;                  // 前のコマで「全機が並んだ」状態だったか（曲を止める合図に使う）
+  /* ===== 手動操縦の物理（v2） ===== */
+  const PHY = { ALPHA0: 3.5 * D, KY: 14, TAU_A: 0.35, TAU_B: 0.45, A_PULL: 10.5 * D, A_PUSH: 7 * D, BETA_MAX: 10 * D };
+  PHY.KL = 9.81 / PHY.ALPHA0;                 // 揚力傾斜（m/s² / rad）。釣り合いの迎角で揚力＝重力になる値
+  const vel = new THREE.Vector3(), pAcc = new THREE.Vector3(), pTmp = new THREE.Vector3();
+  /* 速度を機首から作り直す: 速度＝機首の向き（迎角 0）。昇降舵の指令が 0.35 秒ほどで迎角を釣り合いまで立ち上げ、
+     機首が経路より上を向く。最初に経路を機首より下へ向ける形にすると、機首が水平のまま 3.5° の降下になり、
+     10 秒で 36 m 沈んで接地した（実測 2026-09-13） */
+  function syncVel() {
+    /* 釣り合いの水平飛行から始める（試作の trim と同じ）: 経路はいまの機首の向き、機首はそれより迎角ぶん上。
+       速度＝機首（迎角 0）から始めると、揚力が立ち上がるまでの 0.35 秒で経路が −1.7° に落ち、
+       速さ一定の仮定ではそのままの降下が釣り合ってしまい、放っておくと降り続けた（実測: 10 秒で −18 m） */
+    vel.copy(fwd).multiplyScalar(SPEED * Math.max(0.2, spdK));
+    att.multiply(dq.setFromAxisAngle(AX, PHY.ALPHA0)); att.normalize(); readAttitude();
+    velOk = true;
+  }
+  function physStep(dt) {
+    readAttitude();                           // fwd（機首）・bup（上）・bright（右）を att から
+    spdK += (spdWant - spdK) * (1 - Math.exp(-dt / 2.5));
+    const v = SPEED * Math.max(0.2, spdK);
+    if (!velOk) syncVel();
+    /* いまの迎角・横滑り角（速度と機首のずれ） */
+    const vr = vel.dot(bright), vf = vel.dot(fwd), vu = vel.dot(bup);
+    const alpha = Math.atan2(-vu, vf), beta = Math.atan2(vr, vf);
+    /* 力 → 速度 → 位置 */
+    pAcc.copy(bup).multiplyScalar(PHY.KL * alpha).addScaledVector(bright, -PHY.KY * beta); pAcc.z -= 9.81;
+    vel.addScaledVector(pAcc, dt).setLength(v);
+    st.x += vel.x * dt; st.y += vel.y * dt; st.z += vel.z * dt;
+    /* 姿勢: 補助翼はロール角速度。昇降舵・方向舵は迎角・横滑り角を指令へ寄せる（機首を速度まわりに動かす） */
+    const roll = RATE.roll * input.x * dt * D;
+    if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
+    const alphaWant = PHY.ALPHA0 + (input.y < 0 ? -input.y * PHY.A_PULL : -input.y * PHY.A_PUSH);   // 手前（y<0）で迎角を増やす
+    const betaWant = -input.r * PHY.BETA_MAX;                                                          // 右方向舵で機首を右へ（β は負）
+    const dA = (alphaWant - alpha) * Math.min(1, dt / PHY.TAU_A), dB = (betaWant - beta) * Math.min(1, dt / PHY.TAU_B);
+    if (dA) att.multiply(dq.setFromAxisAngle(AX, dA));
+    if (dB) att.multiply(dq.setFromAxisAngle(AZ, dB));                // 機首を右へ振るのは z まわりの負の回転（engine.js と同じ約束）
+    att.normalize(); readAttitude();
+    st.alpha = alpha / D; st.beta = beta / D;                          // 計器や記録の用（度）
+  }
   function step(dt) {
     smDt = dt || 0.05;
     st.mode = gmode;
@@ -2646,15 +2685,26 @@ export function mount(container, opt = {}) {
       tkOn = false; mates.forEach(h => { h.userData.tk = null; });
       if (!treeMode) { gearOn = false; lightsOn = false; applyGear(); }   // 離陸後はタイヤもライトも自動でしまう
     }
-    if (gmode !== 'fly') { groundStep(dt); return; }
+    if (gmode !== 'fly') { velOk = false; groundStep(dt); return; }
+    /* 自分で操縦しているときは、機体を物理で動かす（2026-09-13、利用者の基準「シミュレーターは景色ではなく機体を動かす。
+       合格基準は本物の機体の動きと物理的に同じか」）。
+       状態は 位置・速度ベクトル vel・姿勢 att。速度と機首は別物で、そのずれが迎角 α（縦）と横滑り角 β（横）。
+         揚力 = KL·α（機体の上向き）、横力 = −KY·β（機体の右向き）、重力 g（鉛直下）。速さは一定（推力＝抗力）。
+         補助翼 → ロール角速度、昇降舵 → 迎角の指令、方向舵 → 横滑り角の指令（実機の舵の効き方）。
+       これで バンクすれば揚力が傾いて旋回が生まれ、方向舵では機首が先に振れて速度が遅れて追い、
+       引けば機首が経路より上を向いて上昇する——式を書かずに出る。式と係数は `_proto.html`（v2、5 つの照合に合格）と同じ。
+       以前は「速度＝機首の向き」で、バンクしても曲がらず（旋回は自動操縦の門の中だけ）、重力も無かった（総点検の指摘 #1・#2・#3）。
+       「操縦桿を倒しただけで景色が横へ流れると方向舵と混ざる」という以前の理由で旋回を止めていたが、
+       本物はそう動くのだから、そう見せるのが練習になる。
+       自動操縦（展示飛行）は 19 課目の調整が乗っているので、従来の運動学のまま */
+    if (!auto) { physStep(dt); }
+    else {
+    velOk = false;                         // 自動操縦のあいだは vel を使わない（手動に戻った最初のコマで機首から作り直す）
     /* 自動操縦の舵は、目標へ 0.55 秒の時定数で寄せる。
        実機は舵をいきなり一杯には切らないので、そのぶんの緩みを入れる */
-    let inp = input;
-    if (auto) {
-      const want = autoInputs(dt), kk = 1 - Math.exp(-dt / 0.55);
-      smIn.x += (want.x - smIn.x) * kk; smIn.y += (want.y - smIn.y) * kk; smIn.r += (want.r - smIn.r) * kk;
-      inp = smIn;
-    }
+    let inp = smIn;
+    { const want = autoInputs(dt), kk = 1 - Math.exp(-dt / 0.55);
+      smIn.x += (want.x - smIn.x) * kk; smIn.y += (want.y - smIn.y) * kk; smIn.r += (want.r - smIn.r) * kk; }
     const roll = RATE.roll * rollBoost * inp.x * dt * D;   // 機首軸(+y): 右に倒すと右バンク。rollBoost は課目で速く回すとき
     const pitch = -RATE.pitch * inp.y * dt * D;     // 翼軸(+x): 手前に引くと機首上げ
     const yaw = RATE.yaw * inp.r * dt * D;          // 上下軸(+z): 右方向舵で機首が右へ
@@ -2682,6 +2732,7 @@ export function mount(container, opt = {}) {
     spdK += (spdWant - spdK) * (1 - Math.exp(-dt / 2.5));          // 速さはゆっくり変える
     const v = SPEED * spdK;
     st.x += fwd.x * v * dt; st.y += fwd.y * v * dt; st.z += fwd.z * v * dt;
+    }   // auto
     /* 技の途中（自動操縦）は、壁を少し越えてもよい。警告も出さず、自然に飛びながら戻ってくる。
        自分で操縦しているときは これまでどおり壁で止める */
     /* 自動操縦のあいだは、広さの決まりを外す（画面を広く使うため）。
@@ -2690,7 +2741,7 @@ export function mount(container, opt = {}) {
     const C = auto ? CEIL + 300 : CEIL;
     st.wall = !auto && (Math.abs(st.x) > LIMIT - 4 || Math.abs(st.y) > LIMIT - 4 || st.z > CEIL);
     if (!auto) { st.x = clamp(st.x, -(LIMIT - 4), LIMIT - 4); st.y = clamp(st.y, -(LIMIT - 4), LIMIT - 4); }
-    st.z = Math.min(st.z, C);
+    if (st.z >= C) { st.z = C; if (vel.z > 0) vel.z = 0; }          // 天井に当たったら上向きの速さを捨てる（張り付いたまま速度だけ上を向かないように）
     const touchGo = auto && PROGRAM[step_i] && PROGRAM[step_i].id === 'touch' && manPhase === 'do';
     if (rainOn && st.z < 140) { rainOn = false; }                    // 低くなったら引き起こしを戻す
     /* 自動操縦では墜落させない。ただし着陸・タッチ・アンド・ゴー・離陸の上昇中は外す。
@@ -4226,7 +4277,7 @@ export function mount(container, opt = {}) {
     stickHolder.matrix.copy(cockpit.matrixWorld);
     /* 計器盤の姿勢指示器と方位指示器は、乗っている機体の姿勢で描く */
     { const so = cockpit.parent || plane, mine = so === plane, a = mine ? st : attOfQ(so.quaternion);
-      const v = gmode === 'fly' ? SPEED * Math.max(0.2, spdK) : gv, fz = mine ? fwd.z : hudV1.z;   // 地上では滑走の速さ。hudV1 は attOfQ が置いた機首の向き
+      const v = gmode === 'fly' ? SPEED * Math.max(0.2, spdK) : gv, fz = mine ? (velOk ? vel.z / v : fwd.z) : hudV1.z;   // 地上では滑走の速さ。手動は速度ベクトルの上下（機首ではない）。hudV1 は attOfQ が置いた機首の向き
       drawDials(a, so.position.z, v * 1.944, fz * v, gearOn); }
     oCam.fov = cam.fov; oCam.aspect = cam.aspect; oCam.updateProjectionMatrix();
     oCam.position.copy(cam.position); oCam.quaternion.copy(cam.quaternion);

@@ -4011,7 +4011,7 @@ export function mount(container, opt = {}) {
       cam.lookAt(tmp.copy(gdir).multiplyScalar(200).add(cam.position));
     } else if (curView === 'third' || curView === 'front') {
       /* 三人称は機体の後ろ上（前方視点は機首の前）から。ドラッグで機体のまわりを回れる */
-      const back = curView === 'front' ? 36 : exam ? -22 : -32, up = curView === 'front' ? 5 : exam ? 6 : 10;   // 試験の世界（動きで見る）は出題画像と同じ小さな箱なので近くから
+      const back = curView === 'front' ? 36 : exam ? -14 : -32, up = curView === 'front' ? 5 : exam ? 3.5 : 10;   // 試験の世界（動きで見る）は出題画像と同じ小さな箱なので近くから（22 m でも遠く、動きが分かりにくかった。利用者の指摘 2026-09-13）
       tmp.set(0, back, up);
       /* 試験の世界（動きで見る）は世界の軸で南から見る。機体といっしょに回らないので、傾き・機首の上下・向きがそのまま見える */
       if (exam) tmp.applyAxisAngle(AX, look.p).applyAxisAngle(AZ, -look.y).add(seatObj.position);

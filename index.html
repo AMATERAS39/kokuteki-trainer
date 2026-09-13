@@ -461,6 +461,9 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .gallery .gsimh{margin:0}
 .gallery .gsimbar{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem}
 .gallery .gsimbar .btn{height:2.75rem;font-size:.875rem}
+.gallery .gctl{display:flex;align-items:center;justify-content:center;padding:0}.gallery .gctl .ic{width:1.35rem;height:1.35rem}
+.gallery #gPlay .ic{fill:currentColor}.gallery #gStop .ic{fill:currentColor}
+.gallery .gi{display:flex;align-items:center;justify-content:center;padding:.125rem}.gallery .gi .ic{width:1.6rem;height:1.6rem;stroke-width:1.8}
 .gallery .gmove{margin-top:.5rem}
 .gallery .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%}
 /* 解説の中の「この問題の見え方」（操縦操作・完全版だけ） */
@@ -1045,6 +1048,12 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
 <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
 <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+<symbol id="i-init-level" viewBox="0 0 24 24"><path d="M1.5 12h21" style="stroke-dasharray:1.6 2.4;stroke-width:1.2"/><g><path d="M3 12h18M12 10V5.5"/><circle cx="12" cy="12" r="2"/></g></symbol>
+<symbol id="i-init-rbank" viewBox="0 0 24 24"><path d="M1.5 12h21" style="stroke-dasharray:1.6 2.4;stroke-width:1.2"/><g transform="rotate(30 12 12)"><path d="M3 12h18M12 10V5.5"/><circle cx="12" cy="12" r="2"/></g></symbol>
+<symbol id="i-init-lbank" viewBox="0 0 24 24"><path d="M1.5 12h21" style="stroke-dasharray:1.6 2.4;stroke-width:1.2"/><g transform="rotate(-30 12 12)"><path d="M3 12h18M12 10V5.5"/><circle cx="12" cy="12" r="2"/></g></symbol>
+<symbol id="i-init-up" viewBox="0 0 24 24"><path d="M1.5 12h21" style="stroke-dasharray:1.6 2.4;stroke-width:1.2"/><g transform="rotate(-25 12 12)"><path d="M4 12h13.5l3.5 0M5 12V7.5l3 4.5"/></g></symbol>
+<symbol id="i-init-down" viewBox="0 0 24 24"><path d="M1.5 12h21" style="stroke-dasharray:1.6 2.4;stroke-width:1.2"/><g transform="rotate(25 12 12)"><path d="M4 12h13.5l3.5 0M5 12V7.5l3 4.5"/></g></symbol>
 <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
 <symbol id="m-dtake" viewBox="0 0 24 24"><path d="M2 21h20"/><path d="m3.5 18.5 4-3.5"/><circle cx="13" cy="5.5" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="17" cy="9" r="1.5"/><circle cx="13" cy="12.5" r="1.5"/></symbol>
 <symbol id="m-byover" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="16" cy="8" r="1.4"/><circle cx="4" cy="11.5" r="1.4"/><circle cx="20" cy="11.5" r="1.4"/><path d="M4 19h13m-3-2.5 3 2.5-3 2.5"/></symbol>
@@ -1326,7 +1335,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.15';
+const APP_VER='v05.16';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1692,7 +1701,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=154').then(mod=>{
+  import('./sim3d.js?v=155').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -2103,7 +2112,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=154').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=155').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2465,8 +2474,8 @@ function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('
 /* ===== 操縦操作: 操作パターンの見え方（操作を選ぶと①→②③を縦に表示。操縦桿と方向舵は同時に選べる）
    3 枚の下に「動きで見る」を置く。その操作をしたときの見え方を、一人称（風防ごしの景色）と
    三人称（外から見た機体）で動かして見せる。操作はできない（見え方を確かめるだけ） ===== */
-const gal={sel:[],init:'level',view:'first',play:false,seq:false,slow:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う、slow: ゆっくり（3.5 倍の時間。三人称だけ。利用者の指示 2026-09-13「三人称は常にゆっくり」。一人称は解説の見え方と同じ速さ）
-const galSpeed=()=>gal.slow?3.5:1;
+const gal={sel:[],init:'level',view:'first',play:false,seq:false,slow:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う、slow: ゆっくり（2 倍の時間。三人称だけ。利用者の指示 2026-09-13「三人称は常にゆっくり」。一人称は解説の見え方と同じ速さ）
+const galSpeed=()=>gal.slow?2:1;   /* 三人称のゆっくり: 2 倍の時間（3.5 倍は遅すぎて動きが分かりにくかった。利用者の指摘 2026-09-13） */
 /* 初期状態（①の姿勢）。出題の「初期状態: ランダム」と同じ幅にそろえる */
 const GAL_INIT={level:{ja:'水平飛行',b:'水平',s:{bank:0,pitch:0,yaw:0}},rbank:{ja:'右バンク',b:'右バンク',s:{bank:30,pitch:0,yaw:0}},lbank:{ja:'左バンク',b:'左バンク',s:{bank:-30,pitch:0,yaw:0}},
   up:{ja:'機首上げ',b:'機首上げ',s:{bank:0,pitch:10,yaw:0}},down:{ja:'機首下げ',b:'機首下げ',s:{bank:0,pitch:-10,yaw:0}}};
@@ -2479,7 +2488,7 @@ function showGallery(){applyScene();
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols,lock)=>`<div class="gsel${lock?' off':''}"><div class="gl">${title}${lock?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">写真の変化は 3 種類: 景色が中央を軸に回る＝操縦桿の左右、目印が画面の上下へそろって動く＝操縦桿の奥・手前、目印が画面の左右へそろって動く＝方向舵（傾いた機体では方向舵でも水平線が上下して見えるので、目印の動く向きで読む）。2 つの操作は、①→②に片方の変化だけなら順番、両方なら同時（答えの文は同じ）。</div><div class="sub">操作を選ぶと、①からの②③を表示します。${isFull()?'操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。':'体験版で選べるのは操作 1 つずつです。操縦桿と方向舵を組み合わせた見え方は完全版で使えます。'}</div>
-    <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab${dm&&k!=='level'?' lockb':''}" data-init="${k}"${dm&&k!=='level'?' data-lock="1"':''}>${v.b}</button>`).join('')}</div></div>
+    <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab gi${dm&&k!=='level'?' lockb':''}" data-init="${k}"${dm&&k!=='level'?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
@@ -2488,10 +2497,10 @@ function showGallery(){applyScene();
       <div class="sub">同じ操作を動かして確かめます（ここでは操縦できません）。</div>
       <div class="gsimbar">
         <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
-        <div class="gp" style="grid-template-columns:1fr 1fr"><button class="btn" id="gPlay">スタート</button><button class="btn ghost" id="gStop">ストップ</button></div>
+        <div class="gp" style="grid-template-columns:1fr 1fr"><button class="btn gctl" id="gPlay" aria-label="再生" title="再生">${ic('play')}</button><button class="btn ghost gctl" id="gStop" aria-label="停止" title="停止">${ic('stop')}</button></div>
       </div>
       <div class="gmove" id="gmove"></div>
-      <div class="sub gstep" id="gstep">スタートを押すと、①→②→③の見え方が動きで分かります</div>
+      <div class="sub gstep" id="gstep">再生を押すと、①→②→③の見え方が動きで分かります</div>
     </div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
@@ -2549,8 +2558,8 @@ function galMove(){
      「動きで見る」は出題画面の様子を動きで把握するもの（利用者の指示 2026-09-13）。動かすのは世界ではなく機体（同日の利用者の原則）。
      一人称は出題の絵と同じレンズ（1° = 6 px）で、同じ枠（キャノピーの縁・HUD の印・グレアシールド）を重ねる */
   box.innerHTML=`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">シミュレーターを読み込み中…</div>${gal.view==='first'?`<div class="gframe">${ckCompact(E.svgCockpitFrame(true))}</div>`:''}</div>
-      ${gal.view==='third'?`      <div class="sub">指でなぞると視点を回せます。スタートを押すと、南から見る初期の視点に戻ります。</div>`:''}
-      <div class="sub">${gal.view==='first'?'出題の絵と同じ世界・同じ見え方で、選んだ操作を舵に入れて機体を物理（重力あり）で飛ばします。①→②、②→③はそれぞれ 2 秒。':'出題の絵と同じ世界で、選んだ操作で飛ぶ機体を外（南）から見ます。ゆっくり（3.5 倍の時間）です。'}操作はできません。</div>`;
+      ${gal.view==='third'?`      <div class="sub">指でなぞると視点を回せます。再生を押すと、南から見る初期の視点に戻ります。</div>`:''}
+      <div class="sub">${gal.view==='first'?'出題の絵と同じ世界・同じ見え方で、選んだ操作を舵に入れて機体を物理（重力あり）で飛ばします。①→②、②→③はそれぞれ 2 秒。':'出題の絵と同じ世界で、選んだ操作で飛ぶ機体を外（南）から見ます。ゆっくり（2 倍の時間）です。'}操作はできません。</div>`;
   /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
   { const gv=box.querySelector('#gviewer'); if(gv){ let px=0,py=0,on=false;
     gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
@@ -2567,7 +2576,7 @@ function galMountViewer(){
   const host=$('#gviewer');if(!host||galViewerLoading)return;
   galViewerLoading=true;
   /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
-  import('./sim3d.js?v=154').then(mod=>{
+  import('./sim3d.js?v=155').then(mod=>{
       /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
       const h=mod.mount(host,{view:gal.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
       h.setCockpit(false);h.setProps(true);
@@ -2600,7 +2609,7 @@ function galApply(t){
     h.setPose(st)}
   const se=$('#gstep');
   if(se)se.textContent=gal.play?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m　進んだ距離 ${Math.round(Math.hypot(st.dx,st.dy))} m`
-    :'スタートを押すと、①→②→③の見え方が動きで分かります';
+    :'再生を押すと、①→②→③の見え方が動きで分かります';
 }
 /* ===== 解説の中の見え方（操縦操作・完全版）=====
    その問題の ①→②③ を、そのまま動かして見せる。図は 1 度だけ描き、

@@ -1271,7 +1271,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=48"></script>
+<script src="flight.js?v=1"></script>
+<script src="engine.js?v=49"></script>
 <script>
 (function(){
 'use strict';
@@ -1325,7 +1326,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.12';
+const APP_VER='v05.13';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1547,7 +1548,7 @@ const INTRO={
   heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークの向きは Normal 以上で毎回変わります（Easy では上に固定）。まず N を確認してから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
   combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
-  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を 1〜4 の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。','変化は 3 種類（この出題の絵の約束）。景色が画面の中央を軸に回る → 操縦桿の左右。山や塔などの目印が画面の上下へそろって動く → 操縦桿の奥・手前。目印が画面の左右へそろって動く → 方向舵。①で機体が傾いていることが多く、そのときは方向舵でも水平線が上下して見えるので、水平線の高さではなく目印の動く向きで読みます。','2 つの操作は、①→②に片方の変化だけなら順番、①→②で両方が変わっていれば同時。答えの文はどちらも同じです。']
+  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を 1〜4 の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。','絵は実機と同じ物理で機体を飛ばした景色です（速さ 200 m/s、写真の間隔 2 秒）。景色が画面の中央を軸に回る → 操縦桿の左右。山や塔などの目印が画面の上下へそろって動く → 操縦桿の奥・手前。目印が画面の左右へ大きくそろって動く → 方向舵。機体が傾いているあいだは旋回するので、目印は横へ少しずつ流れます（方向舵よりゆっくり）。①で傾いていると方向舵でも水平線が上下して見えるので、水平線の高さではなく目印の動く向きと量で読みます。','2 つの操作は、①→②に片方の変化だけなら順番、①→②で両方が変わっていれば同時。答えの文はどちらも同じです。']
 };
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
    計測に進んだら（startMeasured）ホームボタンに戻る。入口の判定は説明ページのボタンが立てる pendingBack で行う（同じハッシュを操縦操作の選択画面からも使うため） */
@@ -1691,7 +1692,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=151').then(mod=>{
+  import('./sim3d.js?v=152').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -2102,7 +2103,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=151').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=152').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2515,20 +2516,14 @@ function showGallery(){applyScene();
 /* いまの選択から ①②③ の姿勢と見出しを作る。
    2 つ選んだときは「同時に行う」か「操縦桿 → 方向舵 の順に行う」（方向舵が先になる出題はない） */
 function galFrames(){
+  /* 飛行モデル（flight.js）で機体を飛ばした①②③。出題（engine.js の simControl）と同じ: 順番なら ①→② に操縦桿・②→③ に方向舵、同時なら両区間に両方。
+     traj は 1/120 秒ごとの姿勢と位置（動きで見るが使う） */
   const lv=Object.assign({},GAL_INIT[gal.init].s);
-  if(!gal.sel.length)return {f:[lv,lv,lv],text:'操作なし'};
   const two=gal.sel.length>=2;
-  if(two&&gal.seq){
-    const ordered=gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1));
-    const f=[lv,E.applyOp(lv,ordered[0])];f.push(E.applyOp(f[1],ordered[1]));
-    return {f,text:E.opsText(ordered)};
-  }
-  /* 同時に行う: 各区間（①→②、②→③）で両方の操作を全量ずつ加える。実機では昇降舵と方向舵は別の舵面で、
-     同時に入れても片方の効きが減らない（同じ時間で両方が進む）。写真は一定の間隔で撮られるので、この配分が実機の動きに合う。
-     順番のときより③が進むのは、同じ時間で 2 つの操作を加えているぶん（操作の総量の差）で、物理として正しい差 */
-  const step=st=>gal.sel.reduce((a,id)=>E.applyOp(a,id),st);
-  const f=[lv,step(lv)];f.push(step(f[1]));
-  return {f,text:gal.sel.map(id=>E.OP_BY_ID[id].base).join('＋')};
+  const ops=!gal.sel.length?[]:two?gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1)):[gal.sel[0],gal.sel[0]];
+  const traj=ops.length?E.simControl(lv,ops,two&&!gal.seq):E.simControl(lv,[],false);
+  const text=!ops.length?'操作なし':two&&!gal.seq?ops.map(id=>E.OP_BY_ID[id].base).join('＋'):E.opsText(ops);
+  return {f:traj.frames,traj,text};
 }
 function galDraw(){
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
@@ -2539,7 +2534,7 @@ function galDraw(){
   const fr=galFrames(),f=fr.f;
   const initTx=gal.init==='level'?'':GAL_INIT[gal.init].ja+'から　';
   let desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと入れ替わります';
-  if(gal.sel.length>=2)desc+=gal.seq?'　順番: ①→②で操縦桿、②→③で方向舵。':'　同時: 各区間で両方が全量ずつ進む（昇降舵と方向舵は別の舵面で、同時に入れても片方の効きは減らない）。順番より③が進むのは、同じ時間で 2 つの操作を加えているため。';
+  if(gal.sel.length>=2)desc+=gal.seq?'　順番: ①→②で操縦桿、②→③で方向舵。':'　同時: 各区間で両方の舵が入っている（昇降舵と方向舵は別の舵面で、同時に入れても片方の効きは減らない）。順番より③が進むのは、同じ時間で 2 つの操作を加えているため。';
   $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4><div class="sub gdesc">${desc}</div>
     <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x.bank,x.pitch,x.yaw,0,true))}</div></div>`).join('')}</div>
     <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;
@@ -2550,12 +2545,12 @@ function galMove(){
   const box=$('#gmove');if(!box)return;
   const wasPlaying=gal.play;galStop();
   if(galViewer){galViewer.dispose();galViewer=null}
-  /* 一人称も三人称もシミュレーター本体（sim3d.js）の、出題の絵と同じ景色の世界。機体には出題の絵と同じ姿勢（①→②→③）をそのまま置く。
-     「動きで見る」は出題画面の様子を動きで把握するものなので、出題画面の世界の中で再現する（利用者の指示 2026-09-13）。
+  /* 一人称も三人称もシミュレーター本体（sim3d.js）の、出題の絵と同じ景色の世界。機体は flight.js で飛ばした姿勢と位置（出題・解説と同じ飛行）。
+     「動きで見る」は出題画面の様子を動きで把握するもの（利用者の指示 2026-09-13）。動かすのは世界ではなく機体（同日の利用者の原則）。
      一人称は出題の絵と同じレンズ（1° = 6 px）で、同じ枠（キャノピーの縁・HUD の印・グレアシールド）を重ねる */
   box.innerHTML=`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">シミュレーターを読み込み中…</div>${gal.view==='first'?`<div class="gframe">${ckCompact(E.svgCockpitFrame(true))}</div>`:''}</div>
       ${gal.view==='third'?`      <div class="sub">指でなぞると視点を回せます。スタートを押すと、南から見る初期の視点に戻ります。</div>`:''}
-      <div class="sub">${gal.view==='first'?'出題の絵と同じ世界・同じ見え方で、①→②→③の姿勢の変化を 2 秒ずつ動かします。':'出題の絵と同じ世界で、①→②→③の姿勢の変化を外（南）から見ます。ゆっくり（3.5 倍の時間）です。'}操作はできません。</div>`;
+      <div class="sub">${gal.view==='first'?'出題の絵と同じ世界・同じ見え方で、選んだ操作を舵に入れて機体を物理（重力あり）で飛ばします。①→②、②→③はそれぞれ 2 秒。':'出題の絵と同じ世界で、選んだ操作で飛ぶ機体を外（南）から見ます。ゆっくり（3.5 倍の時間）です。'}操作はできません。</div>`;
   /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
   { const gv=box.querySelector('#gviewer'); if(gv){ let px=0,py=0,on=false;
     gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
@@ -2571,12 +2566,12 @@ let galViewer=null,galViewerLoading=false,galRaf=0,galT0=0;
 function galMountViewer(){
   const host=$('#gviewer');if(!host||galViewerLoading)return;
   galViewerLoading=true;
-  /* シミュレーター本体（sim3d.js）を mount し、出題の絵の姿勢（setPose）だけを入れる。操作は通さない */
-  import('./sim3d.js?v=151').then(mod=>{
+  /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
+  import('./sim3d.js?v=152').then(mod=>{
       /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
       const h=mod.mount(host,{view:gal.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
       h.setCockpit(false);h.setProps(true);
-      h.home();   /* 位置はここから動かさない（姿勢は下の galApply が置く。スタートを押すまで①の姿勢のまま） */
+      h.home();   /* 姿勢と位置は下の galApply が置く（スタートを押すまで①のまま） */
       const v={h, dispose:()=>h.dispose()};
       galViewerLoading=false;
       if(!document.body.contains(host)){v.dispose();return}   // 画面が変わっていたら捨てる
@@ -2586,25 +2581,22 @@ function galMountViewer(){
     .catch(e=>{console.error(e);galViewerLoading=false;const l=$('#gvload');if(l)l.textContent='シミュレーターを読み込めませんでした（通信環境を確認してください）'});
 }
 function galDispose(){galStop();if(galViewer){galViewer.dispose();galViewer=null}}
-/* 動きの筋書き: ①で少し待つ → ②へ → 少し待つ → ③へ → 待って繰り返す（秒） */
+/* 動きの筋書き: ①で少し待つ → ②へ → 少し待つ → ③へ → 待って繰り返す（秒）。「動き」の 2 秒は飛行モデルの 2 秒そのもの（写真の間隔 EXAM_DT）。
+   待ちの間は写真を見比べるための一時停止で、飛行の時刻を止める */
 const GAL_SEQ=[{hold:0.8},{move:2.0},{hold:0.5},{move:2.0},{hold:1.4}];
 const GAL_DUR=GAL_SEQ.reduce((a,s)=>a+(s.hold||s.move),0);
-/* 経過時間 t（秒）の姿勢にする。t が null なら、いまの時刻から求める */
+/* 筋書きの時刻 t → 飛行の時刻（秒）と、いまいる写真の番号（0〜2） */
+function seqTime(t){let rest=t,ft=0,seg=0;
+  for(const s of GAL_SEQ){const d=s.hold||s.move;if(rest<=d){if(s.move)ft+=rest;return {ft,near:Math.round(ft/E.EXAM_DT)}}rest-=d;if(s.move){ft+=d;seg++}}
+  return {ft,near:2}}
+/* 経過時間 t（秒）の様子にする。t が null なら、いまの時刻から求める */
 function galApply(t){
   if(t===null)t=gal.play?((performance.now()-galT0)/1000/galSpeed())%GAL_DUR:0;
-  const f=galFrames().f;
-  let u=0,seg=0,rest=t,done=false;
-  for(const s of GAL_SEQ){const d=s.hold||s.move;
-    if(rest<=d){const k=rest/d;u=s.move?seg+k*k*(3-2*k):seg;done=true;break}
-    rest-=d;if(s.move)seg++;}
-  if(!done)u=2;
-  const i=Math.min(1,Math.floor(u)),k=u-i;
-  const A=f[i],B=f[Math.min(2,i+1)];
-  const st={bank:A.bank+(B.bank-A.bank)*k,pitch:A.pitch+(B.pitch-A.pitch)*k,yaw:A.yaw+(B.yaw-A.yaw)*k};
-  /* シミュレーターへ: 出題の絵と同じ姿勢（①②③のあいだは解説の「この問題の見え方」と同じ補間）をそのまま置く */
+  const {traj}=galFrames(),{ft,near}=seqTime(t),st=AAT_FLIGHT.at(traj,ft);
+  /* シミュレーターへ: 飛行モデルで飛ばした姿勢と位置をそのまま置く（解説の「この問題の見え方」と同じ飛行） */
   if(galViewer)galViewer.h.setPose(st);
   const se=$('#gstep');
-  if(se)se.textContent=gal.play?`${'①②③'[Math.round(u)]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`
+  if(se)se.textContent=gal.play?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m`
     :'スタートを押すと、①→②→③の見え方が動きで分かります';
 }
 /* ===== 解説の中の見え方（操縦操作・完全版）=====
@@ -2614,20 +2606,14 @@ let fbRaf=0,fbT0=0,fbPlaying=false;
 function fbSimApply(t){
   const sv=$('#fbSim')&&$('#fbSim').querySelector('svg');
   if(!sv||!q||!q.frames)return;
-  let u=0,seg=0,rest=t,done=false;
-  for(const s2 of GAL_SEQ){const d=s2.hold||s2.move;
-    if(rest<=d){const k2=rest/d;u=s2.move?seg+k2*k2*(3-2*k2):seg;done=true;break}
-    rest-=d;if(s2.move)seg++;}
-  if(!done)u=2;
-  const i=Math.min(1,Math.floor(u)),k=u-i,f=q.frames;
-  const A=f[i],B=f[Math.min(2,i+1)];
-  const st={bank:A.bank+(B.bank-A.bank)*k,pitch:A.pitch+(B.pitch-A.pitch)*k,yaw:A.yaw+(B.yaw-A.yaw)*k};
+  if(!q.traj)q.traj=E.simControl(q.init,q.ops,q.simul);   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
+  const {ft,near}=seqTime(t),st=AAT_FLIGHT.at(q.traj,ft);
   const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw'),yg=sv.querySelector('.ck-yawg');
   if(yg)yg.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
   if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
   if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
   const lb=$('#fbSimStep');
-  if(lb)lb.textContent=`${'①②③'[Math.round(u)]} のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`;
+  if(lb)lb.textContent=`${'①②③'[near]} のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°`;
 }
 function fbSimStop(){fbPlaying=false;cancelAnimationFrame(fbRaf);fbRaf=0}
 function fbSimStart(){fbPlaying=true;fbT0=performance.now();
@@ -3111,7 +3097,7 @@ function renderAbout(){
   $('#abAtt').innerHTML=[['ne_up',0,30,'機首上げ 30°'],['ne_down',0,-30,'機首下げ 30°'],['north',30,0,'右バンク 30°']].map(([id,b,p,t])=>`<div class="ex"><div class="figbox">${E.figDir14(D(id),b)}</div><div class="exai">${E.svgAI(b,p)}</div><div class="ext">${t}</div></div>`).join('');
   $('#abHI').innerHTML=E.svgHI(90,0)+'<div class="ext">機首は東（090°）— N の印が左に来る</div>';
   $('#abTop').innerHTML=E.figTopDown(135,45)+'<div class="ext">N が右上、機首は N から 90° → 東</div>';
-  $('#abOps').innerHTML=E.OPS.map(o=>{const f=E.applyOp({bank:0,pitch:0,yaw:0},o.id);return `<div class="op"><div class="opt">${o.ja}</div><div class="opv">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,0,true))}</div><div class="opd">${o.view}</div></div>`}).join('');
+  $('#abOps').innerHTML=E.OPS.map(o=>{const f=E.simControl({bank:0,pitch:0,yaw:0},[o.id,o.id],false).frames[1];return `<div class="op"><div class="opt">${o.ja}</div><div class="opv">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,0,true))}</div><div class="opd">${o.view}</div></div>`}).join('');
   $('#abPractice').innerHTML=Object.keys(E.MODES).map(m=>`<button class="btn ghost" data-pr="${m}">${E.MODES[m]}</button>`).join('');
   $('#abPractice').querySelectorAll('[data-pr]').forEach(b=>b.addEventListener('click',()=>{pendingBack='about';location.hash='#train/'+b.dataset.pr+'/practice'}));
   $('#abSim').addEventListener('click',()=>{pendingBack='about';location.hash='#train/control/sim'});

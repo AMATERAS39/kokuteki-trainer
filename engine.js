@@ -17,12 +17,12 @@
   const MODES = { heading: '方位', attitude: '姿勢指示器', combo: '方位×姿勢指示器', control: '操縦操作' };
   /* base: 文末形、cont: 連用形（「〜し、」でつなぐ） */
   const OPS = [
-    { id: 'stick-right', ja: '操縦桿 右', base: '操縦桿を右に倒す', cont: '操縦桿を右に倒し', group: 'stick', effect: { bank: 20 }, body: '機体が右に傾く', view: '景色が左に傾く（水平線が右上がりになる）' },
-    { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', effect: { bank: -20 }, body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
-    { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', effect: { pitch: -8 }, body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
-    { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', effect: { pitch: 8 }, body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
-    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', effect: { yaw: 10 }, body: '機体に対して横へ、右を向く', view: '目印がそろって画面の左へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' },
-    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', effect: { yaw: -10 }, body: '機体に対して横へ、左を向く', view: '目印がそろって画面の右へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' }
+    { id: 'stick-right', ja: '操縦桿 右', base: '操縦桿を右に倒す', cont: '操縦桿を右に倒し', group: 'stick', body: '機体が右に傾く', view: '景色が左に傾く（水平線が右上がりになる）' },
+    { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
+    { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
+    { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
+    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', body: '機体に対して横へ、右を向く', view: '目印がそろって画面の左へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' },
+    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', body: '機体に対して横へ、左を向く', view: '目印がそろって画面の右へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' }
   ];
   const OP_BY_ID = Object.fromEntries(OPS.map(o => [o.id, o]));
   const OPPOSITE = { 'stick-right': 'stick-left', 'stick-left': 'stick-right', 'stick-forward': 'stick-back', 'stick-back': 'stick-forward', 'rudder-right': 'rudder-left', 'rudder-left': 'rudder-right' };
@@ -136,44 +136,23 @@
     const mark = lv === 'hard' ? pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45)) : 0;
     return { type: 'combo', dir14: d, dir: heading / 45, heading, bank, pitch, mark, opts, level: lv };
   }
-  /* 操縦操作は、どれも「機体の軸まわりの回転」。
-       操縦桿 左右 → 機首の軸（前後）まわり、操縦桿 奥・手前 → 翼の軸（左右）まわり、方向舵 → 機体の上下軸まわり。
-     傾いているときに方向舵を踏むと、機首は「傾いた機体に対して横」へ振れる（水平線に沿ってではない）。
-     世界の向きで見れば 方位が cos(バンク) ぶん変わり、機首の上下も sin(バンク) ぶん変わる。
-     操縦桿を手前に引いたときも同じで、傾いていれば機首上げと同時に向きも傾いた側へ変わる（実機の旋回）。
-     以前は 世界の上下軸まわり（方位だけ）で扱っていて、傾いているときの見え方が実機と違った（利用者の指摘 v04.21）。
-     3D シミュレーター（sim3d.js）も同じ機体軸まわりの回転にそろえてある。
-     状態は { bank, pitch, yaw } のまま（yaw は方位のずれ。絵は 水平線の傾き・高さ と 景色の横の流れ で描く）。
-     合成は 3×3 の回転行列で行う: R = Rz(-yaw) · Rx(pitch) · Ry(bank)（sim3d の att と同じ順）。
-     行列の列は 機体の 右(x)・前(y)・上(z) の向き */
-  const matOf = (bank, pitch, yaw) => {   // D（度 → ラジアン）は上で宣言済み
-    const cb = Math.cos(bank * D), sb = Math.sin(bank * D), cp = Math.cos(pitch * D), sp = Math.sin(pitch * D), cy = Math.cos(-yaw * D), sy = Math.sin(-yaw * D);
-    const Rz = [[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]], Rx = [[1, 0, 0], [0, cp, -sp], [0, sp, cp]], Ry = [[cb, 0, sb], [0, 1, 0], [-sb, 0, cb]];
-    return mul(mul(Rz, Rx), Ry);
-  };
-  const mul = (A, B) => A.map((r, i) => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
-  const axisRot = (axis, deg) => {   // 機体の軸まわりの回転（x: 翼, y: 機首, z: 上下）
-    const c = Math.cos(deg * D), s = Math.sin(deg * D);
-    if (axis === 'x') return [[1, 0, 0], [0, c, -s], [0, s, c]];
-    if (axis === 'y') return [[c, 0, s], [0, 1, 0], [-s, 0, c]];
-    return [[c, -s, 0], [s, c, 0], [0, 0, 1]];
-  };
-  const eulerOf = M => {   // 列: 右 = M[·][0]、前 = M[·][1]、上 = M[·][2]
-    const fx = M[0][1], fy = M[1][1], fz = M[2][1], rz = M[2][0], uz = M[2][2];
-    const yaw = Math.atan2(fx, fy) / D, pitch = Math.asin(Math.max(-1, Math.min(1, fz))) / D, bank = Math.atan2(-rz, uz) / D;
-    return { bank, pitch, yaw };
-  };
-  function applyOp(state, opId) {
-    const o = OP_BY_ID[opId], e = o.effect;
-    let M = matOf(state.bank, state.pitch, state.yaw);
-    if (e.bank) M = mul(M, axisRot('y', e.bank));      // 操縦桿 左右: 機首の軸まわり（右に倒す → 右バンク）
-    if (e.pitch) M = mul(M, axisRot('x', e.pitch));    // 操縦桿 奥・手前: 翼の軸まわり（手前 → 機首上げ）
-    if (e.yaw) M = mul(M, axisRot('z', -e.yaw));       // 方向舵: 機体の上下軸まわり（右 → 機首が右へ）
-    const r = eulerOf(M);
-    /* 方位のずれは連続に（−180〜180 を越えても前の値に近い側） */
-    let yaw = r.yaw; while (yaw - state.yaw > 180) yaw -= 360; while (yaw - state.yaw < -180) yaw += 360;
-    return { bank: r.bank, pitch: r.pitch, yaw };
+  /* 操縦操作の①②③は、飛行モデル（flight.js）で機体を動かして得る。利用者の原則（2026-09-13）:
+     「試験では本物の機体から実際に撮影された景色が画像として出題される。出題・解説・動きの見え方は実機と全く同じ動きを再現する」
+     「動かすべきは世界ではなく、機体である」。
+     以前（v05.12 まで）は「操作 1 つ＝機体の軸まわりの回転 1 つ」（applyOp: バンク 20°・ピッチ 8°・ヨー 10°）で景色を回していた。
+     いまは、操作を舵の入力として入れ、重力ありの物理で EXAM_DT 秒ずつ飛ばす。傾いていれば旋回して目印が横へ流れ、引けば上昇し、方向舵では機首が先に振れる——実機どおり。
+     速さは flight.js の EXAM.V（200 m/s、T-4 の巡航に近い速い想定）。バンクによる旋回率は g·tanφ/V で速さに反比例し、遅い想定ほど傾いているだけで目印が横へ流れる（利用者の判断）。
+     状態 { bank, pitch, yaw } の pitch は機首の上下（経路ではない）、yaw は方位。svgCockpit はこの姿勢に固定したカメラの絵 */
+  const F = () => global.AAT_FLIGHT;
+  const EXAM_DT = 2;                      // 写真の間隔（秒）。試験の実際は不明
+  /* 操作の区間: 順番なら ①→② に操縦桿・②→③ に方向舵、同時なら両区間に両方。1 操作は両区間とも同じ */
+  function opSegs(ops, simul) {
+    const two = ops.length === 2 && ops[0] !== ops[1];
+    if (!two) return [{ dur: EXAM_DT, ops: [ops[0]] }, { dur: EXAM_DT, ops: [ops[0]] }];
+    return simul ? [{ dur: EXAM_DT, ops }, { dur: EXAM_DT, ops }] : [{ dur: EXAM_DT, ops: [ops[0]] }, { dur: EXAM_DT, ops: [ops[1]] }];
   }
+  /* 飛ばした結果（samples: 1/120 秒ごとの姿勢と位置、frames: ①②③） */
+  function simControl(init, ops, simul) { return F().run(init, opSegs(ops, simul), { v: F().EXAM.V, inputs: F().EXAM.INPUT }); }
   function genControl(s) {
     /* 出題は 1 操作（同じ操作を続ける）と 2 操作の混在。2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。
        同じ操作の繰り返しや左右の切り返し（左に倒して右に倒す等）は 2 操作としては出さない */
@@ -189,9 +168,7 @@
     /* 2 操作は「順番」（①→②で操縦桿、②→③で方向舵）と「同時」（①→②でも②→③でも両方が進む）を半々で出す。
        答えの文はどちらも同じ。試験の写真がどちらの形かは文言から分からないので、両方に慣れる */
     const simul = !single && Math.random() < 0.5;
-    const frames = [init];
-    if (simul) { for (let k = 0; k < 2; k++) frames.push(ops.reduce((a, op) => applyOp(a, op), frames[frames.length - 1])); }
-    else for (const op of ops) frames.push(applyOp(frames[frames.length - 1], op));
+    const frames = simControl(init, ops, simul).frames.map(f => ({ bank: f.bank, pitch: f.pitch, yaw: f.yaw }));
     /* 4 択: 1 操作（6 通り）と「操縦桿 → 方向舵」（8 通り）を混ぜた中から、正解以外を誤答にする */
     const key = a => a.join('|');
     const cands = [];
@@ -284,6 +261,8 @@
     if (q.ops.some(id => OP_BY_ID[id].group === 'rudder'))
       lines.push('方向舵は、機体の上下軸まわりに機首を振ります。景色は水平線に沿ってではなく、傾いた機体に対して横（画面の左右）へ、目印がそろって流れます。機体が傾いていると、傾いた側へ踏めば機首が下がって水平線が上がり、反対側へ踏めば下がって見えますが、水平線の傾きはほとんど変わりません。目印が左右へそろって動いていれば方向舵、上下へそろって動いていれば操縦桿の奥・手前です。');
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
+    /* 実機の物理で飛ばしているので、傾いている区間では旋回による横の流れがある（方向舵の流れより小さい） */
+    if (q.frames.some(f => Math.abs(f.bank) >= 5)) lines.push('機体が傾いているあいだは旋回するので、操作が無くても目印は傾いた側へ少しずつ流れます（方向舵よりゆっくり）。大きく横へ流れていれば方向舵です。');
     return { ok, correct: ci, answerText: `${ci + 1}（${opsText(q.ops)}）`, lines };
   }
 
@@ -468,6 +447,6 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="22" y="9" text-anchor="middle">上</text><text x="58" y="44">東</text><text x="14" y="44" text-anchor="end">北</text></g></svg></div>`;
   }
 
-  global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,
+  global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, simControl, opSegs, EXAM_DT, opsText,
     gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, svgCockpitFrame, figTopDown, figAttitude, figDir14 };
 })(window);

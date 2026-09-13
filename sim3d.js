@@ -11,6 +11,9 @@ const WALL_FADE = 400;                           // 壁が見えはじめる距�
 export const CEIL = 4000;                        // 天井（m）。宙返りができる高さを取る（3000 → 4000、2026-09-13）
 export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
+/* 試験の世界（「動きで見る」）: 機体は 200 m/s で 2 秒に 400 m 進むので、目印が 2.5〜4 km 先だと近づいた分だけ最大 100 px ずれた（実測）。
+   実機の写真の景色は遠いので、目印を 15 倍遠くに（見える角度は同じ）、機体は 1,000 m の高さに（奥へ 2 回で 105 m 沈んでも地面に届かない） */
+const EXAM_H = 1000, EXAM_K = 15;
 const START = { x: 0, y: -450, z: 80, h: 0 };    // 開始位置: 滑走路の南端上空、北向き
 const GROUND_EYE = { x: 90, y: -120, z: 0 };     // 地上から見るときの立ち位置（滑走路の東側）
 const EYE_H = 1.6;                               // 目の高さ（人の背丈）
@@ -172,10 +175,10 @@ export function mount(container, opt = {}) {
   const cv = renderer.domElement; cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none';
   container.appendChild(cv);
   const world = new THREE.Scene();
-  world.fog = exam ? new THREE.Fog(col.skyHz, 5200, 9000) : new THREE.Fog(col.skyHz, 1200, 5200);   // 試験の絵に霧は無い。山並み（4 km）がはっきり見えるように
+  world.fog = exam ? null : new THREE.Fog(col.skyHz, 1200, 5200);   // 試験の絵に霧は無い
 
   /* 空: 上から水平線への縦グラデーションの大きな球（霧の影響を受けない） */
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(6000, 24, 12), new THREE.ShaderMaterial({
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(exam ? 150000 : 6000, 24, 12), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: { top: { value: col.skyTop }, hz: { value: col.skyHz }, earth: { value: col.earth }, below: { value: exam ? 1 : 0 } },
     vertexShader: 'varying float vz; void main(){ vz = normalize(position).z; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -201,7 +204,8 @@ export function mount(container, opt = {}) {
 
   /* 地面（格子つき）と滑走路 */
   const lineCol = hex(col.earth.clone().lerp(new THREE.Color(night ? 0xc0ccdd : 0xffffff), night ? 0.6 : 0.45));
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(exam ? 14000 : 10000, exam ? 14000 : 10000), exam ? new THREE.MeshBasicMaterial({ color: col.earth, fog: false }) : new THREE.MeshLambertMaterial({ map: gridTexture(hex(col.earth), lineCol) }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(exam ? 400000 : 10000, exam ? 400000 : 10000), exam ? new THREE.MeshBasicMaterial({ color: col.earth, fog: false, depthWrite: false }) : new THREE.MeshLambertMaterial({ map: gridTexture(hex(col.earth), lineCol) }));
+  if (exam) ground.renderOrder = -2;   // 地面と地面の線は奥行きを書かず、いちばん先に描く（遠くで線と地面がちらつかない）
   if (!exam) { ground.material.map.repeat.set(20, 20); ground.material.map.offset.set(0.5, 0.5); }   // 原点が格子の交点に来る（1 枚 500 m。壁 3.3 km の外まで地面がある）
   world.add(ground);
   /* 滑走路は 2 本（2 機ずつ離陸するため）。地上視点の立ち位置あてのレイキャストで使うので、1 つの入れ物にまとめる */
@@ -360,8 +364,8 @@ export function mount(container, opt = {}) {
   } else {
     /* ===== 試験の絵の景色（engine.js の svgCockpit と同じ世界） =====
        絵は 1 度 = 6 px（CK.kp = CK.ky = 6）。方位 = x/6 度（機首の向きが 0）、高さ = px/6 度（水平線から）。
-       **世界の中心は始めの位置（START の真下）**。方位と角度はそこの目（高度 80 m）から測る。
-       山・塔の根元と水平線は**目の高さ（80 m）**に置く: 絵では根元が水平線（仰角 0°）にあるが、地面に置くと 3〜6 km 先で約 1° 沈む（実測 6 px 下）。
+       **世界の中心は始めの位置（START の真下）**。方位と角度はそこの目（高度 EXAM_H = 1,000 m）から測る。距離は下の値の EXAM_K（15）倍。
+       山・塔の根元と水平線は**目の高さ**に置く: 絵では根元が水平線（仰角 0°）にあるが、地面に置くと 3〜6 km 先で約 1° 沈む（実測 6 px 下）。
        v05.11 まで、環は原点（目から 450 m 北）を中心にしていて方位が最大 6° ずれ、根元と水平線も 1° 沈んでいた
        ・山並み: 絵の稜線（PEAKS 30 個を結んだ折れ線、方位 −150°〜+150°、高さ 3〜12°）をそのまま 4 km の円筒に（v05.11 は円錐の並びで谷が水平線まで落ちていた）
        ・雪山: 絵の三角（方位 −21.7°〜−8.3°、頂 −15° で 12°）と雪の四角形、3 km。色は --ck-mtn2 と --ck-snow
@@ -373,7 +377,7 @@ export function mount(container, opt = {}) {
        ・空: 絵と同じ縦のグラデーション（水平線の色 → 仰角 150° で上の色）。星は夜だけ、絵と同じ 70 個
        ・地面は光を当てない平らな色、水平線より下で地面の板の外は空の球が地面の色（絵は水平線から下が全部地面）
        滑走路・民家・木・空港の山・灯火は置かない（試験の絵に無い） */
-    const H0 = START.z, PX = v => v / 6 * D;                  // H0: 目の高さ（始めの高度 80 m）。PX: px → ラジアン
+    const H0 = EXAM_H, K = EXAM_K, PX = v => v / 6 * D;      // H0: 目の高さ（1,000 m）。K: 遠さの倍率。PX: px → ラジアン
     const ex = new THREE.Group(); ex.position.set(START.x, START.y, 0); props.add(ex);   // 世界の中心＝始めの位置の真下
     /* 絵の図形（px の多角形）を、目から R 離れた円筒に巻いて置く。x px → 方位 x/6°、y px → 仰角 −y/6°（高さ H0 + R·tan）。
        光を当てない平らな色（絵と同じ）。横に長い図形は 10 px ごとに縦に刻む（弦が円筒の内側を通って角度がずれないように） */
@@ -393,28 +397,29 @@ export function mount(container, opt = {}) {
     };
     /* 山並み（絵の mtn: M-900,0 → PEAKS → 900,0）。4 km */
     const PEAKS_PX = [22, 40, 18, 55, 30, 72, 26, 48, 20, 64, 36, 28, 58, 24, 44, 30, 68, 22, 50, 34, 26, 60, 18, 42, 30, 54, 20, 46, 38, 24];
-    ridge(4000, [[-900, 0], ...PEAKS_PX.map((v, i) => [-870 + i * 60, -v]), [900, 0]], flat(col.mtn));
+    ridge(4000 * K, [[-900, 0], ...PEAKS_PX.map((v, i) => [-870 + i * 60, -v]), [900, 0]], flat(col.mtn));
     /* 雪山（絵: −130,0 / −90,−72 / −50,0、雪は −100,−54 / −90,−72 / −80,−54 / −90,−58）。3 km。雪は山のすぐ手前 */
-    wall(3000, [[-130, 0], [-90, -72], [-50, 0]], flat(col.mtn2));
-    wall(2990, [[-100, -54], [-90, -72], [-80, -54], [-90, -58]], flat(col.snow));
+    wall(3000 * K, [[-130, 0], [-90, -72], [-50, 0]], flat(col.mtn2));
+    wall(2990 * K, [[-100, -54], [-90, -72], [-80, -54], [-90, -58]], flat(col.snow));
     /* 塔（絵: 柱 228〜232 × −40〜0、頭 220〜240 × −46〜−38）。2.5 km。頭は柱のすぐ手前 */
-    wall(2500, [[228, 0], [232, 0], [232, -40], [228, -40]], flat(0x2b333c));
-    wall(2490, [[220, -38], [240, -38], [240, -46], [220, -46]], flat(0xe2574f));
-    { const [x, y, z] = at(2500, 230, -46); obst.push({ x: START.x + x, y: START.y + y, r: 2500 * Math.tan(PX(10)), h: z, flat: true }); }
+    wall(2500 * K, [[228, 0], [232, 0], [232, -40], [228, -40]], flat(0x2b333c));
+    wall(2490 * K, [[220, -38], [240, -38], [240, -46], [220, -46]], flat(0xe2574f));
+    { const [x, y, z] = at(2500 * K, 230, -46); obst.push({ x: START.x + x, y: START.y + y, r: 2500 * K * Math.tan(PX(10)), h: z, flat: true }); }
     /* 星（夜だけ。絵の STARS と同じ乱数で同じ 70 個: cx −600〜600、cy −40〜−340、半径 0.8〜2.2 px） */
     if (night) { let sx = 7; const r = () => (sx = (sx * 48271) % 2147483647) / 2147483647; const pos = [];
       for (let i = 0; i < 70; i++) { const cx = Math.round(-600 + r() * 1200), cy = Math.round(-40 - r() * 300); r(); const az = PX(cx), el = PX(-cy);
-        pos.push(5400 * Math.sin(az) * Math.cos(el), 5400 * Math.cos(az) * Math.cos(el), H0 + 5400 * Math.sin(el)); }
+        pos.push(5400 * K * Math.sin(az) * Math.cos(el), 5400 * K * Math.cos(az) * Math.cos(el), H0 + 5400 * K * Math.sin(el)); }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       ex.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xe3eaf5, size: 2.4, sizeAttenuation: false, fog: false }))); }
-    { const R = 5500, az = PX(110), el = PX(96);                // 太陽
+    { const R = 5500 * K, az = PX(110), el = PX(96);            // 太陽
       const sun = new THREE.Mesh(new THREE.SphereGeometry(R * Math.tan(PX(15)), 24, 12), new THREE.MeshBasicMaterial({ color: col.sun, fog: false }));
       sun.position.set(R * Math.sin(az) * Math.cos(el), R * Math.cos(az) * Math.cos(el), H0 + R * Math.sin(el)); ex.add(sun); }
-    { const lm = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false, fog: false });   // 地面の線
+    { const lm = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false, fog: false });   // 地面の線（太さと間隔は高さに比例）
+      const w = 2.5 * H0 / 80, L = 400000, gap = 150 * H0 / 80;
       [-7, -5, -3.5, -2.2, -1.2, -0.5, 0.5, 1.2, 2.2, 3.5, 5, 7].forEach(k => { const d = 130 / 240 * k * H0;
-        const l = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 14000), lm); l.position.set(d, 0, 0.3); ex.add(l); });
-      for (let yy = -7000; yy <= 7000; yy += 150) { const l = new THREE.Mesh(new THREE.PlaneGeometry(14000, 2.5), lm); l.position.set(0, yy, 0.3); ex.add(l); } }
-    { const R = 2400, hz = new THREE.Mesh(new THREE.CylinderGeometry(R, R, R * Math.tan(PX(1.5)), 128, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, fog: false, side: THREE.DoubleSide }));   // 水平線
+        const l = new THREE.Mesh(new THREE.PlaneGeometry(w, L), lm); l.position.set(d, 0, 0); l.renderOrder = -1; ex.add(l); });
+      for (let yy = -60000; yy <= 60000; yy += gap) { const l = new THREE.Mesh(new THREE.PlaneGeometry(L, w), lm); l.position.set(0, yy, 0); l.renderOrder = -1; ex.add(l); } }
+    { const R = 2400 * K, hz = new THREE.Mesh(new THREE.CylinderGeometry(R, R, R * Math.tan(PX(1.5)), 128, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, fog: false, side: THREE.DoubleSide }));   // 水平線
       hz.rotation.x = Math.PI / 2; hz.position.z = H0; ex.add(hz); }
   }
 
@@ -1250,7 +1255,7 @@ export function mount(container, opt = {}) {
   const look = { y: 0, p: 0 };
   const LOOK_MAX_P = 75 * D;
   const TILT_A = 10 * D;           // 一人称の見下ろし角（計器盤が視界に入る。HUD を通して外を見る姿勢に近づけて 16° → 10°、2026-09-13）
-  const cam = new THREE.PerspectiveCamera(70, 1, 0.08, 9000);
+  const cam = new THREE.PerspectiveCamera(70, 1, 0.08, exam ? 200000 : 9000);   // 試験の世界は目印が 37〜82 km 先
   let zoom = 1, baseFov = 70;                      // 画面の拡大（望遠）。画角 = 元の画角 ÷ 倍率
   const applyFov = () => {
     if (exam && curView === 'first') { examLens(); return; }
@@ -2828,7 +2833,7 @@ export function mount(container, opt = {}) {
        「操縦桿を倒しただけで景色が横へ流れると方向舵と混ざる」という以前の理由で旋回を止めていたが、
        本物はそう動くのだから、そう見せるのが練習になる。
        自動操縦（展示飛行）は 19 課目の調整が乗っているので、従来の運動学のまま */
-    if (posed) { att.copy(poseQ); readAttitude(); velOk = false; }   // 姿勢の台本: 姿勢だけを置き、位置は動かさない
+    if (posed) { att.copy(poseQ); readAttitude(); velOk = false; }   // 外から置いた様子（setPose）のまま。この画面の物理は回さない
     else if (!auto) { physStep(dt); }
     else {
     velOk = false;                         // 自動操縦のあいだは vel を使わない（手動に戻った最初のコマで機首から作り直す）
@@ -2845,7 +2850,7 @@ export function mount(container, opt = {}) {
     /* 方向舵は機体の上下軸まわり（実機のとおり）。傾いているときは、傾いた機体に対して横へ機首が振れる
        （世界で見れば 方位が cos(バンク)、機首の上下が sin(バンク) ぶん変わる）。
        以前は世界の上下軸まわり（premultiply）で、傾いていても水平線に沿って流れていた（利用者の指摘 v04.21）。
-       出題エンジン（engine.js applyOp）も同じ機体軸まわりの合成 */
+       （出題・解説・動きで見るは flight.js の物理で機体を飛ばす。2026-09-13 v05.13 から） */
     if (yaw) att.multiply(dq.setFromAxisAngle(AZ, -yaw));
     /* バンクによる旋回（協調旋回）。世界の上下軸まわりに機体ごと回す。真上・真下付近では効かせない。
        tan(バンク) をそのまま使うと 90 度で符号が裏返り、横倒しの瞬間に方位が逆回りしてガクンとなる。
@@ -4420,7 +4425,7 @@ export function mount(container, opt = {}) {
     seatMeshes.forEach(m => { m.visible = out; });
     cockpit.visible = !out && inCockpit;
     applyBody();   /* 計器だけの見せ方では、乗っている機体そのものも消す（外がそのまま見える） */
-    baseFov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = out ? 0.5 : 1.1; applyFov(); camPos.set(0, 0, 0);
+    baseFov = v === 'ground' ? 42 : out ? 55 : 68; cam.near = exam ? (out ? 2 : 5) : out ? 0.5 : 1.1; applyFov(); camPos.set(0, 0, 0);
     /* 煙の太さ: 一人称はすぐ近くを通るので控えめに、それ以外（特に地上）は遠くでも線が消えないように。
        距離で太らせるのはやめたので（v04.76）、遠くの見え方はこの下限が受け持つ */
     const near1 = v === 'first';
@@ -4453,11 +4458,13 @@ export function mount(container, opt = {}) {
     lockSpeed(on) { speedLock = !!on; return speedLock; },
     /* 重力の切り替え（動きで見る = on。操作モード = off） */
     setGravity(on) { gravityOn = !!on; return gravityOn; },
-    /* 姿勢の台本: 出題の絵の姿勢（度）をそのまま置く。R = Rz(−yaw)·Rx(pitch)·Ry(bank)（engine.js の matOf と同じ順）。null で外す */
+    /* 外から与えた機体の様子を置く（「動きで見る」: flight.js で飛ばした姿勢と位置）。姿勢（度）は R = Rz(−yaw)·Rx(pitch)·Ry(bank)（flight.js の matOf と同じ順）、
+       位置は START からのずれ dx・dy・dz（m）。置いているあいだ、この画面の物理は回さない。null で外す */
     setPose(a) {
       if (!a) { posed = false; return; }
       poseQ.setFromAxisAngle(AZ, -a.yaw * D).multiply(dq.setFromAxisAngle(AX, a.pitch * D)).multiply(dq.setFromAxisAngle(AY, a.bank * D));
       posed = true; att.copy(poseQ); readAttitude(); velOk = false;
+      st.x = START.x + (a.dx || 0); st.y = START.y + (a.dy || 0); st.z = (exam ? EXAM_H : START.z) + (a.dz || 0);
     },
     setTimeScale(k) { timeScale = clamp(+k || 1, 0.05, 1); return timeScale; },
     /* 一人称の見せ方を変える。切ると機内が消えて、外の景色がそのまま見える（縦画面はいつもこちら） */

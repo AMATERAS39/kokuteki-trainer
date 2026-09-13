@@ -1281,7 +1281,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=3"></script>
-<script src="engine.js?v=53"></script>
+<script src="engine.js?v=54"></script>
 <script>
 (function(){
 'use strict';
@@ -1335,7 +1335,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.20';
+const APP_VER='v05.21';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2550,7 +2550,7 @@ function galDraw(){
   if(gal.sel.length>=2)desc+=gal.seq?'　順番: ①→②で操縦桿、②→③で方向舵':'　同時: 両区間で両方';
   $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?(gal.seq?'（順番）':'（同時）'):''}</h4><div class="sub gdesc">${desc}</div>
     <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x,{marks:true,ref:f[0]}))}</div></div>`).join('')}</div>
-    <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;
+    <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の傾き（中央で交差）</div>`;
   galApply(gal.play?null:0);
 }
 /* 動きで見るところを作り直す（視点を切り替えたとき） */

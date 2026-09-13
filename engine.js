@@ -391,7 +391,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
   }
   const fx = v => (Math.round(v * 10) / 10).toString();
   const P = pts => pts.map(p => fx(p[0]) + ',' + fx(p[1])).join(' ');
-  /* o.marks: 目印（雪山の頂と塔の先端に輪）、o.ref: ①の状態（その水平線を破線で）、o.hud: HUD の印（既定 true） */
+  /* o.marks: 目印（雪山の頂と塔の先端に輪）、o.ref: ①の状態（その傾きの基準線を画面中央に破線で）、o.hud: HUD の印（既定 true） */
   function svgCockpit(st, o = {}) {
     const id = 'ck' + (++uid), W = WORLD(), pr = projector(st), hud = o.hud !== false;
     const bank = st.bank, pitch = Math.max(-80, Math.min(80, st.pitch));
@@ -425,7 +425,9 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     if (o.marks) { const a = pr.pt(pr.dir(-15, 12), 1e-3), b = pr.pt(pr.dir(230 / 6, 42 / 6), 1e-3);
       if (a) mk += `<circle cx="${fx(a[0])}" cy="${fx(a[1])}" r="16" fill="none" stroke="#f2a93b" stroke-width="3"/>`;
       if (b) mk += `<circle cx="${fx(b[0])}" cy="${fx(b[1])}" r="14" fill="none" stroke="#f2a93b" stroke-width="3"/>`; }
-    const ref = o.ref ? `<g transform="${att(o.ref)}"><line x1="-400" x2="400" y1="0" y2="0" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9"/><text x="-160" y="-6" font-size="11" font-family="var(--mono)" fill="#f2a93b">①の水平線</text></g>` : '';
+    /* ①の傾きの基準: 画面中央で交差する 2 本の破線（①の水平線と平行な線と、それに直角な線）。②③でも同じ位置に置くので、画面がどう傾き、どう上下したかが読める
+       （v05.20 までの「①の水平線」は水平線の高さに置いていて、傾きが読みにくかった。利用者の指示 2026-09-13） */
+    const ref = o.ref ? `<g transform="translate(180 108) rotate(${fx(-o.ref.bank)})" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9" fill="none"><line x1="-400" x2="400" y1="0" y2="0"/><line x1="0" x2="0" y1="-300" y2="300"/></g>` : '';
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
 <defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--ck-sky-top, var(--ck-sky, var(--sky)))"/><stop offset="1" style="stop-color:var(--ck-sky-hz, var(--ck-sky, var(--sky)))"/></linearGradient></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
 <g clip-path="url(#${id})"><g transform="${att({ bank, pitch })}"><rect x="-1200" y="-1200" width="2400" height="1200" fill="url(#${id}s)"/><rect x="-1200" y="0" width="2400" height="1200" fill="var(--ck-earth, var(--earth))"/></g>

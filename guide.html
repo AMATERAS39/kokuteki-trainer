@@ -235,12 +235,12 @@ main{overflow-x:clip}
 
 /* 練習の表 */
 .tbl{margin-top:1.75rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden;max-width:46rem}
-.tr{display:grid;grid-template-columns:1.6fr .8fr .7fr .7fr;gap:.5rem;padding:.75rem clamp(.625rem,2vw,1rem);align-items:center;font-size:var(--small)}
+.tr{display:grid;grid-template-columns:1.6fr .8fr .7fr;gap:.5rem;padding:.75rem clamp(.625rem,2vw,1rem);align-items:center;font-size:var(--small)}
 .tr+.tr{border-top:1px solid var(--line)}
 .th{background:rgba(255,255,255,.03);color:var(--faint);font-family:var(--mono);font-size:var(--tiny);letter-spacing:.1em}
 .tr b{font-weight:700}
 .tr .num{font-family:var(--mono);color:var(--muted)}
-@media (max-width:34rem){.tr{grid-template-columns:1.5fr .7fr .7fr .7fr;gap:.375rem}}
+@media (max-width:34rem){.tr{grid-template-columns:1.5fr .7fr .7fr;gap:.375rem}}
 
 /* つまずき */
 .acc{margin-top:1.5rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
@@ -527,11 +527,11 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     <h2>練習の進め方</h2>
     <p class="sub">速さは、条件を決めて繰り返すと伸びます。アプリのデフォルトはこの値です。</p>
     <div class="tbl">
-      <div class="tr th"><div>種目</div><div>出題数</div><div>1 問</div><div>全体</div></div>
-      <div class="tr"><b>方位</b><div class="num">20 問</div><div class="num">5 秒</div><div class="num">5 分</div></div>
-      <div class="tr"><b>姿勢指示器</b><div class="num">10 問</div><div class="num">10 秒</div><div class="num">5 分</div></div>
-      <div class="tr"><b>方位×姿勢指示器</b><div class="num">20 問</div><div class="num">15 秒</div><div class="num">8 分</div></div>
-      <div class="tr"><b>操縦操作</b><div class="num">10 問</div><div class="num">20 秒</div><div class="num">15 分</div></div>
+      <div class="tr th"><div>種目</div><div>出題数</div><div>1 問</div></div>
+      <div class="tr"><b>方位</b><div class="num">20 問</div><div class="num">5 秒</div></div>
+      <div class="tr"><b>姿勢指示器</b><div class="num">10 問</div><div class="num">10 秒</div></div>
+      <div class="tr"><b>方位×姿勢指示器</b><div class="num">20 問</div><div class="num">15 秒</div></div>
+      <div class="tr"><b>操縦操作</b><div class="num">10 問</div><div class="num">20 秒</div></div>
     </div>
     <p class="lead">はじめは Easy で読み方の手順を決めます。手順が固まってから Normal と Hard に上げ、1 問の制限時間を縮めます。平均解答時間は種目ごとに残るので、縮んでいるかどうかで判断できます。記録は端末の中だけに置き、どこにも送りません。</p>
   </section>

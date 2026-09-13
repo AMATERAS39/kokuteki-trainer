@@ -160,8 +160,6 @@ svg text{user-select:none}
 .mb-l .ic{color:var(--accent)}
 .mb-n{font-family:var(--display);font-weight:700;font-size:1rem}
 .mb-d{font-size:.75rem;color:var(--muted)}
-.sess{display:flex;align-items:center;gap:.375rem;font-family:var(--mono);font-size:.875rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
-.sess.warn{color:var(--bad)}
 .timer.warn{color:var(--bad)}
 .summary{text-align:center;padding:.5rem 0}
 .summary h2{font-family:var(--display);font-weight:700;font-size:1.25rem;margin:0}
@@ -1231,7 +1229,6 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <div id="view-train" hidden>
   <div class="modebar">
     <div class="mb-l"><svg class="ic" id="modeIcon"><use href="#i-mode-heading"/></svg><div><div class="mb-n"><span id="modeName"></span> <span class="phase" id="phaseTag" hidden></span></div><div class="mb-d" id="tabdesc"></div></div></div>
-    <div class="sess" id="sessTimer" hidden><svg class="ic xs"><use href="#i-timer"/></svg><span id="sessVal"></span></div>
   </div>
 
   <div class="layout">
@@ -1290,12 +1287,13 @@ const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?
 /* 設定の既定値（表示のみ: 方位の表記・テーマ・背景）。version が変わったら保存済みの設定を捨てて既定値に戻す */
 const SETTINGS_VERSION=3;
 const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',simDesc:'off',net:'wifi',showLen:463,showProg:'auto',version:SETTINGS_VERSION});
-/* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit/sLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ */
+/* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ。
+   全体の制限時間（sLimit）は 2026-09-14 に廃止（1 問の制限時間があれば要らない。利用者の指示）。保存済みの sLimit は読まない */
 const MODE_DEFAULTS={
-  heading:{level:'easy',qCount:20,qLimit:5,sLimit:300,skipExplain:true},
-  attitude:{level:'easy',qCount:10,qLimit:10,sLimit:300,skipExplain:true},
-  combo:{level:'easy',qCount:20,qLimit:15,sLimit:480,skipExplain:true},
-  control:{level:'easy',qCount:10,qLimit:20,sLimit:900,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
+  heading:{level:'easy',qCount:20,qLimit:5,skipExplain:true},
+  attitude:{level:'easy',qCount:10,qLimit:10,skipExplain:true},
+  combo:{level:'easy',qCount:20,qLimit:15,skipExplain:true},
+  control:{level:'easy',qCount:10,qLimit:20,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
 const modeSet=store.get('modeSet',{});
 const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';if(m.level==='max'&&mode!=='control')m.level='hard';   // medium は旧称。Max は操縦操作だけ
   if(DEMO_ON&&!isFull()){                                    // 体験版は Easy まで・出題数は上限まで（前に選んだ値が残っていても戻す）
@@ -1335,7 +1333,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.24';
+const APP_VER='v05.25';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1366,7 +1364,7 @@ let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
    更新したときに、更新前に見ていた場所へ戻すため（戻すのは <head> の中の仕掛け） */
 let booting=true;
 function toTop(){if(!booting)window.scrollTo({top:0})}
-let session=null,sessTimerId=null;   // 計測セッション {n,c,t,start,ended}
+let session=null;   // 計測セッション {n,c,t,start,ended}
 let phase='';                         // setup | intro | practice | session | sim | summary
 let practiceLeft=0;
 const PRACTICE_N=3;
@@ -1377,7 +1375,6 @@ const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
 const finIcon=n=>`<svg class="ic fin" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 20.2 12.4 3.6h3.6l3.4 16.6z"/><text x="12.6" y="17.6" text-anchor="middle">${n}</text></svg>`;
 const dirLabel=i=>settings.dirLabel==='alpha'?E.DIRS[i].k:E.DIRS[i].ja;
 const DIR_ORDER=[0,2,4,6,7,1,5,3];   // 方位ボタンの並び: 上段 N E S W、下段 NW NE SW SE（利用者の指定）
-const fmtSec=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
 function applyTheme(){
   if(settings.theme==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=settings.theme;
@@ -1588,15 +1585,15 @@ function markNav(){
 }
 function enterMode(m,sub){
   setBack(sub==='practice'||sub==='sim'?pendingBack:null);pendingBack=null;
-  mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);clearInterval(sessTimerId);
+  mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);
   $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
-  $('#tips').innerHTML=TIPS[m].map(t=>`<li>${t}</li>`).join('');$('#kbdText').textContent=KBD[m];$('#sessTimer').hidden=true;renderStats();
+  $('#tips').innerHTML=TIPS[m].map(t=>`<li>${t}</li>`).join('');$('#kbdText').textContent=KBD[m];renderStats();
   if(m==='control'&&sub==='sim'){startSim();return}
   if(m==='control'&&sub==='gallery'){showGallery();return}
   if(sub==='practice'){startPractice();return}   // アプリの説明から「練習する」（操縦操作も 3 問の練習問題）
   showSetup();
 }
-/* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・全体の制限時間・解説スキップ、説明と練習の表示 */
+/* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
   heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。'},
   attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',normal:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
@@ -1617,7 +1614,6 @@ function showSetup(){
       if(!isFull()&&!o.some(([v])=>v===qCap()))o.unshift([qCap(),`${qCap()} 問`]);return o})(),v=>+v===0||+v>qCap())}
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
-    ${sel('sLimit','全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[480,'8 分'],[600,'10 分'],[900,'15 分']])}
     ${sw('skipChk',ms.skipExplain,'解説スキップ（正誤だけ見せて次へ）')}
     ${sw('introChk',!hideIntro[mode],'開始前に説明と練習 3 問')}
     <div class="acts"><button class="btn" id="setupGo">${hideIntro[mode]?'計測開始':'練習開始'}${ic('next','s')}</button></div>
@@ -1637,7 +1633,7 @@ function showSetup(){
 }
 function showIntro(){
   setPhase('intro','説明');showPane('intro');
-  const ms=MS(),lim=[`難易度 ${E.LEVELS[ms.level]||''}`];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(ms.sLimit>0)lim.push(`全体 ${fmtSec(ms.sLimit)}`);if(qMax()>0)lim.push(`${qMax()} 問`);
+  const ms=MS(),lim=[`難易度 ${E.LEVELS[ms.level]||''}`];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(qMax()>0)lim.push(`${qMax()} 問`);
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${ms.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
     <div class="acts"><button class="btn" id="introGo">練習開始（3 問）${ic('next','s')}</button></div>`;
   $('#introGo').addEventListener('click',afterIntro);
@@ -1645,35 +1641,23 @@ function showIntro(){
 }
 function afterIntro(){startPractice()}
 function startPractice(){
-  setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;clearInterval(sessTimerId);session=null;$('#sessTimer').hidden=true;$('#sessEnd').hidden=true;
+  setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessEnd').hidden=true;
   q=genQ();render();toTop();
 }
 function startMeasured(){
   setBack(null);
   setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
   session={n:0,c:0,t:0,start:performance.now(),ended:false};
-  clearInterval(sessTimerId);
-  const st=$('#sessTimer');
-  const sl=MS().sLimit;
-  if(sl>0){st.hidden=false;const tick=()=>{const rem=Math.max(0,sl-(performance.now()-session.start)/1000);
-      $('#sessVal').textContent=fmtSec(rem);st.classList.toggle('warn',rem<=30);if(rem<=0)endSession()};tick();sessTimerId=setInterval(tick,500)}
-  else st.hidden=true;
-  /* 出題数「制限なし」と全体の制限時間「なし」を組み合わせると、結果画面に至る道が無かった（総点検 2026-09-13）。
-     その組み合わせのときだけ「ここで終える」を出す */
-  $('#sessEnd').hidden=!(sl<=0&&qMax()<=0);
+  /* 出題数「制限なし」では結果画面に至る道が無いので、そのときだけ「ここで終える」を出す（総点検 2026-09-13） */
+  $('#sessEnd').hidden=!(qMax()<=0);
   renderStats();next();
 }
-function endSession(){
-  if(!session||session.ended)return;
-  session.ended=true;clearInterval(sessTimerId);$('#sessVal').textContent='0:00';
-  if(!answered){clearInterval(timerId);showSummary()}
-}
-function leaveSession(){clearInterval(timerId);clearInterval(sessTimerId);session=null;stopSim();if(phase==='session'||phase==='practice')setPhase('')}   // 離れたら段階も消す（残っていると、隠れた画面の判定に使われる）
+function leaveSession(){clearInterval(timerId);session=null;stopSim();if(phase==='session'||phase==='practice')setPhase('')}   // 離れたら段階も消す（残っていると、隠れた画面の判定に使われる）
 function showSummary(){
-  clearInterval(timerId);clearInterval(sessTimerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
+  clearInterval(timerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
   const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
-  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:MS().sLimit>0?'制限時間に達しました':'ここで終えました'}</div>
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>
     <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());

@@ -1314,7 +1314,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.09';
+const APP_VER='v05.10';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1680,7 +1680,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=148').then(mod=>{
+  import('./sim3d.js?v=149').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -2091,7 +2091,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=148').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=149').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2540,32 +2540,48 @@ function galMove(){
   const wasPlaying=gal.play;galStop();
   const f=galFrames().f;
   if(galViewer){galViewer.dispose();galViewer=null}
-  box.innerHTML=gal.view==='first'
-    ?`<div class="gfp">${E.svgCockpit(f[0].bank,f[0].pitch,f[0].yaw,0,false)}</div>`
-    :`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">3D モデルを読み込み中…</div></div>
-      <div class="gp gang" style="grid-template-columns:repeat(5,1fr)"><button class="ab" data-ang="back">後方</button><button class="ab" data-ang="right">右横</button><button class="ab" data-ang="left">左横</button><button class="ab" data-ang="top">上</button><button class="ab" data-ang="quarter">斜め後ろ</button></div>
-      <div class="sub">一人称で見える動きが、外から見るとどうなっているかを確かめるものです（3D モデルの展示ではありません）。動きはゆっくり（実際の 3.5 倍の時間）。操作はできません。指でなぞると角度を変えられます。機首は奥（北）を向いて始まります。</div>`;
+  /* 一人称も三人称もシミュレーター本体（sim3d.js）。選んだ操作を舵の入力として入れ、重力ありの物理で動かす（利用者の指示 2026-09-13） */
+  box.innerHTML=`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">シミュレーターを読み込み中…</div></div>
+      ${gal.view==='third'?`      <div class="gp gang" style="grid-template-columns:repeat(5,1fr)"><button class="ab" data-ang="back">後方</button><button class="ab" data-ang="right">右横</button><button class="ab" data-ang="left">左横</button><button class="ab" data-ang="top">上</button><button class="ab" data-ang="quarter">斜め後ろ</button></div>
+      <div class="sub">指でなぞると視点を回せます。</div>`:''}
+      <div class="sub">シミュレーターそのものです。選んだ操作を①→②の 2 秒・②→③の 2 秒で舵に入れ、実機と同じ物理（重力も）で機体が動きます。ゆっくり（実際の 3.5 倍の時間）で、操作はできません。</div>`;
   /* 三人称の角度（利用者の指示 2026-09-13「従来の動きを三人称でいろんな角度から見られるように」）。機体は原点、北が +y */
-  const ANG={back:[0,-22,6],right:[22,0,4],left:[-22,0,4],top:[0,-6,24],quarter:[14,-16,8]};
+  /* 角度はシミュレーターの三人称の見回し（setLook: 左右, 上下 の度。左が正、上は負） */
+  const ANG={back:[0,0],right:[-90,-10],left:[90,-10],top:[0,-70],quarter:[-40,-15]};
   box.querySelectorAll('[data-ang]').forEach(b=>b.addEventListener('click',()=>{const a=ANG[b.dataset.ang];gal.ang=b.dataset.ang;if(galViewer&&a)galViewer.setCamera(...a);box.querySelectorAll('[data-ang]').forEach(x=>x.classList.toggle('sel',x===b))}));
+  /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
+  { const gv=box.querySelector('#gviewer'); if(gv){ let px=0,py=0,on=false;
+    gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
+    gv.addEventListener('pointermove',e=>{if(!on||!galViewer)return;galViewer.h.addLook((e.clientX-px)*0.35,(py-e.clientY)*0.35);px=e.clientX;py=e.clientY;box.querySelectorAll('[data-ang]').forEach(x=>x.classList.remove('sel'))});
+    gv.addEventListener('pointerup',()=>{on=false});gv.addEventListener('pointercancel',()=>{on=false}); } }
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
-  if(gal.view==='third')galMountViewer();
+  galMountViewer();
   galApply(0);
   if(wasPlaying)galPlay();
 }
 /* 三人称の 3D。見え方の画面を離れるまで持っておく（作り直すと読み込みが長いため） */
-let galViewer=null,galViewerLoading=false,galRaf=0,galT0=0;
+let galViewer=null,galViewerLoading=false,galRaf=0,galT0=0,galPrevT=0;
+/* いまの区間（seg 0 = ①→②、1 = ②→③）で入っている操作。順番なら seg 0 に操縦桿・seg 1 に方向舵、同時なら両方を両区間に。動きのあいだだけ */
+function galOpsAt(seg,inMove){if(!inMove||!gal.sel.length)return[];
+  if(gal.sel.length>=2&&gal.seq){const st=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick'),rd=gal.sel.filter(x=>E.OP_BY_ID[x].group==='rudder');return seg===0?st:rd}
+  return gal.sel.slice()}
 function galMountViewer(){
   const host=$('#gviewer');if(!host||galViewerLoading)return;
   galViewerLoading=true;
-  import('./viewer.js?v=8').then(mod=>mod.mount(host,{motion:true,aspect:3/2,onProgress:pr=>{const l=$('#gvload');if(l)l.textContent=`3D モデルを読み込み中… ${Math.round(pr*100)}%`}}))
-    .then(v=>{galViewerLoading=false;
+  /* シミュレーター本体（sim3d.js）を三人称で mount し、台本の姿勢（setScript）だけを入れる。操作は通さない */
+  import('./sim3d.js?v=149').then(mod=>{
+      const h=mod.mount(host,{view:gal.view});
+      h.setCockpit(gal.view==='first');h.setGravity(true);h.setProps(true);
+      h.setTimeScale(1/3.5);   /* ゆっくり（実際の 3.5 倍の時間） */
+      h.home();
+      const v={h, setCamera:(ly,lp)=>h.setLook(ly,lp), dispose:()=>h.dispose()};
+      galViewerLoading=false;
       if(!document.body.contains(host)){v.dispose();return}   // 画面が変わっていたら捨てる
       galViewer=v;const l=$('#gvload');if(l)l.remove();
       /* 既定の角度は後方（操縦者と同じ向きで機体の動きを見る）。選んであった角度があればそれ */
-      { const a=gal.ang||'back', b=$('#gmove')&&$('#gmove').querySelector(`[data-ang="${a}"]`); if(b)b.click(); else v.setCamera(0,-22,6); }
+      if(gal.view==='third'){ const a=gal.ang||'back', b=$('#gmove')&&$('#gmove').querySelector(`[data-ang="${a}"]`); if(b)b.click(); else v.setCamera(0,0); }
       galApply(gal.play?null:0);})
-    .catch(()=>{galViewerLoading=false;const l=$('#gvload');if(l)l.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）'});
+    .catch(e=>{console.error(e);galViewerLoading=false;const l=$('#gvload');if(l)l.textContent='シミュレーターを読み込めませんでした（通信環境を確認してください）'});
 }
 function galDispose(){galStop();if(galViewer){galViewer.dispose();galViewer=null}}
 /* 動きの筋書き: ①で少し待つ → ②へ → 少し待つ → ③へ → 待って繰り返す（秒） */
@@ -2584,18 +2600,26 @@ function galApply(t){
   const A=f[i],B=f[Math.min(2,i+1)];
   const st={bank:A.bank+(B.bank-A.bank)*k,pitch:A.pitch+(B.pitch-A.pitch)*k,yaw:A.yaw+(B.yaw-A.yaw)*k};
   const prog=Math.min(1,t/GAL_DUR);
-  { const box=$('#gmove'),sv=box&&box.querySelector('svg.cockpit, .gfp svg');if(!sv&&gal.view==='first')return;
+  { const box=$('#gmove'),sv=box&&box.querySelector('.gfp svg');
     if(sv){
     const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw'),yg=sv.querySelector('.ck-yawg');
     if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
     if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);   /* 前進の拡大（grow）は外した。静止画と同じ（非物理で、目印の動きの法則の邪魔）*/
     if(yg)yg.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`); }
   }
-  if(gal.view==='third'&&galViewer){
-    galViewer.setAttitude(st.yaw,st.pitch,st.bank);   // 方位はヨーのぶんだけ振れる
+  /* シミュレーターへ: いまの区間で入っている操作を舵の入力に。①→②（seg 0）と ②→③（seg 1）の「動き」のあいだだけ入れ、待ちの間は中立。
+     周回の頭では機体を初期位置へ戻す（重力ありなので流れを積まない）。入力の大きさは、一人称の絵の 1 区間の変化（バンク 20°・ピッチ 8°・ヨー 10°）が 2 秒で出る程度 */
+  if(galViewer){const h=galViewer.h;
+    if(t<galPrevT||t===0){h.home();h.input.x=h.input.y=h.input.r=0}
+    galPrevT=t;
+    let inMove=false,segNow=0,rest2=t;for(const s of GAL_SEQ){const d=s.hold||s.move;if(rest2<=d){inMove=!!s.move;break}rest2-=d;if(s.move)segNow++}
+    const ops=galOpsAt(segNow,inMove);
+    h.input.x=ops.includes('stick-right')?0.17:ops.includes('stick-left')?-0.17:0;
+    h.input.y=ops.includes('stick-forward')?0.14:ops.includes('stick-back')?-0.14:0;
+    h.input.r=ops.includes('rudder-right')?1:ops.includes('rudder-left')?-1:0;
   }
-  const se=$('#gstep');
-  if(se)se.textContent=gal.play?`${'①②③'[Math.round(u)]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　ヨー ${Math.round(st.yaw)}°`
+  const se=$('#gstep'),hs=galViewer&&galViewer.h.state;
+  if(se)se.textContent=gal.play?`${'①②③'[Math.round(u)]}のあたり　バンク ${Math.round(hs?hs.b:st.bank)}°　ピッチ ${Math.round(hs?hs.p:st.pitch)}°　高度 ${hs?Math.round(hs.z):'—'} m`
     :'スタートを押すと、①→②→③の見え方が動きで分かります';
 }
 /* ===== 解説の中の見え方（操縦操作・完全版）=====

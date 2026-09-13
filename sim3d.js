@@ -2618,6 +2618,10 @@ export function mount(container, opt = {}) {
     if (musWait <= 0) { gmode = 'takeoff'; startTakeoff(PROGRAM[f0].id === 'dtake' ? 'diamond' : 'pairs'); }
   }
   let lineupPrev = false;                  // 前のコマで「全機が並んだ」状態だったか（曲を止める合図に使う）
+  /* 「見え方」の「動きで見る」は、シミュレーター本体をそのまま使い、選んだ操作を舵の入力として入れて物理で動かす
+     （利用者の指示 2026-09-13「三人称は別の仕組みではなくシミュレーター操作と同じ仕組み」「実機と全く同じ動きである必要があるので、重力の影響も考えたもの」）。
+     操作モード（自分で操縦する画面）は重力を無視する決めなので、重力は gravityOn で切り替える（動きで見るは on） */
+  let gravityOn = false;
   /* ===== 手動操縦の物理（v2） ===== */
   /* TAU_B: 横滑り角が指令へ追いつく時定数。踏んでも離しても同じ（風見安定）。0.45 秒だと、離した瞬間に機首が 1 秒足らずで進路へ戻り
      「反動」に見えた（利用者の指摘 2026-09-13）。実機のヨーの固有周期は 1〜2 秒なので 0.8 秒に。戻る動きそのものは物理（横滑りが消えて機首が相対風に並ぶ） */
@@ -2654,7 +2658,8 @@ export function mount(container, opt = {}) {
          引けば α − α0 のぶんの揚力が機体の上向きに働いて上昇（背面で引けば降下）、方向舵の横力はそのまま。
        式: a = KL·q·(α·上 − α0·(上·ẑ)·ẑ) − KY·q·β·右 */
     const a0 = Math.min(PHY.ALPHA0 / q, 14 * D);   // 釣り合いの迎角は速さの二乗に反比例（遅いほど機首を上げて飛ぶ。上限 14° ＝ 失速の手前）
-    pAcc.copy(bup).multiplyScalar(PHY.KL * alpha * q).addScaledVector(bright, -PHY.KY * beta * q); pAcc.z -= PHY.KL * a0 * q * bup.z;
+    pAcc.copy(bup).multiplyScalar(PHY.KL * alpha * q).addScaledVector(bright, -PHY.KY * beta * q);
+    pAcc.z -= gravityOn ? 9.81 : PHY.KL * a0 * q * bup.z;   // 動きで見るは本物の重力。操作モードは釣り合いの揚力の鉛直成分で支える（重力を無視）
     const psi0 = Math.atan2(vel.x, vel.y);
     vel.addScaledVector(pAcc, dt).setLength(v);
     st.x += vel.x * dt; st.y += vel.y * dt; st.z += vel.z * dt;
@@ -4361,6 +4366,8 @@ export function mount(container, opt = {}) {
     /* スロットル 0〜1（手動操縦の速さ）。3D のレバーも連動する */
     setThrottle(t) { throttle = clamp(+t || 0, 0, 1); return throttle; }, throttleState() { return throttle; },
     lockSpeed(on) { speedLock = !!on; return speedLock; },
+    /* 重力の切り替え（動きで見る = on。操作モード = off） */
+    setGravity(on) { gravityOn = !!on; return gravityOn; },
     setTimeScale(k) { timeScale = clamp(+k || 1, 0.05, 1); return timeScale; },
     /* 一人称の見せ方を変える。切ると機内が消えて、外の景色がそのまま見える（縦画面はいつもこちら） */
     setCockpit(on) { inCockpit = !!on; const first = curView === 'first';

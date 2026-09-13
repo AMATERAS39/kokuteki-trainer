@@ -9,6 +9,11 @@ const D = Math.PI / 180;
 export const LIMIT = 3300;                       // 壁までの距離（原点から、m）。壁は近づくまで見えない（place で薄くする）。1800 → 3300（利用者の指示 2026-09-13「制限範囲を拡大」。地面 8 km 角の内側）
 const WALL_FADE = 400;                           // 壁が見えはじめる距離（m）。これより遠いと透明
 export const CEIL = 4000;                        // 天井（m）。宙返りができる高さを取る（3000 → 4000、2026-09-13）
+/* 展示飛行（自動操縦）の座標の基準。演目の開始位置・無限遠・進入の門・自動の天井・民家と木を置く範囲は、壁が 1,800 m・天井が 3,000 m だったときに合わせてある。
+   v05.05 で手動操縦の壁（LIMIT）と天井（CEIL）を広げたとき、これらも LIMIT・CEIL から計算していたので一緒に動いてしまい、
+   正面から入る課目の開始位置が 1,920 → 3,420 m、無限遠が 1.5 km 遠くなり、民家と木が 3.4 倍の広さに薄まっていた（2026-09-13 に発見、v05.14 で戻した）。
+   壁を広げたのは手動操縦の飛べる範囲のためなので、展示飛行はもとの基準のまま */
+const SHOW_LIMIT = 1800, SHOW_CEIL = 3000;
 export const SPEED = 60;                         // 速度（m/s、固定）
 const RATE = { roll: 60, pitch: 25, yaw: 20 };   // 入力 1 のときの角速度（°/s）
 /* 試験の世界（「動きで見る」）: 機体は 200 m/s で 2 秒に 400 m 進むので、目印が 2.5〜4 km 先だと近づいた分だけ最大 100 px ずれた（実測）。
@@ -102,7 +107,7 @@ const SPREAD_D = 600, END_D = 300, KEY_R = 850;   // v04.19: KEY_R 1000→850（
 /* 「無限遠」として使う距離。もとの壁があったところ（原点から南の壁まで）にそろえる。
    ここまで来たら、演目は終わり・スモークは一斉に切る・次の課目へ位置を移す。
    本当に遠くまで飛ばすと、着くまでの時間が長すぎる */
-const REAR_END = LIMIT + GROUND_EYE.y;           // 原点から、もとの壁のあった位置まで（m）
+const REAR_END = SHOW_LIMIT + GROUND_EYE.y;      // 原点から、もとの壁のあった位置まで（m）
 /* 曲の折り返しと頭（秒）。演目の長さを「曲 2 周ぶん」に合わせるのに使う */
 const MUS_LOOP_END_S = 238, MUS_LEAD_S = 13, LAND_TIME = 130;
 const STRIP_END = 650;                           // 滑走路の帯の端（y = ±650）。南の取り付け（-600）と北の出口（590）が側面に付く
@@ -133,7 +138,7 @@ function keyPt(bearing, dist) {                  // 正面から見た方位（0
    進入の門は、その手前でもう向きが合っているように、さらに 500 m 奥へ置く。
    横のずらしは「門で 180 度 向き直さない」ためのもの。大きいと斜めに入ってくるので、
    旋回半径（バンク 52 度で約 290 m）ぶんだけにとどめ、あとは観覧位置へまっすぐ向かわせる */
-const FRONT_START = LIMIT + 120;                 // 課目を始める位置（観覧位置からの距離、m）
+const FRONT_START = SHOW_LIMIT + 120;            // 課目を始める位置（観覧位置からの距離、m）
 const FRONT_FAR = FRONT_START + 1000 - SHOW.GATE, FRONT_SIDE = 150;   // 門で向き直してから、開始位置までに線へ乗る
 const DIRJA = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
 
@@ -333,7 +338,7 @@ export function mount(container, opt = {}) {
   const free = (x, y) => !(Math.abs(y) < STRIP_END + 90 && RWY_X.some(rx => Math.abs(x - rx) < 90))
     && !(x > -30 && x < TAXI_X + 40 && y > TAXI_END - 40 && y < TAXI_N + 40)      // 基地（駐機場・誘導路・原点のまわり）
     && !(y > TAXI_S - 30 && y < TAXI_S + 30 && x > RWY2 - 30 && x < TAXI_X + 30);   // 南の取り付け
-  const pick = () => { for (;;) { const x = -LIMIT + 60 + rnd() * (LIMIT * 2 - 120), y = -LIMIT + 60 + rnd() * (LIMIT * 2 - 120); if (free(x, y)) return [x, y]; } };
+  const pick = () => { for (;;) { const x = -SHOW_LIMIT + 60 + rnd() * (SHOW_LIMIT * 2 - 120), y = -SHOW_LIMIT + 60 + rnd() * (SHOW_LIMIT * 2 - 120); if (free(x, y)) return [x, y]; } };   // 見え方を学ぶので近くに（もとの壁の内側）
   const NH = 260, houses = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), NH);
   const roofGeo = new THREE.ConeGeometry(1, 1, 4); roofGeo.rotateX(Math.PI / 2); roofGeo.rotateZ(Math.PI / 4);
   const roofs = new THREE.InstancedMesh(roofGeo, new THREE.MeshLambertMaterial(), NH);
@@ -1623,7 +1628,7 @@ export function mount(container, opt = {}) {
   /* 技に入る前の進入路を決める。見ている正面の少し先を中心に、近いほうの横から入って正面を横切る。
      入る場所は文（st.cue）と地上の柱で知らせる */
   function planEntry(m) {
-    const e = eyeDir(), W = auto ? LIMIT + 900 : LIMIT - 220;   // 自動操縦では壁がないので、門を遠くに置ける
+    const e = eyeDir(), W = auto ? SHOW_LIMIT + 900 : LIMIT - 220;   // 自動操縦では壁がないので、門を遠くに置ける（演目の基準の距離から）
     const cx = clamp(e.ex + e.dx * SHOW.GATE, -W, W), cy = clamp(e.ey + e.dy * SHOW.GATE, -W, W);
     const sx = e.dy, sy = -e.dx;                                          // 正面から見て右向き
     /* ふつうは機体に近いほうの横から。課目が入る側を決めているとき（side: -1 は左手）はそれに従う */
@@ -2875,7 +2880,7 @@ export function mount(container, opt = {}) {
     /* 自動操縦のあいだは、広さの決まりを外す（画面を広く使うため）。
        演目はいつも観覧位置のまわりで行われるので、遠くの景色を描き足す必要はない。
        自分で操縦しているときは、これまでどおり壁で止める */
-    const C = auto ? CEIL + 300 : CEIL;
+    const C = auto ? SHOW_CEIL + 300 : CEIL;   // 自動操縦の天井は演目の基準のまま
     st.wall = !auto && (Math.abs(st.x) > LIMIT - 4 || Math.abs(st.y) > LIMIT - 4 || st.z > CEIL);
     if (!auto) { st.x = clamp(st.x, -(LIMIT - 4), LIMIT - 4); st.y = clamp(st.y, -(LIMIT - 4), LIMIT - 4); }
     if (st.z >= C) { st.z = C; if (vel.z > 0) vel.z = 0; }          // 天井に当たったら上向きの速さを捨てる（張り付いたまま速度だけ上を向かないように）

@@ -72,11 +72,13 @@
     return { type: 'heading', dir, phi, theta: norm(phi + dir * 45), level: lv };
   }
   function pickDistractors(cands, isValid, n) {
+    /* n が 0 のときに全部返していた（`out.length === n` を押してから見ていた）。枕が 3 つ取れた Hard・Max の問題で選択肢が 14 個になった（利用者の指摘 2026-09-13） */
     const seen = new Set(); const out = [];
+    if (n <= 0) return out;
     for (const c of shuffle(cands.slice())) {
       const k = c.join(',');
       if (isValid(c) && !seen.has(k)) { seen.add(k); out.push(c); }
-      if (out.length === n) break;
+      if (out.length >= n) break;
     }
     return out;
   }

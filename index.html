@@ -1281,7 +1281,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=3"></script>
-<script src="engine.js?v=51"></script>
+<script src="engine.js?v=52"></script>
 <script>
 (function(){
 'use strict';
@@ -1335,7 +1335,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.18';
+const APP_VER='v05.19';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1701,7 +1701,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=157').then(mod=>{
+  import('./sim3d.js?v=158').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -2112,7 +2112,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=157').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=158').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2562,7 +2562,7 @@ function galMove(){
      「動きで見る」は出題画面の様子を動きで把握するもの（利用者の指示 2026-09-13）。動かすのは世界ではなく機体（同日の利用者の原則）。
      一人称は出題の絵と同じレンズ（1° = 6 px）で、同じ枠（キャノピーの縁・HUD の印・グレアシールド）を重ねる */
   box.innerHTML=`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">シミュレーターを読み込み中…</div>${gal.view==='first'?`<div class="gframe">${ckCompact(E.svgCockpitFrame(true))}</div>`:''}</div>
-      <div class="sub">${gal.view==='first'?'出題の絵と同じ見え方です。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。'}</div>`;
+      <div class="sub">${gal.view==='first'?'出題の絵と同じ見え方です。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝ロール、緑＝ピッチ、青＝ヨー。'}</div>`;
   /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
   { const gv=box.querySelector('#gviewer'); if(gv){ let px=0,py=0,on=false;
     gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
@@ -2579,7 +2579,7 @@ function galMountViewer(){
   const host=$('#gviewer');if(!host||galViewerLoading)return;
   galViewerLoading=true;
   /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
-  import('./sim3d.js?v=157').then(mod=>{
+  import('./sim3d.js?v=158').then(mod=>{
       /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
       const h=mod.mount(host,{view:gal.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
       h.setCockpit(false);h.setProps(true);
@@ -2599,17 +2599,25 @@ const GAL_SEQ=[{hold:0.8},{move:2.0},{hold:0.5},{move:2.0},{hold:1.4}];
 const GAL_DUR=GAL_SEQ.reduce((a,s)=>a+(s.hold||s.move),0);
 /* 筋書きの時刻 t → 飛行の時刻（秒）と、いまいる写真の番号（0〜2） */
 function seqTime(t){let rest=t,ft=0,seg=0;
-  for(const s of GAL_SEQ){const d=s.hold||s.move;if(rest<=d){if(s.move)ft+=rest;return {ft,near:Math.round(ft/E.EXAM_DT)}}rest-=d;if(s.move){ft+=d;seg++}}
-  return {ft,near:2}}
+  for(const s of GAL_SEQ){const d=s.hold||s.move;if(rest<=d){if(s.move)ft+=rest;return {ft,near:Math.round(ft/E.EXAM_DT),moveSeg:s.move?seg:-1}}rest-=d;if(s.move){ft+=d;seg++}}
+  return {ft,near:2,moveSeg:-1}}
+/* いまの区間で舵に入っている操作 → 矢印の向き { roll, pitch, yaw }（±1／0）。待ちの間は無し */
+const FORCE_OF={'stick-right':{roll:1},'stick-left':{roll:-1},'stick-back':{pitch:1},'stick-forward':{pitch:-1},'rudder-right':{yaw:1},'rudder-left':{yaw:-1}};
+function galForces(moveSeg){
+  if(moveSeg<0||!gal.sel.length)return null;
+  const two=gal.sel.length>=2,ops=two?gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1)):[gal.sel[0],gal.sel[0]];
+  const segs=E.opSegs(ops,two&&!gal.seq),f={};
+  for(const id of segs[moveSeg].ops)Object.assign(f,FORCE_OF[id]);
+  return f}
 /* 経過時間 t（秒）の様子にする。t が null なら、いまの時刻から求める */
 function galApply(t){
   if(t===null)t=gal.play?((performance.now()-galT0)/1000/galSpeed())%GAL_DUR:0;
-  const {traj}=galFrames(),{ft,near}=seqTime(t),st=AAT_FLIGHT.at(traj,ft);
+  const {traj}=galFrames(),{ft,near,moveSeg}=seqTime(t),st=AAT_FLIGHT.at(traj,ft);
   /* シミュレーターへ: 飛行モデルで飛ばした姿勢と位置をそのまま置く（解説の「この問題の見え方」と同じ飛行）。
      航跡の線で機体が前へ進んだ道のりを残す（三人称ではカメラが機体に付いてくるので、航跡と地面の線が進んでいる手がかり）。周回の頭で消す */
   if(galViewer){const h=galViewer.h;
     if(ft<galPrevFt||ft===0)h.clearTrail();galPrevFt=ft;
-    h.setPose(st)}
+    h.setForces(gal.play?galForces(moveSeg):null);h.setPose(st)}
   const se=$('#gstep');
   if(se)se.textContent=gal.play?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m　進んだ距離 ${Math.round(Math.hypot(st.dx,st.dy))} m`
     :'再生を押すと、①→②→③の見え方が動きで分かります';

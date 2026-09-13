@@ -435,6 +435,29 @@ export function mount(container, opt = {}) {
 
   /* 機体（三人称のときだけ表示）と、高度の手がかり（地面の影と垂線） */
   const plane = new THREE.Group(); world.add(plane);
+  /* 舵で加わっている回転の向きの矢印（「動きで見る」の三人称。利用者の指示 2026-09-13）。機体の軸まわりの弧に矢じり。
+     ロール（機首の軸まわり、橙）・ピッチ（翼の軸まわり、緑）・ヨー（上下軸まわり、青）。逆向きは弧を鏡に映す。
+     機体の入れ物 plane の子なので、機体といっしょに動く。setForces({ roll, pitch, yaw }) で ±1／0 */
+  const forceArrows = new THREE.Group(); forceArrows.visible = false; plane.add(forceArrows);
+  const arrows = {};
+  { const mk = (color, pts, mirror) => {
+      const g = new THREE.Group();
+      const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
+      const mat = new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.DoubleSide });
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.18, 8, false), mat));
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.6, 12), mat);
+      const end = curve.getPoint(1), tan = curve.getTangent(1);
+      cone.position.copy(end).addScaledVector(tan, 0.7);
+      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+      g.add(cone);
+      const pos = g, neg = g.clone(); neg.scale[mirror] = -1;   // 逆向きは鏡（回転では向きの意味が変わらない）
+      pos.visible = neg.visible = false; forceArrows.add(pos, neg);
+      return { pos, neg }; };
+    const arc = (f, a0, a1, n) => { const out = []; for (let i = 0; i <= n; i++) out.push(f((a0 + (a1 - a0) * i / n) * D)); return out; };
+    arrows.roll = mk(0xff8a3d, arc(a => [6.5 * Math.cos(a), -1.5, 6.5 * Math.sin(a)], 150, 15, 16), 'x');        // 右ロール: 上を越えて右翼が下がる向き
+    arrows.pitch = mk(0x7cf59a, arc(a => [0, 9 * Math.cos(a), 9 * Math.sin(a)], -35, 40, 16), 'z');            // 機首上げ: 機首の先で上へ
+    arrows.yaw = mk(0x4fc3f7, arc(a => [9 * Math.sin(a), 9 * Math.cos(a), 0], -35, 35, 16), 'x');                // 右ヨー: 機首の先で右へ
+  }
   /* 操縦席の部品。座標はモデル座標 ×k（k = 13/全長）で書き、読み込み後に GLB と同じ平行移動（eyeOff）を掛ける。
      目安（この座標系）: 風防の上端 z≈0.43、前席の背もたれ上端 z≈0.32、前席 y≈2.4〜3.5、風防の前端 y≈3.55、床 z≈-0.97。
      モデルには座席と風防しかないので、計器盤・グレアシールド・操縦桿・方向舵ペダルを自作する。目は前席の後ろ寄り・背もたれの少し上 */
@@ -4476,6 +4499,12 @@ export function mount(container, opt = {}) {
     setGravity(on) { gravityOn = !!on; return gravityOn; },
     /* 外から与えた機体の様子を置く（「動きで見る」: flight.js で飛ばした姿勢と位置）。姿勢（度）は R = Rz(−yaw)·Rx(pitch)·Ry(bank)（flight.js の matOf と同じ順）、
        位置は START からのずれ dx・dy・dz（m）。置いているあいだ、この画面の物理は回さない。null で外す */
+    /* 舵で加わっている回転の向き（動きで見るの三人称）。{ roll, pitch, yaw } それぞれ +1／−1／0。省略で消す */
+    setForces(f) {
+      f = f || {}; let any = false;
+      for (const k of ['roll', 'pitch', 'yaw']) { const v = +f[k] || 0; arrows[k].pos.visible = v > 0; arrows[k].neg.visible = v < 0; any = any || v !== 0; }
+      forceArrows.visible = any && curView !== 'first';
+    },
     setPose(a) {
       if (!a) { posed = false; return; }
       poseQ.setFromAxisAngle(AZ, -a.yaw * D).multiply(dq.setFromAxisAngle(AX, a.pitch * D)).multiply(dq.setFromAxisAngle(AY, a.bank * D));

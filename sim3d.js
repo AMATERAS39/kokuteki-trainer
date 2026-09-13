@@ -3845,6 +3845,10 @@ export function mount(container, opt = {}) {
     if (cockpit.parent !== seatObj) seatObj.add(cockpit);
     applyBody();
     seatQ.copy(seatObj.quaternion); seatR.makeRotationFromQuaternion(seatQ);
+    /* 乗っている機体の姿勢を画面へ（画面の姿勢指示器・方位計・HUD の用）。2〜6 番機に乗ったとき、画面の計器が 1 番機の姿勢を
+       指していた（総点検 2026-09-13 の指摘 #5）。1 番機なら st と同じ値 */
+    if (seatObj === plane) { st.sb = st.b; st.sp = st.p; st.sh = st.h; }
+    else { const a = attOfQ(seatQ); st.sb = a.b; st.sp = a.p; st.sh = a.h; }
     seatMeshes.forEach(m => { m.visible = !(curView === 'first' && seatObj === plane); });
     mates.forEach((h, i) => { const sm = h.userData.seats; if (sm) sm.forEach(m => { m.visible = !(curView === 'first' && seatObj === h); }); });
     hudOn = false;                           // 一人称（機内）のときだけ、下で true にする

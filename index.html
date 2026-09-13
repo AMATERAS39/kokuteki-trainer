@@ -805,7 +805,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
      実測: 容器が画面より 40 大きいだけで図が 471 → 511 に伸び、選択肢が画面から 3 はみ出す。
      svh は上下の帯を常に含んだ最小の高さなので、上限に使えば容器が画面を超えない。
      dvh をやめて svh だけにすると、ふつうのブラウザで下に余白が出て狭くなるため、併用する */
-  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;max-height:100svh;display:flex;flex-direction:column;padding-bottom:calc(var(--foot-h) + .25rem)}
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;max-height:100svh;display:flex;flex-direction:column;padding-bottom:calc(max(.5rem,env(safe-area-inset-bottom)) + 1rem)}   /* 1 画面の出題は帯に隠れないので、余白は v05.11 のまま（v05.12 で広げて図が縮んでいた） */
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
   /* ホーム: 機体の絵だけ縮む */
@@ -924,7 +924,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
    画面が大きいぶん、大事なのは機体の図より選択肢なので、図を伸縮させて選択肢を大きく見せる。
    スマホの 1 画面化と同じ作り（縦の flex にして、図だけを伸縮させる） */
 @media (min-width:64rem){
-  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:calc(var(--foot-h) + .25rem)}
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:1rem}
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
   .hero2{flex:0 1 auto;min-height:0;justify-content:center}
@@ -1170,7 +1170,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="card">
         <h3>方位（上面図）</h3>
         <div class="fig2"><div class="figbox sm" id="abTop"></div>
-          <ul><li>N マークが北。N から時計回りに 45° ずつ数える。</li><li>N マークの向きは Normal 以上で毎回変わる（Easy では上に固定）。Normal 以上では、機首は N と同じ向きにはならない。</li></ul></div>
+          <ul><li>印から北を決め、時計回りに 45° ずつ数える。Hard では印が N とは限らない。</li><li>印の向きは Normal 以上で毎回変わる（Easy では N が上）。Normal 以上では、機首は印の方位と同じ向きにはならない。</li></ul></div>
       </div>
       <div class="card">
         <h3>操縦操作と見え方</h3>
@@ -1281,7 +1281,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=4"></script>
-<script src="engine.js?v=55"></script>
+<script src="engine.js?v=56"></script>
 <script>
 (function(){
 'use strict';
@@ -1335,7 +1335,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.23';
+const APP_VER='v05.24';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1428,7 +1428,7 @@ function render(){
   if(q.type==='heading'){
     $('#prompt').textContent='機首が向いている方位を 8 方位から選ぶ';
     const grid=`<div class="dirlist">${DIR_ORDER.map(i=>`<button class="ab" data-dir="${i}"><span class="lab">${i+1}</span><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
-    figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi)}</div><div class="cap">上面図 — <b>N</b> マークの向きが北</div></div>${grid}</div>`;
+    figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi,q.mark)}</div><div class="cap">上面図 — 印 <b>${E.DIRS[q.mark||0].k}</b> の向きが${E.DIRS[q.mark||0].ja}</div></div>${grid}</div>`;
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
   }else if(q.type==='attitude'||q.type==='combo'){
@@ -1554,7 +1554,7 @@ function next(){
 
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
 const INTRO={
-  heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークの向きは Normal 以上で毎回変わります（Easy では上に固定）。まず N を確認してから機首を読みます。'],
+  heading:['上から見た機体と方位の印が表示されます。','機首が向いている方位を 8 方位から選びます。','印の向きは Normal 以上で毎回変わります（Easy では N が上）。Hard では印が N とは限りません。まず印から北を決めてから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
   combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
   control:['外の様子が①→②→③の 3 枚で出ます。','各区間で行った操作を 1〜4 から選びます。','景色が回る＝操縦桿の左右。目印が上下へ動く＝奥・手前。目印が左右へ大きく流れる＝方向舵。','絵は実機と同じ物理で飛ばした景色です。傾いていると目印は少しずつ横へ流れます。','2 つの操作は同時でも順番でも答えは同じです。']
@@ -1598,7 +1598,7 @@ function enterMode(m,sub){
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・全体の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
-  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'N 以外の 7 方位（選択肢は 8 方位）。N マークの向きは毎回変わる。'},
+  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。'},
   attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',normal:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
   combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'12 方向すべて。方位指示器の印は毎回変わる。'},
   control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ。視界の中央の目盛りは出ない。',max:'Hard に加えて、①は必ず傾きと機首の上下が重なった姿勢。'}};
@@ -2767,7 +2767,7 @@ function renderSettingsPage(){
 }
 /* 解き方のメモ。1 行 1 事で箇条書きにする（長い文がつながっていると、解いている最中に読めない） */
 const TIPS={
-  heading:['N マークの向きをまず見る','そこから機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Normal 以上では、機首が N と同じ向きになる問題は出ない'],
+  heading:['印の向きをまず見る（Hard では N とは限らない）','印から北を決め、機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Normal 以上では、機首が印の方位と同じ向きになる問題は出ない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
   combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','印の文字（N など）と、その位置から読む'],
   control:['景色が回る＝操縦桿の左右','目印が上下へ動く＝奥・手前','目印が左右へ大きく流れる＝方向舵','傾いていると方向舵でも水平線が上下する。目印の動きで読む','同時でも順番でも答えは同じ'],

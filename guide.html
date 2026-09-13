@@ -462,7 +462,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <figure class="part app" data-part="top"><div class="one"></div></figure>
         <div class="in">
           <div class="n">01</div><h3>方位</h3>
-          <p><b>方位判読</b>と呼ばれる課目です。上から見た機体の絵と N マークから、機首がどの方位を向いているかを答えます。</p>
+          <p><b>方位判読</b>と呼ばれる課目です。上から見た機体の絵と方位の印（N とは限りません）から、機首がどの方位を向いているかを答えます。</p>
           <dl class="tip"><dt>読み方のコツ</dt><dd>N マークの向きは Normal 以上で毎回変わるので、画面の上を北だと思い込むと外します。N の位置を先に見て、そこから時計回りに 45 度ずつ数えます。</dd></dl>
         </div>
       </article>
@@ -791,7 +791,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 
   /* カードの図は、アプリが実際に描いている部品（engine.js）をそのまま出す。
      読み込めなかったときは、図の枠ごと消して文章だけにする */
-  var sc=document.createElement('script'); sc.src='/engine.js?v=55';
+  var sc=document.createElement('script'); sc.src='/engine.js?v=56';
   sc.onload=function(){
     var E=window.AAT; if(!E)return;
     var fix=function(h){return h.replace(/(src|href)="img\//g,'$1="/img/')};

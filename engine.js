@@ -62,14 +62,16 @@
      N マークは 8 方位（45° 刻み、上を含む）のいずれかにランダムに置く。 */
   /* 方位の難易度
      easy: 答えは東西南北のみ、N マークは上に固定（機首と同じ向きになってもよい）
-     medium: 答えは東西南北のみ、N マークはランダム（機首とは重ならない）
-     hard: 答えは 8 方位、N マークはランダム（機首とは重ならない） */
+     normal: 答えは東西南北のみ、N マークはランダム（機首とは重ならない）
+     hard: 答えは 8 方位、印は N とは限らない（8 方位のどれか。本番と同じ。利用者の指示 2026-09-14）、印の向きはランダム、機首は印の方位とは重ならない
+     mark: 印の方位（DIRS の番号）、phi: 印を描く向き（画面の上から時計回り、度）、theta: 機首を描く向き。北は phi − 45·mark にある */
   function genHeading(s) {
     if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
     const lv = lvOf(s);
-    const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'normal' ? pick([2, 4, 6]) : 1 + rnd(7);
+    const mark = lv === 'hard' ? rnd(8) : 0;
+    const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'normal' ? pick([2, 4, 6]) : (mark + 1 + rnd(7)) % 8;
     const phi = (lv === 'easy' || s.north === 'fixed') ? 0 : rnd(8) * 45;
-    return { type: 'heading', dir, phi, theta: norm(phi + dir * 45), level: lv };
+    return { type: 'heading', dir, mark, phi, theta: norm(phi - mark * 45 + dir * 45), level: lv };
   }
   function pickDistractors(cands, isValid, n) {
     /* n が 0 のときに全部返していた（`out.length === n` を押してから見ていた）。枕が 3 つ取れた Hard・Max の問題で選択肢が 14 個になった（利用者の指摘 2026-09-13） */
@@ -215,10 +217,11 @@
   const pitchText = p => p > 0 ? `機首上げ${p}°` : p < 0 ? `機首下げ${-p}°` : '水平（ピッチなし）';
 
   function gradeHeading(q, dir) {
-    const ok = dir === q.dir;
-    const lines = q.dir === 0 ? ['機首が N マークと同じ向き → 北。']
-      : [`N マークから時計回りに 45° ずつ数えます。機首は N から ${q.dir * 45}° の方向。`];
-    if (q.phi) lines.push('北が上ではないので、画面の上下ではなく N マークを基準に読み替えます。');
+    const ok = dir === q.dir, mk = q.mark || 0, k = DIRS[mk].k, rel = ((q.dir - mk) % 8 + 8) % 8;
+    const lines = rel === 0 ? [`機首が ${k} の印と同じ向き → ${DIRS[q.dir].ja}。`]
+      : [`${k} の印から時計回りに 45° ずつ数えます。機首は ${k} から ${rel * 45}° の方向。`];
+    if (mk) lines.push(`印が N ではないので、まず ${k}（${DIRS[mk].ja}）の位置から北を決めます。`);
+    else if (q.phi) lines.push('北が上ではないので、画面の上下ではなく N マークを基準に読み替えます。');
     return { ok, correct: q.dir, answerText: `${DIRS[q.dir].ja}（${DIRS[q.dir].k}）`, lines };
   }
   function gradeOpts(q, i) {
@@ -453,13 +456,13 @@ ${ckFrame(hud)}</svg>`;
 
   /* ---------- 描画: T-4 イラスト版（上面図・後方/前方図・側面図を回転して使う） ---------- */
   const IMG = 'img/t4-';
-  function figTopDown(theta, phi) {
-    /* 上面図は 3D モデルを真上から描画したもの（機首が上＝北）。theta をそのまま回転に使う */
+  function figTopDown(theta, phi, mark = 0) {
+    /* 上面図は 3D モデルを真上から描画したもの（機首が上＝北）。theta をそのまま回転に使う。mark: 印の方位（0 = N。Hard では 8 方位のどれか） */
     const ticks = [0, 90, 180, 270].map(a => `<line x1="100" y1="14" x2="100" y2="24" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('') +
       [45, 135, 225, 315].map(a => `<line x1="100" y1="14" x2="100" y2="22" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('');
     return `<svg viewBox="0 0 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="上面図">
 <circle cx="100" cy="100" r="96" fill="var(--bezel)"/><circle cx="100" cy="100" r="88" fill="var(--card)" stroke="var(--line2)" stroke-width="1"/>${ticks}
-<g transform="rotate(${phi} 100 100)"><polygon points="100,13 94,27 106,27" fill="var(--accent)"/><text x="100" y="42" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--accent)">N</text></g>
+<g transform="rotate(${phi} 100 100)"><polygon points="100,13 94,27 106,27" fill="var(--accent)"/><text x="100" y="42" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--accent)">${DIRS[mark].k}</text></g>
 <image href="img/t4-top.webp" x="28" y="28" width="144" height="144" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta} 100 100)"/></svg>`;
   }
   function figAttitude(bank, pitch, front, sideRight) {

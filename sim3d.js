@@ -602,7 +602,7 @@ export function mount(container, opt = {}) {
   function drawDials(a, alt, kt, vs, gear) { drawASI(kt); drawAI(a.b, a.p); drawALT(alt); drawGearLamps(gear); drawHI(a.h); drawVVI(vs); }
   /* スロットル（利用者の指示 2026-09-13「速度を変えられるスロットを操縦スティックの上に。実機と同じく縦。機内にも連動するレバー」）。
      0（アイドル）〜1（全開）。手動操縦の速さは 0.6〜1.5 倍（36〜90 m/s）。0.444 で 1 倍（60 m/s）。レバーは前に押すほど速い */
-  let throttle = 0.444, thrLever = null;
+  let throttle = 0.444, thrLever = null, speedLock = false;   // speedLock: 縦画面の検証画面では速さを変えない（利用者の指示 2026-09-13）
   const pedals = [null, null], rudAim = { r: 0 };   // 機内のペダル（左・右）と、表示用になました方向舵の入力
   const THR_MIN = 0.6, THR_MAX = 1.5;
   const interior = new THREE.Group(); stickHolder.add(interior);
@@ -2637,7 +2637,7 @@ export function mount(container, opt = {}) {
   }
   function physStep(dt) {
     readAttitude();                           // fwd（機首）・bup（上）・bright（右）を att から
-    spdWant = THR_MIN + (THR_MAX - THR_MIN) * throttle;   // 手動の速さはスロットルで決める
+    spdWant = speedLock ? 1 : THR_MIN + (THR_MAX - THR_MIN) * throttle;   // 手動の速さはスロットルで決める。縦画面（検証画面）は 60 m/s に固定
     spdK += (spdWant - spdK) * (1 - Math.exp(-dt / 2.5));
     const v = SPEED * Math.max(0.2, spdK);
     if (!velOk) syncVel();
@@ -2646,13 +2646,27 @@ export function mount(container, opt = {}) {
     const alpha = Math.atan2(-vu, vf), beta = Math.atan2(vr, vf);
     /* 力 → 速度 → 位置 */
     const q = (v / SPEED) * (v / SPEED);      // 揚力・横力は速さの二乗に比例（遅いほど同じ迎角で揚力が小さい）
-    pAcc.copy(bup).multiplyScalar(PHY.KL * alpha * q).addScaledVector(bright, -PHY.KY * beta * q); pAcc.z -= 9.81;
+    /* 重力の影響は無視する（利用者の指示 2026-09-13「シミュレーター操作モードでは、重力の影響は無視する」。
+       全開でもバンクしているとしばらくして墜落した——実機どおり旋回では引かないと沈むが、練習の場では要らない）。
+       やり方: 重力の代わりに「釣り合いの揚力 KL·α0·q の鉛直成分」を差し引く。すると
+         釣り合いで飛んでいれば どのバンク・背面でも鉛直の加速度は 0（沈まない・落ちない）、
+         バンクすれば釣り合いの揚力の横成分 KL·α0·q·sinφ ＝ g·sinφ が残って旋回する（旋回率は物理と同じ）、
+         引けば α − α0 のぶんの揚力が機体の上向きに働いて上昇（背面で引けば降下）、方向舵の横力はそのまま。
+       式: a = KL·q·(α·上 − α0·(上·ẑ)·ẑ) − KY·q·β·右 */
+    const a0 = Math.min(PHY.ALPHA0 / q, 14 * D);   // 釣り合いの迎角は速さの二乗に反比例（遅いほど機首を上げて飛ぶ。上限 14° ＝ 失速の手前）
+    pAcc.copy(bup).multiplyScalar(PHY.KL * alpha * q).addScaledVector(bright, -PHY.KY * beta * q); pAcc.z -= PHY.KL * a0 * q * bup.z;
+    const psi0 = Math.atan2(vel.x, vel.y);
     vel.addScaledVector(pAcc, dt).setLength(v);
     st.x += vel.x * dt; st.y += vel.y * dt; st.z += vel.z * dt;
+    /* 方向安定: 速度の向きが（旋回で）変わったぶんだけ機首も世界の上下軸まわりに回す。実機は風見安定が強く、旋回中も横滑りはほぼ 0。
+       これが無いと、機首は横滑り角の時定数（0.8 秒）でしか速度を追えず、旋回中に約 3° の横滑りが残って
+       横力がバンクの下向きに働き（10 秒で −38 m）、旋回率も g·sinφ/V より 25% 遅かった（実測 2026-09-13）。
+       方向舵で作る横滑りはこの後の dB でこれまでどおり */
+    { let dpsi = Math.atan2(vel.x, vel.y) - psi0; if (dpsi > Math.PI) dpsi -= 2 * Math.PI; else if (dpsi < -Math.PI) dpsi += 2 * Math.PI;
+      if (dpsi) att.premultiply(dq.setFromAxisAngle(AZ, -dpsi)); }
     /* 姿勢: 補助翼はロール角速度。昇降舵・方向舵は迎角・横滑り角を指令へ寄せる（機首を速度まわりに動かす） */
     const roll = RATE.roll * input.x * dt * D;
     if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
-    const a0 = Math.min(PHY.ALPHA0 / q, 14 * D);   // 釣り合いの迎角は速さの二乗に反比例（遅いほど機首を上げて飛ぶ。上限 14° ＝ 失速の手前）
     const alphaWant = a0 + (input.y < 0 ? -input.y * PHY.A_PULL : -input.y * PHY.A_PUSH);   // 手前（y<0）で迎角を増やす
     const betaWant = -input.r * PHY.BETA_MAX;                                                          // 右方向舵で機首を右へ（β は負）
     const dA = (alphaWant - alpha) * Math.min(1, dt / PHY.TAU_A), dB = (betaWant - beta) * Math.min(1, dt / PHY.TAU_B);
@@ -4251,9 +4265,10 @@ export function mount(container, opt = {}) {
   let running = true, raf = 0, last = performance.now();
   /* 1 フレームの中で何かに失敗しても、次のフレームを必ず要求する（要求をやめると画面が固まって見える）。
      続けて失敗するときは自動操縦を切って水平に戻す */
+  let timeScale = 1;                          // 時間の進み（縦画面の検証画面はスロー再生 0.3。利用者の指示 2026-09-13「極めてゆっくり」）
   function frame(now) {
     if (!running) return;
-    let dt = Math.min(0.05, (now - last) / 1000); last = now;
+    let dt = Math.min(0.05, (now - last) / 1000) * timeScale; last = now;
     if (paused) dt = 0;                       // 一時停止: 時間を進めない（見回しと描き直しは続ける）
     try {
       clock += dt; smokeT += dt;
@@ -4345,6 +4360,8 @@ export function mount(container, opt = {}) {
         fDotRight: +f.dot(bright).toFixed(3), fDotUp: +f.dot(bup).toFixed(3), fDotFwd: +f.dot(fwd).toFixed(3), uDotUp: +u.dot(bup).toFixed(3) }; },
     /* スロットル 0〜1（手動操縦の速さ）。3D のレバーも連動する */
     setThrottle(t) { throttle = clamp(+t || 0, 0, 1); return throttle; }, throttleState() { return throttle; },
+    lockSpeed(on) { speedLock = !!on; return speedLock; },
+    setTimeScale(k) { timeScale = clamp(+k || 1, 0.05, 1); return timeScale; },
     /* 一人称の見せ方を変える。切ると機内が消えて、外の景色がそのまま見える（縦画面はいつもこちら） */
     setCockpit(on) { inCockpit = !!on; const first = curView === 'first';
       cockpit.visible = first && inCockpit; applyBody(); }, cockpitOn() { return inCockpit; },

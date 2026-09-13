@@ -227,6 +227,7 @@ svg text{user-select:none}
 .sim .thrbar::before{content:'';position:absolute;left:50%;top:.5rem;bottom:.5rem;width:2px;margin-left:-1px;background:var(--line2);border-radius:1px}
 .sim .thrknob{position:absolute;left:-.5rem;width:2.8rem;height:1.25rem;border-radius:.35rem;background:#8a939e;border:2px solid #3a424c;transform:translateY(-50%);box-shadow:0 1px 3px rgba(0,0,0,.5)}
 .sim .thrlb{font-size:.6rem;color:var(--muted);letter-spacing:.05em}
+@media (orientation:portrait){.sim .thr{display:none}}   /* 縦画面は検証画面。速さは固定なのでスロットルを出さない */
 body[data-view="train"][data-phase="sim"] .sim .thrbar{background:radial-gradient(ellipse at 50% 70%,rgba(42,50,60,.85) 0,rgba(28,38,50,.7) 60%);backdrop-filter:blur(2px)}
 .sim .stick{border-radius:1rem;background:radial-gradient(ellipse at 50% 70%,#2a323c 0,var(--panel2) 60%)}
 .sim .stick .grip{width:58%;height:auto;pointer-events:none;filter:drop-shadow(0 .375rem .5rem rgba(0,0,0,.55));transition:transform .06s linear;transform-origin:50% 85%}
@@ -1312,7 +1313,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.05';
+const APP_VER='v05.06';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1678,7 +1679,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=147').then(mod=>{
+  import('./sim3d.js?v=148').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1944,6 +1945,10 @@ function runSim(opt){applyScene();
   /* 縦画面は出題と同じ「一人称（計器）」に固定し、オブジェクトも必ず出す（見え方を確かめる画面のため）。
      横画面は、視点も オブジェクトの有無も、選んだとおりにする */
   sim.onOri=()=>{if(!sim||!sim.h)return;
+    /* 縦画面は検証画面なので速さは 60 m/s 固定（スロットルは効かせない・見せない）。横画面はスロットルどおり（利用者の指示 2026-09-13） */
+    if(sim.h.lockSpeed)sim.h.lockSpeed(sim.mqP.matches);
+    /* 縦画面はスロー再生（時間の進み 0.3 倍）。ロール・ピッチ・移動が同じ比で遅くなり、見え方の変化を追える（利用者の指示「極めてゆっくり」） */
+    if(sim.h.setTimeScale)sim.h.setTimeScale(sim.mqP.matches?0.3:1);
     if(sim.mqP.matches){if(sim.viewName!=='first'||sim.fpMode!=='inst')setViewTo('first','inst');sim.h.setProps(true)}
     else sim.h.setProps(isFull()?store.get('simProps',true):true)};
   sim.mqP.addEventListener('change',sim.onOri);
@@ -2085,7 +2090,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=147').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=148').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}

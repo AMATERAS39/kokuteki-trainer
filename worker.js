@@ -65,6 +65,12 @@ export default {
       return json({ error: 'method' }, 405);
     }
 
+    /* お知らせは、アプリ版（capacitor://localhost）が本番から読む。別オリジンなので CORS の許可を付けて返す（2026-09-13） */
+    if (url.pathname === '/news.json' && request.method === 'GET') {
+      const res = await env.ASSETS.fetch(request);
+      const h = new Headers(res.headers); h.set('access-control-allow-origin', '*');
+      return new Response(res.body, { status: res.status, headers: h });
+    }
     return env.ASSETS.fetch(request);
   }
 };

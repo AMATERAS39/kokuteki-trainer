@@ -7,3 +7,5 @@ README.md
 wrangler.jsonc
 dev
 mobile
+_*.html
+scratchpad

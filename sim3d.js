@@ -354,42 +354,275 @@ export function mount(container, opt = {}) {
   /* 操縦席の部品。座標はモデル座標 ×k（k = 13/全長）で書き、読み込み後に GLB と同じ平行移動（eyeOff）を掛ける。
      目安（この座標系）: 風防の上端 z≈0.43、前席の背もたれ上端 z≈0.32、前席 y≈2.4〜3.5、風防の前端 y≈3.55、床 z≈-0.97。
      モデルには座席と風防しかないので、計器盤・グレアシールド・操縦桿・方向舵ペダルを自作する。目は前席の後ろ寄り・背もたれの少し上 */
-  const EYE = new THREE.Vector3(0, 2.55, 0.30), eyeOff = new THREE.Vector3(), seatMeshes = [];   // 高さは背もたれ（ヘッドレスト）の上端あたり
+  /* 目の高さは HUD のガラス板（コンバイナ）の中心と同じにする（利用者の指示 2026-09-13:
+     「頭の位置が高くキャノピーと重なっている。ちゃんと座っているように。現実の視点はもう少し低い」
+     「適切な高さは、視点とガラス板の HUD の高さが同じになるくらい」）。以前の 0.30 は背もたれの上端で、
+     計器盤とグレアシールドを上から見下ろす形だった */
+  const EYE = new THREE.Vector3(0, 2.55, -0.03), eyeOff = new THREE.Vector3(), seatMeshes = [];
   const cockpit = new THREE.Group(); plane.add(cockpit);
+  /* HUD はガラス板（コンバイナ）に映す（利用者の指示 2026-09-13「現実では、コックピット視点は、HUD はガラス板に反映される」）。
+     グレアシールドの上、風防の手前に置いた板に、姿勢に合わせて描き直す絵（CanvasTexture）を貼る。
+     記号の位置は「目からその方向を見たときのガラス上の点」= 距離 HUD_L × tan(角度)。目の位置が固定なので、
+     水平線の記号は外の水平線と重なる（コリメート）。板は機体に付いているので、見回すと視界から外れる（実機と同じ）。
+     一人称のカメラは手前 1.1 m で切っているため、板（目から 0.75 m）は世界の描画では消える。
+     そこで世界を描いたあと、手前 0.05 m のカメラで板だけを重ねて描く（drawHud / render の 2 段目） */
+  const HUD_POS = new THREE.Vector3(0, 3.40, -0.03), HUD_W = 0.16, HUD_H = 0.13, HUD_L = HUD_POS.y - EYE.y;
+  const HUD_Q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);   // 板の面を操縦者（−y 側）へ向ける。板の上（+y）は機体の上（+z）
+  const hudCanvas = document.createElement('canvas'); hudCanvas.width = 512; hudCanvas.height = Math.round(512 * HUD_H / HUD_W);
+  const hudCtx = hudCanvas.getContext('2d'), hudTex = new THREE.CanvasTexture(hudCanvas);
+  hudTex.colorSpace = THREE.SRGBColorSpace;
+  const hudScene = new THREE.Scene(), hudCam = new THREE.PerspectiveCamera(68, 1, 0.05, 8);
+  const hudGlass = new THREE.Mesh(new THREE.PlaneGeometry(HUD_W * 1.06, HUD_H * 1.06),
+    new THREE.MeshBasicMaterial({ color: 0x9ad7ff, transparent: true, opacity: 0.10, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+  const hudFrame = new THREE.LineSegments(new THREE.EdgesGeometry(hudGlass.geometry), new THREE.LineBasicMaterial({ color: 0x20262e, transparent: true, opacity: 0.9, depthTest: false }));
+  const hudMesh = new THREE.Mesh(new THREE.PlaneGeometry(HUD_W, HUD_H),
+    new THREE.MeshBasicMaterial({ map: hudTex, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+  hudGlass.renderOrder = 0; hudFrame.renderOrder = 1; hudMesh.renderOrder = 2;
+  hudScene.add(hudGlass); hudScene.add(hudFrame); hudScene.add(hudMesh);
+  let hudOn = false;
+  const hudV1 = new THREE.Vector3(), hudV2 = new THREE.Vector3(), hudV3 = new THREE.Vector3(), hudTmp = new THREE.Vector3();
+  /* 乗っている機体の姿勢（四元数から）。1 番機は st と同じ値になる。2 番機以降に乗ったとき、計器が 1 番機の姿勢を
+     指していた（総点検 2026-09-13 の指摘）ので、HUD は乗っている機体の姿勢で描く */
+  function attOfQ(q) {
+    hudV1.copy(AY).applyQuaternion(q); hudV2.copy(AZ).applyQuaternion(q); hudV3.copy(AX).applyQuaternion(q);
+    return { h: ((Math.atan2(hudV1.x, hudV1.y) / D) % 360 + 360) % 360, p: Math.asin(clamp(hudV1.z, -1, 1)) / D, b: Math.atan2(-hudV3.dot(WUP), hudV2.dot(WUP)) / D };
+  }
+  /* HUD の絵。実機の HUD にならう: 細い緑の線に淡いにじみ、ピッチの梯子（上は実線、下は点線、端は水平線側へ折れる）、
+     機体マーク（水平線の基準）、上に方位の帯（目盛りと枡の数字）、左に速度（kt）・右に高度（m）の枡、下にバンクの弧と指標 */
+  function drawHud(b, p, h, alt, kt) {
+    const c = hudCtx, W = hudCanvas.width, H = hudCanvas.height, cx = W / 2, cy = H / 2;
+    const pxDeg = (W / HUD_W) * HUD_L * Math.tan(D);        // 1 度ぶんの画素（ガラスの距離で見た角度）
+    const G = '#9dff9d', mono = 'ui-monospace, Menlo, Consolas, monospace';
+    c.clearRect(0, 0, W, H);
+    c.strokeStyle = c.fillStyle = G; c.lineWidth = 2.2; c.lineCap = 'round'; c.lineJoin = 'round'; c.textBaseline = 'middle';
+    c.shadowColor = 'rgba(120,255,140,0.75)'; c.shadowBlur = 6;
+    /* ピッチの梯子（世界に固定） */
+    c.save(); c.beginPath(); c.rect(0, 62, W, H - 118); c.clip();
+    c.translate(cx, cy); c.rotate(-b * D); c.translate(0, p * pxDeg);
+    for (let deg = -40; deg <= 40; deg += 5) {
+      const y = -deg * pxDeg; if (Math.abs(y + p * pxDeg) > H) continue;
+      if (deg === 0) { c.setLineDash([]); c.beginPath(); c.moveTo(-W * 0.46, 0); c.lineTo(-46, 0); c.moveTo(46, 0); c.lineTo(W * 0.46, 0); c.stroke(); continue; }
+      const w = deg % 10 === 0 ? 74 : 40, t = deg > 0 ? 9 : -9;            // 端の折れは水平線の側へ
+      c.setLineDash(deg < 0 ? [8, 7] : []);
+      c.beginPath(); c.moveTo(-w - 46, y + t); c.lineTo(-w - 46, y); c.lineTo(-46, y); c.moveTo(46, y); c.lineTo(w + 46, y); c.lineTo(w + 46, y + t); c.stroke();
+      if (deg % 10 === 0) { c.setLineDash([]); c.font = `bold 20px ${mono}`; c.textAlign = 'right'; c.fillText(String(Math.abs(deg)), -w - 54, y); c.textAlign = 'left'; c.fillText(String(Math.abs(deg)), w + 54, y); }
+    }
+    c.restore();
+    c.setLineDash([]);
+    /* 機体マーク（ガラスに固定）: 中央の円と翼、上の小さな垂直尾翼 */
+    c.beginPath(); c.arc(cx, cy, 6, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.moveTo(cx - 34, cy); c.lineTo(cx - 8, cy); c.moveTo(cx + 8, cy); c.lineTo(cx + 34, cy); c.moveTo(cx, cy - 8); c.lineTo(cx, cy - 18); c.stroke();
+    /* 方位の帯（上）: 5 度ごとの目盛り、10 度ごとに数字、中央に枡の方位 */
+    { const y0 = 40, span = 36, k = 6.2;   // 帯の半分の幅（度）、1 度あたりの画素
+      c.save(); c.beginPath(); c.rect(cx - span * k, 8, 2 * span * k, 60); c.clip();
+      c.font = `bold 16px ${mono}`; c.textAlign = 'center';
+      const h0 = Math.round(h / 5) * 5;
+      for (let d = h0 - span - 5; d <= h0 + span + 5; d += 5) {
+        const x = cx + (d - h) * k, big = d % 10 === 0;
+        c.beginPath(); c.moveTo(x, y0); c.lineTo(x, y0 - (big ? 12 : 6)); c.stroke();
+        if (big) c.fillText(String(((d % 360) + 360) % 360 / 10).padStart(2, '0'), x, y0 - 24);
+      }
+      c.restore();
+      c.beginPath(); c.moveTo(cx - span * k, y0); c.lineTo(cx + span * k, y0); c.stroke();
+      c.beginPath(); c.moveTo(cx, y0 + 2); c.lineTo(cx - 7, y0 + 12); c.lineTo(cx + 7, y0 + 12); c.closePath(); c.stroke();
+      c.font = `bold 20px ${mono}`; c.textAlign = 'center';
+      c.strokeRect(cx - 30, y0 + 14, 60, 26); c.fillText(String(Math.round(h) % 360).padStart(3, '0'), cx, y0 + 27); }
+    /* 速度（左）と高度（右）の枡 */
+    c.font = `bold 22px ${mono}`;
+    c.textAlign = 'right'; c.strokeRect(22, cy - 15, 86, 30); c.fillText(String(Math.round(kt)), 102, cy);
+    c.font = `13px ${mono}`; c.textAlign = 'left'; c.fillText('KT', 26, cy - 26);
+    c.font = `bold 22px ${mono}`; c.textAlign = 'right'; c.strokeRect(W - 118, cy - 15, 96, 30); c.fillText(String(Math.max(0, Math.round(alt))), W - 26, cy);
+    c.font = `13px ${mono}`; c.textAlign = 'right'; c.fillText('ALT m', W - 24, cy - 26);
+    /* バンクの弧（下）: 0・10・20・30・45・60 の目盛りと、傾きに合わせて回る指標 */
+    { const r = H * 0.62, oy = cy + r * 0.28 + 10;
+      for (const a of [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60]) { const t = (90 + a) * D, l = a % 30 === 0 ? 12 : 7;
+        c.beginPath(); c.moveTo(cx + Math.cos(t) * r, oy - 0 + Math.sin(t) * r - r); c.lineTo(cx + Math.cos(t) * (r + l), oy + Math.sin(t) * (r + l) - r); c.stroke(); }
+      const t = (90 - b) * D; c.beginPath(); c.moveTo(cx + Math.cos(t) * (r - 4), oy + Math.sin(t) * (r - 4) - r); c.lineTo(cx + Math.cos(t) * (r - 16) - 6 * Math.sin(t), oy + Math.sin(t) * (r - 16) - r + 6 * Math.cos(t)); c.lineTo(cx + Math.cos(t) * (r - 16) + 6 * Math.sin(t), oy + Math.sin(t) * (r - 16) - r - 6 * Math.cos(t)); c.closePath(); c.stroke(); }
+    c.shadowBlur = 0;
+    hudTex.needsUpdate = true;
+  }
   const dark = new THREE.MeshLambertMaterial({ color: 0x1b2027 }), mid = new THREE.MeshLambertMaterial({ color: 0x2e3640 }), grip_m = new THREE.MeshLambertMaterial({ color: 0x14171b }), metal = new THREE.MeshLambertMaterial({ color: 0x8a939e });
   const red_m = new THREE.MeshLambertMaterial({ color: 0xc0392b });
-  /* 操縦席は GLB のモデルに本物（計器盤・風防・操縦桿）が入っているので、自作の部品は置かない。
-     近くにある機体内部の部品（操縦桿など）が目の前に大きく映るため、一人称ではカメラの手前の面を 1.1 で切る（setView）。
-     画面の入力は下に置いた操縦桿の絵とペダルのボタンで示す */
   const lamp = new THREE.PointLight(0xffe2b8, 0.9, 2.5); lamp.position.set(0, 2.9, 0.3); cockpit.add(lamp);   // 操縦席の灯り（夜でも部品が見える）
-  /* 操縦桿。モデルには操縦桿の部品がないので自分で作り、画面の下のスティックに合わせて傾ける
-     （一人称のときだけ見える。cockpit は setView で出し入れしている）。
-     位置と大きさは、一人称の見え方を見ながら決めた値 */
   /* 一人称のカメラは手前 1.1 m を切っている（目の前の機体内部が画面を塞ぐのを防ぐため）。
-     操縦桿は目から 0.7 m ほどの近さなので、そのままでは映らない。
-     そこで操縦桿だけ別の場面に置き、近くまで写るカメラで本編の上に重ねて描く */
+     操縦桿や計器盤は目から 0.5〜0.9 m の近さなので、そのままでは映らない。
+     そこで内装は別の場面（overlay）に置き、近くまで写るカメラ（oCam）で本編の上に重ねて描く */
   const overlay = new THREE.Scene();
   overlay.add(new THREE.HemisphereLight(0xffffff, 0x5a6675, 2.2));
   const oDir = new THREE.DirectionalLight(0xffffff, 1.0); oDir.position.set(-0.4, 1, 0.9); overlay.add(oDir);
   const oCam = new THREE.PerspectiveCamera(68, 1, 0.03, 6);
   const stickHolder = new THREE.Group(); stickHolder.matrixAutoUpdate = false; overlay.add(stickHolder);
+  /* 操縦席の内装（利用者の指示 2026-09-13「視点の位置を変えたときに、とってつけたような計器や操縦桿に不自然さが生じる。
+     コックピットの内装もリアリティを高める」。参考: 実機の前席の写真。比率・高さ・配置をそれに合わせる）。
+     目の位置 EYE（z −0.03）を基準に、
+       グレアシールドの上端 −0.13（目の 10 cm 下、目から 0.7〜0.9 m 前）、計器盤はその下に 15° 起こして置き、
+       HUD のガラス板はグレアシールドの中央の上に立てて、中心を目の高さに合わせる、
+       操縦桿は床（−0.97）から立ち、握りの上端は目の 22 cm 下（膝の上あたり）、
+       方向舵のペダルは床の前方、左右のコンソール（左にスロットル）は腰の高さ。
+     計器盤の絵は写真の配置にならって描く（左に速度計・姿勢指示器・高度計、その下に方位指示器、右にエンジン計器の列、
+     中央上に警報灯の板）。姿勢指示器と方位指示器は毎コマ描き直す（本物の計器として動く）。
+     ここに置くものは全部 stickHolder（overlay の場面。手前 0.03 m まで写るカメラで本編の上に重ねて描く）に入れる。
+     一人称のカメラは手前 1.1 m で切るので、目から 0.6〜0.8 m の内装は本編では消えてしまうため */
   const stickPivot = new THREE.Group();
-  stickPivot.position.set(0, 2.92, -0.44);   // 目から少し前・下（画面の下の方に握りが来る）
+  stickPivot.position.set(0, 3.06, -0.90);   // 床の少し上。握りが膝の上に来る（目の 0.5 m 前、0.3 m 下）
   stickHolder.add(stickPivot);
   const oLamp = new THREE.PointLight(0xffe2b8, 1.1, 2.5); oLamp.position.set(0.2, 2.75, 0.1); stickHolder.add(oLamp);
   {
     const sMat = new THREE.MeshLambertMaterial({ color: 0x3a444f }), gMat = new THREE.MeshLambertMaterial({ color: 0x252c35 });
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.020, 0.26, 12), sMat);
-    shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.13;            // 円柱は既定で y 方向なので立てる
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.050, 0.11), gMat);
-    grip.position.z = 0.31;
-    const top = new THREE.Mesh(new THREE.SphereGeometry(0.027, 12, 8), gMat);
-    top.position.z = 0.37;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.020, 0.40, 12), sMat);
+    shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.20;            // 円柱は既定で y 方向なので立てる
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.052, 0.13), gMat);
+    grip.position.set(0, -0.006, 0.465);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 8), gMat);
+    top.position.set(0, -0.006, 0.535);
     const btn = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.010, 0.016), red_m);
-    btn.position.set(-0.012, -0.027, 0.33);
+    btn.position.set(-0.012, -0.033, 0.49);
+    const trig = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.022, 0.03), gMat);   // 引き金（握りの前）
+    trig.position.set(0, 0.026, 0.43);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.050, 0.062, 0.04, 14), dark);
     base.rotation.x = Math.PI / 2; base.position.z = 0.02;
-    stickPivot.add(shaft, grip, top, btn, base);
+    const boot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.10, 14), grip_m);   // 根元の蛇腹カバー
+    boot.rotation.x = Math.PI / 2; boot.position.z = 0.07;
+    stickPivot.add(shaft, grip, top, btn, trig, base, boot);
+  }
+  const panelMat = { base: new THREE.MeshLambertMaterial({ color: 0x23272c }), hood: new THREE.MeshLambertMaterial({ color: 0x1c1f23 }), console: new THREE.MeshLambertMaterial({ color: 0x2a2e33 }) };
+  const PANEL_W = 0.66, PANEL_H = 0.40, PANEL_TILT = 15 * D;   // 計器盤の幅・高さ・起こす角
+  const panelCv = document.createElement('canvas'); panelCv.width = 1024; panelCv.height = Math.round(1024 * PANEL_H / PANEL_W);
+  const panelTex = new THREE.CanvasTexture(panelCv); panelTex.colorSpace = THREE.SRGBColorSpace; panelTex.anisotropy = 8;
+  /* 計器は「飛ぶのに要る情報」だけ（利用者の指示 2026-09-13「意味のあるものである必要がある。意味のないものは省き、シンプルに」）。
+     基本 T 配置: 上段 左 速度計・中 姿勢指示器・右 高度計、下段 左 脚の灯・中 方位指示器・右 昇降計。
+     全部が毎コマ、乗っている機体の値で動く。飾りの計器は置かない。
+     u,v は計器盤の上の位置（0〜1、左上が原点）、r は計器盤の幅に対する半径 */
+  const DIALS = [
+    { id: 'asi', u: 0.20, v: 0.36, r: 0.105 }, { id: 'ai', u: 0.50, v: 0.36, r: 0.135 }, { id: 'alt', u: 0.80, v: 0.36, r: 0.105 },
+    { id: 'gear', u: 0.20, v: 0.77, r: 0.085 }, { id: 'hi', u: 0.50, v: 0.77, r: 0.115 }, { id: 'vvi', u: 0.80, v: 0.77, r: 0.09 } ];
+  const dialCv = {}, dialTex = {};
+  DIALS.forEach(d => { const cv = document.createElement('canvas'); cv.width = cv.height = 256; dialCv[d.id] = cv;
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; dialTex[d.id] = t; });
+  /* 丸い計器の共通の顔: 黒い文字盤・暗いベゼル・目盛りと数字 */
+  function dialFace(g, opt) {
+    const S = 256, c = S / 2;
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = '#0a0b0d'; g.beginPath(); g.arc(c, c, c - 6, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#e9ecef'; g.fillStyle = '#e9ecef'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const n = opt.n, a0 = opt.a0 * D, a1 = opt.a1 * D;
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + (a1 - a0) * i / n, big = i % opt.every === 0, l = big ? 22 : 12;
+      g.lineWidth = big ? 3 : 1.5;
+      g.beginPath(); g.moveTo(c + Math.cos(a) * (c - 16), c + Math.sin(a) * (c - 16)); g.lineTo(c + Math.cos(a) * (c - 16 - l), c + Math.sin(a) * (c - 16 - l)); g.stroke();
+      if (big && opt.label) { g.font = 'bold 22px ui-monospace, Menlo, monospace'; g.fillText(opt.label(i), c + Math.cos(a) * (c - 62), c + Math.sin(a) * (c - 62)); }
+    }
+    if (opt.title) { g.font = '16px ui-monospace, Menlo, monospace'; g.fillStyle = '#aeb4bb'; g.fillText(opt.title, c, c + 58); }
+  }
+  function needle(g, frac, opt, len, w, color) {
+    const S = 256, c = S / 2, a = (opt.a0 + (opt.a1 - opt.a0) * clamp(frac, 0, 1)) * D;
+    g.strokeStyle = color || '#f6f6f6'; g.lineWidth = w; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(c - Math.cos(a) * 18, c - Math.sin(a) * 18); g.lineTo(c + Math.cos(a) * len, c + Math.sin(a) * len); g.stroke();
+    g.fillStyle = '#d0d3d7'; g.beginPath(); g.arc(c, c, 9, 0, Math.PI * 2); g.fill();
+  }
+  const bezel = g => { g.lineWidth = 10; g.strokeStyle = '#2b2f34'; g.beginPath(); g.arc(128, 128, 123, 0, Math.PI * 2); g.stroke(); };
+  const ASI_OPT = { n: 30, a0: 120, a1: 420, every: 5, label: i => String(i * 10), title: 'KNOTS' };       // 0〜300 kt
+  const ALT_OPT = { n: 50, a0: -90, a1: 270, every: 5, label: i => String(i / 5), title: 'ALT x100 m' };    // 1 周 1,000 m
+  const VVI_OPT = { n: 20, a0: 180, a1: 520, every: 5, label: i => String(Math.abs(i - 10) * 2), title: 'm/s' }; // -20〜+20 m/s、0 が左
+  function drawASI(kt) { const g = dialCv.asi.getContext('2d'); dialFace(g, ASI_OPT); needle(g, kt / 300, ASI_OPT, 96, 5); bezel(g); dialTex.asi.needsUpdate = true; }
+  function drawALT(m) { const g = dialCv.alt.getContext('2d'); dialFace(g, ALT_OPT);
+    g.fillStyle = '#15181c'; g.fillRect(84, 150, 88, 26); g.fillStyle = '#e9ecef'; g.font = 'bold 20px ui-monospace, Menlo, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`${Math.max(0, Math.round(m))} m`, 128, 163);
+    needle(g, (Math.max(0, m) % 1000) / 1000, ALT_OPT, 96, 5); needle(g, Math.max(0, m) / 10000, ALT_OPT, 60, 8, '#dfe3e8'); bezel(g); dialTex.alt.needsUpdate = true; }
+  function drawVVI(vs) { const g = dialCv.vvi.getContext('2d'); dialFace(g, VVI_OPT); needle(g, (clamp(vs, -20, 20) + 20) / 40, VVI_OPT, 96, 5); bezel(g); dialTex.vvi.needsUpdate = true; }
+  function drawGearLamps(down) { const g = dialCv.gear.getContext('2d'), S = 256; g.clearRect(0, 0, S, S);
+    g.fillStyle = '#15181c'; g.fillRect(16, 16, S - 32, S - 32);
+    g.fillStyle = '#aeb4bb'; g.font = 'bold 22px ui-monospace, Menlo, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('GEAR', S / 2, 52);
+    for (const [x, y] of [[S / 2, 118], [S / 2 - 62, 178], [S / 2 + 62, 178]]) {   // 前脚・左主脚・右主脚
+      g.fillStyle = '#0a0b0d'; g.beginPath(); g.arc(x, y, 26, 0, Math.PI * 2); g.fill();
+      g.fillStyle = down ? '#3ddc6a' : '#14301b'; g.beginPath(); g.arc(x, y, 19, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#aeb4bb'; g.font = '15px ui-monospace, Menlo, monospace'; g.fillText(down ? 'DOWN' : 'UP', S / 2, 226);
+    g.lineWidth = 6; g.strokeStyle = '#2b2f34'; g.strokeRect(16, 16, S - 32, S - 32); dialTex.gear.needsUpdate = true; }
+  /* 姿勢指示器: 空と地面の球（傾きで回り、ピッチで上下）、固定の機体マークとバンクの目盛り */
+  function drawAI(b, p) {
+    const g = dialCv.ai.getContext('2d'), S = 256, c = S / 2, k = 2.0;   // k: 1° あたりの画素
+    g.clearRect(0, 0, S, S);
+    g.save(); g.beginPath(); g.arc(c, c, c - 6, 0, Math.PI * 2); g.clip();
+    g.translate(c, c); g.rotate(-b * D); g.translate(0, p * k);
+    g.fillStyle = '#3b7fd1'; g.fillRect(-S, -S * 2, 2 * S, 2 * S); g.fillStyle = '#7a4a24'; g.fillRect(-S, 0, 2 * S, 2 * S);
+    g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(-S, 0); g.lineTo(S, 0); g.stroke();
+    g.font = '13px ui-monospace, Menlo, monospace'; g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const d of [10, 20, 30, -10, -20, -30]) { const y = -d * k, w = Math.abs(d) % 20 === 0 ? 34 : 20; g.beginPath(); g.moveTo(-w, y); g.lineTo(w, y); g.stroke(); if (Math.abs(d) % 20 === 0) { g.fillText(String(Math.abs(d)), -w - 14, y); g.fillText(String(Math.abs(d)), w + 14, y); } }
+    g.restore();
+    g.strokeStyle = '#f5d45c'; g.lineWidth = 4; g.beginPath(); g.moveTo(c - 44, c); g.lineTo(c - 14, c); g.lineTo(c - 14, c + 8); g.moveTo(c + 44, c); g.lineTo(c + 14, c); g.lineTo(c + 14, c + 8); g.stroke();
+    g.fillStyle = '#f5d45c'; g.beginPath(); g.arc(c, c, 3.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#fff'; g.lineWidth = 2;   // バンクの目盛り（上）
+    for (const a of [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60]) { const r0 = c - 10, r1 = a % 30 === 0 ? c - 24 : c - 18, t = (-90 + a) * D; g.beginPath(); g.moveTo(c + Math.cos(t) * r0, c + Math.sin(t) * r0); g.lineTo(c + Math.cos(t) * r1, c + Math.sin(t) * r1); g.stroke(); }
+    g.save(); g.translate(c, c); g.rotate(-b * D); g.fillStyle = '#f5d45c'; g.beginPath(); g.moveTo(0, -c + 10); g.lineTo(-7, -c + 26); g.lineTo(7, -c + 26); g.closePath(); g.fill(); g.restore();
+    bezel(g); dialTex.ai.needsUpdate = true;
+  }
+  /* 方位指示器: 方位の円盤が回り（いまの方位が上）、機体マークと指標は固定 */
+  function drawHI(h) {
+    const g = dialCv.hi.getContext('2d'), S = 256, c = S / 2;
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = '#0a0b0d'; g.beginPath(); g.arc(c, c, c - 6, 0, Math.PI * 2); g.fill();
+    g.save(); g.translate(c, c); g.rotate(-h * D);
+    g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.font = 'bold 20px ui-monospace, Menlo, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let a = 0; a < 360; a += 5) { const t = (a - 90) * D, big = a % 30 === 0, l = big ? 18 : a % 10 === 0 ? 12 : 7; g.lineWidth = big ? 3 : 1.5;
+      g.beginPath(); g.moveTo(Math.cos(t) * (c - 12), Math.sin(t) * (c - 12)); g.lineTo(Math.cos(t) * (c - 12 - l), Math.sin(t) * (c - 12 - l)); g.stroke();
+      if (big) { const lb = a === 0 ? 'N' : a === 90 ? 'E' : a === 180 ? 'S' : a === 270 ? 'W' : String(a / 10); g.save(); g.translate(Math.cos(t) * (c - 46), Math.sin(t) * (c - 46)); g.rotate(a * D); g.fillText(lb, 0, 0); g.restore(); } }
+    g.restore();
+    g.strokeStyle = '#f5d45c'; g.lineWidth = 3; g.beginPath(); g.moveTo(c, c - 44); g.lineTo(c, c + 30); g.moveTo(c - 30, c - 4); g.lineTo(c + 30, c - 4); g.moveTo(c - 14, c + 24); g.lineTo(c + 14, c + 24); g.stroke();   // 機体マーク
+    g.fillStyle = '#f5d45c'; g.beginPath(); g.moveTo(c, 6); g.lineTo(c - 8, 22); g.lineTo(c + 8, 22); g.closePath(); g.fill();   // 指標（上）
+    bezel(g); dialTex.hi.needsUpdate = true;
+  }
+  /* 計器盤の地（一度だけ）: 暗い板、継ぎ目、ねじ、計器の穴 */
+  function drawPanelStatic() {
+    const g = panelCv.getContext('2d'), W = panelCv.width, H = panelCv.height;
+    g.fillStyle = '#23272c'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#181b1f'; g.lineWidth = 3; g.strokeRect(6, 6, W - 12, H - 12);
+    g.fillStyle = '#5a6066'; for (const [x, y] of [[0.03, 0.06], [0.97, 0.06], [0.03, 0.94], [0.97, 0.94]]) { g.beginPath(); g.arc(W * x, H * y, 5, 0, Math.PI * 2); g.fill(); }
+    for (const d of DIALS) { g.fillStyle = '#0b0c0e'; if (d.id === 'gear') g.fillRect(W * (d.u - d.r), H * d.v - W * d.r, W * d.r * 2, W * d.r * 2); else { g.beginPath(); g.arc(W * d.u, H * d.v, W * d.r * 1.06, 0, Math.PI * 2); g.fill(); } }
+    panelTex.needsUpdate = true;
+  }
+  /* 毎コマ: 乗っている機体の値で全部の計器を描く */
+  function drawDials(a, alt, kt, vs, gear) { drawASI(kt); drawAI(a.b, a.p); drawALT(alt); drawGearLamps(gear); drawHI(a.h); drawVVI(vs); }
+  const interior = new THREE.Group(); stickHolder.add(interior);
+  {
+    /* 計器盤: 上端 (y 3.17, z −0.19)、15° 起こして下へ */
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_W, PANEL_H), new THREE.MeshLambertMaterial({ map: panelTex }));
+    panel.rotation.x = Math.PI / 2 - PANEL_TILT;   // 面を操縦者（−y）へ向け、少し上向きに起こす
+    const pc = new THREE.Vector3(0, 3.31 - Math.sin(PANEL_TILT) * PANEL_H / 2, -0.19 - Math.cos(PANEL_TILT) * PANEL_H / 2);
+    panel.position.copy(pc); interior.add(panel);
+    /* 計器を計器盤の面に置く（面のすぐ手前）。u,v → 面の上の位置 */
+    for (const d of DIALS) {
+      const lx = (d.u - 0.5) * PANEL_W, ly = (0.5 - d.v) * PANEL_H;   // 面の座標（右・上が正）
+      const geo = d.id === 'gear' ? new THREE.PlaneGeometry(d.r * 2 * PANEL_W, d.r * 2 * PANEL_W) : new THREE.CircleGeometry(d.r * PANEL_W, 40);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: dialTex[d.id] }));
+      m.rotation.x = panel.rotation.x;
+      m.position.set(lx, pc.y - Math.cos(PANEL_TILT) * 0.004 + ly * Math.sin(PANEL_TILT), pc.z + ly * Math.cos(PANEL_TILT) + Math.sin(PANEL_TILT) * 0.004);
+      interior.add(m);
+    }
+    /* グレアシールド（計器盤の上の日よけ）: 上端 −0.13、前へ 0.26 */
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(PANEL_W + 0.06, 0.20, 0.045), panelMat.hood);
+    hood.position.set(0, 3.34, -0.152); interior.add(hood);
+    const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.0225, 0.0225, PANEL_W + 0.06, 12), panelMat.hood);
+    lip.rotation.z = Math.PI / 2; lip.position.set(0, 3.24, -0.152); interior.add(lip);   // 手前の丸い縁
+    /* HUD の支柱（ガラス板はガラス板の場面に。ここは台と支柱だけ） */
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.012, 0.045, 10), panelMat.hood);
+    post.rotation.x = Math.PI / 2; post.position.set(0, HUD_POS.y, -0.13 + 0.0225); interior.add(post);
+    const pbase = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.07, 0.02), panelMat.hood); pbase.position.set(0, HUD_POS.y, -0.125); interior.add(pbase);
+    /* 左右のコンソール（左にスロットルの溝とレバー） */
+    for (const s of [-1, 1]) {
+      const con = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.80, 0.10), panelMat.console);
+      con.position.set(s * 0.37, 2.95, -0.42); interior.add(con);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.60, 0.02), panelMat.hood); rail.position.set(s * 0.37, 2.95, -0.365); interior.add(rail);
+    }
+    const thr = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.06, 0.11), grip_m); thr.position.set(-0.37, 2.85, -0.31); thr.rotation.x = -0.35; interior.add(thr);
+    /* 方向舵のペダル（床の前方） */
+    for (const s of [-1, 1]) {
+      const ped = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.03, 0.16), panelMat.console);
+      ped.position.set(s * 0.16, 3.36, -0.82); ped.rotation.x = 0.45; interior.add(ped);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.30, 8), metal); arm.position.set(s * 0.16, 3.44, -0.90); arm.rotation.x = 1.2; interior.add(arm);
+    }
+    /* 床と側壁（腰から下の暗い内壁） */
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(0.90, 1.2), panelMat.hood); floor.position.set(0, 3.0, -0.96); interior.add(floor);
+    for (const s of [-1, 1]) { const wall = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.55), panelMat.console); wall.rotation.y = Math.PI / 2; wall.rotation.x = 0; wall.position.set(s * 0.46, 3.0, -0.60); interior.add(wall); }
+    drawPanelStatic(); drawDials({ b: 0, p: 0, h: 0 }, 0, 0, 0, true);
   }
   const stickAim = { x: 0, y: 0 };        // 表示用になました入力（急に動かすと機械らしくない）
   /* 編隊の 2〜6 番機。先頭機の少し前の状態をたどって並ぶ（旋回でも隊形が崩れない） */
@@ -663,18 +896,27 @@ export function mount(container, opt = {}) {
     for (let k = 1; k < n; k++) if (!ready || !mates[k - 1].userData.shown) { smokeOnArr[k] = false; smWhyArr[k] = ready ? 'hidden' : 'notready'; }
     /* 編隊に入っていない機（合流の途中 k < 0.9）は出さない。入った瞬間から出せるようになる（出すかどうかは上の位置の決まり）。
        課目のあいだ全機で出すもの（smokeAll）は除く */
+    /* 「席に着いている」= 道の進み k > 0.9、または席から 10 m 以内。
+       課目の始まり（align → do）で道を引き直すと k が 0 に戻るが、機体は席から動いていない。
+       k だけで見ると、その 2 秒間だけ僚機の煙が切れて 1 番機と揃わなかった（実測 2026-09-13） */
+    const seated = u => (u.k === undefined ? 1 : u.k) > 0.9 || (u.want && u.cur.distanceTo(u.want) < 10);
     if (!smokeAll) for (let k = 1; k < n; k++) { const u = mates[k - 1].userData;
       /* 離陸からの寄せ（tkJoin）は除く。すでに隊形の形のまま上がっているので、
          ここで切るとダイヤモンド・テイクオフの直後に煙が途切れる（実測） */
-      if (!u.tkJoin && (u.k === undefined ? 1 : u.k) < 0.9) { smokeOnArr[k] = false; smWhyArr[k] = 'join'; } }
+      if (!u.tkJoin && !seated(u)) { smokeOnArr[k] = false; smWhyArr[k] = 'join'; } }
     /* 隊形に席のない機（例: チェンジオーバー・ターンのトレイルに入らない 6 番機）は出さない。smokeAll でも出さない */
     { const fo = FORMATIONS[formation] ? FORMATIONS[formation].offs : null; if (fo) for (let k = 1; k < n; k++) if (!fo[k - 1]) { smokeOnArr[k] = false; smWhyArr[k] = 'slot'; } }
     /* レター・エイト: 合流するまで先頭機は出し続ける（追いつく 1 機が後ろに入ると「後ろに機体がいる」規則で
        先頭機が 3.6 秒早く切れ、煙のない間ができた。実測）。合流した瞬間に先頭機と入れ替える（戻った 1 機が円を仕上げる） */
     if (e8 && !e8.done && !e8.out) smokeOnArr[0] = true;
     if (e8 && e8.done && !e8.out) { smokeOnArr[0] = false; smokeOnArr[e8.solo + 1] = true; }
-    /* 前の課目に入っていなかった機体は、合流して次の開始位置に着くまで出さない（smokeAll より優先） */
-    for (let k = 1; k < n; k++) if (mates[k - 1].userData.rejoin) { smokeOnArr[k] = false; smWhyArr[k] = 'rejoin'; }
+    /* 前の課目に入っていなかった機体は、合流するまで出さない（smokeAll より優先）。
+       「合流した」は隊形の席に着いたこと（表示中で k > 0.9）。以前は開始位置に着く（endEntry）まで解かなかったので、
+       技を単発で選んだとき、進入の始めから隊形を組んでいる（v04.91）のに 1 番機だけが煙を引き、
+       僚機は開始位置まで 45 秒ほど出さなかった（利用者の指摘 2026-09-13「スモークオンが一番機とその他で揃ってない」。実測） */
+    for (let k = 1; k < n; k++) { const u = mates[k - 1].userData;
+      if (u.rejoin && u.shown && seated(u)) u.rejoin = false;
+      if (u.rejoin) { smokeOnArr[k] = false; smWhyArr[k] = 'rejoin'; } }
     if (smokeNone) { smokeOnArr.fill(false); smWhyArr.fill('none'); }       // 課目の終わりに一斉に切る
     return smokeOnArr;
   }
@@ -787,7 +1029,7 @@ export function mount(container, opt = {}) {
       if (L) L.visible = (lightsOn && !landRun && !mateOnGround(u)) || treeSm(i + 1) || !!(u.tk && !u.tk.done) || !!u.lampOn;
     });
   }
-  /* 脚とライトは別々に出し入れできる。昼以外はライトを自動で点けておく（手で消せる）。
+  /* 脚とライトは別々に出し入れできる。ライトは標準で消えていて、離着陸とクリスマスツリー・ローパスだけ自動で点く（総点検 2026-09-13 に注釈を実装に合わせた）。
      ローパスのあいだは両方出し、終わったら手で決めていた状態に戻す */
   let gearOn = false, lightsOn = false, treeMode = false;   // ライトは標準でオフ（離着陸・ローパスだけ）
   let gearPrev = null, gearSndN = 0;
@@ -909,7 +1151,7 @@ export function mount(container, opt = {}) {
   /* 見回し（ドラッグ量）。一人称は首の向き、三人称は機体のまわりの位置。視点を変えると中央に戻す */
   const look = { y: 0, p: 0 };
   const LOOK_MAX_P = 75 * D;
-  const TILT_A = 16 * D;           // 一人称の見下ろし角（計器盤と操縦桿が視界に入る）
+  const TILT_A = 10 * D;           // 一人称の見下ろし角（計器盤が視界に入る。HUD を通して外を見る姿勢に近づけて 16° → 10°、2026-09-13）
   const cam = new THREE.PerspectiveCamera(70, 1, 0.08, 9000);
   let zoom = 1, baseFov = 70;                      // 画面の拡大（望遠）。画角 = 元の画角 ÷ 倍率
   const applyFov = () => { cam.fov = clamp(baseFov / zoom, 7, 100); cam.updateProjectionMatrix(); };
@@ -938,10 +1180,10 @@ export function mount(container, opt = {}) {
     { id: 'orbit', ja: '旋回', t: 8, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'opro', ja: 'オポジット・コンティニュアス・ロール', form: 'pair', alt: 220,
       at: 90, atR: FRONT_START, atN: SPREAD_D / 2, inH: 270, mirror: 'h',
-      desc: '2 機が正面の左右から高速で近づき、会場の正面で至近距離をすれ違います。すれ違った直後に機首を上げ、そのまま 3 回転します。' },
+      desc: '2 機が正面の左右から高速で近づき、会場の正面で至近距離をすれ違います。すれ違った直後に機首を上げ、回り続けながら抜けていきます。' },
     { id: 'tuck', ja: 'タック・クロス', form: 'pair', alt: 230,
       at: 90, atR: FRONT_START, atN: SPREAD_D / 2, inH: 270, mirror: 's',
-      desc: '2 機が背面のまま、至近距離で真横に並んで横から進入します。会場の手前で外側へロールして少し膨らみ、目の前で交差して、そのまま抜けていきます。' },
+      desc: '2 機が至近距離で真横に並んで横から進入し、そろって背面へロールします。会場の手前で外側へロールし、交差点の側へ 45 度傾いたところで機首を上げ、目の前で交差して、そのまま抜けていきます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'loop', ja: 'デルタ・ループ', form: 'delta', alt: 240, entry: 'front',
       desc: '6 機がデルタ隊形のまま、崩さずに宙返りします。' },
@@ -961,7 +1203,7 @@ export function mount(container, opt = {}) {
        実測: 本番の最初の 3 割で僚機が 150 m/s に張り付き、機首と進行方向のずれが平均 64.6 度（最大 71 度）。
        説明文の「高さの違う 5 機が一列で」も階段隊形のことなので、定義側の指定が実態と食い違っていた */
     { id: 'change', ja: 'チェンジオーバー・ターン', form: 'steps', alt: 200, at: 45, atR: 1300,
-      desc: '高さの違う 5 機が一列で正面から進入し、先頭以外が一斉に左右へ開きます。そのあと、先頭の旋回に合わせて広めの三角形になり、そろって旋回します。' },
+      desc: '高さの違う 5 機が階段状の一列で北東から進入し、頂点で先頭以外が一斉に左右へ開いて扇形に並びます。隊形が整ってから、そろって旋回します。' },
     { id: 'rain', ja: 'レインフォール', form: 'fan', alt: 900, at: 180, atR: 1200,
       desc: '極めて高いところから 5 機が真下へ降り、正面の前方で一気に散らばって、煙の筋が五方向へ伸びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
@@ -972,9 +1214,9 @@ export function mount(container, opt = {}) {
       desc: '2 機。1 機がまっすぐ進み、その周りをもう 1 機が背中を内側に向けて回ります。実際の演技では、直進する 5 番機が背面で飛びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
     { id: 'cupid', ja: 'キューピッド', form: 'diamond', alt: 260, entry: 'front', fig: 'cupid',
-      desc: '3 機。2 機がハートを描き、描き終えたところへ、もう 1 機が矢になって飛び込みます。地上から見て貫いて見えるよう、ハートの内側ではスモークを切ります。' },
+      desc: '3 機。2 機がハートを描き、描き終えたところへ、もう 1 機が矢になって飛び込みます。地上から見て貫いて見えるよう、ハートの内側ではスモークを切ります。1 番機は図の下を回って待ちます。' },
     { id: 'star', ja: 'スタークロス', form: 'delta', alt: 260, entry: 'front', fig: 'star',
-      desc: '5 機。デルタ隊形で入って大きく開き、一斉に反転降下して星を描きます。' },
+      desc: '5 機。デルタ隊形で入って大きく開き、一斉に降下して星を描きます。1 番機は図の下を回って待ちます。' },
     { id: 'turnloop', ja: '360 度ターン & ループ', form: 'delta', alt: 240,
       desc: '1 周まわってから、続けて宙返りします。' },
     { id: 'pass', ja: '正面通過', t: 12, form: 'delta', alt: 190,
@@ -1170,6 +1412,9 @@ export function mount(container, opt = {}) {
     if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(bq).add(b.p); emit(emitPos, color, null, 0, i + 1); }
   }
   let chgT = -1;                           // チェンジオーバー・ターン: 隊形が組めてからの時間（秒）。-1 は待っているあいだ
+  /* 旋回を始めた時刻（chgT 基準）。-1 は「まだ始めていない」。
+     散開と同時に曲がると外側の機が振り回されて膨らむので、隊形が整うまで待つ（利用者の指摘 2026-09-13） */
+  let chgTurn = -1;
   /* 瞬間移動をしない進入（利用者の指示 13）。スタークロスの次の課目と、着陸で立てる。
      立っているあいだは、進入の入口まで実際に飛ぶ */
   let noJumpIn = false;
@@ -1227,6 +1472,7 @@ export function mount(container, opt = {}) {
   const CHG_R = 850;                       // チェンジオーバー・ターンの弧の半径（m）
   const DTAKE_R = 330;                     // ダイヤモンド・テイクオフのあと、原点のまわりを回る輪の半径（m）。v04.24: 520 → 330（近くで見せる）
   let dtT = -1;                            // その一周の経過（秒）。-1 はまだ上がっている途中
+  let halfT = -1;                          // ハーフ・スロー・ロール: 背面になってからの秒数。-1 はまだ背面に入る前、9 は終わり
   let tkWp = 0, tkT = 0, tkT2 = 0;         // タック・クロスの通過点の番号、背面へ回す経過、外側へ戻す経過（秒）
   let oproX = false, oproUp = false, oproZ = -1, oproBack = false;   // オポジット: 交差したか、機首を上げ終えたか、進入の高さ、視線を 1 番機に戻したか
   let rollBoost = 1;                       // 横転の速さの倍率（オポジットの連続ロールで上げる）
@@ -1382,7 +1628,7 @@ export function mount(container, opt = {}) {
   /* 技ごとに決めてある初期設定（スモーク・タイヤ・ライト）を反映する。
      自分で技を選んだときは「入れるだけ」で外さない（外すのは手動、という利用者の決め）。
      通しの演目（自動）では課目ごとに設定どおりに入れ替える（その課目に要らない装備はしまう）。
-     ライトは昼以外なら自動で点ける（夜間の飛行灯）。 */
+     ライトは技ごとの設定（set.lights）で入れる。時刻による自動点灯はしない。 */
   function applyPreset(m, full) {
     const set = m.set || { smoke: true };
     /* 滑走路に降りる課目（タッチ・アンド・ゴー）のタイヤとライトは、ここでは出さない。
@@ -1426,8 +1672,8 @@ export function mount(container, opt = {}) {
     }
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
-    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; oproX = false; oproUp = false; oproZ = -1; oproBack = false; noTurn = false; smokeNone = false; rollBoost = 1;
+    e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; chgTurn = -1; smokeAll = false;
+    spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; halfT = -1; oproX = false; oproUp = false; oproZ = -1; oproBack = false; noTurn = false; smokeNone = false; rollBoost = 1;
     bankLim = 52;                            // 舵取りのバンクの上限は、課目ごとに決め直す
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
     applyPreset(m, auto && !oneShot);        // 通しの演目では課目ごとに装備を入れ替える
@@ -1635,7 +1881,13 @@ export function mount(container, opt = {}) {
         if (matesReady() || phaseT > 150) {
           spdWant = 1;                                                  // 離陸待ちで落としていた速さを戻す
           if (m.entry === 'front' || m.at !== undefined || m.rwy) { snapForm = true; planEntry(m); manPhase = 'in'; phaseT = 0; }
-          else { manPhase = 'do'; st.cue = ''; markOn = false; phaseT = 0; }
+          else {
+            /* 課目の時計（manT）と角度の積算は、ここから数え直す。以前は隊形を組んでいた時間が manT に乗ったままで、
+               ハーフ・スロー・ロール（manT > 15 で終了）などは、組むのに 36 秒かかると始まった 1 コマ後に終わっていた
+               （実測 2026-09-13: do が 1 コマだけで out へ）。進入から入る課目は endEntry で同じことをしている */
+            manPhase = 'do'; st.cue = ''; markOn = false; phaseT = 0;
+            manT = 0; rollSum = 0; loopSum = 0; hdgSum = 0; prevH = st.h;
+          }
         }
         safety();
         return autoIn;
@@ -1814,13 +2066,24 @@ export function mount(container, opt = {}) {
         autoIn.r = 0;
         if ((st.p < 10 && manT > 10) || manT > 26) nextManeuver();
         break;
-      case 'half':                               // ハーフ・スロー・ロール: 背面にして少し飛び、戻す
-        if (manT < 3) { autoIn.x = 1; holdPitch(3); }
-        else if (manT < 6) { autoIn.x = 0; autoIn.y = -0.25; }
-        else { autoIn.x = 1; holdPitch(3); }
+      case 'half': {                             // ハーフ・スロー・ロール: ゆっくり背面にして少し飛び、戻す
+        /* 段階は角度で切る: 背面（バンク 180 ± 6°）になるまでロール → 背面を 3 秒 → 水平（± 6°）になるまでロール。
+           ロールは操縦桿 0.5（30°/s）。以前は時間で切っていた（全速 60°/s を 3 秒）ので、
+           隊形を組んだあとのバンク（−53°）から始まると 127° で止まり、背面にならずに「背面の押し」で機首が下がって
+           125 m 落ち、向きが 200° 回っていた（実測 2026-09-13）。「ゆっくり背面に入り」の説明とも合わなかった */
+        const inv = Math.abs(wrap180(st.b - 180)) < 6;
+        /* 機首の保持は、昇降舵の効く向きが cos(バンク) の符号で反転することを入れる（背面では押して機首を保つ）。
+           横倒しの近くでは昇降舵は向きを変えるだけなので中立。実測: 一定の押し（−0.25）では背面 3 秒で機首が 12° 下がり、
+           戻しのロール中に upright 用の保持を使うと機首が −42° まで落ちて 130 m 失っていた */
+        const holdAny = tp => { const c = Math.cos(st.b * D); autoIn.y = Math.abs(c) < 0.25 ? 0 : -clamp((tp - st.p) / 8, -0.6, 0.6) * Math.sign(c); };
+        if (halfT < 0) { if (inv) halfT = 0; else { autoIn.x = 0.5; holdAny(1.5); } }
+        else if (halfT < 3) { halfT += dt; autoIn.x = clamp(wrap180(180 - st.b) / 20, -0.3, 0.3); holdAny(1.5); }
+        else if (Math.abs(st.b) > 6) { autoIn.x = 0.5; holdAny(1.5); }
+        else halfT = 9;
         autoIn.r = 0;
-        if (manT > 9) nextManeuver();
+        if (halfT >= 9 || manT > 30) nextManeuver();
         break;
+      }
       case 'bloom': {                            // サンライズ: 扇隊形で正面から進入し、散開位置で水平に放射状に開く（日の出）
         holdBank(0); autoIn.r = 0;
         const eb = eyeDir();
@@ -2101,7 +2364,11 @@ export function mount(container, opt = {}) {
         if (chgT < 0) {
           formation = 'steps'; formScale = 1;
           steerTo(vx, vy, GATE.z);
-          if (Math.hypot(vx - st.x, vy - st.y) < 150 || manT > 60) { chgT = 0; smokeAll = true; }   // 頂点で一斉に開く
+          /* 頂点で一斉に開く。扇への切り替えはこのコマで行う（下の else で行うと、次のコマの matesReady() が
+             まだ階段の k=1 を見て「整った」と誤判定し、散開と同時に旋回が始まった。実測 2026-09-13:
+             扇にして 0.3 秒で 1 番機がバンク、僚機は k=0.46 の散開途中）。placeMates は課目の処理の後に走るので、
+             ここで切り替えれば次のコマの k は扇に対する値（ほぼ 0）から始まる */
+          if (Math.hypot(vx - st.x, vy - st.y) < 150 || manT > 60) { chgT = 0; smokeAll = true; joinFast = true; formation = 'fan'; formScale = 1.7; }   // joinFast も同じコマに（寄せの長さは道を引く瞬間に決まる。実測: 無いと開き切るのに 8.9 秒）
         } else {
           chgT += dt;
           /* 散開したら、そのまま 1 番機と平行に並んで扇になる（利用者の指示 2026-09-12:
@@ -2114,7 +2381,16 @@ export function mount(container, opt = {}) {
              課目の途中で合流して現れていた。扇は 5 機の隊形なので、6 番機は合流するまで出てこない */
           joinFast = chgT < 3.5;                                                         // 開き始めだけ速く寄せる
           formation = 'fan'; formScale = 1.7;                                            // 初めから扇
-          if (chgT < 7) { const se = keyPt(135, 4000); steerTo(se.x, se.y, GATE.z); }    // 頂点で南東へ曲がる
+          /* 旋回は**隊形が整ってから**始める（利用者の指摘 2026-09-13:
+             「一番機の旋回開始が早いので、追従機が散開するときに変に膨らみが起きる。
+               正しい編隊になってから旋回する」）。
+             以前は chgT が 0 になった瞬間に、散開の開始と南東への旋回が同時に走っていた。
+             僚機が扇へ開いている最中に 1 番機が曲がるので、外側の機が振り回されて膨らんでいた。
+             時間で決め打ちにせず matesReady()（全機が持ち場に着いたか）で待つ。
+             万一そろわないときのために chgT > 5 で打ち切る（課目が進まなくなるのを防ぐ） */
+          if (chgTurn < 0 && (matesReady() || chgT > 5)) chgTurn = chgT;                 // 旋回を始めた時刻
+          if (chgTurn < 0) holdBank(0);                                                  // 整うまでは真っすぐ
+          else if (chgT - chgTurn < 7) { const se = keyPt(135, 4000); steerTo(se.x, se.y, GATE.z); }
           else holdBank(0);                                                              // 整った速度ベクトルのまま
         }
         holdPitch(1); autoIn.r = 0;
@@ -2299,7 +2575,10 @@ export function mount(container, opt = {}) {
     /* 煙は消さない。待機中に出している点検の煙をそのまま続け、滑走を始めるところで止める
        （ここで消すと、「加速」を押した瞬間に煙が消えて出し直したように見える） */
     if (musBuf && actx) {                      // 曲を選んであるとき: イントロを待ってから滑走する
-      playMusic();
+      /* 曲の頭（musLead）が滑走の長さ（MUS_ROLL ≒ 9 秒）より短い曲は、曲を先に鳴らすと浮くのが遅れる。
+         その差だけ曲の始まりを遅らせて、浮く瞬間と音の立ち上がりを合わせる（総点検 2026-09-13） */
+      musDelay = Math.max(0, MUS_ROLL - musLead);
+      if (musDelay <= 0) playMusic();
       musWait = Math.max(0, musLead - MUS_ROLL);
       st.desc = '曲の頭を待ち、音が立ち上がるところで離陸します。';
       st.cue = '曲の頭を待っています';
@@ -2348,6 +2627,8 @@ export function mount(container, opt = {}) {
       st.show = ''; st.desc = ''; st.cue = '「テイクオフ」で離陸できます';
       if (loopRestart) { loopRestart = false; standWait = true; }
     }
+    /* 曲の頭が短い曲は、滑走を先に始めて曲を遅らせて鳴らす（浮く瞬間に音が立ち上がる） */
+    if (musDelay > 0) { musDelay -= dt; if (musDelay <= 0) { musDelay = 0; if (musBuf && actx) playMusic(); } }
     /* 曲のイントロを待ってから滑走を始める（主旋律が入るところで浮く） */
     if (musWait >= 0) {
       musWait -= dt;
@@ -2669,7 +2950,9 @@ export function mount(container, opt = {}) {
     }
     return inside;
   }
-  const CORK_R = 26, CORK_T = 3.6, CORK_LAG = 0.15;   // 回る半径（m）・1 周の時間（秒）・少し後ろ（秒）
+  /* 1 周 3.6 秒だと向心加速度 (2πR/T)²/R ≒ 78 m/s²（8 G）で T-4 の制限荷重 +7.33 G を超えていた（総点検 2026-09-13）。
+     5.5 秒なら 34 m/s²（約 3.5 G） */
+  const CORK_R = 26, CORK_T = 5.5, CORK_LAG = 0.15;   // 回る半径（m）・1 周の時間（秒）・少し後ろ（秒）
   let corkBlend = 3;                               // 輪に乗るまでにかける時間（遠さで決める）
   /* レター・エイト: 3 機が片方の輪を描くあいだ、離れた 1 機がもう片方の輪を描く。
      離れる機体は式で置く（ねじらずに 8 の字を描かせるため）。E8_SPAN は、
@@ -3513,6 +3796,7 @@ export function mount(container, opt = {}) {
     seatQ.copy(seatObj.quaternion); seatR.makeRotationFromQuaternion(seatQ);
     seatMeshes.forEach(m => { m.visible = !(curView === 'first' && seatObj === plane); });
     mates.forEach((h, i) => { const sm = h.userData.seats; if (sm) sm.forEach(m => { m.visible = !(curView === 'first' && seatObj === h); }); });
+    hudOn = false;                           // 一人称（機内）のときだけ、下で true にする
     if (curView === 'ground') {
       /* 地上から見る。機体は追いかけない（自分で向けた方向のまま）。
          向きは 見回し（ドラッグ）だけで変わり、立ち位置は 2 回叩いた場所へ移る */
@@ -3530,6 +3814,16 @@ export function mount(container, opt = {}) {
       cam.position.copy(camPos); cam.up.copy(bup2.set(0, 0, 1).applyQuaternion(seatQ)); cam.lookAt(seatObj.position);
     } else {
       cam.position.copy(tmp.copy(EYE).add(eyeOff).applyMatrix4(seatR).add(seatObj.position));
+      /* HUD のガラス板を、乗っている機体の操縦席に置く（機内の見せ方のときだけ。「計器だけ」は機体を消すので出さない） */
+      hudOn = inCockpit;
+      if (hudOn) {
+        hudMesh.position.copy(hudTmp.copy(HUD_POS).add(eyeOff).applyMatrix4(seatR).add(seatObj.position));
+        hudMesh.quaternion.copy(seatQ).multiply(HUD_Q);
+        hudGlass.position.copy(hudMesh.position); hudGlass.quaternion.copy(hudMesh.quaternion);
+        hudFrame.position.copy(hudMesh.position); hudFrame.quaternion.copy(hudMesh.quaternion);
+        const a = seatObj === plane ? st : attOfQ(seatQ);
+        drawHud(a.b, a.p, a.h, seatObj.position.z, (gmode === 'fly' ? SPEED * Math.max(0.2, spdK) : gv) * 1.944);
+      }
       /* 一人称の向き。まず「機体の向き ＋ 少し下向き（TILT_A。計器盤と操縦桿が視界に入る）」を作る。
          見回し（ドラッグ）は、この向きに対してではなく**世界の軸**まわりに掛ける（v04.43）。
          機体の軸まわりに掛けると、機体が傾いているあいだは横になぞっても視線が斜めに動いた
@@ -3784,7 +4078,7 @@ export function mount(container, opt = {}) {
      （機首を上げ始めるのは、その 1.5 秒ほど前） */
   const MUS_ROLL = SPEED * 0.9 / 6;
   /* 曲の頭（浮くタイミング、秒）。設定で決める。既定は 13.0 秒 */
-  let musBuf = null, musSrc = null, musGainNode = null, musLead = 13.5, musWait = -1;
+  let musBuf = null, musSrc = null, musGainNode = null, musLead = 13.5, musWait = -1, musDelay = 0;
   /* 曲のリスト。1 曲なら「イントロは一度、あとは主旋律から折り返しまでを繰り返す」。
      2 曲以上なら順に流し、最後まで行ったら最初へ戻る（それぞれ頭から終わりまで）。
      decode した音は大きい（4 分で 40 MB ほど）ので、いま鳴らす曲と次の曲だけを持つ */
@@ -3895,7 +4189,13 @@ export function mount(container, opt = {}) {
       clock += dt; smokeT += dt;
       step(dt); place(dt); if (dt) recordHistory(dt); placeMates(dt); refreshMateGear(); aimCamera(dt);
       renderer.render(world, cam);
-      drawStick();
+      drawStick();                             // 操縦席の内装（計器盤・操縦桿・コンソール）を本編の上に
+      /* HUD のガラス板は、手前 0.05 m のカメラで内装の上に重ねて描く（一人称のカメラは手前 1.1 m で切るため） */
+      st.hud3d = hudOn;
+      if (hudOn) {
+        hudCam.copy(cam); hudCam.near = 0.05; hudCam.far = 8; hudCam.updateProjectionMatrix();
+        renderer.autoClear = false; renderer.clearDepth(); renderer.render(hudScene, hudCam); renderer.autoClear = true;
+      }
       tellPanel();
       updateAudio(dt);
       st.err = 0;
@@ -3924,6 +4224,10 @@ export function mount(container, opt = {}) {
     if (curView !== 'first' || !inCockpit) return;
     cockpit.updateWorldMatrix(true, false);
     stickHolder.matrix.copy(cockpit.matrixWorld);
+    /* 計器盤の姿勢指示器と方位指示器は、乗っている機体の姿勢で描く */
+    { const so = cockpit.parent || plane, mine = so === plane, a = mine ? st : attOfQ(so.quaternion);
+      const v = gmode === 'fly' ? SPEED * Math.max(0.2, spdK) : gv, fz = mine ? fwd.z : hudV1.z;   // 地上では滑走の速さ。hudV1 は attOfQ が置いた機首の向き
+      drawDials(a, so.position.z, v * 1.944, fz * v, gearOn); }
     oCam.fov = cam.fov; oCam.aspect = cam.aspect; oCam.updateProjectionMatrix();
     oCam.position.copy(cam.position); oCam.quaternion.copy(cam.quaternion);
     renderer.autoClear = false; renderer.clearDepth();
@@ -3990,7 +4294,7 @@ export function mount(container, opt = {}) {
     /* 自動操縦の入り切り。入れたときは観覧位置の南の空から演技を始める */
     setAuto(on) {
       auto = !!on; oneShot = false;
-      if (!on) { musWait = -1; musCut = -1; standWait = false; landRun = false; landCfg = false; stopMusic(MUS_FADE); }
+      if (!on) { musWait = -1; musDelay = 0; musCut = -1; standWait = false; landRun = false; landCfg = false; stopMusic(MUS_FADE); }
       if (auto) {
         userForm = formation;
         let f0 = 0;
@@ -4071,7 +4375,7 @@ export function mount(container, opt = {}) {
       auto = true; oneShot = false; loopRestart = false; landRun = false;
       pickChunk();                             // 「通し」を選ぶたびに、まとまりを選び直す
       endCork(); endFigure(); if (treeMode) setTreeMode(false);
-      musCut = -1; musWait = -1; stopMusic(MUS_FADE);
+      musCut = -1; musWait = -1; musDelay = 0; stopMusic(MUS_FADE);
       gmode = 'apron'; gv = 0; rotP = 0; spdK = 1; spdWant = 1; tkOn = false; gPath = null; pathLag = 0; taxiFrom = null;
       mates.forEach(h => { h.userData.hold = 0; });
       Object.assign(st, { x: STANDS[0].x, y: STANDS[0].y, z: 3, h: STANDS[0].h, ground: true, wall: false });
@@ -4256,7 +4560,11 @@ export function mount(container, opt = {}) {
       const ai = anthemIdx();
       if (ai > 0) await decodeAt(ai);          // 離陸で頭から流すので、先に decode しておく
       const found = findLead(ai > 0 && musDec.get(ai) ? musDec.get(ai) : musBuf);
-      if (musLead <= 0) musLead = found;      // 設定がなければ、探した値を使う
+      /* 探した値があれば常に使う。無いときだけ既定の 13.5 秒に落ちる（総点検 2026-09-13）。
+         以前は「musLead <= 0 のときだけ探した値を使う」で、初期値 13.5 のせいに一度も発火せず、
+         解析結果を捨てて 13.5 秒固定で離陸していた。設定画面の「浮くタイミング」は v04.88 で廃止済みなので、
+         利用者に見える「曲の頭を調べて、音が立ち上がるところで離陸します」を真にするには、探した値を使うしかない */
+      if (found > 0) musLead = found; else if (musLead <= 0) musLead = 13.5;
       return { lead: musLead, found, dur: musBuf.duration, n: musList.length };
     },
     musicInfo() { return musBuf ? { lead: musLead, dur: musBuf.duration, n: musList.length } : null; },
@@ -4269,10 +4577,10 @@ export function mount(container, opt = {}) {
     programList() { return PROGRAM.map(m => ({ id: m.id, ja: m.ja, role: ROLE[m.id] || '' })).filter(m => m.role); },
     /* 曲を手で流す・止める（ボタン用） */
     playMusicNow() { if (!musBuf) return false; initAudio(); playMusic(); musCut = -1; return true; },
-    stopMusicNow() { musCut = -1; musWait = -1; stopMusic(MUS_FADE); return true; },
+    stopMusicNow() { musCut = -1; musWait = -1; musDelay = 0; stopMusic(MUS_FADE); return true; },
     musicPlaying() { return !!musSrc; },
     setLead(sec) { musLead = Math.max(0, +sec || 0); return musLead; },
-    clearMusic() { stopMusic(); musGen++; musDec.clear(); musList = []; musBuf = null; musLead = 0; musWait = -1; },
+    clearMusic() { stopMusic(); musGen++; musDec.clear(); musList = []; musBuf = null; musLead = 0; musWait = -1; musDelay = 0; },
     setSmoke(on) { if (on && landCfg && auto) return false; smokeOn = !!on; return smokeOn; },   // 着陸体制の錠は自動操縦のあいだだけ
     smokeState() { return smokeOn; },
     setSmokeColor(c) { if (SMOKE_COLORS[c]) { smokeColor = c; clearSmoke(); } },

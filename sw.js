@@ -1,12 +1,12 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v05.00';
+const CACHE = 'aat-v05.01';
 /* 大きくて変わらないもの（3D モデル）は、版を上げても消さない入れ物に置く。
    ここを消してしまうと、更新のたびに 5.6 MB を取り直すことになり、オフラインで 3D が動かなくなる */
 const BIG = 'aat-big-v1';
 const BIG_RE = /\/model\/|\.glb($|\?)/;
-const ASSETS = ['./', './index.html', './engine.js?v=46', './viewer.js?v=5', './feedback.js?v=2', './sim3d.js?v=142',
+const ASSETS = ['./', './index.html', './engine.js?v=47', './viewer.js?v=5', './feedback.js?v=2', './sim3d.js?v=143',
   './vendor/three/three.module.js', './vendor/three/addons/loaders/GLTFLoader.js', './vendor/three/addons/controls/OrbitControls.js', './vendor/three/addons/utils/BufferGeometryUtils.js', './manifest.webmanifest', './privacy.html', './news.json',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './favicon.ico', './icons/favicon-96.png?v=2', './img/t4-top.webp', './img/hero.webp?v=3',
+  './icons/icon-192.png', './icons/icon-192.png?v=2', './icons/icon-512.png', './icons/apple-touch-icon.png', './favicon.ico', './icons/favicon-96.png?v=2', './img/t4-top.webp', './img/hero.webp?v=3',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),
   /* バンク付き（真上・真下を除く 12 方向 × 左右 × 30/60） */
   ...['north', 'south', 'east', 'west', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].flatMap(n => ['r30', 'l30', 'r60', 'l60'].map(b => `./img/bi-${n}-${b}.webp`))];
@@ -27,13 +27,18 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url), sameOrigin = url.origin === location.origin;
   /* お知らせは版を上げずに差し替えるので、通信を先に試してキャッシュを更新する（つながらないときは前回の内容） */
   if (sameOrigin && url.pathname.endsWith('/news.json')) {
+    /* 通信を節約する設定のとき、ページ側は cache:'force-cache' で呼ぶ。HTTP のキャッシュと SW のキャッシュは別の入れ物なので、
+       ここで見ないと携帯回線でも取りに行っていた（総点検 2026-09-13）。端末に残っているものを先に返す */
+    if (e.request.cache === 'force-cache') { e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request))); return; }
     e.respondWith(fetch(e.request).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; }).catch(() => caches.match(e.request)));
     return;
   }
   const box = sameOrigin && BIG_RE.test(url.pathname) ? BIG : CACHE;   // 3D モデルは消さない入れ物へ
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      /* 同一オリジン（3D モデル含む）と Google Fonts は、取得したらしまっておく（オフラインでも使える） */
+      /* 同一オリジン（3D モデル含む）と Google Fonts は、取得したらしまっておく（オフラインでも使える）。
+         Google Fonts の CSS は index.html の link に crossorigin を付けてある。付けないと応答が opaque で res.ok が false になり、
+         ここを通らずに毎回取りに行っていた（総点検 2026-09-13） */
       if (res.ok && (sameOrigin || e.request.url.startsWith('https://fonts.'))) {
         const copy = res.clone(); caches.open(box).then(c => c.put(e.request, copy));
       }

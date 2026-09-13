@@ -21,8 +21,8 @@
     { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', effect: { bank: -20 }, body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
     { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', effect: { pitch: -8 }, body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
     { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', effect: { pitch: 8 }, body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
-    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', effect: { yaw: 10 }, body: '機体に対して横へ、右を向く', view: '水平線の傾きは変わらず、景色が画面の左へ流れる' },
-    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', effect: { yaw: -10 }, body: '機体に対して横へ、左を向く', view: '水平線の傾きは変わらず、景色が画面の右へ流れる' }
+    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', effect: { yaw: 10 }, body: '機体に対して横へ、右を向く', view: '目印がそろって画面の左へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' },
+    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', effect: { yaw: -10 }, body: '機体に対して横へ、左を向く', view: '目印がそろって画面の右へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' }
   ];
   const OP_BY_ID = Object.fromEntries(OPS.map(o => [o.id, o]));
   const OPPOSITE = { 'stick-right': 'stick-left', 'stick-left': 'stick-right', 'stick-forward': 'stick-back', 'stick-back': 'stick-forward', 'rudder-right': 'rudder-left', 'rudder-left': 'rudder-right' };
@@ -87,8 +87,8 @@
   /* 誤答は「機首の上下・水平」と「バンクの左右・水平」の区分が正解と必ず違うものだけ（絵からは角度の大きさまで読めないので、大きさだけが違う選択肢は出さない）。
      誤答の角度は正解と同じ大きさ（正解が水平なら 30°、真上・真下なら 30°）にそろえる */
   const cls = (b, p) => `${Math.sign(b)}/${Math.sign(p)}`;
-  function attCands(bank, pitch) {
-    const pm = pitch ? (Math.abs(pitch) === 90 ? 30 : Math.abs(pitch)) : 30, bm = bank ? Math.abs(bank) : 30, out = [];
+  function attCands(bank, pitch, pmOverride) {
+    const pm = pmOverride || (pitch ? (Math.abs(pitch) === 90 ? 30 : Math.abs(pitch)) : 30), bm = bank ? Math.abs(bank) : 30, out = [];
     for (const bs of [-1, 0, 1]) for (const ps of [-1, 0, 1]) if (cls(bs, ps) !== cls(bank, pitch)) out.push([bs * bm, ps * pm]);
     return out;
   }
@@ -100,7 +100,19 @@
     const lv = lvOf(s);
     const pool = lv === 'easy' ? DIR14.filter(x => x.id === 'north' || x.id === 'up' || x.id === 'down') : DIR14;
     const d = pick(pool), pitch = d.pitch, bank = lv === 'normal' ? 0 : pickBank(s, d);
-    const dis = pickDistractors(attCands(bank, pitch), () => true, 3);
+    /* 誤答の組み方（点検 2026-09-13: 選択肢の並びだけで Easy 92%・Normal 71%・Hard 45% 当たっていた。当てずっぽうは 25%）
+       - 真上・真下: 反対の ±90 を必ず混ぜる。以前は誤答がすべて ±30 だったので「±90 の選択肢があればそれが正解」だった（28,483/28,483）
+       - Easy: 答えは北（ピッチ 0）か真上・真下。誤答のピッチも 0 か ±90 にそろえる（±30 の誤答は「必ず誤答」と分かっていた）
+       - Normal: 翼は水平なので、傾いた誤答は「必ず誤答」と分かる。傾いた誤答は 1 つまでにし、残りは水平でピッチの区分が違うもの */
+    let dis;
+    if (Math.abs(pitch) === 90) {
+      const rest = attCands(bank, pitch, lv === 'easy' ? 90 : undefined).filter(([b, p]) => !(b === 0 && p === -pitch));
+      dis = [[0, -pitch], ...pickDistractors(rest, () => true, 2)];
+    } else if (lv === 'easy') dis = pickDistractors(attCands(bank, pitch, 90), () => true, 3);
+    else if (lv === 'normal') {
+      const c = attCands(bank, pitch);
+      dis = [...pickDistractors(c.filter(([b]) => b === 0), () => true, 2), ...pickDistractors(c.filter(([b]) => b !== 0), () => true, 1)];
+    } else dis = pickDistractors(attCands(bank, pitch), () => true, 3);
     const opts = shuffle([{ bank, pitch, ok: true }, ...dis.map(([b, p]) => ({ bank: b, pitch: p, ok: false }))]);
     return { type: 'attitude', dir14: d, bank, pitch, opts, level: lv };
   }
@@ -110,10 +122,15 @@
     const lv = lvOf(s);
     const pool = DIR14.filter(x => x.heading !== null && (lv === 'hard' || x.pitch === 0));
     const d = pick(pool), heading = d.heading, pitch = d.pitch, bank = lv === 'easy' ? 0 : pickBank(s, d);
-    const hc = [heading + 180, 360 - heading, heading + 90, heading - 90, heading + 45, heading - 45].map(norm).filter(h => h !== heading).map(h => [h, bank, pitch]);
-    const ac = attCands(bank, pitch).map(([b, p]) => [heading, b, p]);
-    const cands = [...hc, ...ac, [norm(heading + 180), -bank, pitch]].filter(([h, b, p]) => !(h === heading && b === bank && p === pitch));
-    const dis = pickDistractors(cands, () => true, 3);
+    /* 誤答は 2×2 の格子で組む: 方位 {正解, 別} × 姿勢 {正解, 別} の 4 つから正解を除いた 3 つ。
+       どの選択肢も「方位を 1 つ、姿勢を 1 つ、他と共有する」対称な形になる。
+       以前は「方位だけ違う」「姿勢だけ違う」を混ぜていたため、正解だけが方位も姿勢も他と共有する「ハブ」になり、
+       絵を見ずに選択肢の並びだけで Easy 99%・Normal 94%・Hard 92% 当たった（点検 2026-09-13、30 万問の交差検証）。
+       Easy・Normal の答えは東西南北なので、誤答の方位も東西南北から取る（斜めの誤答は「必ず誤答」と分かっていた） */
+    let hAlt = [...new Set([heading + 180, 360 - heading, heading + 90, heading - 90, heading + 45, heading - 45].map(norm))].filter(h => h !== heading);
+    if (lv !== 'hard') hAlt = hAlt.filter(h => h % 90 === 0);
+    const h2 = pick(hAlt), [b2, p2] = pick(attCands(bank, pitch));
+    const dis = [[h2, bank, pitch], [heading, b2, p2], [h2, b2, p2]];
     const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);
     /* 方位指示器の印: むずかしいときだけ、機首の方位と重ならない方位を毎回抽選する。それ以外は北（N）に固定 */
     const mark = lv === 'hard' ? pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== heading / 45)) : 0;
@@ -191,10 +208,18 @@
        正解が奥のときは誤答に奥を出さず、正解が奥でないときは誤答の奥を 1 つまでにする */
     const isFwd = c => c[0] === 'stick-forward' || c[1] === 'stick-forward';
     let fwdRoom = isFwd(ops) ? 0 : 1;
-    const same = (stickOf(ops) ? cands.filter(c => stickOf(c) === stickOf(ops) && key(c) !== key(ops))
-                               : cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops)))
+    /* 枕（方向舵だけ違う選択肢）を張る操縦桿の向きは、正解の向きだけでなく、確率 1/2 で別の向き（誤答同士）にも張る。
+       正解の向きにだけ張っていたため「同じ向きが 3 つ並べば正解はその中」（Hard で 99.4%）、
+       「方向舵だけの選択肢が 1 つしか無ければ必ず誤答」（正解が方向舵のときは逆の方向舵を必ず混ぜていたため）と、
+       絵を見ずに分かってしまっていた（点検 2026-09-13、20 万問）。別の向きに張るときは枕を 1 つ多くして、並びの数でも見分けられないようにする。
+       正解が方向舵だけのときも、逆の方向舵を混ぜるのは確率 1/2 にする。「奥」は 1 つまでの決まりがあるので、別の向きとしては選ばない */
+    const decoy = stickOf(ops) && Math.random() < 0.5 ? pick(STICK.filter(o => o.id !== stickOf(ops) && o.id !== 'stick-forward')).id : null;
+    const pad = decoy || stickOf(ops);
+    const rudPad = !stickOf(ops) && Math.random() < 0.5;
+    const same = (pad ? cands.filter(c => stickOf(c) === pad && key(c) !== key(ops))
+                      : rudPad ? cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops)) : [])
                  .filter(c => !isFwd(c) || fwdRoom > 0);
-    const nSame = lv === 'hard' ? Math.min(2, same.length) : Math.min(1, same.length);
+    const nSame = Math.min(same.length, (lv === 'hard' ? 2 : 1) + (decoy ? 1 : 0));
     const disSame = pickDistractors(same, () => true, nSame);
     disSame.forEach(c => { if (isFwd(c)) fwdRoom--; });
     const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c))
@@ -226,25 +251,25 @@
     if (bank) lines.push(`${bankText(bank)}：機首の向きに対して${bank > 0 ? '右' : '左'}の翼が下がっている（南から見た絵では、機首がこちらを向くほど左右が逆に見える）。姿勢指示器では水平線が${bank > 0 ? '右上がり' : '左上がり'}に傾く。`);
     else lines.push('翼が水平なのでバンクなし。水平線が傾いている選択肢は誤り。');
     lines.push(pitch > 0 ? '機首上げ：姿勢指示器では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
-    let answerText = `${'ABCD'[ci]}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;
+    let answerText = `${ci + 1}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;
     if (q.type === 'combo') {
       const NPOS = ['真上', '右上', '右', '右下', '真下', '左下', '左', '左上'];
       const m = ((q.mark || 0) - q.dir + 8) % 8;
-      lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。機首は常に上を向き、方位指示器の ${DIRS[q.mark || 0].k}（${DIRS[q.mark || 0].ja}）の印は ${NPOS[m]} に来ます。印を付ける方位は毎回変わります。`);
+      lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。機首は常に上を向き、方位指示器の ${DIRS[q.mark || 0].k}（${DIRS[q.mark || 0].ja}）の印は ${NPOS[m]} に来ます。`);
       answerText += ` / ${DIRS[q.dir].ja}`;
     }
     return { ok, correct: ci, answerText: answerText + '）', lines };
   }
   function gradeControl(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
+    let lines;
+    /* 1 操作でも、下の方向舵の補足と「①で既に傾いている」の注意は届かせる。
+       以前はここで return していたため、傾いた①から方向舵を踏む問題（1 操作の 4/5 は傾いた①から始まる）で、
+       水平線が上下して見える理由を解説が説明しなかった（総点検 2026-09-13） */
     if (q.single) {
       const o = OP_BY_ID[q.ops[0]];
-      const v = o.view;
-      return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`,
-        lines: [`①→②→③：同じ向きに変化が続いている。${v} → ${o.body} → ${o.base}。`, '途中で操作が変わっていないので、操作は 1 つです。'] };
-    }
-    let lines;
-    if (q.simul) {
+      lines = [`①→②→③：同じ向きに変化が続いている。${o.view} → ${o.body} → ${o.base}。`, '途中で操作が変わっていないので、操作は 1 つです。'];
+    } else if (q.simul) {
       const a = OP_BY_ID[q.ops[0]], b = OP_BY_ID[q.ops[1]];
       lines = [`①→②：2 つの変化が同時に起きている。${a.view}／${b.view}。`,
                `②→③：同じ 2 つの変化がそのまま続いている → 同時の 2 操作（${a.base}＋${b.base}）。`,
@@ -257,9 +282,9 @@
       lines.push('①→②は片方の変化だけ、②→③で別の変化が加わっている → 順番の 2 操作。②の時点で両方が変わっていれば「同時」ですが、答えの文は同じです。');
     }
     if (q.ops.some(id => OP_BY_ID[id].group === 'rudder'))
-      lines.push('方向舵は、機体の上下軸まわりに機首を振ります。傾いているときは、傾いた機体に対して横（画面の左右）へ景色が流れ、水平線に沿ってではありません。水平線の傾きは変わりません。');
+      lines.push('方向舵は、機体の上下軸まわりに機首を振ります。景色は水平線に沿ってではなく、傾いた機体に対して横（画面の左右）へ、目印がそろって流れます。機体が傾いていると、傾いた側へ踏めば機首が下がって水平線が上がり、反対側へ踏めば下がって見えますが、水平線の傾きはほとんど変わりません。目印が左右へそろって動いていれば方向舵、上下へそろって動いていれば操縦桿の奥・手前です。');
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
-    return { ok, correct: ci, answerText: `${'ABCD'[ci]}（${opsText(q.ops)}）`, lines };
+    return { ok, correct: ci, answerText: `${ci + 1}（${opsText(q.ops)}）`, lines };
   }
 
   /* ---------- 描画: 上面図 ---------- */

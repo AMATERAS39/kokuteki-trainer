@@ -18,7 +18,7 @@
 <link rel="icon" href="icons/favicon-96.png?v=2" sizes="96x96">
 <link rel="icon" href="icons/icon-192.png?v=2" sizes="192x192">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" crossorigin href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
 <title>TENRYU | 航空学生 適性検査トレーニング</title>
 <meta name="description" content="航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査を、制限時間つきで反復練習できるアプリ。方位判読・姿勢判読・その複合・操縦操作の 4 種目と、操縦操作の見え方を確かめる 3D シミュレーターが入っています。ブラウザでそのまま試せます。">
 <link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/">
@@ -36,7 +36,7 @@
 <meta name="twitter:description" content="方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
 <meta name="twitter:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"TENRYU","alternateName":"TENRYU 航空学生 適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/"}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ, iOS, Android","inLanguage":"ja","description":"航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査（方位判読・姿勢判読・その複合・操縦操作）を反復練習する学習アプリ。操縦操作の見え方を確かめる 3D シミュレーターつき。","offers":{"@type":"Offer","price":"0","priceCurrency":"JPY"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ","inLanguage":"ja","description":"航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査（方位判読・姿勢判読・その複合・操縦操作）を反復練習する学習アプリ。操縦操作の見え方を確かめる 3D シミュレーターつき。ブラウザ版は体験版で、完全版は App Store のアプリ（有償）。"}</script>
 <!-- three.js はこのアプリの中に置く（外の CDN だと、更新のたびに取り直しになり オフラインで 3D が動かない） -->
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
 <style>
@@ -278,6 +278,8 @@ svg text{user-select:none}
 .sim.rest .simbar #simUI{opacity:1;pointer-events:auto}   /* 操作一覧のボタンは、何かの最中でも押せる */
 /* 計器は、コックピット視点（.restfp）では消さない。外から見ているときだけしまう */
 .sim.rest:not(.restfp) .hud,.sim.rest:not(.restfp) .cross,.sim.rest:not(.restfp) .instrow .inst.ai{opacity:0;pointer-events:none}
+.sim.hud3d .view.fp .cross{display:none}   /* 機内の見せ方: HUD は 3D のガラス板に描くので、画面に貼った HUD は出さない（.view.fp の規則より強く） */
+body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /* 機内の見せ方: 姿勢・方位の計器は 3D の計器盤に付いているので、画面に貼った計器は出さない */
 .sim.rest{cursor:none}
 /* 場面の切り替え: 一瞬白くしてから戻す（通しに入れて滑走路からやり直すとき） */
 .simflash{position:absolute;inset:0;z-index:20;background:#fff;pointer-events:none;opacity:0}
@@ -780,7 +782,13 @@ body:not([data-view="home"]) .back{display:inline-flex}
 /* ===== スマホ幅: ホームと訓練画面を 1 画面に収める =====
    画面全体を縦の flex にし、図（機体画像・上面図・視界）だけを伸縮させる。極端に低い画面では図の最小高さを優先して少しだけスクロールする */
 @media (max-width:63.99rem){
-  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:calc(max(.5rem,env(safe-area-inset-bottom)) + 1rem)}
+  /* max-height:100svh を上限に足す（利用者の指摘 2026-09-13: 方位モードで選択肢までスクロールが要る）。
+     ホーム画面に置いた iOS では 100dvh が実際の表示領域より大きい値を返すことがあり、
+     そうなると容器が画面より高くなって、図がそのぶん伸び、選択肢が画面外へ押し出される。
+     実測: 容器が画面より 40 大きいだけで図が 471 → 511 に伸び、選択肢が画面から 3 はみ出す。
+     svh は上下の帯を常に含んだ最小の高さなので、上限に使えば容器が画面を超えない。
+     dvh をやめて svh だけにすると、ふつうのブラウザで下に余白が出て狭くなるため、併用する */
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;max-height:100svh;display:flex;flex-direction:column;padding-bottom:calc(max(.5rem,env(safe-area-inset-bottom)) + 1rem)}
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
   /* ホーム: 機体の絵だけ縮む */
@@ -1128,22 +1136,22 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="card">
         <h3>方位指示器</h3>
         <div class="fig2"><div class="figbox sm" id="abHI"></div>
-          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印を付ける方位は毎回変わる（N とは限らない）。印の文字が示す向きと、印の位置から機首の方位を読む。</li><li>N が左に見えれば機首は東、真下なら南。方位×姿勢指示器では、姿勢指示器との組で答える。</li></ul></div>
+          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印を付ける方位は Hard では毎回変わる（N とは限らない）。Easy と Normal では N。印の文字が示す向きと、印の位置から機首の方位を読む。</li><li>N が左に見えれば機首は東、真下なら南。方位×姿勢指示器では、姿勢指示器との組で答える。</li></ul></div>
       </div>
       <div class="card">
         <h3>方位（上面図）</h3>
         <div class="fig2"><div class="figbox sm" id="abTop"></div>
-          <ul><li>N マークが北。N から時計回りに 45° ずつ数える。</li><li>N マークの向きは毎回変わる。機首は N と同じ向きにはならない。</li></ul></div>
+          <ul><li>N マークが北。N から時計回りに 45° ずつ数える。</li><li>N マークの向きは Normal 以上で毎回変わる（Easy では上に固定）。Normal 以上では、機首は N と同じ向きにはならない。</li></ul></div>
       </div>
       <div class="card">
         <h3>操縦操作と見え方</h3>
         <div class="sub2">水平飛行からその操作をしたあとの視界。○ が目印、破線が元の水平線。</div>
         <div class="oprow" id="abOps"></div>
-        <ul><li>①→②、②→③の各区間で 1 つずつ操作する。同時には行わない。</li><li>操縦桿は右／左／奥／手前、方向舵は右／左。</li></ul>
+        <ul><li>①→②、②→③の各区間で 1 つずつ操作する場合（順番）と、両区間で 2 つの操作が同時に進む場合（同時）がある。答えの文はどちらも同じ。</li><li>操縦桿は右／左／奥／手前、方向舵は右／左。</li></ul>
       </div>
       <div class="card">
         <h3>練習する</h3>
-        <div class="sub2">どの種目も、制限時間なし・解説つきで 3 問解いてから計測に進みます。</div>
+        <div class="sub2">どの種目も、制限時間なし・解説つきの練習 3 問があります。この画面から入った練習は、終わるとこの説明に戻ります。種目の画面から入ると計測に進みます（設定で練習を飛ばすこともできます）。</div>
         <div class="prow" id="abPractice"></div>
       </div>
       <div class="card wide">
@@ -1164,7 +1172,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <ul>
           <li>端末を横にすると視界が画面いっぱいになり、編隊・スモーク・演目のボタンが出ます。</li>
           <li>音のボタンで、機体の通過音が鳴ります。近づくと高く、遠ざかると低く聞こえます。</li>
-          <li>音符のボタンで、<b>端末に入っているお手持ちの曲</b>を選べます。曲の頭を調べて、音が大きく立ち上がるところを見つけ、地上から演目を始めるとそこでちょうど離陸します。曲はこの端末の中だけで再生され、どこにも送りません（アプリは音楽を持っていません）。</li>
+          <li>設定の「演目の曲」で、<b>端末に入っているお手持ちの曲</b>を選べます。曲の頭を調べて、音が大きく立ち上がるところを見つけ、地上から演目を始めるとそこでちょうど離陸します。曲はこの端末の中だけで再生され、どこにも送りません（アプリは音楽を持っていません）。</li>
         </ul>
         <div class="prow"><button class="btn ghost" id="abSim">シミュレーターを開く</button><button class="btn ghost" id="abGallery">全操作パターンの見え方</button></div>
       </div>
@@ -1208,6 +1216,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="qhead">
         <div class="qno">問題 <b id="qno">1</b></div>
         <div class="timer" id="timer"><svg class="ic xs"><use href="#i-timer"/></svg><span id="tval">0.0</span><small id="tunit">s</small></div>
+        <button class="btn sm ghost" id="sessEnd" hidden>ここで終える</button>
       </div>
       <p class="prompt" id="prompt"></p>
       <div id="figs"></div>
@@ -1242,7 +1251,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="engine.js?v=46"></script>
+<script src="engine.js?v=47"></script>
 <script>
 (function(){
 'use strict';
@@ -1296,7 +1305,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.00';
+const APP_VER='v05.01';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1443,12 +1452,14 @@ function finish(g,timedOut){
     if(session&&qMax()>0&&session.n>=qMax())session.ended=true;
   }else if(practiceLeft>0)practiceLeft--;
   /* 解説スキップ（計測時のみ、種目ごとの設定）: 正誤の印を短く見せてから次へ。時間切れのときは「次へ」を待つ */
-  if(!inPractice&&!timedOut&&MS().skipExplain){setTimeout(()=>{if(answered)next()},450);return}
+  /* 0.45 秒のあいだに計測を離れたら次へ進まない。以前は session が消えていても next() が走り、隠れた画面で 1 問が出題されて
+     時間切れの誤答として記録に残った（点検 2026-09-13、実機再現）。同じ計測が続いているときだけ進む */
+  if(!inPractice&&!timedOut&&MS().skipExplain){const s0=session;setTimeout(()=>{if(answered&&session&&session===s0&&phase==='session')next()},450);return}
   freezeFigs();
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'check':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
   fbSimShow();
-  $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。「次へ」で次の問題に進みます。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
+  $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。下のボタンで進みます。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
   const toMeasure=inPractice&&practiceLeft===0&&backTo!=='about';
   if(inPractice&&practiceLeft===0)$('#next').innerHTML=(backTo==='about'?'説明に戻る':'計測開始')+ic('next','s');
   else if(session&&session.ended)$('#next').textContent='結果を見る';
@@ -1507,15 +1518,16 @@ function next(){
     if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}   // 説明から入った練習は計測に進まない
     startMeasured();return}
   if(session&&session.ended){showSummary();return}
+  if(phase!=='practice'&&!session)return;   // 計測を離れたあとに残ったタイマーから呼ばれても、出題しない
   q=genQ();render();toTop();
 }
 
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
 const INTRO={
-  heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークは毎回向きが変わります。まず N を確認してから機首を読みます。'],
-  attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を A〜D から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
-  combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を A〜D から選びます。','方位指示器は現在の方位が上に来ます。'],
-  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を A〜D の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。','変化は 3 種類。水平線が傾く → 操縦桿の左右、水平線が上下する → 操縦桿の奥・手前、景色が横に流れる → 方向舵。','2 つの操作は、①→②に片方の変化だけなら順番、①→②で両方が変わっていれば同時。答えの文はどちらも同じです。']
+  heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークの向きは Normal 以上で毎回変わります（Easy では上に固定）。まず N を確認してから機首を読みます。'],
+  attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
+  combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
+  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を 1〜4 の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。','変化は 3 種類（この出題の絵の約束）。景色が画面の中央を軸に回る → 操縦桿の左右。山や塔などの目印が画面の上下へそろって動く → 操縦桿の奥・手前。目印が画面の左右へそろって動く → 方向舵。①で機体が傾いていることが多く、そのときは方向舵でも水平線が上下して見えるので、水平線の高さではなく目印の動く向きで読みます。','2 つの操作は、①→②に片方の変化だけなら順番、①→②で両方が変わっていれば同時。答えの文はどちらも同じです。']
 };
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
    計測に進んだら（startMeasured）ホームボタンに戻る。入口の判定は説明ページのボタンが立てる pendingBack で行う（同じハッシュを操縦操作の選択画面からも使うため） */
@@ -1556,7 +1568,7 @@ function enterMode(m,sub){
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・全体の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
-  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東西南北の 4 方位だけ。N マークの向きは毎回変わる。',hard:'8 方位すべて。N マークの向きは毎回変わる。'},
+  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'N 以外の 7 方位（選択肢は 8 方位）。N マークの向きは毎回変わる。'},
   attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',normal:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
   combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'12 方向すべて。方位指示器の印は毎回変わる。'},
   control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ。視界の中央の目盛りは出ない。'}};
@@ -1570,7 +1582,9 @@ function showSetup(){
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
     ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard']],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
-    ${sel('qCount','出題数',[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']],v=>+v===0||+v>qCap())}
+    ${sel('qCount','出題数',(()=>{const o=[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']];
+      /* 体験版の上限（5 問など）が並びに無いと、選ばれている値の option が無く、灰色の「10 問（完全版）」が見えていた。上限の選択肢を先頭に足す */
+      if(!isFull()&&!o.some(([v])=>v===qCap()))o.unshift([qCap(),`${qCap()} 問`]);return o})(),v=>+v===0||+v>qCap())}
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
     ${sel('sLimit','全体の制限時間',[[0,'なし'],[60,'1 分'],[120,'2 分'],[180,'3 分'],[300,'5 分'],[480,'8 分'],[600,'10 分'],[900,'15 分']])}
@@ -1580,6 +1594,7 @@ function showSetup(){
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupSim3">3D シミュレーターで操縦する</button><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
     <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして、外の見え方の変わり方を確かめるものです。見え方の一覧は、操作の組み合わせごとの視界を並べて見られます。どちらも出題ではありません。</div>`}`;
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);if(el.dataset.key==='level')showSetup()}));
+  if(!isFull()){const qs=$('#setup select[data-key="qCount"]');if(qs)qs.value=String(qMax())}   // 体験版は、実際に出す数（上限で切った値）を選んで見せる
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
   toggle($('#skipChk'),()=>MS().skipExplain,on=>setMS('skipExplain',on));
   toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);
@@ -1600,7 +1615,7 @@ function showIntro(){
 }
 function afterIntro(){startPractice()}
 function startPractice(){
-  setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessTimer').hidden=true;
+  setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessTimer').hidden=true;$('#sessEnd').hidden=true;
   q=genQ();render();toTop();
 }
 function startMeasured(){
@@ -1613,6 +1628,9 @@ function startMeasured(){
   if(sl>0){st.hidden=false;const tick=()=>{const rem=Math.max(0,sl-(performance.now()-session.start)/1000);
       $('#sessVal').textContent=fmtSec(rem);st.classList.toggle('warn',rem<=30);if(rem<=0)endSession()};tick();sessTimerId=setInterval(tick,500)}
   else st.hidden=true;
+  /* 出題数「制限なし」と全体の制限時間「なし」を組み合わせると、結果画面に至る道が無かった（総点検 2026-09-13）。
+     その組み合わせのときだけ「ここで終える」を出す */
+  $('#sessEnd').hidden=!(sl<=0&&qMax()<=0);
   renderStats();next();
 }
 function endSession(){
@@ -1620,12 +1638,12 @@ function endSession(){
   session.ended=true;clearInterval(sessTimerId);$('#sessVal').textContent='0:00';
   if(!answered){clearInterval(timerId);showSummary()}
 }
-function leaveSession(){clearInterval(timerId);clearInterval(sessTimerId);session=null;stopSim()}
+function leaveSession(){clearInterval(timerId);clearInterval(sessTimerId);session=null;stopSim();if(phase==='session'||phase==='practice')setPhase('')}   // 離れたら段階も消す（残っていると、隠れた画面の判定に使われる）
 function showSummary(){
   clearInterval(timerId);clearInterval(sessTimerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
   const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
-  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'制限時間に達しました'}</div>
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:MS().sLimit>0?'制限時間に達しました':'ここで終えました'}</div>
     <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());
@@ -1653,7 +1671,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=142').then(mod=>{
+  import('./sim3d.js?v=143').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1697,7 +1715,7 @@ function runSim(opt){applyScene();
       <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
-      <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（夜は自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
+      <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（離着陸とクリスマスツリー・ローパスでは自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
       <button class="iconbtn landscape" id="simFollow" aria-label="機体を目で追う" aria-pressed="false" title="機体を目で追う（地上から見るとき）"><svg class="ic"><use href="#i-follow"/></svg></button>
       <button class="iconbtn landscape showui swipebtn" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（押すと入り切り。上へなぞると展示飛行モード: 離陸から着陸まで）"><svg class="ic"><use href="#i-auto"/></svg><span class="sdot a" id="autoDot"></span></button>
       <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技（押すと一覧。押したまま技のほうへなぞって離すとホイール）"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
@@ -1719,12 +1737,12 @@ function runSim(opt){applyScene();
     </div>
     <div class="viewhint keyhint">2 回クリックで一時停止　カーソルを動かすと見回し　ホイールで機首の上げ下げ</div>
     <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
-    <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）、斜めは Q・E・Z・C／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で左クリック・右クリック　スモーク スペース</div>
+    <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）、斜めは Q・E・Z・C／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で右クリック　スモーク スペース</div>
     <div class="acts row3"><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
   sim={h:null,keys:new Set(),ptr:null,rud:new Map(),wheelDir:0,wheelUntil:0};
   /* 操縦桿（左）: 円の中でドラッグ。上 = 奥（機首下げ）、右 = 右バンク。離すと中央に戻る */
   const stick=$('#stick'),knob=$('#knob');
-  /* PC: 操縦桿は W（奥）/ S（手前）/ A（左）/ D（右）と矢印、マウスホイール奥・手前。方向舵は O（左）/ P（右）と、視界の上での左クリック（左）/ 右クリック（右） */
+  /* PC: 操縦桿は W（奥）/ S（手前）/ A（左）/ D（右）と矢印、マウスホイール奥・手前。方向舵は O（左）/ P（右）と、視界の上での右クリック（右） */
   const applyInput=()=>{if(!sim||!sim.h)return;const i=sim.h.input,k=sim.keys;
     if(sim.ptr===null){const wheel=sim.wheelUntil>performance.now()?sim.wheelDir:0;
       /* 斜めは Q（左奥）E（右奥）Z（左手前）C（右手前）。画面の操縦桿を斜めに倒したのと同じ 0.71 ずつにする */
@@ -1971,6 +1989,8 @@ function runSim(opt){applyScene();
     ais.forEach(a=>{a.querySelector('.ai-h').setAttribute('transform',`rotate(${-s.b}) translate(0 ${(s.p*K).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-s.b})`)});
     /* HUD: 水平線とピッチの目盛りを機体の姿勢に合わせる（機体マークは動かさない） */
     if(hudAtt)hudAtt.setAttribute('transform',`rotate(${(-s.b).toFixed(1)}) translate(0 ${(s.p*HUD_K).toFixed(1)})`);
+    /* 機内の見せ方では HUD は 3D 側がガラス板に描く（実機どおり）。画面に貼った HUD はそのときは消す */
+    {const el=$('#sim');if(el.classList.contains('hud3d')!==!!s.hud3d)el.classList.toggle('hud3d',!!s.hud3d)}
     /* PC: カーソルを端の帯に置いているあいだ、毎こま少しずつ回す（上の mousemove が向きと速さを決める） */
     if(sim.edgeV&&sim.viewName==='first'&&sim.h.addLook){const now=performance.now();
       const dt=Math.min(.05,Math.max(0,(now-(sim.edgeT||now))/1000));sim.edgeT=now;
@@ -2050,7 +2070,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=142').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=143').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2064,7 +2084,7 @@ function runSim(opt){applyScene();
       /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。
          鍵をかけるのは 編隊・スモーク・写真・タイヤ・ライト。ボタンは消さずに灰色にして出しておく */
       sim.demo=!isFull();
-      /* 体験版で見せる演目は 5 つ（旋回・キューピッド・スタークロス・クリスマスツリー・ローパス・コークスクリュー）。
+      /* 体験版で見せる演目は 4 つ（キューピッド・スタークロス・クリスマスツリー・ローパス・コークスクリュー。旋回は一覧に出ない）。
          残りは一覧に灰色で並べ、押すと断りを出す */
       const demoAllow=()=>{if(sim.demo)sim.h.setAllowed(['orbit','cupid','star','tree','cork'])};
       demoAllow();
@@ -2105,7 +2125,7 @@ function runSim(opt){applyScene();
         fMenu.hidden=true;if(sim.closeWheel)sim.closeWheel();e.stopPropagation()};
       document.addEventListener('pointerdown',closeMenus,true);
       setForm(store.get('simForm','solo'));
-      /* タイヤとライト: 手で出し入れする。昼以外はライトが自動で点いている */
+      /* タイヤとライト: 手で出し入れする。ライトは標準で消えていて、離着陸とクリスマスツリー・ローパスだけ自動で点く */
       const gBtn=$('#simGear'),lBtn=$('#simLight');
       const paintGL=()=>{const g=sim.h.gearState(),l=sim.h.lightState(),k=sim.h.smokeState();
         gBtn.classList.toggle('on',g);gBtn.setAttribute('aria-pressed',String(g));lBtn.classList.toggle('on',l);lBtn.setAttribute('aria-pressed',String(l));
@@ -2276,7 +2296,7 @@ function runSim(opt){applyScene();
       const showLabel=txt=>{if(!nameEl)return;nameEl.textContent=txt||'';nameEl.hidden=!txt};
       /* 技を始める。クリスマスツリー・ローパス以外は昼の空で見せる（設定が自動でも、技のあいだは昼） */
       const doTrick=m=>{
-        if(m.lock){toast('体験版で見られる演目は 5 つです。ほかは完全版で使えます');return}
+        if(m.lock){toast('体験版で見られる演目は 4 つです。ほかは完全版で使えます');return}
         if(m.id!=='tree'&&document.body.dataset.scene!=='day'){
           toast('昼の空で行います');
           runSim({scene:'day',view:sim.viewName,smoke:sim.h.smokeState(),form:sim.h.formation(),
@@ -2331,7 +2351,8 @@ function runSim(opt){applyScene();
         tBtn.addEventListener('pointermove',mv);tBtn.addEventListener('pointerup',up);tBtn.addEventListener('pointercancel',up)});
       tBtn.addEventListener('click',e=>{e.stopPropagation();e.preventDefault()});
       /* 実際に入ったかどうかは sim3d の返り値で決める（展示飛行の着陸体制では入らない）。入らなかったときはその旨を出す */
-      sim.toggleSmoke=()=>{const want=!sim.smoke;const got=sim.h.setSmoke(want);sim.smoke=!!got;store.set('simSmoke',sim.smoke);paint();if(want&&!got)toast('着陸のあいだはスモークを出せません')};
+      sim.toggleSmoke=()=>{if(sim.demo){demoStop();return}   /* PC のスペースキーからも来る。ボタンの鍵だけでは素通りしていた（総点検 2026-09-13） */
+        const want=!sim.smoke;const got=sim.h.setSmoke(want);sim.smoke=!!got;store.set('simSmoke',sim.smoke);paint();if(want&&!got)toast('着陸のあいだはスモークを出せません')};
       sBtn.addEventListener('click',()=>sim.toggleSmoke());
       /* 音: ブラウザの決まりで、押されたその流れの中でしか音を出せない */
       /* 横画面の固定（画面のロック）は廃止した（利用者の指示 2026-09-11）。
@@ -2422,7 +2443,7 @@ function showGallery(){applyScene();
   if(dm){gal.init='level';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols,lock)=>`<div class="gsel${lock?' off':''}"><div class="gl">${title}${lock?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">写真の変化は 3 種類: 水平線の傾き＝操縦桿の左右、水平線の高さ＝操縦桿の奥・手前、景色の横の流れ＝方向舵。2 つの操作は、①→②に片方の変化だけなら順番、両方なら同時（答えの文は同じ）。</div><div class="sub">操作を選ぶと、①からの②③を表示します。${isFull()?'操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。':'体験版で選べるのは操作 1 つずつです。操縦桿と方向舵を組み合わせた見え方は完全版で使えます。'}</div>
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">写真の変化は 3 種類: 景色が中央を軸に回る＝操縦桿の左右、目印が画面の上下へそろって動く＝操縦桿の奥・手前、目印が画面の左右へそろって動く＝方向舵（傾いた機体では方向舵でも水平線が上下して見えるので、目印の動く向きで読む）。2 つの操作は、①→②に片方の変化だけなら順番、両方なら同時（答えの文は同じ）。</div><div class="sub">操作を選ぶと、①からの②③を表示します。${isFull()?'操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。':'体験版で選べるのは操作 1 つずつです。操縦桿と方向舵を組み合わせた見え方は完全版で使えます。'}</div>
     <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab${dm&&k!=='level'?' lockb':''}" data-init="${k}"${dm&&k!=='level'?' data-lock="1"':''}>${v.b}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
@@ -2611,7 +2632,7 @@ function showSetHTML(){
       ${sel('showLen','全体の長さ',[[238,'短め（曲 1 周・約 4 分）'],[463,'標準（曲 2 周・約 7 分 43 秒）'],[688,'長め（曲 3 周・約 11 分 30 秒）']],v=>+v!==238)}
       ${sel('showProg','構成',[['auto','おまかせ（長さに合わせて組む）'],['custom','自分で選ぶ']])}
       <div id="progSlots" hidden></div>
-      <div class="sethelp">展示飛行モード（シミュレーターで自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。体験版でも見られます（長さは「短め」だけ）。「おまかせ」は、長さに合わせて 序盤 → 中盤 → 終盤 → フィナーレ を毎回組み直します。「自分で選ぶ」は、並べた課目をその順に行います（開始位置はそのとき機体がいる方角から最も近い正面を選ぶので、回り込みが短くなります）。</div>
+      <div class="sethelp">展示飛行モード（シミュレーターで自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。体験版でも見られます（長さは「短め」だけ）。「おまかせ」は、長さに合わせて 序盤 → 中盤 → 終盤 → フィナーレ を毎回組み直します。「自分で選ぶ」は、並べた課目をその順に行います（開始位置はそのとき機体がいる方角から最も近い正面を選ぶので、回り込みが短くなります）。課目と課目のあいだは、見えない距離まで離れたところで次の開始位置へ位置を移します（そのときは地上の視点に戻します）。</div>
     </div>
     <div class="setgroup"><h4>演目の曲${isFull()?'':'（完全版）'}</h4>
       ${isFull()?`<div id="musList" class="muslist"></div>
@@ -2619,12 +2640,12 @@ function showSetHTML(){
       <input type="file" id="musFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.aiff,.ogg" multiple hidden>
 `
       :`<div class="sethelp">お手持ちの曲を展示飛行モードに合わせて流す機能は、完全版で使えます。</div>`}
-      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上入れると、順に流して最後まで行ったら最初へ戻ります（1 曲だけなら、3 分 58 秒で 0 分 13 秒へ戻って繰り返します）。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
+      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上入れると、順に流して最後まで行ったら最初へ戻ります（1 曲だけなら、その曲を繰り返します）。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
     </div>
     <div class="setgroup"><h4>音</h4>
       <label class="setting"><span>飛行音の大きさ</span><span class="musbtns"><input type="range" id="setVolAir" min="0" max="100" step="5"><b id="setVolAirN" class="voln">90</b></span></label>
       <label class="setting"><span>曲の大きさ</span><span class="musbtns"><input type="range" id="setVolMus" min="0" max="100" step="5"><b id="setVolMusN" class="voln">55</b></span></label>
-      <div class="sethelp">全体の大きさは端末の音量ボタンで決めます。ここでは飛行音と曲のつり合いを決めます。シミュレーターの横画面の音アイコンは、飛行音と曲の入り切りだけです。</div>
+      <div class="sethelp">全体の大きさは端末の音量ボタンで決めます。ここでは飛行音と曲のつり合いを決めます。シミュレーターの音アイコンは、飛行音と曲の入り切りだけです。</div>
     </div>
 </div>`;
 }
@@ -2685,26 +2706,31 @@ function renderSettingsPage(){
       ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']],v=>v!=='day')}
       ${sel('simDesc','演目の字幕解説',[['on','出す'],['off','出さない']])}
       ${sel('net','通信',[['wifi','Wi-Fi のときだけ'],['any','いつでも']])}
-      <div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。携帯の回線では通信しないので、通信量を使いません。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div></div>
+      <div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。回線の種類が分かる端末では、携帯の回線のときは通信しません（iPhone など回線の種類が分からない端末では通信します）。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div></div>
     ${showSetHTML()}
+    <div class="setgroup"><h4>記録</h4>
+      ${Object.keys(E.MODES).map(m=>{const s=stats[m]||{n:0,c:0,t:0};return `<div class="setting"><span>${E.MODES[m]}</span><span class="musbtns"><span>${s.n?`${s.n} 問・正答率 ${Math.round(s.c/s.n*100)}%・平均 ${(s.t/s.n).toFixed(1)} 秒`:'記録なし'}</span>${s.n?`<button class="btn sm ghost" data-rst="${m}">消す</button>`:''}</span></div>`}).join('')}
+      <div class="sethelp">種目ごとの出題数・正答率・平均解答時間。この端末の中だけに保存されます。</div></div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
-      <div class="sethelp">ヘッダーの更新ボタンで最新版を確認できます。赤い点が付いているときは新しい版が届いています。</div></div>
+      <div class="sethelp">ブラウザ版では、ヘッダーの更新ボタンで最新版を確認できます（赤い点は新しい版の印）。アプリ版では、新しい版が出るとホーム画面に帯でお知らせします。</div></div>
     <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
   wireShowSet($('#settingsPage'));
+  $('#settingsPage').querySelectorAll('[data-rst]').forEach(b=>b.addEventListener('click',()=>{const m=b.dataset.rst;if(!confirm(`${E.MODES[m]} の記録を消しますか？`))return;stats[m]={n:0,c:0,t:0};store.set('stats',stats);renderSettingsPage()}));
   /* 共通の塊（展示飛行モード以下）の select は wireShowSet がつなぐので、ここでは除く */
   $('#settingsPage').querySelectorAll('select').forEach(s=>{if(s.closest('.showset'))return;s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()})});
 }
 /* 解き方のメモ。1 行 1 事で箇条書きにする（長い文がつながっていると、解いている最中に読めない） */
 const TIPS={
-  heading:['N マークの向きをまず見る','そこから機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','機首が N と同じ向きになることはない'],
+  heading:['N マークの向きをまず見る','そこから機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Normal 以上では、機首が N と同じ向きになる問題は出ない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
-  combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','数字は 10 の位まで（3＝030°、12＝120°）'],
-  control:['変化は 3 種類: 水平線の傾き＝操縦桿の左右、水平線の高さ＝操縦桿の奥・手前、景色の横の流れ＝方向舵','傾いているときの方向舵は、傾いた機体に対して横（画面の左右）へ景色が流れる。水平線に沿ってではない','②に両方の変化 → 同時、片方だけ → 順番。答えの文は同じ','操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 水平のまま右を向き、景色が左へ流れる','選択肢は ①→② と ②→③ の順に見る']
+  combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','印の文字（N など）と、その位置から読む'],
+  control:['変化は 3 種類: 景色が中央を軸に回る＝操縦桿の左右、目印が画面の上下へそろって動く＝奥・手前、目印が画面の左右へそろって動く＝方向舵','傾いた機体では、方向舵でも水平線が上下して見える。水平線の高さではなく、目印の動く向きで読む','傾いているときの方向舵は、傾いた機体に対して横（画面の左右）へ景色が流れる。水平線に沿ってではない','②に両方の変化 → 同時、片方だけ → 順番。答えの文は同じ','操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 機体に対して右を向き、目印が左へ流れる（水平線の傾きはほぼ変わらない）','選択肢は ①→② と ②→③ の順に見る']
 };
-const KBD={heading:'1〜8 で方位（北から時計回り）、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
+const KBD={heading:'札の数字 1〜8 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 
 $('#next').addEventListener('click',next);
-$('#reset').addEventListener('click',()=>{stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
+$('#reset').addEventListener('click',()=>{if(!confirm(`${E.MODES[mode]} の記録を消しますか？`))return;stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
+$('#sessEnd').addEventListener('click',()=>{if(!session||session.ended||!confirm('ここで計測を終えて結果を見ますか？'))return;session.ended=true;showSummary()});
 document.addEventListener('keydown',e=>{
   if(document.body.dataset.view!=='train'||$('#quiz').hidden)return;
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
@@ -2745,7 +2771,8 @@ function applyShow(){if(!sim||!sim.h||!sim.h.setShowLen)return;
 
 /* ===== 画面の切り替え（ホーム / 訓練 / 設定 / 説明）: URL のハッシュで管理 ===== */
 function renderHome(){
-  const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒（${s.n} 問）`:'まだ記録なし'};
+  /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
+  const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODES[m]}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
     +(isFull()?'':`<div class="demo"><span><b>体験版</b>: 鍵のかかった機能は完全版で使えます</span><button class="btn" data-go2="buy">くわしく</button></div>`);
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
@@ -2771,24 +2798,28 @@ function netOK(){
   return true;
 }
 /* お知らせ: news.json（利用者が送るお知らせと、版ごとの更新情報）。新しいお知らせが届いたらメニューボタンに赤い点を出し、メニューを開いたら消す */
-let newsItems=null,latestNotice=null;
+let newsItems=null,latestNotice=null,newsLatest='';
+const NEWS_URL='https://kokuteki.amaterasu-vocab.com/news.json';   /* アプリ版が読む本番のお知らせ（worker.js が CORS の許可を付けて返す） */
 async function loadNews(){
   if(newsItems)return newsItems;
-  const get=async o=>{const r=await fetch('news.json',o);if(!r.ok)throw 0;return r.json()};
+  const get=async(o,u)=>{const r=await fetch(u||'news.json',o);if(!r.ok)throw 0;return r.json()};
   let d=null;
-  /* Wi-Fi でないときは取りに行かず、端末に残っているものだけを読む */
-  if(netOK()){try{d=await get({cache:'no-store'})}catch(e){try{d=await get({})}catch(e2){d=null}}}
+  /* Wi-Fi でないときは取りに行かず、端末に残っているものだけを読む。
+     アプリ版は news.json を同梱している（mobile/copy-web.js）ので、相対で読むとビルド時の写ししか見えず、
+     サーバーの新しいお知らせも新しい版も届かなかった（総点検 2026-09-13）。通信できるときは本番の URL から取り、だめなら同梱の写し */
+  if(netOK()){
+    if(NATIVE){try{d=await get({cache:'no-store'},NEWS_URL)}catch(e){try{d=await get({})}catch(e2){d=null}}}
+    else{try{d=await get({cache:'no-store'})}catch(e){try{d=await get({})}catch(e2){d=null}}}}
   else{try{d=await get({cache:'force-cache'})}catch(e){d=null}}
   const list=(d&&Array.isArray(d.items)?d.items:[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id)));
-  if(d)newsItems=list;   // 読めなかったときは覚えない（次に開いたときにもう一度試す）
+  if(d){newsItems=list;newsLatest=String(d.latest||'')}   // 読めなかったときは覚えない（次に開いたときにもう一度試す）
   return list;
 }
 async function checkNews(){
   const items=await loadNews();
-  /* アプリ版: お知らせの先頭にある更新の版が、この端末の版より新しければ帯で知らせる（更新ボタンの代わり） */
-  if(NATIVE){const u=items.find(i=>i.type==='update');
-    if(u){const uv=String(u.title).split(' ')[0];
-      if(verNum(uv)>verNum(APP_VER)&&store.get('updSeen')!==uv)showUpdBanner(uv)}}
+  /* アプリ版: news.json の latest（いま配っている版）が、この端末の版より新しければ帯で知らせる（更新ボタンの代わり）。
+     お知らせの項目は節目ごとにまとめて書く（版ごとには足さない）ので、先頭の項目の版ではなく latest を見る */
+  if(NATIVE&&newsLatest&&verNum(newsLatest)>verNum(APP_VER)&&store.get('updSeen')!==newsLatest)showUpdBanner(newsLatest);
   const n=items.find(i=>i.type==='notice');if(!n)return;
   latestNotice=n.id;
   if(store.get('newsSeen')!==n.id){menuBtn.classList.add('has');$('#newsDot').hidden=false}
@@ -3048,11 +3079,11 @@ function renderAbout(){
 function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版</h3>
     <div class="sethelp">体験版でも 4 種目すべてと 3D シミュレーターを試せます。完全版では、次の鍵が外れます。</div>
-    <ul><li>難易度 Normal と Hard（方位は 8 方位、姿勢は翼の傾きも、操縦操作は 2 つの操作）。</li><li>出題数と制限時間を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
+    <ul><li>難易度 Normal と Hard（Normal から姿勢が 14 方向、操縦操作が 2 つの操作。Hard では方位が N 以外の 7 方位、姿勢に翼の傾き、方位指示器の印が毎回変わる）。</li><li>出題数を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ、背景（夕方・夜・自動）。</li><li>技を単発で選ぶときの全演目、展示飛行モードの長さ（標準・長め）、演目の曲。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方、解説の中の「この問題の見え方」。</li><li>アプリの中の「ご要望・お問い合わせ」。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
     <div class="sethelp">完全版はアプリでの買い切りです（2,000 円・広告なし）。一次試験の期間の価格で、9 月 27 日から 1,000 円に下げます。iPhone・iPad 版を <b>App Store</b> で配信しています。Android 版（Google Play）は準備中です。このブラウザ版は体験版で、買う場所ではありません。</div>
     <div class="acts"><a class="btn" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><button class="btn ghost" id="buyBack">体験版に戻る</button></div>
     <h4 class="codeh">解除コードをお持ちの方</h4>
-    <div class="sethelp">解除コードは 1 つにつき 1 回だけ使えます。入力して有効にすると、この端末が全機能版になります。アプリ版を購入済みで PC でも使いたい方は、「ご要望・お問い合わせ」から購入の控えを添えて請求してください。</div>
+    <div class="sethelp">解除コードを入力して有効にすると、この端末が全機能版になります。アプリ版を購入済みで PC でも使いたい方は、案内サイト最下部の問い合わせ欄から、購入の控えを添えて請求してください。</div>
     <div class="coderow"><input id="buyCode" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="解除コード"><button class="btn sm" id="buyApply">有効にする</button></div>
     <div class="sethelp" id="buyMsg"></div>`;
   $('#buyBack').addEventListener('click',()=>{location.hash='#home'});
@@ -3061,7 +3092,7 @@ function renderBuy(){
     try{
       const ok=await redeemCode(k);
       if(ok){edition='full';store.set('edition','full');store.set('key',k);$('#buyMsg').textContent='全機能版を有効にしました。';setTimeout(()=>{location.hash='#home';renderHome()},600)}
-      else $('#buyMsg').textContent='このコードは使えません（使用済みか、まちがっています）。'
+      else $('#buyMsg').textContent='このコードは使えません。'
     }catch(e){$('#buyMsg').textContent='確かめられませんでした。通信できる状態で、もう一度お試しください。'}
     btn.disabled=false});
 }
@@ -3089,7 +3120,8 @@ function showUpdBanner(ver){
   if($('#updBanner'))return;
   const d=document.createElement('div');d.id='updBanner';d.className='updbanner';
   d.innerHTML=`<span>新しい版 <b>${ver}</b> が出ています。App Store または Google Play で更新できます。</span><button class="btn sm" id="updBanX">閉じる</button>`;
-  document.querySelector('main').prepend(d);
+  /* ホーム画面の先頭に出す。以前は main（訓練画面の出題カード）に入れていたので、ホームには出なかった（総点検 2026-09-13） */
+  $('#view-home').prepend(d);
   $('#updBanX').addEventListener('click',()=>{try{store.set('updSeen',ver)}catch(e){}d.remove()});
 }
 function applyWaiting(){if(swReg&&swReg.waiting){try{sessionStorage.setItem('aat.updated','1')}catch(e){}swReg.waiting.postMessage('SKIP_WAITING');return true}return false}
@@ -3145,11 +3177,12 @@ $('#updBtn').addEventListener('click',async()=>{
 });
 const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 let deferredPrompt=null;const dismissed=store.get('installDismissed',false);
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(!standalone&&!dismissed){$('#installText').textContent='アプリとしてインストールできます。';$('#installOs').textContent='Android';$('#installClose').style.display='none';$('#install').classList.add('show')}});
+/* アプリ版（Capacitor）では出さない。WKWebView は standalone にならないので、購入者に「ホーム画面に追加」の案内が出ていた（総点検 2026-09-13） */
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(!standalone&&!dismissed&&!NATIVE){$('#installText').textContent='アプリとしてインストールできます。';$('#installOs').textContent='Android';$('#installClose').style.display='none';$('#install').classList.add('show')}});
 $('#installBtn').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('#install').classList.remove('show')});
 $('#installClose').addEventListener('click',()=>{$('#install').classList.remove('show');store.set('installDismissed',true)});
 const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
-if(isIOS&&!standalone&&!dismissed){$('#installText').textContent='Safari の共有メニューから「ホーム画面に追加」でアプリとして使えます。';$('#installOs').textContent='iOS';$('#installBtn').style.display='none';$('#install').classList.add('show')}
+if(isIOS&&!standalone&&!dismissed&&!NATIVE){$('#installText').textContent='Safari の共有メニューから「ホーム画面に追加」でアプリとして使えます。';$('#installOs').textContent='iOS';$('#installBtn').style.display='none';$('#install').classList.add('show')}
 })();
 </script>
 </body>

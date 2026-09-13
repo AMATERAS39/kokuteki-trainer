@@ -52,8 +52,8 @@
   ];
 
   const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on', level: 'hard' };
-  const LEVELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
-  const lvOf = s => s.level === 'medium' ? 'normal' : (s.level || 'hard');   // medium は旧称
+  const LEVELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard', max: 'Max' };   // Max は操縦操作だけ
+  const lvOf = s => s.level === 'medium' ? 'normal' : (s.level || 'hard');   // medium は旧称。max は操縦操作だけ（ほかの種目では hard として扱う）
   /* 画面の姿勢指示器のリアルタイム更新に使う係数（svgAI と同じ値） */
   const CK = { aiK: 2.4 };   // 画面の姿勢指示器の係数（svgAI と同じ）
 
@@ -65,6 +65,7 @@
      medium: 答えは東西南北のみ、N マークはランダム（機首とは重ならない）
      hard: 答えは 8 方位、N マークはランダム（機首とは重ならない） */
   function genHeading(s) {
+    if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
     const lv = lvOf(s);
     const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'normal' ? pick([2, 4, 6]) : 1 + rnd(7);
     const phi = (lv === 'easy' || s.north === 'fixed') ? 0 : rnd(8) * 45;
@@ -97,6 +98,7 @@
      medium: 14 方向すべて。翼は水平に固定
      hard: 14 方向すべて + バンク */
   function genAttitude(s) {
+    if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
     const lv = lvOf(s);
     const pool = lv === 'easy' ? DIR14.filter(x => x.id === 'north' || x.id === 'up' || x.id === 'down') : DIR14;
     const d = pick(pool), pitch = d.pitch, bank = lv === 'normal' ? 0 : pickBank(s, d);
@@ -118,6 +120,7 @@
   }
   /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。誤答は「方位違い（姿勢は同じ）」と「姿勢の区分違い（方位は同じ）」を混ぜる */
   function genCombo(s) {
+    if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
     /* 難易度: easy は東西南北のみ・水平（上下も傾きもなし）、medium は東西南北のみ（傾きあり）、hard は 12 方向すべて */
     const lv = lvOf(s);
     const pool = DIR14.filter(x => x.heading !== null && (lv === 'hard' || x.pitch === 0));
@@ -157,13 +160,15 @@
     /* 出題は 1 操作（同じ操作を続ける）と 2 操作の混在。2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。
        同じ操作の繰り返しや左右の切り返し（左に倒して右に倒す等）は 2 操作としては出さない */
     const STICK = OPS.filter(o => o.group === 'stick'), RUDDER = OPS.filter(o => o.group === 'rudder');
-    /* 難易度: easy は 1 操作だけ、medium は 1 操作と 2 操作の混在、hard は混在＋視界の目盛りなし */
-    const lv = lvOf(s);
+    /* 難易度: easy は 1 操作だけ、normal は 1 操作と 2 操作の混在、hard は混在＋視界の目盛りなし、
+       max は hard に加えて①が必ず傾き＋機首の上下の複合（利用者の指示 2026-09-13。本番にその写真がある） */
+    const lv0 = lvOf(s), lv = lv0 === 'max' ? 'hard' : lv0, max = lv0 === 'max';
     const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && Math.random() < 1 / 3);
     const first = one ? pick(OPS).id : pick(STICK).id;
     const ops = one ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';
-    const init = { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
+    const init = max ? { bank: pick([-30, -15, 15, 30]), pitch: pick([-10, 10]), yaw: pick([-10, 0, 10]) }
+               : { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
     const single = ops[0] === ops[1];
     /* 2 操作は「順番」（①→②で操縦桿、②→③で方向舵）と「同時」（①→②でも②→③でも両方が進む）を半々で出す。
        答えの文はどちらも同じ。試験の写真がどちらの形かは文言から分からないので、両方に慣れる */
@@ -196,7 +201,7 @@
     const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c)), 3 - disSame.length);
     const dis = disSame.concat(disRest);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
-    return { type: 'control', ops, frames, init, single, simul, opts, level: lv, hud: lv !== 'hard' };
+    return { type: 'control', ops, frames, init, single, simul, opts, level: lv0, hud: lv !== 'hard' };
   }
   function generate(mode, settings) {
     const s = Object.assign({}, DEFAULT_SETTINGS, settings);

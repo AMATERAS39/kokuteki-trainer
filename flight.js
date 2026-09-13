@@ -7,7 +7,7 @@
      迎角 α = 機首と速度の縦のずれ、横滑り角 β = 横のずれ。揚力 KL·α·q（機体の上）、横力 −KY·β·q（機体の右）、重力 g（鉛直下）。
      速さは一定（推力＝抗力）。q = (v/60)²（揚力・横力は速さの二乗に比例）。
      補助翼 → ロール角速度 ROLL·x、昇降舵 → 迎角の指令（手前で +A_PULL、奥で −A_PUSH、時定数 TAU_A）、方向舵 → 横滑り角の指令（±BETA_MAX、時定数 TAU_B）。
-     方向安定: 速度の向きが旋回で変わったぶんだけ機首も世界の上下軸まわりに回す（実機は風見安定が強く、旋回中の横滑りはほぼ 0）。
+     風見安定（縦横）: 速度の向きが変わったぶんだけ機首も同じ回転で回す（迎角・横滑り角は舵の指令でしか変わらない）。
    重力: 出題・解説・動きで見るは本物の重力。操作モード（自分で操縦する画面）は利用者の決めで重力を無視し、代わりに釣り合いの揚力の鉛直成分を差し引く
    （gravity:false。釣り合いで飛んでいればどのバンクでも沈まず、旋回率は物理と同じ）。
    ES module としても（sim3d.js が import）、ふつうの script としても（index.html → engine.js）読める: 何も export せず globalThis.AAT_FLIGHT に置く */
@@ -21,8 +21,8 @@
   /* 速さ 200 m/s（約 720 km/h。T-4 の巡航に近い速い想定）。バンクによる旋回率は g·tanφ/V で速さに反比例するので、
      遅い想定ほど、傾いているだけで目印が横へ流れる量が大きくなる（実測: バンク 30° を 4 秒保つと 60 m/s で 23.6°、150 m/s で 9.0°、200 m/s で 6.7°、250 m/s で 5.3°）。
      受験生には「機体に対して横の流れ＝方向舵」としか説明されないので、速い想定にして旋回の流れを小さく保つ（利用者の判断 2026-09-13）。
-     入力（200 m/s で水平から 2 秒）: 操縦桿 左右 ±0.17 → バンク 20.4°、奥 0.2605 → 機首 −8.0°、手前 −0.1735 → 機首 +8.0°、方向舵 ±0.5259 → 機首の振れ 10.0° */
-  const EXAM = { V: 200, INPUT: { 'stick-right': { x: 0.17 }, 'stick-left': { x: -0.17 }, 'stick-forward': { y: 0.2605 }, 'stick-back': { y: -0.1735 }, 'rudder-right': { r: 0.5259 }, 'rudder-left': { r: -0.5259 } } };
+     入力（200 m/s で水平から 2 秒）: 操縦桿 左右 ±0.17 → バンク 20.4°、奥 0.0728 → 機首 −8.0°、手前 −0.0483 → 機首 +8.0°、方向舵 ±0.5259 → 機首の振れ 10.0°（v05.18 の風見安定（縦）で合わせ直した） */
+  const EXAM = { V: 200, INPUT: { 'stick-right': { x: 0.17 }, 'stick-left': { x: -0.17 }, 'stick-forward': { y: 0.0728 }, 'stick-back': { y: -0.0483 }, 'rudder-right': { r: 0.5259 }, 'rudder-left': { r: -0.5259 } } };
 
   /* ===== 試験の景色の世界（出題の絵 engine.js の svgCockpit と、3D の sim3d.js の scenery:'exam' が同じものを描く） =====
      遠くの目印は方向（絵の px: 方位 = x/6°、仰角 = −y/6°）。地面の目印は始めの位置からの m（x 東・y 北）。機体の高さは H（m）。
@@ -84,12 +84,21 @@
     const kl = PHY.KL * alpha * q, ky = -PHY.KY * beta * q;
     const acc = [up[0] * kl + right[0] * ky, up[1] * kl + right[1] * ky, up[2] * kl + right[2] * ky];
     acc[2] -= gravity ? G : PHY.KL * a0 * q * up[2];
-    const psi0 = Math.atan2(vel[0], vel[1]);
+    const vl0 = Math.hypot(vel[0], vel[1], vel[2]), v0 = [vel[0] / vl0, vel[1] / vl0, vel[2] / vl0];
     vel[0] += acc[0] * dt; vel[1] += acc[1] * dt; vel[2] += acc[2] * dt;
     { const k = v / Math.hypot(vel[0], vel[1], vel[2]); vel[0] *= k; vel[1] *= k; vel[2] *= k; }
     pos[0] += vel[0] * dt; pos[1] += vel[1] * dt; pos[2] += vel[2] * dt;
-    let dpsi = Math.atan2(vel[0], vel[1]) - psi0; if (dpsi > Math.PI) dpsi -= 2 * Math.PI; else if (dpsi < -Math.PI) dpsi += 2 * Math.PI;
-    if (dpsi) M = mul(rot('z', -dpsi), M);                                        // 方向安定（世界の上下軸まわり）
+    /* 風見安定（縦横とも）: 速度の向きが変わったぶんだけ機首も同じ回転で回す（迎角・横滑り角・バンクは変わらない）。
+       v05.17 までは横（世界の上下軸まわり）だけで、縦は昇降舵の時定数 τ_A で機首が速度を追っていた。速い機体では τ_A の遅れが
+       わずかな迎角の増えとなり、それが大きな揚力（KL·q）になって、傾いて手を放しても沈まず「水平面に平行に旋回」していた（利用者の指摘 2026-09-13）。
+       実機は縦の安定も強く、機首は相対風に沿う。手を放して傾けば、揚力の鉛直成分が足りないぶん経路が下へ曲がり、機首がそれを追う */
+    { const v1 = [vel[0] / v, vel[1] / v, vel[2] / v], ax = [v0[1] * v1[2] - v0[2] * v1[1], v0[2] * v1[0] - v0[0] * v1[2], v0[0] * v1[1] - v0[1] * v1[0]];
+      const sn = Math.hypot(ax[0], ax[1], ax[2]), cs = dot(v0, v1);
+      if (sn > 1e-12) { const k = [ax[0] / sn, ax[1] / sn, ax[2] / sn], c = cs, s1 = sn, t = 1 - c;
+        const Rw = [[t * k[0] * k[0] + c, t * k[0] * k[1] - s1 * k[2], t * k[0] * k[2] + s1 * k[1]],
+                    [t * k[0] * k[1] + s1 * k[2], t * k[1] * k[1] + c, t * k[1] * k[2] - s1 * k[0]],
+                    [t * k[0] * k[2] - s1 * k[1], t * k[1] * k[2] + s1 * k[0], t * k[2] * k[2] + c]];
+        M = mul(Rw, M); } }
     const roll = PHY.ROLL * (inp.x || 0) * dt; if (roll) M = mul(M, rot('y', roll));   // 補助翼
     const y = inp.y || 0, alphaWant = a0 + (y < 0 ? -y * PHY.A_PULL : -y * PHY.A_PUSH);   // 手前（y<0）で迎角を増やす
     const betaWant = -(inp.r || 0) * PHY.BETA_MAX;                                       // 右方向舵で機首を右へ（β は負）

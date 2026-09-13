@@ -99,7 +99,14 @@
                     [t * k[0] * k[1] + s1 * k[2], t * k[1] * k[1] + c, t * k[1] * k[2] - s1 * k[0]],
                     [t * k[0] * k[2] - s1 * k[1], t * k[1] * k[2] + s1 * k[0], t * k[2] * k[2] + c]];
         M = mul(Rw, M); } }
-    const roll = PHY.ROLL * (inp.x || 0) * dt; if (roll) M = mul(M, rot('y', roll));   // 補助翼
+    /* 補助翼: 速度の向き（相対風）を軸に回す。機首の軸まわりに回すと、横滑り（方向舵中）のぶんが迎角に化け、
+       τ_A の遅れの間に大きな揚力（KL·q）が出て、左ロール＋左方向舵で機体が上昇した（4 秒で +16 m。利用者の指摘 2026-09-13「水平面に平行に移動しているように見える」の点検で発見）。
+       実機も縦横の安定が強く、数秒の尺度では相対風のまわりに回るのと同じ（迎角・横滑り角は舵の指令でしか変わらない、の徹底） */
+    const roll = PHY.ROLL * (inp.x || 0) * dt;
+    if (roll) { const k = [vel[0] / v, vel[1] / v, vel[2] / v], c = Math.cos(roll), s1 = Math.sin(roll), t = 1 - c;
+      M = mul([[t * k[0] * k[0] + c, t * k[0] * k[1] - s1 * k[2], t * k[0] * k[2] + s1 * k[1]],
+               [t * k[0] * k[1] + s1 * k[2], t * k[1] * k[1] + c, t * k[1] * k[2] - s1 * k[0]],
+               [t * k[0] * k[2] - s1 * k[1], t * k[1] * k[2] + s1 * k[0], t * k[2] * k[2] + c]], M); }
     const y = inp.y || 0, alphaWant = a0 + (y < 0 ? -y * PHY.A_PULL : -y * PHY.A_PUSH);   // 手前（y<0）で迎角を増やす
     const betaWant = -(inp.r || 0) * PHY.BETA_MAX;                                       // 右方向舵で機首を右へ（β は負）
     const dA = (alphaWant - alpha) * Math.min(1, dt / PHY.TAU_A), dB = (betaWant - beta) * Math.min(1, dt / PHY.TAU_B);

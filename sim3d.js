@@ -4,7 +4,7 @@
    ±LIMIT m の四角い空間の中を一定速度で飛び、壁と地面で止まる。 */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import './flight.js?v=3';   // 飛行モデルと試験の景色の世界（globalThis.AAT_FLIGHT）
+import './flight.js?v=4';   // 飛行モデルと試験の景色の世界（globalThis.AAT_FLIGHT）
 
 const D = Math.PI / 180;
 export const LIMIT = 3300;                       // 壁までの距離（原点から、m）。壁は近づくまで見えない（place で薄くする）。1800 → 3300（利用者の指示 2026-09-13「制限範囲を拡大」。地面 8 km 角の内側）

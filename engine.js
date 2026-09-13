@@ -422,9 +422,16 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
 <path d="M-130,0 L-90,-72 L-50,0 Z" fill="var(--ck-mtn2, #65788d)"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="var(--ck-snow, #e8eef4)"/>
 <rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/>${mk}</g>
 <line x1="-900" x2="900" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g></g>
-${ref}${hud ? '<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>' : ''}
+${ref}${ckFrame(hud)}</svg>`;
+  }
+  /* 視界の枠（HUD の印・キャノピーの縁・グレアシールド）。svgCockpit と、3D の景色に重ねる svgCockpitFrame で同じものを使う */
+  const ckFrame = hud => `${hud ? '<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>' : ''}
 <path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z" fill="none" stroke="var(--line)" stroke-width="4"/>
-<path d="M0,240 L0,190 Q180,170 360,190 L360,240 Z" fill="var(--glare, #1a2027)"/><path d="M0,192 Q180,172 360,192" fill="none" stroke="var(--line2)" stroke-width="3"/></svg>`;
+<path d="M0,240 L0,190 Q180,170 360,190 L360,240 Z" fill="var(--glare, #1a2027)"/><path d="M0,192 Q180,172 360,192" fill="none" stroke="var(--line2)" stroke-width="3"/>`;
+  /* 3D の景色（「動きで見る」の一人称）の上に重ねる枠。キャノピーの外は枠の色で塗り、中は透かす */
+  function svgCockpitFrame(hud = true) {
+    return `<svg viewBox="0 0 360 240" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block" aria-hidden="true">
+<path fill-rule="evenodd" d="M0,0 H360 V240 H0 Z M16,40 Q180,4 344,40 L344,182 L16,182 Z" fill="var(--bezel, #0a0d11)"/>${ckFrame(hud)}</svg>`;
   }
 
   /* ---------- 描画: T-4 イラスト版（上面図・後方/前方図・側面図を回転して使う） ---------- */
@@ -462,5 +469,5 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
   }
 
   global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, applyOp, opsText,
-    gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, figTopDown, figAttitude, figDir14 };
+    gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, svgCockpitFrame, figTopDown, figAttitude, figDir14 };
 })(window);

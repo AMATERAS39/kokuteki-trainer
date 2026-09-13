@@ -4,6 +4,7 @@
    ±LIMIT m の四角い空間の中を一定速度で飛び、壁と地面で止まる。 */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import './flight.js?v=2';   // 飛行モデルと試験の景色の世界（globalThis.AAT_FLIGHT）
 
 const D = Math.PI / 180;
 export const LIMIT = 3300;                       // 壁までの距離（原点から、m）。壁は近づくまで見えない（place で薄くする）。1800 → 3300（利用者の指示 2026-09-13「制限範囲を拡大」。地面 8 km 角の内側）
@@ -191,6 +192,7 @@ export function mount(container, opt = {}) {
       /* 試験の世界は出力の色空間へ直す（地面・山の MeshBasicMaterial と同じ色になり、絵の CSS の色と一致する）。シミュレーター本体の空の見え方は変えない */
       ' vec4 raw = gl_FragColor;\n#include <colorspace_fragment>\n if (below < 0.5) gl_FragColor = raw; }'
   }));
+  if (exam) sky.renderOrder = -10;   // 試験の世界: 空の球（水平線より下は地面の色）をいちばん先に描く。後だと地面の目印（不透明）を塗りつぶす
   world.add(sky);
   if (night && !exam) {   // 星（試験の世界は絵と同じ位置の星を下で置く）
     const n = 700, pos = new Float32Array(n * 3);
@@ -382,7 +384,7 @@ export function mount(container, opt = {}) {
        ・空: 絵と同じ縦のグラデーション（水平線の色 → 仰角 150° で上の色）。星は夜だけ、絵と同じ 70 個
        ・地面は光を当てない平らな色、水平線より下で地面の板の外は空の球が地面の色（絵は水平線から下が全部地面）
        滑走路・民家・木・空港の山・灯火は置かない（試験の絵に無い） */
-    const H0 = EXAM_H, K = EXAM_K, PX = v => v / 6 * D;      // H0: 目の高さ（1,000 m）。K: 遠さの倍率。PX: px → ラジアン
+    const WD = globalThis.AAT_FLIGHT.WORLD, H0 = WD.H, K = EXAM_K, PX = v => v / 6 * D;   // H0: 目の高さ（1,000 m）。K: 遠さの倍率。PX: px → ラジアン
     const ex = new THREE.Group(); ex.position.set(START.x, START.y, 0); props.add(ex);   // 世界の中心＝始めの位置の真下
     /* 絵の図形（px の多角形）を、目から R 離れた円筒に巻いて置く。x px → 方位 x/6°、y px → 仰角 −y/6°（高さ H0 + R·tan）。
        光を当てない平らな色（絵と同じ）。横に長い図形は 10 px ごとに縦に刻む（弦が円筒の内側を通って角度がずれないように） */
@@ -401,30 +403,32 @@ export function mount(container, opt = {}) {
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); ex.add(new THREE.Mesh(g, mat));
     };
     /* 山並み（絵の mtn: M-900,0 → PEAKS → 900,0）。4 km */
-    const PEAKS_PX = [22, 40, 18, 55, 30, 72, 26, 48, 20, 64, 36, 28, 58, 24, 44, 30, 68, 22, 50, 34, 26, 60, 18, 42, 30, 54, 20, 46, 38, 24];
-    ridge(4000 * K, [[-900, 0], ...PEAKS_PX.map((v, i) => [-870 + i * 60, -v]), [900, 0]], flat(col.mtn));
+    ridge(4000 * K, [[-900, 0], ...WD.peaks.map((v, i) => [-870 + i * 60, -v]), [900, 0]], flat(col.mtn));
     /* 雪山（絵: −130,0 / −90,−72 / −50,0、雪は −100,−54 / −90,−72 / −80,−54 / −90,−58）。3 km。雪は山のすぐ手前 */
-    wall(3000 * K, [[-130, 0], [-90, -72], [-50, 0]], flat(col.mtn2));
-    wall(2990 * K, [[-100, -54], [-90, -72], [-80, -54], [-90, -58]], flat(col.snow));
+    wall(3000 * K, WD.snow.tri, flat(col.mtn2));
+    wall(2990 * K, WD.snow.cap, flat(col.snow));
     /* 塔（絵: 柱 228〜232 × −40〜0、頭 220〜240 × −46〜−38）。2.5 km。頭は柱のすぐ手前 */
-    wall(2500 * K, [[228, 0], [232, 0], [232, -40], [228, -40]], flat(0x2b333c));
-    wall(2490 * K, [[220, -38], [240, -38], [240, -46], [220, -46]], flat(0xe2574f));
+    wall(2500 * K, WD.tower.post, flat(0x2b333c));
+    wall(2490 * K, WD.tower.cap, flat(0xe2574f));
     { const [x, y, z] = at(2500 * K, 230, -46); obst.push({ x: START.x + x, y: START.y + y, r: 2500 * K * Math.tan(PX(10)), h: z, flat: true }); }
     /* 星（夜だけ。絵の STARS と同じ乱数で同じ 70 個: cx −600〜600、cy −40〜−340、半径 0.8〜2.2 px） */
-    if (night) { let sx = 7; const r = () => (sx = (sx * 48271) % 2147483647) / 2147483647; const pos = [];
-      for (let i = 0; i < 70; i++) { const cx = Math.round(-600 + r() * 1200), cy = Math.round(-40 - r() * 300); r(); const az = PX(cx), el = PX(-cy);
-        pos.push(5400 * K * Math.sin(az) * Math.cos(el), 5400 * K * Math.cos(az) * Math.cos(el), H0 + 5400 * K * Math.sin(el)); }
+    if (night) { const pos = [];
+      for (const sIt of WD.stars) { const az = PX(sIt.x), el = PX(-sIt.y); pos.push(5400 * K * Math.sin(az) * Math.cos(el), 5400 * K * Math.cos(az) * Math.cos(el), H0 + 5400 * K * Math.sin(el)); }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       ex.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xe3eaf5, size: 2.4, sizeAttenuation: false, fog: false }))); }
-    { const R = 5500 * K, az = PX(110), el = PX(96);            // 太陽
+    { const R = 5500 * K, az = PX(WD.sun.x), el = PX(-WD.sun.y);   // 太陽
       const sun = new THREE.Mesh(new THREE.SphereGeometry(R * Math.tan(PX(15)), 24, 12), new THREE.MeshBasicMaterial({ color: col.sun, fog: false }));
       sun.position.set(R * Math.sin(az) * Math.cos(el), R * Math.cos(az) * Math.cos(el), H0 + R * Math.sin(el)); ex.add(sun); }
     { const lm = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false, fog: false });   // 地面の線（太さと間隔は高さに比例）
       /* 横の線は 300 m おき: 機体は 2 秒で 400 m 進むので、線が流れて前へ進んでいることが分かる（高さに比例させた 1,875 m おきでは、進んでいないように見えた。利用者の指摘） */
-      const w = 2.5 * H0 / 80, L = 400000, gap = 300;
-      [-7, -5, -3.5, -2.2, -1.2, -0.5, 0.5, 1.2, 2.2, 3.5, 5, 7].forEach(k => { const d = 130 / 240 * k * H0;
+      const w = 2.5 * H0 / 80, L = 400000, gap = WD.gap;
+      WD.radial.forEach(k => { const d = 130 / 240 * k * H0;
         const l = new THREE.Mesh(new THREE.PlaneGeometry(w, L), lm); l.position.set(d, 0, 0); l.renderOrder = -1; ex.add(l); });
       for (let yy = -60000; yy <= 60000; yy += gap) { const l = new THREE.Mesh(new THREE.PlaneGeometry(L, w), lm); l.position.set(0, yy, 0); l.renderOrder = -1; ex.add(l); } }
+    /* 地面の目印（畑・湖・道・集落）: 出題の絵（svgCockpit）と同じ位置・同じ色の平らな多角形 */
+    WD.ground.forEach(gd => { const sh = new THREE.Shape(gd.pts.map(p => new THREE.Vector2(p[0], p[1])));
+      const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: cssColor(['--ck-' + gd.c], WD.colors[gd.c]), fog: false, depthWrite: false }));
+      m.position.z = 0.4; m.renderOrder = -1; ex.add(m); });
     { const R = 2400 * K, hz = new THREE.Mesh(new THREE.CylinderGeometry(R, R, R * Math.tan(PX(1.5)), 128, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, fog: false, side: THREE.DoubleSide }));   // 水平線
       hz.rotation.x = Math.PI / 2; hz.position.z = H0; ex.add(hz); }
   }

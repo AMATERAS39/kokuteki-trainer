@@ -557,10 +557,10 @@ body[data-phase="sim"] .layout{grid-template-columns:1fr}
 .d14{position:relative;border-radius:.625rem;overflow:hidden;border:1px solid var(--line);background:var(--d14bg,#cdd3da)}
 /* 背景の昼／夜（設定 scene: auto/day/night。auto は回答時の時刻で決める）。機体画像の背景と、操縦操作の視界に適用 */
 /* 昼はテーマの --sky（暗めの青）ではなく、明るい青空〜水平線の薄い水色にする（暗いと夜と区別がつきにくい） */
-body[data-scene="day"]{--d14bg:#d6dde5;--ck-sky-top:#2f86e0;--ck-sky-hz:#b4dcf7;--ck-earth:#9a6535;--ck-sun:#ffd95a;--ck-mtn:#6b8199;--ck-mtn2:#8a9db1;--ck-snow:#f6f9fc}
-body[data-scene="dawn"]{--d14bg:#e7d3c5;--ck-sky-top:#4a5c9e;--ck-sky-hz:#f8b26c;--ck-earth:#6b4727;--ck-sun:#ffc25f;--ck-mtn:#55607f;--ck-mtn2:#6f7995;--ck-snow:#f7e3d7}
-body[data-scene="dusk"]{--d14bg:#d9b9aa;--ck-sky-top:#33305f;--ck-sky-hz:#f2704a;--ck-earth:#4e3321;--ck-sun:#ff9a4a;--ck-mtn:#3b3652;--ck-mtn2:#524b6b;--ck-snow:#edc5b5}
-body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--ck-sun:#e7ecf3;--ck-mtn:#1e2a3a;--ck-mtn2:#2a394c;--ck-snow:#b7c3d0;--ck-star:#e3eaf5}
+body[data-scene="day"]{--d14bg:#d6dde5;--ck-sky-top:#2f86e0;--ck-sky-hz:#b4dcf7;--ck-earth:#9a6535;--ck-sun:#ffd95a;--ck-mtn:#6b8199;--ck-mtn2:#8a9db1;--ck-snow:#f6f9fc;--ck-field:#6f7a3a;--ck-field2:#8a7a45;--ck-lake:#3d6fa3;--ck-road:#3a3f46;--ck-town:#b9b1a3}
+body[data-scene="dawn"]{--d14bg:#e7d3c5;--ck-sky-top:#4a5c9e;--ck-sky-hz:#f8b26c;--ck-earth:#6b4727;--ck-sun:#ffc25f;--ck-mtn:#55607f;--ck-mtn2:#6f7995;--ck-snow:#f7e3d7;--ck-field:#5a5a2e;--ck-field2:#6e5a35;--ck-lake:#4a5a7a;--ck-road:#2e3038;--ck-town:#9a8f80}
+body[data-scene="dusk"]{--d14bg:#d9b9aa;--ck-sky-top:#33305f;--ck-sky-hz:#f2704a;--ck-earth:#4e3321;--ck-sun:#ff9a4a;--ck-mtn:#3b3652;--ck-mtn2:#524b6b;--ck-snow:#edc5b5;--ck-field:#464a25;--ck-field2:#55452a;--ck-lake:#3a4664;--ck-road:#26282e;--ck-town:#857a6d}
+body[data-scene="night"]{--d14bg:#1b2434;--ck-sky:#0a1330;--ck-earth:#1e1812;--ck-sun:#e7ecf3;--ck-mtn:#1e2a3a;--ck-mtn2:#2a394c;--ck-snow:#b7c3d0;--ck-star:#e3eaf5;--ck-field:#242a1a;--ck-field2:#2c261a;--ck-lake:#16233a;--ck-road:#0f1217;--ck-town:#3a3a40}
 .d14legend{position:absolute;right:.375rem;top:.375rem;width:3.8rem;height:2.7rem;color:#fff;background:rgba(0,0,0,.45);border-radius:.375rem;padding:.15rem .25rem}
 .frames{display:flex;flex-direction:column;gap:.5rem}
 .frame{display:grid;grid-template-columns:1.5rem 1fr;gap:.5rem;align-items:center}
@@ -1174,9 +1174,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3>操縦操作と見え方</h3>
-        <div class="sub2">水平飛行からその操作をしたあとの視界。○ が目印、破線が元の水平線。</div>
+        <div class="sub2">水平飛行から 2 秒その操作をした視界。○ が目印、破線が元の水平線。</div>
         <div class="oprow" id="abOps"></div>
-        <ul><li>①→②、②→③の各区間で 1 つずつ操作する場合（順番）と、両区間で 2 つの操作が同時に進む場合（同時）がある。答えの文はどちらも同じ。</li><li>操縦桿は右／左／奥／手前、方向舵は右／左。</li></ul>
+        <ul><li>絵は実機と同じ物理で飛ばした景色（速さ 200 m/s、写真の間隔 2 秒）。</li><li>傾いていると旋回して目印が少しずつ横へ流れ、引かなければ少しずつ沈む。</li><li>機首を下げると地面の畑・湖・道・集落で動きを読む。</li><li>2 つの操作は同時でも順番でも答えは同じ。</li></ul>
       </div>
       <div class="card">
         <h3>練習する</h3>
@@ -1197,7 +1197,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3>3D シミュレーターで操縦する</h3>
-        <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方がどう変わるかを確かめます。機体は物理で動きます（傾けると旋回し、引くと上昇し、方向舵では機首が先に振れて進路が遅れて追う）。操作しやすいよう重力の影響は除いてあり、傾けても高度は下がりません。一人称と三人称を切り替えられます。</div>
+        <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方を確かめます。機体は物理で動きます（重力は除く）。</div>
         <ul>
           <li>端末を横にすると視界が画面いっぱいになり、編隊・スモーク・演目のボタンが出ます。</li>
           <li>音のボタンで、機体の通過音が鳴ります。近づくと高く、遠ざかると低く聞こえます。</li>
@@ -1280,8 +1280,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="flight.js?v=1"></script>
-<script src="engine.js?v=49"></script>
+<script src="flight.js?v=2"></script>
+<script src="engine.js?v=50"></script>
 <script>
 (function(){
 'use strict';
@@ -1335,7 +1335,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.16';
+const APP_VER='v05.17';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1445,7 +1445,7 @@ function render(){
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else{
     $('#prompt').textContent='①→②→③ の変化から、行われた操作を選ぶ';
-    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,0,false,q.hud!==false))}</div></div>`).join('')}</div></div>`;
+    figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f,{hud:q.hud!==false}))}</div></div>`).join('')}</div></div>`;
     ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${i+1}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
@@ -1557,7 +1557,7 @@ const INTRO={
   heading:['上から見た機体と N マーク（北）が表示されます。','機首が向いている方位を 8 方位から選びます。','N マークの向きは Normal 以上で毎回変わります（Easy では上に固定）。まず N を確認してから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
   combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
-  control:['コックピットから見た外の様子が①→②→③の順に 3 枚表示されます。','各区間で行われた操作を 1〜4 の文から選びます。','操縦桿 右で景色は左に傾き、奥で水平線が上がり、手前で下がります。方向舵では景色が横に流れます。','絵は実機と同じ物理で機体を飛ばした景色です（速さ 200 m/s、写真の間隔 2 秒）。景色が画面の中央を軸に回る → 操縦桿の左右。山や塔などの目印が画面の上下へそろって動く → 操縦桿の奥・手前。目印が画面の左右へ大きくそろって動く → 方向舵。機体が傾いているあいだは旋回するので、目印は横へ少しずつ流れます（方向舵よりゆっくり）。①で傾いていると方向舵でも水平線が上下して見えるので、水平線の高さではなく目印の動く向きと量で読みます。','2 つの操作は、①→②に片方の変化だけなら順番、①→②で両方が変わっていれば同時。答えの文はどちらも同じです。']
+  control:['外の様子が①→②→③の 3 枚で出ます。','各区間で行った操作を 1〜4 から選びます。','景色が回る＝操縦桿の左右。目印が上下へ動く＝奥・手前。目印が左右へ大きく流れる＝方向舵。','絵は実機と同じ物理で飛ばした景色です。傾いていると目印は少しずつ横へ流れます。','2 つの操作は同時でも順番でも答えは同じです。']
 };
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
    計測に進んだら（startMeasured）ホームボタンに戻る。入口の判定は説明ページのボタンが立てる pendingBack で行う（同じハッシュを操縦操作の選択画面からも使うため） */
@@ -1622,7 +1622,7 @@ function showSetup(){
     ${sw('introChk',!hideIntro[mode],'開始前に説明と練習 3 問')}
     <div class="acts"><button class="btn" id="setupGo">${hideIntro[mode]?'計測開始':'練習開始'}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupSim3">3D シミュレーターで操縦する</button><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
-    <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして、外の見え方の変わり方を確かめるものです。機体は物理で動きます: 傾けると揚力が傾いて旋回し、引くと上昇します。方向舵では機首が先に振れ、進路は遅れて追います。操作しやすいよう重力の影響は除いてあり、傾けても高度は下がりません。見え方の一覧は、出題の絵の約束（操作 1 つの姿勢の変化）で視界を並べて見られます。どちらも出題ではありません。</div>`}`;
+    <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（重力は除く）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);if(el.dataset.key==='level')showSetup()}));
   if(!isFull()){const qs=$('#setup select[data-key="qCount"]');if(qs)qs.value=String(qMax())}   // 体験版は、実際に出す数（上限で切った値）を選んで見せる
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
@@ -1701,7 +1701,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=155').then(mod=>{
+  import('./sim3d.js?v=156').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -2112,7 +2112,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=155').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=156').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2474,27 +2474,29 @@ function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('
 /* ===== 操縦操作: 操作パターンの見え方（操作を選ぶと①→②③を縦に表示。操縦桿と方向舵は同時に選べる）
    3 枚の下に「動きで見る」を置く。その操作をしたときの見え方を、一人称（風防ごしの景色）と
    三人称（外から見た機体）で動かして見せる。操作はできない（見え方を確かめるだけ） ===== */
-const gal={sel:[],init:'level',view:'first',play:false,seq:false,slow:false};   // sel: 選択中の操作 id、init: ①の姿勢、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う、slow: ゆっくり（2 倍の時間。三人称だけ。利用者の指示 2026-09-13「三人称は常にゆっくり」。一人称は解説の見え方と同じ速さ）
+const gal={sel:[],bank:'level',pitch:'',view:'first',play:false,seq:false,slow:false};   // sel: 選択中の操作 id（空なら「操作なし」= 手を放した状態）、bank/pitch: ①の姿勢（組み合わせ可）、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う、slow: ゆっくり（2 倍の時間。三人称だけ。利用者の指示 2026-09-13「三人称は常にゆっくり」。一人称は解説の見え方と同じ速さ）
 const galSpeed=()=>gal.slow?2:1;   /* 三人称のゆっくり: 2 倍の時間（3.5 倍は遅すぎて動きが分かりにくかった。利用者の指摘 2026-09-13） */
-/* 初期状態（①の姿勢）。出題の「初期状態: ランダム」と同じ幅にそろえる */
-const GAL_INIT={level:{ja:'水平飛行',b:'水平',s:{bank:0,pitch:0,yaw:0}},rbank:{ja:'右バンク',b:'右バンク',s:{bank:30,pitch:0,yaw:0}},lbank:{ja:'左バンク',b:'左バンク',s:{bank:-30,pitch:0,yaw:0}},
-  up:{ja:'機首上げ',b:'機首上げ',s:{bank:0,pitch:10,yaw:0}},down:{ja:'機首下げ',b:'機首下げ',s:{bank:0,pitch:-10,yaw:0}}};
+/* 初期状態（①の姿勢）。傾きと機首の上下を組み合わせられる（出題の「初期状態: ランダム」もその組み合わせ。利用者の指示 2026-09-13） */
+const GAL_BANK={level:{ja:'水平',b:0},rbank:{ja:'右バンク',b:30},lbank:{ja:'左バンク',b:-30}};
+const GAL_PITCH={up:{ja:'機首上げ',p:10},down:{ja:'機首下げ',p:-10}};
+const galInit=()=>({bank:GAL_BANK[gal.bank].b,pitch:gal.pitch?GAL_PITCH[gal.pitch].p:0,yaw:0});
 function showGallery(){applyScene();
   setPhase('gallery','見え方');showPane('gallery');
   /* 体験版: 初期状態は水平飛行だけ、操作は操縦桿だけ、「動きで見る」は鍵。
      選べないものは消さずに灰色で見せる */
   const dm=!isFull();
-  if(dm){gal.init='level';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false}
+  if(dm){gal.bank='level';gal.pitch='';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols,lock)=>`<div class="gsel${lock?' off':''}"><div class="gl">${title}${lock?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">写真の変化は 3 種類: 景色が中央を軸に回る＝操縦桿の左右、目印が画面の上下へそろって動く＝操縦桿の奥・手前、目印が画面の左右へそろって動く＝方向舵（傾いた機体では方向舵でも水平線が上下して見えるので、目印の動く向きで読む）。2 つの操作は、①→②に片方の変化だけなら順番、両方なら同時（答えの文は同じ）。</div><div class="sub">操作を選ぶと、①からの②③を表示します。${isFull()?'操縦桿と方向舵を両方選ぶと、同時に行うか、操縦桿 → 方向舵 の順に行うかを選べます。':'体験版で選べるのは操作 1 つずつです。操縦桿と方向舵を組み合わせた見え方は完全版で使えます。'}</div>
-    <div class="gsel"><div class="gl">初期状態</div><div class="gp gp5">${Object.entries(GAL_INIT).map(([k,v])=>`<button class="ab gi${dm&&k!=='level'?' lockb':''}" data-init="${k}"${dm&&k!=='level'?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと①②③が出ます。${isFull()?'操縦桿と方向舵は同時か順番かを選べます。':'体験版は操作 1 つずつです。'}</div>
+    <div class="gsel"><div class="gl">初期状態</div><div class="gp" style="grid-template-columns:repeat(3,1fr)">${Object.entries(GAL_BANK).map(([k,v])=>`<button class="ab gi${dm&&k!=='level'?' lockb':''}" data-bank="${k}"${dm&&k!=='level'?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
+    <div class="gsel"><div class="gl"></div><div class="gp" style="grid-template-columns:repeat(2,1fr)">${Object.entries(GAL_PITCH).map(([k,v])=>`<button class="ab gi${dm?' lockb':''}" data-pitch="${k}"${dm?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
     <div class="gsim${dm?' off':''}">
       <h4 class="gsimh">動きで見る${dm?'（完全版）':''}</h4>
-      <div class="sub">同じ操作を動かして確かめます（ここでは操縦できません）。</div>
+      <div class="sub">同じ動きを再生します（操作はできません）。</div>
       <div class="gsimbar">
         <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
         <div class="gp" style="grid-template-columns:1fr 1fr"><button class="btn gctl" id="gPlay" aria-label="再生" title="再生">${ic('play')}</button><button class="btn ghost gctl" id="gStop" aria-label="停止" title="停止">${ic('stop')}</button></div>
@@ -2512,9 +2514,10 @@ function showGallery(){applyScene();
     }
     else{gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group!==grp);gal.sel.push(id)}
     galDraw()}));
-  $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.addEventListener('click',()=>{
+  $('#gallery').querySelectorAll('[data-bank],[data-pitch]').forEach(b=>b.addEventListener('click',()=>{
     if(b.dataset.lock){toast('体験版では水平飛行からの見え方だけです。ほかの初期状態は完全版で使えます');return}
-    gal.init=b.dataset.init;galDraw()}));
+    if(b.dataset.bank)gal.bank=b.dataset.bank;else gal.pitch=gal.pitch===b.dataset.pitch?'':b.dataset.pitch;   /* 機首の上下はもう一度押すと戻る */
+    galDraw()}));
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw();galApply(gal.play?null:0)}));
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{if(gal.view===b.dataset.gv)return;gal.view=b.dataset.gv;gal.slow=gal.view==='third';galMove()}));
   $('#gPlay').addEventListener('click',galPlay);
@@ -2527,25 +2530,26 @@ function showGallery(){applyScene();
 function galFrames(){
   /* 飛行モデル（flight.js）で機体を飛ばした①②③。出題（engine.js の simControl）と同じ: 順番なら ①→② に操縦桿・②→③ に方向舵、同時なら両区間に両方。
      traj は 1/120 秒ごとの姿勢と位置（動きで見るが使う） */
-  const lv=Object.assign({},GAL_INIT[gal.init].s);
+  const lv=galInit();
   const two=gal.sel.length>=2;
   const ops=!gal.sel.length?[]:two?gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1)):[gal.sel[0],gal.sel[0]];
   const traj=ops.length?E.simControl(lv,ops,two&&!gal.seq):E.simControl(lv,[],false);
-  const text=!ops.length?'操作なし':two&&!gal.seq?ops.map(id=>E.OP_BY_ID[id].base).join('＋'):E.opsText(ops);
+  const text=!ops.length?'操作なし（手を放す）':two&&!gal.seq?ops.map(id=>E.OP_BY_ID[id].base).join('＋'):E.opsText(ops);
   return {f:traj.frames,traj,text};
 }
 function galDraw(){
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
-  $('#gallery').querySelectorAll('[data-init]').forEach(b=>b.classList.toggle('sel',b.dataset.init===gal.init));
+  $('#gallery').querySelectorAll('[data-bank]').forEach(b=>b.classList.toggle('sel',b.dataset.bank===gal.bank));
+  $('#gallery').querySelectorAll('[data-pitch]').forEach(b=>b.classList.toggle('sel',b.dataset.pitch===gal.pitch));
   $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
   $('#gseqRow').classList.toggle('off',gal.sel.length<2);
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
   const fr=galFrames(),f=fr.f;
-  const initTx=gal.init==='level'?'':GAL_INIT[gal.init].ja+'から　';
-  let desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'上のボタンで操作を選ぶと入れ替わります';
-  if(gal.sel.length>=2)desc+=gal.seq?'　順番: ①→②で操縦桿、②→③で方向舵。':'　同時: 各区間で両方の舵が入っている（昇降舵と方向舵は別の舵面で、同時に入れても片方の効きは減らない）。順番より③が進むのは、同じ時間で 2 つの操作を加えているため。';
+  const initTx=(gal.bank==='level'&&!gal.pitch)?'':[gal.bank!=='level'?GAL_BANK[gal.bank].ja:'',gal.pitch?GAL_PITCH[gal.pitch].ja:''].filter(Boolean).join('・')+'から　';
+  let desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'初期状態から手を放して何もしない動き（出題にはない）。上のボタンで操作を選ぶと入れ替わります';
+  if(gal.sel.length>=2)desc+=gal.seq?'　順番: ①→②で操縦桿、②→③で方向舵':'　同時: 両区間で両方';
   $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?(gal.seq?'（順番に）':'（同時に）'):''}</h4><div class="sub gdesc">${desc}</div>
-    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x.bank,x.pitch,x.yaw,0,true))}</div></div>`).join('')}</div>
+    <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x,{marks:true,ref:f[0]}))}</div></div>`).join('')}</div>
     <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の水平線</div>`;
   galApply(gal.play?null:0);
 }
@@ -2558,8 +2562,7 @@ function galMove(){
      「動きで見る」は出題画面の様子を動きで把握するもの（利用者の指示 2026-09-13）。動かすのは世界ではなく機体（同日の利用者の原則）。
      一人称は出題の絵と同じレンズ（1° = 6 px）で、同じ枠（キャノピーの縁・HUD の印・グレアシールド）を重ねる */
   box.innerHTML=`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">シミュレーターを読み込み中…</div>${gal.view==='first'?`<div class="gframe">${ckCompact(E.svgCockpitFrame(true))}</div>`:''}</div>
-      ${gal.view==='third'?`      <div class="sub">指でなぞると視点を回せます。再生を押すと、南から見る初期の視点に戻ります。</div>`:''}
-      <div class="sub">${gal.view==='first'?'出題の絵と同じ世界・同じ見え方で、選んだ操作を舵に入れて機体を物理（重力あり）で飛ばします。①→②、②→③はそれぞれ 2 秒。':'出題の絵と同じ世界で、選んだ操作で飛ぶ機体を外（南）から見ます。ゆっくり（2 倍の時間）です。'}操作はできません。</div>`;
+      <div class="sub">${gal.view==='first'?'出題の絵と同じ見え方です。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。'}</div>`;
   /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
   { const gv=box.querySelector('#gviewer'); if(gv){ let px=0,py=0,on=false;
     gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
@@ -2576,7 +2579,7 @@ function galMountViewer(){
   const host=$('#gviewer');if(!host||galViewerLoading)return;
   galViewerLoading=true;
   /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
-  import('./sim3d.js?v=155').then(mod=>{
+  import('./sim3d.js?v=156').then(mod=>{
       /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
       const h=mod.mount(host,{view:gal.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
       h.setCockpit(false);h.setProps(true);
@@ -2612,18 +2615,14 @@ function galApply(t){
     :'再生を押すと、①→②→③の見え方が動きで分かります';
 }
 /* ===== 解説の中の見え方（操縦操作・完全版）=====
-   その問題の ①→②③ を、そのまま動かして見せる。図は 1 度だけ描き、
-   あとは姿勢の入れ物（.ck-att / .ck-yaw）を毎コマ動かす（「動きで見る」と同じ作り） */
+   その問題の ①→②③ を、出題と同じ飛行（flight.js）で動かして見せる。絵は毎コマ描き直す */
 let fbRaf=0,fbT0=0,fbPlaying=false;
 function fbSimApply(t){
   const sv=$('#fbSim')&&$('#fbSim').querySelector('svg');
   if(!sv||!q||!q.frames)return;
   if(!q.traj)q.traj=E.simControl(q.init,q.ops,q.simul);   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
   const {ft,near}=seqTime(t),st=AAT_FLIGHT.at(q.traj,ft);
-  const att=sv.querySelector('.ck-att'),yw=sv.querySelector('.ck-yaw'),yg=sv.querySelector('.ck-yawg');
-  if(yg)yg.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
-  if(att)att.setAttribute('transform',`translate(180 108) rotate(${(-st.bank).toFixed(2)}) translate(0 ${(st.pitch*E.CK.kp).toFixed(1)})`);
-  if(yw)yw.setAttribute('transform',`translate(${(-st.yaw*E.CK.ky).toFixed(1)} 0)`);
+  sv.parentElement.innerHTML=E.svgCockpit(st,{hud:q.hud!==false});   /* 絵は毎コマ描き直す（ピンホールの写像なので、部品の平行移動では表せない） */
   const lb=$('#fbSimStep');
   if(lb)lb.textContent=`${'①②③'[near]} のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°`;
 }
@@ -2638,7 +2637,7 @@ function fbSimShow(){
   const f=q.frames;
   box.hidden=false;
   box.innerHTML=`<div class="fbsimh"><span>この問題の見え方</span><button class="btn ghost" id="fbSimBtn">止める</button></div>
-    <div class="gfp">${E.svgCockpit(f[0].bank,f[0].pitch,f[0].yaw,0,false,q.hud!==false)}</div>
+    <div class="gfp">${E.svgCockpit(f[0],{hud:q.hud!==false})}</div>
     <div class="sub gstep" id="fbSimStep"></div>`;
   $('#fbSimBtn').addEventListener('click',()=>{const b=$('#fbSimBtn');
     if(fbPlaying){fbSimStop();b.textContent='動かす'}else{fbSimStart();b.textContent='止める'}});
@@ -2763,7 +2762,7 @@ const TIPS={
   heading:['N マークの向きをまず見る','そこから機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Normal 以上では、機首が N と同じ向きになる問題は出ない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
   combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','印の文字（N など）と、その位置から読む'],
-  control:['変化は 3 種類: 景色が中央を軸に回る＝操縦桿の左右、目印が画面の上下へそろって動く＝奥・手前、目印が画面の左右へそろって動く＝方向舵','傾いた機体では、方向舵でも水平線が上下して見える。水平線の高さではなく、目印の動く向きで読む','傾いているときの方向舵は、傾いた機体に対して横（画面の左右）へ景色が流れる。水平線に沿ってではない','②に両方の変化 → 同時、片方だけ → 順番。答えの文は同じ','操縦桿を右 → 機体が右に傾き、景色は左に傾く','操縦桿を奥 → 機首が下がり、水平線が上がる','操縦桿を手前 → 上昇し、水平線が下がる','右方向舵 → 機体に対して右を向き、目印が左へ流れる（水平線の傾きはほぼ変わらない）','選択肢は ①→② と ②→③ の順に見る']
+  control:['景色が回る＝操縦桿の左右','目印が上下へ動く＝奥・手前','目印が左右へ大きく流れる＝方向舵','傾いていると方向舵でも水平線が上下する。目印の動きで読む','同時でも順番でも答えは同じ'],
 };
 const KBD={heading:'札の数字 1〜8 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 
@@ -3109,7 +3108,7 @@ function renderAbout(){
   $('#abAtt').innerHTML=[['ne_up',0,30,'機首上げ 30°'],['ne_down',0,-30,'機首下げ 30°'],['north',30,0,'右バンク 30°']].map(([id,b,p,t])=>`<div class="ex"><div class="figbox">${E.figDir14(D(id),b)}</div><div class="exai">${E.svgAI(b,p)}</div><div class="ext">${t}</div></div>`).join('');
   $('#abHI').innerHTML=E.svgHI(90,0)+'<div class="ext">機首は東（090°）— N の印が左に来る</div>';
   $('#abTop').innerHTML=E.figTopDown(135,45)+'<div class="ext">N が右上、機首は N から 90° → 東</div>';
-  $('#abOps').innerHTML=E.OPS.map(o=>{const f=E.simControl({bank:0,pitch:0,yaw:0},[o.id,o.id],false).frames[1];return `<div class="op"><div class="opt">${o.ja}</div><div class="opv">${ckCompact(E.svgCockpit(f.bank,f.pitch,f.yaw,0,true))}</div><div class="opd">${o.view}</div></div>`}).join('');
+  $('#abOps').innerHTML=E.OPS.map(o=>{const f=E.simControl({bank:0,pitch:0,yaw:0},[o.id,o.id],false).frames[1];return `<div class="op"><div class="opt">${o.ja}</div><div class="opv">${ckCompact(E.svgCockpit(f,{marks:true}))}</div><div class="opd">${o.view}</div></div>`}).join('');
   $('#abPractice').innerHTML=Object.keys(E.MODES).map(m=>`<button class="btn ghost" data-pr="${m}">${E.MODES[m]}</button>`).join('');
   $('#abPractice').querySelectorAll('[data-pr]').forEach(b=>b.addEventListener('click',()=>{pendingBack='about';location.hash='#train/'+b.dataset.pr+'/practice'}));
   $('#abSim').addEventListener('click',()=>{pendingBack='about';location.hash='#train/control/sim'});

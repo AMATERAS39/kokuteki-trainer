@@ -791,7 +791,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 
   /* カードの図は、アプリが実際に描いている部品（engine.js）をそのまま出す。
      読み込めなかったときは、図の枠ごと消して文章だけにする */
-  var sc=document.createElement('script'); sc.src='/engine.js?v=49';
+  var sc=document.createElement('script'); sc.src='/engine.js?v=50';
   sc.onload=function(){
     var E=window.AAT; if(!E)return;
     var fix=function(h){return h.replace(/(src|href)="img\//g,'$1="/img/')};
@@ -804,10 +804,10 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     /* 姿勢の列は、出題で実際に生じるもの（操縦桿 右 ×2: バンク 0 → 20 → 40、ピッチは変わらない）。
        以前の [25,−6] のような手で置いた値は出題では生じない（総点検 2026-09-13） */
     if(k)k.innerHTML=[[0,0,'①'],[40,0,'③']].map(function(v){
-      return '<figure>'+fix(E.svgCockpit(v[0],v[1],0,0,false,true))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
+      return '<figure>'+fix(E.svgCockpit({bank:v[0],pitch:v[1],yaw:0,dx:0,dy:0,dz:0}))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
     var k3=document.querySelector('[data-part=ck3] .ck2');
     if(k3)k3.innerHTML=[[0,0,'①'],[20,0,'②'],[40,0,'③']].map(function(v,i){
-      return '<figure>'+fix(E.svgCockpit(v[0],v[1],0,0,false,true))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
+      return '<figure>'+fix(E.svgCockpit({bank:v[0],pitch:v[1],yaw:0,dx:0,dy:0,dz:0}))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
   };
   sc.onerror=function(){document.querySelectorAll('.part').forEach(function(e){e.remove()})};
   document.head.appendChild(sc);

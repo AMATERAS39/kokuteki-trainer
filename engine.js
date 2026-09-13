@@ -54,8 +54,8 @@
   const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on', level: 'hard' };
   const LEVELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
   const lvOf = s => s.level === 'medium' ? 'normal' : (s.level || 'hard');   // medium は旧称
-  /* 視界・姿勢指示器のリアルタイム更新に使う係数（svgCockpit / svgAI と同じ値） */
-  const CK = { kp: 6, ky: 6, aiK: 2.4, grow: 0.45 };   // 1 度あたりの画素は縦横同じ（同じレンズで見ている）
+  /* 画面の姿勢指示器のリアルタイム更新に使う係数（svgAI と同じ値） */
+  const CK = { aiK: 2.4 };   // 画面の姿勢指示器の係数（svgAI と同じ）
 
   /* ---------- 出題生成 ---------- */
   /* N マークの向きと機首の向きが一致すると答えが自明になるので、機首は N と別の向きだけを出題する（dir≠0）。
@@ -168,7 +168,7 @@
     /* 2 操作は「順番」（①→②で操縦桿、②→③で方向舵）と「同時」（①→②でも②→③でも両方が進む）を半々で出す。
        答えの文はどちらも同じ。試験の写真がどちらの形かは文言から分からないので、両方に慣れる */
     const simul = !single && Math.random() < 0.5;
-    const frames = simControl(init, ops, simul).frames.map(f => ({ bank: f.bank, pitch: f.pitch, yaw: f.yaw }));
+    const frames = simControl(init, ops, simul).frames.map(f => ({ bank: f.bank, pitch: f.pitch, yaw: f.yaw, dx: f.dx, dy: f.dy, dz: f.dz }));
     /* 4 択: 1 操作（6 通り）と「操縦桿 → 方向舵」（8 通り）を混ぜた中から、正解以外を誤答にする */
     const key = a => a.join('|');
     const cands = [];
@@ -179,28 +179,21 @@
        （右だけ／右 + 右方向舵／右 + 左方向舵）を必ず混ぜる。Hard は 2 つ、Normal は 1 つ。
        操縦桿の向きだけで答えが決まらないようにする。方向舵だけの正解のときは、逆の方向舵を必ず混ぜる */
     const stickOf = a => (OP_BY_ID[a[0]].group === 'stick' ? a[0] : null);
-    /* 「操縦桿 奥」を含む選択肢は、1 つの出題に 1 つだけにする（利用者の指摘 2026-09-10）。
-       機首下げの状態から操縦桿を奥に倒すと、地面が画面を埋めてしまい、そのあと何をしても変化が読めない。
-       「奥だけ」と「奥＋方向舵」が並ぶと、絵からは見分けられず、答えが決まらなくなる。
-       正解が奥のときは誤答に奥を出さず、正解が奥でないときは誤答の奥を 1 つまでにする */
-    const isFwd = c => c[0] === 'stick-forward' || c[1] === 'stick-forward';
-    let fwdRoom = isFwd(ops) ? 0 : 1;
+    /* v04.81〜v05.16 は「操縦桿 奥」を含む選択肢を 1 問に 1 つまでにしていた（機首下げで地面が画面を埋めると変化が読めなかった）。
+       地面に目印（畑・湖・道・集落）を置いたので外した（利用者の指示 2026-09-13。本番では地面を見下ろす写真もある） */
     /* 枕（方向舵だけ違う選択肢）を張る操縦桿の向きは、正解の向きだけでなく、確率 1/2 で別の向き（誤答同士）にも張る。
        正解の向きにだけ張っていたため「同じ向きが 3 つ並べば正解はその中」（Hard で 99.4%）、
        「方向舵だけの選択肢が 1 つしか無ければ必ず誤答」（正解が方向舵のときは逆の方向舵を必ず混ぜていたため）と、
        絵を見ずに分かってしまっていた（点検 2026-09-13、20 万問）。別の向きに張るときは枕を 1 つ多くして、並びの数でも見分けられないようにする。
-       正解が方向舵だけのときも、逆の方向舵を混ぜるのは確率 1/2 にする。「奥」は 1 つまでの決まりがあるので、別の向きとしては選ばない */
-    const decoy = stickOf(ops) && Math.random() < 0.5 ? pick(STICK.filter(o => o.id !== stickOf(ops) && o.id !== 'stick-forward')).id : null;
+       正解が方向舵だけのときも、逆の方向舵を混ぜるのは確率 1/2 にする */
+    const decoy = stickOf(ops) && Math.random() < 0.5 ? pick(STICK.filter(o => o.id !== stickOf(ops))).id : null;
     const pad = decoy || stickOf(ops);
     const rudPad = !stickOf(ops) && Math.random() < 0.5;
     const same = (pad ? cands.filter(c => stickOf(c) === pad && key(c) !== key(ops))
-                      : rudPad ? cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops)) : [])
-                 .filter(c => !isFwd(c) || fwdRoom > 0);
+                      : rudPad ? cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops)) : []);
     const nSame = Math.min(same.length, (lv === 'hard' ? 2 : 1) + (decoy ? 1 : 0));
     const disSame = pickDistractors(same, () => true, nSame);
-    disSame.forEach(c => { if (isFwd(c)) fwdRoom--; });
-    const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c))
-                                                && (!isFwd(c) || fwdRoom-- > 0), 3 - disSame.length);
+    const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c)), 3 - disSame.length);
     const dis = disSame.concat(disRest);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
     return { type: 'control', ops, frames, init, single, simul, opts, level: lv, hud: lv !== 'hard' };
@@ -262,7 +255,7 @@
       lines.push('方向舵は、機体の上下軸まわりに機首を振ります。景色は水平線に沿ってではなく、傾いた機体に対して横（画面の左右）へ、目印がそろって流れます。機体が傾いていると、傾いた側へ踏めば機首が下がって水平線が上がり、反対側へ踏めば下がって見えますが、水平線の傾きはほとんど変わりません。目印が左右へそろって動いていれば方向舵、上下へそろって動いていれば操縦桿の奥・手前です。');
     if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
     /* 実機の物理で飛ばしているので、傾いている区間では旋回による横の流れがある（方向舵の流れより小さい） */
-    if (q.frames.some(f => Math.abs(f.bank) >= 5)) lines.push('機体が傾いているあいだは旋回するので、操作が無くても目印は傾いた側へ少しずつ流れます（方向舵よりゆっくり）。大きく横へ流れていれば方向舵です。');
+    if (q.frames.some(f => Math.abs(f.bank) >= 5)) lines.push('機体が傾いているあいだは旋回するので、操作が無くても目印は傾いた側へ少しずつ流れ、引かなければ少しずつ沈みます（方向舵よりゆっくり）。大きく横へ流れていれば方向舵です。');
     return { ok, correct: ci, answerText: `${ci + 1}（${opsText(q.ops)}）`, lines };
   }
 
@@ -377,31 +370,77 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
 <polygon points="0,-96 -7,-84 7,-84" fill="var(--accent)"/><circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
   }
 
-  /* ---------- 描画: コックピット視界 ---------- */
-  const PEAKS = (() => { const h = [22, 40, 18, 55, 30, 72, 26, 48, 20, 64, 36, 28, 58, 24, 44, 30, 68, 22, 50, 34, 26, 60, 18, 42, 30, 54, 20, 46, 38, 24]; return h.map((v, i) => [-870 + i * 60, -v]); })();
-  /* 星: 夜間だけ描く（昼は fill none）。位置は固定で、ヨーやバンクに合わせて景色と一緒に動く */
-  const STARS = (() => { let x = 7; const r = () => (x = (x * 48271) % 2147483647) / 2147483647; let out = ''; for (let i = 0; i < 70; i++) out += `<circle cx="${(-600 + r() * 1200).toFixed(0)}" cy="${(-40 - r() * 300).toFixed(0)}" r="${(0.8 + r() * 1.4).toFixed(1)}"/>`; return out; })();
-  /* progress: 前進の度合い 0..1。時間が進むと機体が前進し、景色（山・塔・太陽）が大きく見える */
-  /* 空は上（--ck-sky-top）から水平線（--ck-sky-hz）への縦グラデーション。日の出・夕焼けで水平線付近だけ色づく。未定義なら --ck-sky → --sky */
-  /* marks: true で目印を描く（雪山の頂と塔の先端にオレンジの輪、①の水平線の位置に破線）。見え方の確認画面用 */
-  function svgCockpit(bank, pitch, yaw, progress = 0, marks = false, hud = true) {
-    const id = 'ck' + (++uid), kp = CK.kp, ky = CK.ky, sc = (1 + CK.grow * progress).toFixed(3);   // 目盛りは動きで見るところ（CK）と同じ
-    const mk = marks ? '<circle cx="-90" cy="-72" r="16" fill="none" stroke="#f2a93b" stroke-width="3"/><circle cx="230" cy="-42" r="14" fill="none" stroke="#f2a93b" stroke-width="3"/>' : '';
-    const ref = marks ? '<line x1="16" x2="344" y1="108" y2="108" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9"/><text x="20" y="102" font-size="11" font-family="var(--mono)" fill="#f2a93b">①の水平線</text>' : '';
-    const mtn = 'M-900,0 ' + PEAKS.map(p => `L${p[0]},${p[1]}`).join(' ') + ' L900,0 Z';
-    const ground = [10, 22, 38, 60, 90, 130, 180].map((y, i) => `<line x1="-900" x2="900" y1="${y}" y2="${y}" stroke="#000" opacity="${.08 + i * .02}"/>`).join('');
-    /* 地面の放射の線（消失点から手前へ）。ヨーで横に流れるので、向きが変わったことが地面でも分かる。
-       これがないと、山だけが横に動いて「山が動いた」ように見える */
-    const rad = [-7, -5, -3.5, -2.2, -1.2, -0.5, 0.5, 1.2, 2.2, 3.5, 5, 7].map(k => `<line x1="0" y1="0" x2="${(k * 130).toFixed(0)}" y2="240" stroke="#000" opacity=".10"/>`).join('');
+  /* ---------- 描画: コックピット視界 ----------
+     機体の状態 st = { bank, pitch, yaw, dx, dy, dz }（度・m。dx dy dz は始めの位置からのずれ）から、flight.js の WORLD を
+     機体に固定したピンホールカメラで写す（焦点距離 F_PX = 6/tan1° ≈ 343.8 px で 1° ≈ 6 px、視線の中心は (180, 108)）。
+     3D（sim3d.js の scenery:'exam'）と同じ世界・同じレンズなので、同じ状態なら同じ絵になる。
+     v05.16 までは、方位・仰角を px に置いてから傾き・上下を平行移動と回転で近似していた。機首を大きく下げると地面の目印の位置が合わなくなる。
+     空と地面: 水平線は直線で、中心から F·tan(ピッチ) だけ機体の下方向へ、傾きはバンク（ピンホールで厳密）。
+     目印: 遠くのもの（山並み・雪山・塔・太陽・星）は方向、地面のもの（畑・湖・道・集落・地面の線）は位置から写す。カメラの手前の面で切る */
+  const F_PX = 6 / Math.tan(D);
+  const WORLD = () => global.AAT_FLIGHT.WORLD;
+  function projector(st) {
+    const M = global.AAT_FLIGHT.matOf(st.bank, st.pitch, st.yaw), W = WORLD();
+    const R = [M[0][0], M[1][0], M[2][0]], Fw = [M[0][1], M[1][1], M[2][1]], U = [M[0][2], M[1][2], M[2][2]];
+    const H = W.H + (st.dz || 0), ox = st.dx || 0, oy = st.dy || 0;
+    const body = d => [d[0] * R[0] + d[1] * R[1] + d[2] * R[2], d[0] * Fw[0] + d[1] * Fw[1] + d[2] * Fw[2], d[0] * U[0] + d[1] * U[1] + d[2] * U[2]];
+    const img = b => [180 + F_PX * b[0] / b[1], 108 - F_PX * b[2] / b[1]];
+    const dir = (azDeg, elDeg) => { const a = azDeg * D, e = elDeg * D; return body([Math.sin(a) * Math.cos(e), Math.cos(a) * Math.cos(e), Math.sin(e)]); };
+    const gnd = (X, Y) => body([X - ox, Y - oy, -H]);
+    const pt = (b, near) => b[1] > near ? img(b) : null;
+    /* 多角形・線分を手前の面（by = near）で切ってから写す */
+    const clip = (bs, near, closed) => { const out = []; const n = bs.length;
+      for (let i = 0; i < (closed ? n : n - 1); i++) { const a = bs[i], b = bs[(i + 1) % n], ina = a[1] > near, inb = b[1] > near;
+        if (ina) out.push(a); if (ina !== inb) { const t = (near - a[1]) / (b[1] - a[1]); out.push([a[0] + (b[0] - a[0]) * t, near, a[2] + (b[2] - a[2]) * t]); } }
+      if (!closed && bs[n - 1][1] > near) out.push(bs[n - 1]);
+      return out; };
+    const poly = (bs, near) => { const c = clip(bs, near, true); return c.length >= 3 ? c.map(img) : null; };
+    const seg = (a, b, near) => { const c = clip([a, b], near, false); return c.length >= 2 ? [img(c[0]), img(c[c.length - 1])] : null; };
+    return { dir, gnd, pt, poly, seg };
+  }
+  const fx = v => (Math.round(v * 10) / 10).toString();
+  const P = pts => pts.map(p => fx(p[0]) + ',' + fx(p[1])).join(' ');
+  /* o.marks: 目印（雪山の頂と塔の先端に輪）、o.ref: ①の状態（その水平線を破線で）、o.hud: HUD の印（既定 true） */
+  function svgCockpit(st, o = {}) {
+    const id = 'ck' + (++uid), W = WORLD(), pr = projector(st), hud = o.hud !== false;
+    const bank = st.bank, pitch = Math.max(-80, Math.min(80, st.pitch));
+    const att = b => `translate(180 108) rotate(${fx(-b.bank)}) translate(0 ${fx(F_PX * Math.tan(Math.max(-80, Math.min(80, b.pitch)) * D))})`;
+    /* 山並み: 絵の稜線を 10 px ごとに柱に切り、手前にあるものだけを続けて多角形に */
+    const line = [[-900, 0], ...W.peaks.map((v, i) => [-870 + i * 60, -v]), [900, 0]];
+    const yAt = x => { for (let i = 1; i < line.length; i++) if (x <= line[i][0]) { const a = line[i - 1], b = line[i]; return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); } return 0; };
+    let ridge = '', run = [];
+    const flush = () => { if (run.length >= 2) ridge += `<polygon points="${P(run.map(r => r[0]).concat(run.map(r => r[1]).reverse()))}" fill="var(--ck-mtn, #4a5c70)"/>`; run = []; };
+    for (let x = -900; x <= 900; x += 10) { const t = pr.pt(pr.dir(x / 6, -yAt(x) / 6), 1e-3), b = pr.pt(pr.dir(x / 6, 0), 1e-3); if (t && b) run.push([t, b]); else flush(); }
+    flush();
+    const shape = (pts, near, fill) => { const q = pr.poly(pts, near); return q ? `<polygon points="${P(q)}" fill="${fill}"/>` : ''; };
+    const dirs = pts => pts.map(p => pr.dir(p[0] / 6, -p[1] / 6));
+    const snow = shape(dirs(W.snow.tri), 1e-3, 'var(--ck-mtn2, #65788d)') + shape(dirs(W.snow.cap), 1e-3, 'var(--ck-snow, #e8eef4)');
+    const tower = shape(dirs(W.tower.post), 1e-3, '#2b333c') + shape(dirs(W.tower.cap), 1e-3, '#e2574f');
+    const sunP = pr.pt(pr.dir(W.sun.x / 6, -W.sun.y / 6), 1e-3);
+    const sun = sunP ? `<circle cx="${fx(sunP[0])}" cy="${fx(sunP[1])}" r="${W.sun.r}" fill="var(--ck-sun, #ffd36b)"/>` : '';
+    let stars = '';
+    for (const sIt of W.stars) { const p = pr.pt(pr.dir(sIt.x / 6, -sIt.y / 6), 1e-3); if (p) stars += `<circle cx="${fx(p[0])}" cy="${fx(p[1])}" r="${sIt.r}"/>`; }
+    /* 地面: 放射の線（進行方向に平行）、横の線（gap m おき）、目印 */
+    let gl = '';
+    const oy = st.dy || 0;
+    for (const k of W.radial) { const X = 130 / 240 * k * W.H; const q = pr.seg(pr.gnd(X, oy - 2000), pr.gnd(X, oy + 60000), 1);
+      if (q) gl += `<line x1="${fx(q[0][0])}" y1="${fx(q[0][1])}" x2="${fx(q[1][0])}" y2="${fx(q[1][1])}"/>`; }
+    for (let Y = Math.ceil((oy - 2000) / W.gap) * W.gap; Y <= oy + 15000; Y += W.gap) { const q = pr.seg(pr.gnd(-12000, Y), pr.gnd(12000, Y), 1);
+      if (q) gl += `<line x1="${fx(q[0][0])}" y1="${fx(q[0][1])}" x2="${fx(q[1][0])}" y2="${fx(q[1][1])}"/>`; }
+    let gf = '';
+    for (const g of W.ground) gf += shape(g.pts.map(p => pr.gnd(p[0], p[1])), 1, `var(--ck-${g.c}, ${W.colors[g.c]})`);
+    /* 目印の輪（雪山の頂・塔の先端）と ①の水平線 */
+    let mk = '';
+    if (o.marks) { const a = pr.pt(pr.dir(-15, 12), 1e-3), b = pr.pt(pr.dir(230 / 6, 42 / 6), 1e-3);
+      if (a) mk += `<circle cx="${fx(a[0])}" cy="${fx(a[1])}" r="16" fill="none" stroke="#f2a93b" stroke-width="3"/>`;
+      if (b) mk += `<circle cx="${fx(b[0])}" cy="${fx(b[1])}" r="14" fill="none" stroke="#f2a93b" stroke-width="3"/>`; }
+    const ref = o.ref ? `<g transform="${att(o.ref)}"><line x1="-400" x2="400" y1="0" y2="0" stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9"/><text x="-160" y="-6" font-size="11" font-family="var(--mono)" fill="#f2a93b">①の水平線</text></g>` : '';
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
 <defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--ck-sky-top, var(--ck-sky, var(--sky)))"/><stop offset="1" style="stop-color:var(--ck-sky-hz, var(--ck-sky, var(--sky)))"/></linearGradient></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
-<g clip-path="url(#${id})"><g class="ck-att" transform="translate(180 108) rotate(${-bank}) translate(0 ${(pitch * kp).toFixed(1)})">
-<rect x="-900" y="-900" width="1800" height="900" fill="url(#${id}s)"/><rect x="-900" y="0" width="1800" height="900" fill="var(--ck-earth, var(--earth))"/>${ground}<g class="ck-yawg" transform="translate(${(-yaw * ky).toFixed(1)} 0)">${rad}</g>
-<g class="ck-yaw" transform="translate(${(-yaw * ky).toFixed(1)} 0) scale(${sc})"><g fill="var(--ck-star, none)">${STARS}</g><circle cx="110" cy="-96" r="15" fill="var(--ck-sun, #ffd36b)"/><path d="${mtn}" fill="var(--ck-mtn, #4a5c70)"/>
-<path d="M-130,0 L-90,-72 L-50,0 Z" fill="var(--ck-mtn2, #65788d)"/><path d="M-100,-54 L-90,-72 L-80,-54 L-90,-58 Z" fill="var(--ck-snow, #e8eef4)"/>
-<rect x="228" y="-40" width="4" height="40" fill="#2b333c"/><rect x="220" y="-46" width="20" height="8" fill="#e2574f"/>${mk}</g>
-<line x1="-900" x2="900" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g></g>
-${ref}${ckFrame(hud)}</svg>`;
+<g clip-path="url(#${id})"><g transform="${att({ bank, pitch })}"><rect x="-1200" y="-1200" width="2400" height="1200" fill="url(#${id}s)"/><rect x="-1200" y="0" width="2400" height="1200" fill="var(--ck-earth, var(--earth))"/></g>
+<g fill="var(--ck-star, none)">${stars}</g>${sun}${ridge}${snow}${tower}<g stroke="#000" opacity=".12" stroke-width="1">${gl}</g>${gf}
+<g transform="${att({ bank, pitch })}"><line x1="-1200" x2="1200" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g>${mk}${ref}</g>
+${ckFrame(hud)}</svg>`;
   }
   /* 視界の枠（HUD の印・キャノピーの縁・グレアシールド）。svgCockpit と、3D の景色に重ねる svgCockpitFrame で同じものを使う */
   const ckFrame = hud => `${hud ? '<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>' : ''}

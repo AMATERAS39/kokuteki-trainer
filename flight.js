@@ -24,6 +24,39 @@
      入力（200 m/s で水平から 2 秒）: 操縦桿 左右 ±0.17 → バンク 20.4°、奥 0.2605 → 機首 −8.0°、手前 −0.1735 → 機首 +8.0°、方向舵 ±0.5259 → 機首の振れ 10.0° */
   const EXAM = { V: 200, INPUT: { 'stick-right': { x: 0.17 }, 'stick-left': { x: -0.17 }, 'stick-forward': { y: 0.2605 }, 'stick-back': { y: -0.1735 }, 'rudder-right': { r: 0.5259 }, 'rudder-left': { r: -0.5259 } } };
 
+  /* ===== 試験の景色の世界（出題の絵 engine.js の svgCockpit と、3D の sim3d.js の scenery:'exam' が同じものを描く） =====
+     遠くの目印は方向（絵の px: 方位 = x/6°、仰角 = −y/6°）。地面の目印は始めの位置からの m（x 東・y 北）。機体の高さは H（m）。
+     地面の目印（畑・湖・道・集落）は、上空から地面を見下ろす写真（機首下げの問題）でも景色の向きと動きが読めるように置く（利用者の指示 2026-09-13。
+     それまでは地面が無地で、機首下げが続くと答えられなくなるので、出題で「奥」を含む選択肢を 1 つに制限していた） */
+  const WORLD = {
+    H: 1000,                                  // 機体の高さ（m）
+    peaks: [22, 40, 18, 55, 30, 72, 26, 48, 20, 64, 36, 28, 58, 24, 44, 30, 68, 22, 50, 34, 26, 60, 18, 42, 30, 54, 20, 46, 38, 24],   // 山並みの頂の高さ（px）。方位は −145°〜+145° を 10° 刻み
+    snow: { tri: [[-130, 0], [-90, -72], [-50, 0]], cap: [[-100, -54], [-90, -72], [-80, -54], [-90, -58]] },   // 雪山（px）
+    tower: { post: [[228, 0], [232, 0], [232, -40], [228, -40]], cap: [[220, -38], [240, -38], [240, -46], [220, -46]] },   // 塔（px）
+    sun: { x: 110, y: -96, r: 15 },           // 太陽（px）
+    radial: [-7, -5, -3.5, -2.2, -1.2, -0.5, 0.5, 1.2, 2.2, 3.5, 5, 7],   // 地面の放射の線: 進行方向に平行な線の横ずれ = 130/240·k·H
+    gap: 300,                                 // 地面の横の線の間隔（m）
+    colors: { field: '#6f7a3a', field2: '#8a7a45', lake: '#3d6fa3', road: '#3a3f46', town: '#b9b1a3' },   // CSS 変数 --ck-<名前> が無いときの色
+    ground: [
+      { c: 'field', pts: [[300, 1800], [1300, 1800], [1300, 2600], [300, 2600]] },
+      { c: 'field2', pts: [[-2600, 2200], [-1800, 2200], [-1800, 2900], [-2600, 2900]] },
+      { c: 'field', pts: [[1600, 4200], [2600, 4200], [2600, 5000], [1600, 5000]] },
+      { c: 'field2', pts: [[-900, 5200], [-100, 5200], [-100, 6200], [-900, 6200]] },
+      { c: 'field', pts: [[-3200, 7000], [-2000, 7000], [-2000, 7800], [-3200, 7800]] },
+      { c: 'lake', pts: [[-1000, 3300], [-1120, 3490], [-1400, 3560], [-1680, 3490], [-1800, 3300], [-1680, 3110], [-1400, 3040], [-1120, 3110]] },
+      { c: 'road', pts: [[-8000, 1480], [8000, 1480], [8000, 1520], [-8000, 1520]] },
+      { c: 'road', pts: [[680, -3000], [720, -3000], [720, 14000], [680, 14000]] },
+      { c: 'town', pts: [[950, 2850], [1040, 2850], [1040, 2940], [950, 2940]] },
+      { c: 'town', pts: [[1100, 2900], [1190, 2900], [1190, 2990], [1100, 2990]] },
+      { c: 'town', pts: [[1250, 2860], [1340, 2860], [1340, 2950], [1250, 2950]] },
+      { c: 'town', pts: [[1000, 3020], [1090, 3020], [1090, 3110], [1000, 3110]] },
+      { c: 'town', pts: [[1180, 3040], [1270, 3040], [1270, 3130], [1180, 3130]] }
+    ],
+    /* 星（夜だけ）: 絵の乱数（種 7）で 70 個。cx −600〜600・cy −40〜−340（px）、半径 0.8〜2.2 px */
+    stars: (() => { let x = 7; const r = () => (x = (x * 48271) % 2147483647) / 2147483647; const out = [];
+      for (let i = 0; i < 70; i++) out.push({ x: Math.round(-600 + r() * 1200), y: Math.round(-40 - r() * 300), r: +(0.8 + r() * 1.4).toFixed(1) }); return out; })()
+  };
+
   /* ---- 3×3 の回転（engine.js の matOf と同じ約束: R = Rz(−yaw)·Rx(pitch)·Ry(bank)、列 = 右・前・上） ---- */
   const mul = (A, B) => A.map(r => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
   const rot = (axis, a) => { const c = Math.cos(a), s = Math.sin(a);   // 機体の軸まわり（x: 翼、y: 機首、z: 上下）、ラジアン
@@ -67,35 +100,31 @@
     return { alpha, beta };
   }
 
-  /* 釣り合いの定常状態を作る。init = { bank, pitch, yaw }（度。pitch は経路の上下、yaw は方位）。
-     経路は init の向き、機首はそれより迎角ぶん上。傾いているときは水平旋回に要る迎角 α0/cosφ にし、それを保つ昇降舵の位置を hold.y に返す
-     （実機の写真で①が傾いていれば、操縦者はその旋回を保っている。放せば沈むが、それは操作ではない）。sim3d の手動操縦は hold 無し（水平の釣り合いだけ） */
+  /* ①の状態を作る。init = { bank, pitch, yaw }（度。pitch は経路の上下、yaw は方位）。
+     経路は init の向き、機首はそれより水平飛行の迎角ぶん上、舵は中立。**傾いていても引きは足さない**（引いていれば「操作をしている」ことになり嘘になる。利用者の指示 2026-09-13）。
+     傾いた①から手を放せば、揚力の鉛直成分が足りないぶん沈みながら旋回する——実機どおり。sim3d の手動操縦の syncVel も同じ */
   function trim(init, o) {
     o = o || {};
     const v = o.v || SPEED, q = o.q == null ? (v / SPEED) * (v / SPEED) : o.q;
     let M = matOf(init.bank || 0, init.pitch || 0, init.yaw || 0);
     const fwd = col(M, 1), vel = [fwd[0] * v, fwd[1] * v, fwd[2] * v];
-    const a0 = Math.min(PHY.ALPHA0 / q, PHY.A_MAX);
-    const cphi = Math.max(0.25, Math.cos((init.bank || 0) * D));
-    const at = o.level === false ? a0 : Math.min(a0 / cphi, PHY.A_MAX);
-    M = mul(M, rot('x', at));
-    const hold = { x: 0, y: -Math.max(0, at - a0) / PHY.A_PULL, r: 0 };
-    return { s: { M, vel, pos: [o.x || 0, o.y || 0, o.z || 0] }, hold };
+    M = mul(M, rot('x', Math.min(PHY.ALPHA0 / q, PHY.A_MAX)));
+    return { s: { M, vel, pos: [o.x || 0, o.y || 0, o.z || 0] } };
   }
 
   /* 操作の区間を飛ばして、時刻ごとの姿勢と位置を返す。init = { bank, pitch, yaw }、segs = [{ dur: 秒, ops: [op id…] }, …]。
      戻り値 { samples: [{ t, bank, pitch, yaw, dx, dy, dz }…]（dt 刻み。yaw は連続）, frames: [①, ②, …]（各区間の終わりの姿勢）, dur }
-     区間の中では操作は一定（hold の昇降舵に足す）。dt は既定 1/120 秒 */
+     区間の中では操作は一定。操作が無ければ舵は中立（手を放した状態）。dt は既定 1/120 秒 */
   function run(init, segs, o) {
     o = o || {};
-    const dt = o.dt || 1 / 120, { s, hold } = trim(init, o), samples = [], frames = [];
+    const dt = o.dt || 1 / 120, { s } = trim(init, o), samples = [], frames = [];
     let t = 0, prevYaw = null;
     const snap = () => { const e = eulerOf(s.M);
       if (prevYaw !== null) { while (e.yaw - prevYaw > 180) e.yaw -= 360; while (e.yaw - prevYaw < -180) e.yaw += 360; } prevYaw = e.yaw;
       return { t, bank: e.bank, pitch: e.pitch, yaw: e.yaw, dx: s.pos[0], dy: s.pos[1], dz: s.pos[2] }; };
     samples.push(snap()); frames.push(samples[0]);
     for (const seg of segs) {
-      const inp = { x: hold.x, y: hold.y, r: hold.r }, IN = o.inputs || EXAM.INPUT;
+      const inp = { x: 0, y: 0, r: 0 }, IN = o.inputs || EXAM.INPUT;
       for (const id of seg.ops || []) { const i = IN[id] || {}; inp.x += i.x || 0; inp.y += i.y || 0; inp.r += i.r || 0; }
       const n = Math.round(seg.dur / dt);
       for (let k = 0; k < n; k++) { step(s, inp, dt, o); t += dt; samples.push(snap()); }
@@ -118,5 +147,5 @@
       out[id] = { bank: +(b.bank - a.bank).toFixed(2), pitch: +(b.pitch - a.pitch).toFixed(2), yaw: +(b.yaw - a.yaw).toFixed(2), dz: +(b.dz - a.dz).toFixed(1) }; }
     return out;
   }
-  g.AAT_FLIGHT = { PHY, SPEED, EXAM, step, trim, run, at, calibrate, matOf, eulerOf, mul, rot };
+  g.AAT_FLIGHT = { PHY, SPEED, EXAM, WORLD, step, trim, run, at, calibrate, matOf, eulerOf, mul, rot };
 })(globalThis);

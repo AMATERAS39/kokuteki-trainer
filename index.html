@@ -803,7 +803,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
      実測: 容器が画面より 40 大きいだけで図が 471 → 511 に伸び、選択肢が画面から 3 はみ出す。
      svh は上下の帯を常に含んだ最小の高さなので、上限に使えば容器が画面を超えない。
      dvh をやめて svh だけにすると、ふつうのブラウザで下に余白が出て狭くなるため、併用する */
-  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;max-height:100svh;display:flex;flex-direction:column;padding-bottom:calc(max(.5rem,env(safe-area-inset-bottom)) + 1rem)}   /* 1 画面の出題は帯に隠れないので、余白は v05.11 のまま（v05.12 で広げて図が縮んでいた） */
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;max-height:100svh;display:flex;flex-direction:column;padding-bottom:calc(var(--foot-h) + .25rem)}
+  /* 余白は種目ごと（利用者の指示 2026-09-14「各モードに適切なサイズがあるはずなのでそれぞれで合わせる」）: 方位だけ v05.11 の余白で図を大きく。
+     ほかの種目は帯の高さから決める（iPhone の下の帯があると、v05.11 の余白では最後の選択肢が帯に 8 px 入り、操縦操作で選択肢が 1 画面に収まらなかった） */
+  body[data-view="train"]:has(#figs .figs.heading){padding-bottom:calc(max(.5rem,env(safe-area-inset-bottom)) + 1rem)}
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
   /* ホーム: 機体の絵だけ縮む */
@@ -922,7 +925,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
    画面が大きいぶん、大事なのは機体の図より選択肢なので、図を伸縮させて選択肢を大きく見せる。
    スマホの 1 画面化と同じ作り（縦の flex にして、図だけを伸縮させる） */
 @media (min-width:64rem){
-  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:1rem}
+  body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:calc(var(--foot-h) + .25rem)}
+  body[data-view="train"]:has(#figs .figs.heading){padding-bottom:1rem}   /* 方位だけ図を大きく（v05.11 の余白） */
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
   .hero2{flex:0 1 auto;min-height:0;justify-content:center}
@@ -1333,7 +1337,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.26';
+const APP_VER='v05.27';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */

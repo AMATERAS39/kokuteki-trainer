@@ -15,14 +15,14 @@
     { k: 'S', ja: '南' }, { k: 'SW', ja: '南西' }, { k: 'W', ja: '西' }, { k: 'NW', ja: '北西' }
   ];
   const MODES = { heading: '方位', attitude: '姿勢指示器', combo: '方位×姿勢指示器', control: '操縦操作' };
-  /* base: 文末形、cont: 連用形（「〜し、」でつなぐ） */
+  /* base: 文末形、cont: 連用形（「〜し、」でつなぐ）、view: 見え方（短く。解説・見え方の一覧・アプリ説明で使う） */
   const OPS = [
-    { id: 'stick-right', ja: '操縦桿 右', base: '操縦桿を右に倒す', cont: '操縦桿を右に倒し', group: 'stick', body: '機体が右に傾く', view: '景色が左に傾く（水平線が右上がりになる）' },
-    { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', body: '機体が左に傾く', view: '景色が右に傾く（水平線が左上がりになる）' },
-    { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', body: '機体が沈む（機首下げ）', view: '水平線が上がり、地面が広がる' },
-    { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', body: '機体が上昇する（機首上げ）', view: '水平線が下がり、空が広がる' },
-    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', body: '機体に対して横へ、右を向く', view: '目印がそろって画面の左へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' },
-    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', body: '機体に対して横へ、左を向く', view: '目印がそろって画面の右へ流れる（機体が傾いていれば水平線は上下して見えるが、傾きはほぼ変わらない）' }
+    { id: 'stick-right', ja: '操縦桿 右', base: '操縦桿を右に倒す', cont: '操縦桿を右に倒し', group: 'stick', view: '景色が左に傾く' },
+    { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', view: '景色が右に傾く' },
+    { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', view: '水平線が上がる' },
+    { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', view: '水平線が下がる' },
+    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', view: '目印が左へ流れる' },
+    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', view: '目印が右へ流れる' }
   ];
   const OP_BY_ID = Object.fromEntries(OPS.map(o => [o.id, o]));
   const OPPOSITE = { 'stick-right': 'stick-left', 'stick-left': 'stick-right', 'stick-forward': 'stick-back', 'stick-back': 'stick-forward', 'rudder-right': 'rudder-left', 'rudder-left': 'rudder-right' };
@@ -237,32 +237,16 @@
     }
     return { ok, correct: ci, answerText: answerText + '）', lines };
   }
+  /* 操縦操作の解説: 見え方の一覧・動きで見ると同じ形で、①の状態・操作・同時か順番かを示し、区間ごとの見え方を 1 行ずつ。
+     理屈（傾くと流れる、方向舵の向き など）は書かない。アプリ説明にある（利用者の指示 2026-09-13「長すぎて読めない」） */
+  const initText = init => { const t = [init.bank ? bankText(init.bank) : '', init.pitch ? pitchText(init.pitch) : ''].filter(Boolean); return t.length ? t.join('・') : '水平'; };
   function gradeControl(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
-    let lines;
-    /* 1 操作でも、下の方向舵の補足と「①で既に傾いている」の注意は届かせる。
-       以前はここで return していたため、傾いた①から方向舵を踏む問題（1 操作の 4/5 は傾いた①から始まる）で、
-       水平線が上下して見える理由を解説が説明しなかった（総点検 2026-09-13） */
-    if (q.single) {
-      const o = OP_BY_ID[q.ops[0]];
-      lines = [`①→②→③：同じ向きに変化が続いている。${o.view} → ${o.body} → ${o.base}。`, '途中で操作が変わっていないので、操作は 1 つです。'];
-    } else if (q.simul) {
-      const a = OP_BY_ID[q.ops[0]], b = OP_BY_ID[q.ops[1]];
-      lines = [`①→②：2 つの変化が同時に起きている。${a.view}／${b.view}。`,
-               `②→③：同じ 2 つの変化がそのまま続いている → 同時の 2 操作（${a.base}＋${b.base}）。`,
-               '②の時点で両方の変化があれば「同時」、片方だけなら「順番」。答えの文はどちらも同じです。'];
-    } else {
-      lines = q.ops.map((id, k) => {
-        const o = OP_BY_ID[id];
-        return `${'①②③'[k]}→${'①②③'[k + 1]}：${o.view} → ${o.body} → ${o.base}。`;
-      });
-      lines.push('①→②は片方の変化だけ、②→③で別の変化が加わっている → 順番の 2 操作。②の時点で両方が変わっていれば「同時」ですが、答えの文は同じです。');
-    }
-    if (q.ops.some(id => OP_BY_ID[id].group === 'rudder'))
-      lines.push('方向舵は、機体の上下軸まわりに機首を振ります。景色は水平線に沿ってではなく、傾いた機体に対して横（画面の左右）へ、目印がそろって流れます。機体が傾いていると、傾いた側へ踏めば機首が下がって水平線が上がり、反対側へ踏めば下がって見えますが、水平線の傾きはほとんど変わりません。目印が左右へそろって動いていれば方向舵、上下へそろって動いていれば操縦桿の奥・手前です。');
-    if (q.init.bank || q.init.pitch || q.init.yaw) lines.push('①の時点で既に傾いている場合でも、答えるのは各区間での変化を生む操作です。');
-    /* 実機の物理で飛ばしているので、傾いている区間では旋回による横の流れがある（方向舵の流れより小さい） */
-    if (q.frames.some(f => Math.abs(f.bank) >= 5)) lines.push('機体が傾いているあいだは旋回するので、操作が無くても目印は傾いた側へ少しずつ流れ、引かなければ少しずつ沈みます（方向舵よりゆっくり）。大きく横へ流れていれば方向舵です。');
+    const a = OP_BY_ID[q.ops[0]], b = OP_BY_ID[q.ops[1]];
+    const lines = [`①は${initText(q.init)}${q.single ? '' : '、2 つの操作は' + (q.simul ? '同時' : '順番')}。`];   // 正答の文は上の行（answerText）にある
+    if (q.single) lines.push(`①→②→③：${a.view}。`);
+    else if (q.simul) lines.push(`①→②→③：${a.view}、${b.view}。`);
+    else lines.push(`①→②：${a.view}。　②→③：${b.view}。`);
     return { ok, correct: ci, answerText: `${ci + 1}（${opsText(q.ops)}）`, lines };
   }
 

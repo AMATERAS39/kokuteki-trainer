@@ -12,7 +12,9 @@ export const DIRS = [
   { id: 'ne_down', ja: '北東下', h: 45, p: -30 }, { id: 'nw_down', ja: '北西下', h: 315, p: -30 }, { id: 'se_down', ja: '南東下', h: 135, p: -30 }, { id: 'sw_down', ja: '南西下', h: 225, p: -30 }
 ];
 
-export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress } = {}) {
+/* motion: 「動きで見る」の三人称。3D モデルの展示ではなく、設定した操作パターンの動きを外から見るもの（利用者の指示 2026-09-13）。
+   案内用の飾り（床の格子・方位の矢印・東西南北の札）は出さず、地平線と地面の格子だけの空に機体を置く（一人称の景色と同じ関係で読める） */
+export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, motion = false } = {}) {
   const W = () => container.clientWidth, H = () => Math.round(container.clientWidth * 3 / 4);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -27,7 +29,8 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(-3, -4, 6); scene.add(dl);
   const dl2 = new THREE.DirectionalLight(0xffffff, 0.6); dl2.position.set(4, -2, -3); scene.add(dl2);
 
-  const cam = new THREE.PerspectiveCamera(30, W() / H(), 0.1, 500);
+  const cam = new THREE.PerspectiveCamera(30, W() / H(), 0.1, motion ? 9000 : 500);
+  if (motion) { scene.background = new THREE.Color(0x7cb8ec); scene.fog = new THREE.Fog(0xa9d0f0, 400, 4000); }
   cam.up.set(0, 0, 1);
   const HOME = new THREE.Vector3(0, -24, 0);
   cam.position.copy(HOME); cam.lookAt(0, 0, 0);
@@ -35,7 +38,14 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 9; controls.maxDistance = 80; controls.enablePan = false;
 
   /* 地面の格子（z = −6 の水平面）と方位の矢印 */
-  const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; scene.add(grid);
+  if (!motion) { const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; scene.add(grid); }
+  else {
+    /* 地面: 100 単位の格子を遠くまで（一人称の視界の地面の格子と同じ役）。機体は原点、地面は 60 下 */
+    const gc = document.createElement('canvas'); gc.width = gc.height = 256; const gg = gc.getContext('2d');
+    gg.fillStyle = '#9a6535'; gg.fillRect(0, 0, 256, 256); gg.strokeStyle = 'rgba(255,255,255,.45)'; gg.lineWidth = 3; gg.strokeRect(1.5, 1.5, 253, 253);
+    const gt = new THREE.CanvasTexture(gc); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(80, 80); gt.colorSpace = THREE.SRGBColorSpace; gt.anisotropy = 8;
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshLambertMaterial({ map: gt })); ground.position.z = -60; scene.add(ground);
+  }
   /* 方位の札（北・東・南・西）。板ではなく常に正面を向くスプライトなので、視点を回しても読める */
   function dirLabel(text, color) {
     const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -48,15 +58,15 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   }
   /* 水平面の四方に置く。画面上での大きさが一定になるよう、毎フレーム カメラとの距離で拡大率を直す（機体に重ならない大きさ） */
   const marks = new THREE.Group();
-  for (const [t, x, y, col, base] of [['北', 0, 12, '#1f8f5a', 2.6], ['東', 11, 0, '#c0392b', 2.2], ['南', 0, -12, '#3c4b5c', 2.2], ['西', -11, 0, '#3c4b5c', 2.2]]) {
+  if (!motion) for (const [t, x, y, col, base] of [['北', 0, 12, '#1f8f5a', 2.6], ['東', 11, 0, '#c0392b', 2.2], ['南', 0, -12, '#3c4b5c', 2.2], ['西', -11, 0, '#3c4b5c', 2.2]]) {
     const sp = dirLabel(t, col); sp.position.set(x, y, -5.6); sp.userData.base = base; marks.add(sp);
   }
   scene.add(marks);
 
   const axes = new THREE.Group();
-  axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -6), 12, 0xff6b6b, 1.6, 0.9));
+  if (!motion) { axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -6), 12, 0xff6b6b, 1.6, 0.9));
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -6), 12, 0x3ed48a, 1.6, 0.9));
-  axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -6), 10, 0x5ab0ff, 1.6, 0.9));
+  axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -6), 10, 0x5ab0ff, 1.6, 0.9)); }
   scene.add(axes);
 
   const pivot = new THREE.Group(); scene.add(pivot);

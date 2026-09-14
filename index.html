@@ -457,8 +457,8 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .gallery .sub{font-size:.8125rem;color:var(--muted);margin-top:.25rem}
 .gallery .gsel{display:grid;grid-template-columns:4.5rem 1fr;gap:.5rem;align-items:center;margin-top:.5rem}
 .gallery .gl{font-size:.8125rem;color:var(--muted)}
-.gallery .gp{display:grid;grid-template-columns:1fr 1fr;gap:.375rem}
-.gallery .gp .ab{min-height:2.75rem;font-size:.875rem;font-weight:700;padding:.25rem}
+:is(.gallery,.fbsim) .gp{display:grid;grid-template-columns:1fr 1fr;gap:.375rem}
+:is(.gallery,.fbsim) .gp .ab{min-height:2.75rem;font-size:.875rem;font-weight:700;padding:.25rem}
 .gallery [data-first]{font-size:.75rem}
 .gallery h4{margin:1rem 0 .5rem;font-size:.9375rem}
 .gallery .frames{max-width:26rem;margin:0 auto}
@@ -469,13 +469,13 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 /* 動きで見る: 3 枚の下。下にスクロールすると出てくる */
 .gallery .gsim{margin-top:1.25rem;padding-top:.875rem;border-top:1px solid var(--line)}
 .gallery .gsimh{margin:0}
-.gallery .gsimbar{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem}
-.gallery .gsimbar .btn{height:2.75rem;font-size:.875rem}
-.gallery .gctl{display:flex;align-items:center;justify-content:center;padding:0}.gallery .gctl .ic{width:1.35rem;height:1.35rem}
-.gallery #gPlay .ic{fill:currentColor}
-.gallery .gref{z-index:1}   /* 一人称の ①の正面の破線。枠（.gframe、z-index:2）の下、3D の景色の上 */
+:is(.gallery,.fbsim) .gsimbar{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem}
+:is(.gallery,.fbsim) .gsimbar .btn{height:2.75rem;font-size:.875rem}
+:is(.gallery,.fbsim) .gctl{display:flex;align-items:center;justify-content:center;padding:0}:is(.gallery,.fbsim) .gctl .ic{width:1.35rem;height:1.35rem}
+:is(.gallery,.fbsim) .gplay .ic{fill:currentColor}
+:is(.gallery,.fbsim) .gref{z-index:1}   /* 一人称の ①の正面の破線。枠（.gframe、z-index:2）の下、3D の景色の上 */
 .gallery .gi{display:flex;align-items:center;justify-content:center;padding:.125rem}.gallery .gi .ic{width:1.6rem;height:1.6rem;stroke-width:1.8}
-.gallery .gmove{margin-top:.5rem}
+:is(.gallery,.fbsim) .gmove{margin-top:.5rem}
 .gallery .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%}
 /* 解説の中の「この問題の見え方」（操縦操作・完全版だけ） */
 .fbsim{margin-top:.75rem;border-top:1px solid var(--line);padding-top:.625rem}
@@ -484,9 +484,13 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .fbsim .gfp{margin-top:.5rem}
 .fbsim .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%;max-height:34vh;max-height:34dvh;width:auto;margin:0 auto}
 .fbsim .gstep{margin-top:.25rem;font-size:.75rem}
+/* 解説の中の「動きで見る」の箱: 以前の svg と同じ上限（高さ 34dvh まで・幅いっぱいまで）。縦横は出題の絵と同じ 360×188 */
+.fbsim .gtp{aspect-ratio:360/188;width:min(100%,calc(34dvh * 360 / 188));height:auto;margin:0 auto;border-radius:.5rem;background:var(--bezel, #0a0d11)}
+.fbsim .sub{font-size:.75rem;color:var(--muted);margin-top:.25rem}
+.fbsim .gsimbar{margin-top:.5rem}
 .gallery .gtp{margin-top:0}
-.gallery .gframe{position:absolute;inset:0;pointer-events:none;z-index:2}
-.gallery .gstep{text-align:center;margin-top:.375rem;font-variant-numeric:tabular-nums}
+:is(.gallery,.fbsim) .gframe{position:absolute;inset:0;pointer-events:none;z-index:2}
+:is(.gallery,.fbsim) .gstep{text-align:center;margin-top:.375rem;font-variant-numeric:tabular-nums}
 .gallery .gexp b{color:var(--text)}
 .gallery .gsel.off{opacity:.35;pointer-events:none}
 .gallery .gsim.off{opacity:.4;pointer-events:none}
@@ -499,8 +503,8 @@ body[data-phase="gallery"] .card{padding:.75rem 1rem}
 .gallery .sub{display:block;font-size:.75rem;margin-top:.125rem}
 .gallery h2+.sub{display:none}   /* 1 画面に収めるため冒頭の説明は出さない */
 .gallery .gsel{margin-top:.375rem;grid-template-columns:4rem 1fr}
-.gallery .gp{gap:.3rem}
-.gallery .gp .ab{min-height:2.25rem;font-size:.8125rem;padding:.125rem}
+:is(.gallery,.fbsim) .gp{gap:.3rem}
+:is(.gallery,.fbsim) .gp .ab{min-height:2.25rem;font-size:.8125rem;padding:.125rem}
 .gallery [data-first]{font-size:.6875rem}
 .gallery h4{margin:.625rem 0 0;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gallery .gdesc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -514,7 +518,7 @@ body[data-phase="gallery"] .card{padding:.75rem 1rem}
 /* 「動きで見る」の箱は出題画像と同じ: 上の①②③と同じ切り取り（360×188）・同じ高さ（利用者の指示 2026-09-13「画面サイズも出題画像と同じものであるべき」） */
 .gallery .gtp{aspect-ratio:360/188;width:auto;max-width:100%;height:calc((100vh - 30rem)/3);height:calc((100dvh - 30rem)/3);min-height:3.25rem;max-height:11rem;margin:0 auto;border-radius:.5rem;background:var(--bezel, #0a0d11)}
 .gallery .gsim{margin-top:.875rem;padding-top:.625rem}
-.gallery .gsimbar .btn{height:2.25rem;font-size:.8125rem}
+:is(.gallery,.fbsim) .gsimbar .btn{height:2.25rem;font-size:.8125rem}
 .gallery .acts{margin-top:.5rem}
 .gallery .acts .btn{height:2.5rem;font-size:.8125rem}
 .gallery .acts{margin-top:1rem}
@@ -851,7 +855,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .fig.top svg{height:100%;width:auto;max-width:min(92%,24rem)}
   .dirlist{margin-top:.5rem;gap:clamp(.375rem,1dvh,.625rem)}
   .dirlist .ab{min-height:clamp(3.25rem,8.5dvh,5rem)}
-  .dirlist .ab .t{font-size:clamp(1rem,2.6dvh,1.375rem)}
+  .dirlist .ab .lab{display:none}   /* 数字は PC のキー（1〜8）の案内。スマホでは出さない（利用者の指示 2026-09-14） */
+  .dirlist .ab .t{font-size:clamp(1.375rem,3.4dvh,1.875rem);letter-spacing:.06em;line-height:1.1}
   /* 操縦操作: 3 枚の視界 */
   .frames{flex:1;min-height:0;gap:.375rem}
   .frame{flex:1;min-height:3.5rem;grid-template-rows:minmax(0,1fr);gap:.375rem}
@@ -1359,7 +1364,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.38';
+const APP_VER='v05.39';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2488,13 +2493,12 @@ function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('
 /* ===== 操縦操作: 操作パターンの見え方（操作を選ぶと①→②③を縦に表示。操縦桿と方向舵は同時に選べる）
    3 枚の下に「動きで見る」を置く。その操作をしたときの見え方を、一人称（風防ごしの景色）と
    三人称（外から見た機体）で動かして見せる。操作はできない（見え方を確かめるだけ） ===== */
-const gal={sel:[],bank:'level',pitch:'',view:'first',play:false,paused:false,t:0,seq:false,slow:false};   // sel: 選択中の操作 id（空なら「操作なし」= 手を放した状態）、bank/pitch: ①の姿勢（組み合わせ可）、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う、slow: ゆっくり（2 倍の時間。三人称だけ。利用者の指示 2026-09-13「三人称は常にゆっくり」。一人称は解説の見え方と同じ速さ）
-const galSpeed=()=>gal.slow?2:1;   /* 三人称のゆっくり: 2 倍の時間（3.5 倍は遅すぎて動きが分かりにくかった。利用者の指摘 2026-09-13） */
+const gal={sel:[],bank:'level',pitch:'',view:'first',seq:false};   // sel: 選択中の操作 id（空なら「操作なし」= 手を放した状態）、bank/pitch: ①の姿勢（組み合わせ可）、view: 動きで見るときの視点、seq: 操縦桿 → 方向舵 の順に行う、slow: ゆっくり（2 倍の時間。三人称だけ。利用者の指示 2026-09-13「三人称は常にゆっくり」。一人称は解説の見え方と同じ速さ）
 /* 初期状態（①の姿勢）。傾きと機首の上下を組み合わせられる（出題の「初期状態: ランダム」もその組み合わせ。利用者の指示 2026-09-13） */
 const GAL_BANK={level:{ja:'水平',b:0},rbank:{ja:'右バンク',b:30},lbank:{ja:'左バンク',b:-30}};
 const GAL_PITCH={up:{ja:'機首上げ',p:10},down:{ja:'機首下げ',p:-10}};
 const galInit=()=>({bank:GAL_BANK[gal.bank].b,pitch:gal.pitch?GAL_PITCH[gal.pitch].p:0,yaw:0});
-function showGallery(){applyScene();
+function showGallery(){applyScene();galDispose();
   setPhase('gallery','見え方');showPane('gallery');
   /* 体験版: 初期状態は水平飛行だけ、操作は操縦桿だけ、「動きで見る」は鍵。
      選べないものは消さずに灰色で見せる */
@@ -2511,12 +2515,7 @@ function showGallery(){applyScene();
     <div class="gsim${dm?' off':''}">
       <h4 class="gsimh">動きで見る${dm?'（完全版）':''}</h4>
       <div class="sub">同じ動きを再生します（操作はできません）。</div>
-      <div class="gsimbar">
-        <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
-        <div class="gp" style="grid-template-columns:1fr"><button class="btn gctl" id="gPlay" aria-label="再生" title="再生">${ic('play')}</button></div>
-      </div>
-      <div class="gmove" id="gmove"></div>
-      <div class="sub gstep" id="gstep">再生を押すと、①→②→③の見え方が動きで分かります</div>
+      <div id="gmover"></div>
     </div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
@@ -2532,11 +2531,12 @@ function showGallery(){applyScene();
     if(b.dataset.lock){toast('体験版では水平飛行からの見え方だけです。ほかの初期状態は完全版で使えます');return}
     if(b.dataset.bank)gal.bank=b.dataset.bank;else gal.pitch=gal.pitch===b.dataset.pitch?'':b.dataset.pitch;   /* 機首の上下はもう一度押すと戻る */
     galDraw()}));
-  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw();galApply(gal.play?null:0)}));
-  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{if(gal.view===b.dataset.gv)return;gal.view=b.dataset.gv;gal.slow=gal.view==='third';galMove()}));
-  $('#gPlay').addEventListener('click',()=>{gal.play?galPause():galPlay()});   /* 1 つのボタンで 再生 ⇄ 一時停止（利用者の指示 2026-09-14。止めたあと再開しようとして ① に戻るのが煩わしいため、戻す操作は無し） */
+  $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw()}));
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
-  galDraw();galMove();toTop();
+  /* 「動きで見る」: 解説の「この問題の見え方」と同じ部品（利用者の指示 2026-09-14）。飛行はいまの選択から毎回作る */
+  galMv=makeMover({traj:()=>galFrames().traj,forces:seg=>{const fr=galFrames();return fr.ops.length?forcesOf(fr.ops,fr.simul,seg):null},hud:true,view:gal.view,onView:v=>{gal.view=v}});
+  $('#gmover').appendChild(galMv.el);
+  galDraw();galMv.build();toTop();
 }
 /* いまの選択から ①②③ の姿勢と見出しを作る。
    2 つ選んだときは「同時に行う」か「操縦桿 → 方向舵 の順に行う」（方向舵が先になる出題はない） */
@@ -2548,13 +2548,12 @@ function galFrames(){
   const ops=!gal.sel.length?[]:two?gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1)):[gal.sel[0],gal.sel[0]];
   const traj=ops.length?E.simControl(lv,ops,two&&!gal.seq):E.simControl(lv,[],false);
   const text=!ops.length?'操作なし（手を放す）':two&&!gal.seq?ops.map(id=>E.OP_BY_ID[id].base).join('＋'):E.opsText(ops);
-  return {f:traj.frames,traj,text};
+  return {f:traj.frames,traj,text,ops,simul:two&&!gal.seq};
 }
 function galDraw(){
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.classList.toggle('sel',gal.sel.includes(b.dataset.op)));
   $('#gallery').querySelectorAll('[data-bank]').forEach(b=>b.classList.toggle('sel',b.dataset.bank===gal.bank));
   $('#gallery').querySelectorAll('[data-pitch]').forEach(b=>b.classList.toggle('sel',b.dataset.pitch===gal.pitch));
-  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
   $('#gseqRow').classList.toggle('off',gal.sel.length<2);
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
   const fr=galFrames(),f=fr.f;
@@ -2564,52 +2563,9 @@ function galDraw(){
   $('#gout').innerHTML=`<h4>${initTx}${fr.text}${gal.sel.length>=2?(gal.seq?'（順番）':'（同時）'):''}</h4><div class="sub gdesc">${desc}</div>
     <div class="frames">${f.map((x,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(x,{marks:true,ref:f[0]}))}</div></div>`).join('')}</div>
     <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の正面（景色に固定）</div>`;
-  galApply(gal.play?null:0);
+  if(galMv)galMv.refresh();   /* 飛行が変わった: 再生中はそのまま続け、止まっていれば ① に */
 }
 /* 動きで見るところを作り直す（視点を切り替えたとき） */
-function galMove(){
-  const box=$('#gmove');if(!box)return;
-  /* 再生中・一時停止中なら、その時刻を持ち越す（視点を切り替えても ① に戻さない） */
-  const wasPlaying=gal.play,t=gal.play?galNow():(gal.paused?gal.t:0);
-  if(gal.play){gal.play=false;cancelAnimationFrame(galRaf);galRaf=0}
-  if(t>0){gal.paused=true;gal.t=t}
-  if(galViewer){galViewer.dispose();galViewer=null}
-  /* 一人称も三人称もシミュレーター本体（sim3d.js）の、出題の絵と同じ景色の世界。機体は flight.js で飛ばした姿勢と位置（出題・解説と同じ飛行）。
-     「動きで見る」は出題画面の様子を動きで把握するもの（利用者の指示 2026-09-13）。動かすのは世界ではなく機体（同日の利用者の原則）。
-     一人称は出題の絵と同じレンズ（1° = 6 px）で、同じ枠（キャノピーの縁・HUD の印・グレアシールド）を重ねる */
-  /* 一人称は、①②③ と同じ「①の正面」の破線（景色に固定）を 3D の上に重ねる（#gref。galApply が毎コマ描き直す） */
-  box.innerHTML=`<div class="viewer gtp" id="gviewer"><div class="vload" id="gvload">シミュレーターを読み込み中…</div>${gal.view==='first'?`<div class="gframe gref" id="gref"></div><div class="gframe">${ckCompact(E.svgCockpitFrame(true))}</div>`:''}</div>
-      <div class="sub">${gal.view==='first'?'出題の絵と同じ見え方です。破線は①の正面（景色に固定）。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝ロール、緑＝ピッチ、青＝ヨー。'}</div>`;
-  /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
-  { const gv=box.querySelector('#gviewer'); if(gv){ let px=0,py=0,on=false;
-    gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
-    gv.addEventListener('pointermove',e=>{if(!on||!galViewer)return;galViewer.h.addLook((e.clientX-px)*0.35,(py-e.clientY)*0.35);px=e.clientX;py=e.clientY});
-    gv.addEventListener('pointerup',()=>{on=false});gv.addEventListener('pointercancel',()=>{on=false}); } }
-  $('#gallery').querySelectorAll('[data-gv]').forEach(b=>b.classList.toggle('sel',b.dataset.gv===gal.view));
-  galMountViewer();
-  galApply(gal.paused?gal.t:0);
-  if(wasPlaying)galPlay();
-}
-/* 三人称の 3D。見え方の画面を離れるまで持っておく（作り直すと読み込みが長いため） */
-let galViewer=null,galViewerLoading=false,galRaf=0,galT0=0,galPrevFt=0;
-function galMountViewer(){
-  const host=$('#gviewer');if(!host||galViewerLoading)return;
-  galViewerLoading=true;
-  /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
-  import('./sim3d.js?v=161').then(mod=>{
-      /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
-      const h=mod.mount(host,{view:gal.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
-      h.setCockpit(false);h.setProps(true);
-      h.home();   /* 姿勢と位置は下の galApply が置く（スタートを押すまで①のまま） */
-      const v={h, dispose:()=>h.dispose()};
-      galViewerLoading=false;
-      if(!document.body.contains(host)){v.dispose();return}   // 画面が変わっていたら捨てる
-      galViewer=v;const l=$('#gvload');if(l)l.remove();
-      h.resetLook();   /* 三人称は南から（機体の後ろ）の初期の視点 */
-      galApply(gal.play?null:(gal.paused?gal.t:0));})
-    .catch(e=>{console.error(e);galViewerLoading=false;const l=$('#gvload');if(l)l.textContent='シミュレーターを読み込めませんでした（通信環境を確認してください）'});
-}
-function galDispose(){galStop();if(galViewer){galViewer.dispose();galViewer=null}}
 /* 動きの筋書き: ①で少し待つ → ②へ → 少し待つ → ③へ → 待って繰り返す（秒）。「動き」の 2 秒は飛行モデルの 2 秒そのもの（写真の間隔 EXAM_DT）。
    待ちの間は写真を見比べるための一時停止で、飛行の時刻を止める */
 const GAL_SEQ=[{hold:0.8},{move:2.0},{hold:0.5},{move:2.0},{hold:1.4}];
@@ -2620,84 +2576,133 @@ function seqTime(t){let rest=t,ft=0,seg=0;
   return {ft,near:2,moveSeg:-1}}
 /* いまの区間で舵に入っている操作 → 矢印の向き { roll, pitch, yaw }（±1／0）。待ちの間は無し */
 const FORCE_OF={'stick-right':{roll:1},'stick-left':{roll:-1},'stick-back':{pitch:1},'stick-forward':{pitch:-1},'rudder-right':{yaw:1},'rudder-left':{yaw:-1}};
-function galForces(moveSeg){
-  if(moveSeg<0||!gal.sel.length)return null;
-  const two=gal.sel.length>=2,ops=two?gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1)):[gal.sel[0],gal.sel[0]];
-  const segs=E.opSegs(ops,two&&!gal.seq),f={};
+function forcesOf(ops,simul,moveSeg){
+  if(moveSeg<0||!ops||!ops.length)return null;
+  const segs=E.opSegs(ops,simul),f={};
   for(const id of segs[moveSeg].ops)Object.assign(f,FORCE_OF[id]);
   return f}
-/* 経過時間 t（秒）の様子にする。t が null なら、いまの時刻から求める */
-function galApply(t){
-  if(t===null)t=gal.play?((performance.now()-galT0)/1000/galSpeed())%GAL_DUR:0;
-  const {traj}=galFrames(),{ft,near,moveSeg}=seqTime(t),st=AAT_FLIGHT.at(traj,ft);
-  /* シミュレーターへ: 飛行モデルで飛ばした姿勢と位置をそのまま置く（解説の「この問題の見え方」と同じ飛行）。
-     航跡の線で機体が前へ進んだ道のりを残す（三人称ではカメラが機体に付いてくるので、航跡と地面の線が進んでいる手がかり）。周回の頭で消す */
-  if(galViewer){const h=galViewer.h;
-    if(ft<galPrevFt||ft===0){h.clearTrail();galViewer.tf=0}galPrevFt=ft;
-    /* 視点を切り替えて作り直した直後など、航跡が途中までしか無ければ、そこからいまの時刻まで機体を通して引き直す（一時停止中も航跡を残すため） */
-    if(ft>0&&(galViewer.tf||0)<ft-0.2){for(let f=galViewer.tf||0;f<ft;f+=1/30)h.setPose(AAT_FLIGHT.at(traj,f))}
-    galViewer.tf=ft;
-    /* 矢印は、動いている区間なら一時停止中も出したまま（その瞬間を固めて見せる。利用者の指示 2026-09-14）。①（t=0）は待ちの区間なので無し */
-    h.setForces(galForces(moveSeg));h.setPose(st)}
-  /* 一人称: ①の正面の破線（出題の絵と同じ写像で、いまの姿勢から描く） */
-  const gr=$('#gref');
-  if(gr)gr.innerHTML=E.svgRefLines(st,AAT_FLIGHT.at(traj,0));
-  const se=$('#gstep');
-  if(se)se.textContent=(gal.play||gal.paused)?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m　進んだ距離 ${Math.round(Math.hypot(st.dx,st.dy))} m${gal.paused?'　一時停止中':''}`
-    :'再生を押すと、①→②→③の見え方が動きで分かります';
+
+/* ===== 動きで見る（部品）=====
+   見え方の一覧の「動きで見る」と、解説の「この問題の見え方」で同じもの（利用者の指示 2026-09-14: 視点の切替や再生⇄一時停止が使いやすいため）。
+   一人称も三人称もシミュレーター本体（sim3d.js）の、出題の絵と同じ景色の世界。機体は flight.js で飛ばした姿勢と位置（出題・解説と同じ飛行）。
+   動かすのは世界ではなく機体（利用者の原則 2026-09-13）。一人称は出題の絵と同じレンズ（1° = 6 px）で、同じ枠（キャノピーの縁・HUD の印・グレアシールド）と
+   ①②③ と同じ「①の正面」の破線（景色に固定）を重ねる。
+   opt.traj(): 飛行（flight.js の run の結果）、opt.forces(moveSeg): 矢印の向き、opt.hud: 一人称の HUD の印、opt.view: 最初の視点、opt.onView(v): 視点を変えたとき
+   返すもの: el（画面に置く要素）、build()（箱と 3D を作る。el を画面に置いてから）、play/pause/stop、refresh()（飛行が変わった）、dispose() */
+function makeMover(opt){
+  const m={view:opt.view||'first',play:false,paused:false,t:0,T0:0,prevFt:0,viewer:null,loading:false,raf:0};
+  const speed=()=>m.view==='third'?2:1;   /* 三人称はゆっくり（2 倍の時間。3.5 倍は遅すぎた。利用者の指摘 2026-09-13）。一人称は解説の見え方と同じ速さ */
+  const now=()=>((performance.now()-m.T0)/1000/speed())%GAL_DUR;
+  const el=document.createElement('div');el.className='mover';
+  el.innerHTML=`<div class="gsimbar">
+      <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
+      <div class="gp" style="grid-template-columns:1fr"><button class="btn gctl gplay" aria-label="再生" title="再生">${ic('play')}</button></div></div>
+    <div class="gmove"></div>
+    <div class="sub gstep">再生を押すと、①→②→③の見え方が動きで分かります</div>`;
+  const $$=sel=>el.querySelector(sel);
+  el.querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.gv)));
+  $$('.gplay').addEventListener('click',()=>{m.play?pause():play()});   /* 1 つのボタンで 再生 ⇄ 一時停止（利用者の指示 2026-09-14。止めたあと再開しようとして ① に戻るのが煩わしいため、戻す操作は無し） */
+  /* 再生ボタンの絵: 再生中は「一時停止」、止まっているときは「再生」 */
+  function btn(){const b=$$('.gplay'),p=m.play;b.innerHTML=ic(p?'pause':'play');b.setAttribute('aria-label',p?'一時停止':'再生');b.title=p?'一時停止':'再生';
+    el.querySelectorAll('[data-gv]').forEach(x=>x.classList.toggle('sel',x.dataset.gv===m.view))}
+  /* 箱を作り直す（最初と、視点を切り替えたとき）。再生中・一時停止中なら、その時刻を持ち越す（① に戻さない） */
+  function build(){
+    const box=$$('.gmove');
+    const wasPlaying=m.play,t=m.play?now():(m.paused?m.t:0);
+    if(m.play){m.play=false;cancelAnimationFrame(m.raf);m.raf=0}
+    if(t>0){m.paused=true;m.t=t}
+    if(m.viewer){m.viewer.dispose();m.viewer=null}
+    box.innerHTML=`<div class="viewer gtp gviewer"><div class="vload">シミュレーターを読み込み中…</div>${m.view==='first'?`<div class="gframe gref"></div><div class="gframe">${ckCompact(E.svgCockpitFrame(opt.hud!==false))}</div>`:''}</div>
+      <div class="sub">${m.view==='first'?'出題の絵と同じ見え方です。破線は①の正面（景色に固定）。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝ロール、緑＝ピッチ、青＝ヨー。'}</div>`;
+    /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
+    { const gv=$$('.gviewer'); let px=0,py=0,on=false;
+      gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
+      gv.addEventListener('pointermove',e=>{if(!on||!m.viewer)return;m.viewer.h.addLook((e.clientX-px)*0.35,(py-e.clientY)*0.35);px=e.clientX;py=e.clientY});
+      gv.addEventListener('pointerup',()=>{on=false});gv.addEventListener('pointercancel',()=>{on=false}); }
+    mountViewer();
+    apply(m.paused?m.t:0);btn();
+    if(wasPlaying)play();
+  }
+  function mountViewer(){
+    const host=$$('.gviewer');if(!host||m.loading)return;
+    m.loading=true;
+    /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
+    import('./sim3d.js?v=161').then(mod=>{
+        /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
+        const h=mod.mount(host,{view:m.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
+        h.setCockpit(false);h.setProps(true);
+        h.home();   /* 姿勢と位置は apply が置く（再生を押すまで①のまま） */
+        const v={h,tf:0,dispose:()=>h.dispose()};
+        m.loading=false;
+        if(!document.body.contains(host)){v.dispose();return}   // 画面が変わっていたら捨てる
+        m.viewer=v;const l=host.querySelector('.vload');if(l)l.remove();
+        h.resetLook();   /* 三人称は南から（機体の後ろ）の初期の視点 */
+        apply(m.play?null:(m.paused?m.t:0));})
+      .catch(e=>{console.error(e);m.loading=false;const l=host.querySelector('.vload');if(l)l.textContent='シミュレーターを読み込めませんでした（通信環境を確認してください）'});
+  }
+  /* 経過時間 t（秒）の様子にする。t が null なら、いまの時刻から求める */
+  function apply(t){
+    if(t===null)t=m.play?now():0;
+    const traj=opt.traj(),{ft,near,moveSeg}=seqTime(t),st=AAT_FLIGHT.at(traj,ft);
+    /* シミュレーターへ: 飛行モデルで飛ばした姿勢と位置をそのまま置く。
+       航跡の線で機体が前へ進んだ道のりを残す（三人称ではカメラが機体に付いてくるので、航跡と地面の線が進んでいる手がかり）。周回の頭で消す */
+    if(m.viewer){const h=m.viewer.h;
+      if(ft<m.prevFt||ft===0){h.clearTrail();m.viewer.tf=0}m.prevFt=ft;
+      /* 視点を切り替えて作り直した直後など、航跡が途中までしか無ければ、そこからいまの時刻まで機体を通して引き直す（一時停止中も航跡を残すため） */
+      if(ft>0&&m.viewer.tf<ft-0.2){for(let f=m.viewer.tf;f<ft;f+=1/30)h.setPose(AAT_FLIGHT.at(traj,f))}
+      m.viewer.tf=ft;
+      /* 矢印は、動いている区間なら一時停止中も出したまま（その瞬間を固めて見せる。利用者の指示 2026-09-14）。①（t=0）は待ちの区間なので無し */
+      h.setForces(opt.forces?opt.forces(moveSeg):null);h.setPose(st)}
+    /* 一人称: ①の正面の破線（出題の絵と同じ写像で、いまの姿勢から描く） */
+    const gr=$$('.gref');
+    if(gr)gr.innerHTML=E.svgRefLines(st,AAT_FLIGHT.at(traj,0));
+    $$('.gstep').textContent=(m.play||m.paused)?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m　進んだ距離 ${Math.round(Math.hypot(st.dx,st.dy))} m${m.paused?'　一時停止中':''}`
+      :'再生を押すと、①→②→③の見え方が動きで分かります';
+  }
+  function play(){
+    if(m.play)return;
+    const resume=m.paused;m.paused=false;m.play=true;
+    m.T0=performance.now()-(resume?m.t*1000*speed():0);   /* 一時停止していたら、その瞬間から続ける */
+    if(m.viewer&&!resume)m.viewer.h.resetLook();   /* 三人称は南からの初期の視点に（利用者の指示 2026-09-13）。続きのときは回した視点のまま */
+    cancelAnimationFrame(m.raf);
+    const step=()=>{if(!m.play)return;apply(now());m.raf=requestAnimationFrame(step)};
+    m.raf=requestAnimationFrame(step);
+    btn();
+  }
+  /* 一時停止: ① に戻さず、その瞬間で止める（三人称の矢印と航跡も残す。利用者の指示 2026-09-14）。再生を押すとそこから続く */
+  function pause(){
+    if(!m.play)return;
+    m.t=now();m.play=false;m.paused=true;cancelAnimationFrame(m.raf);m.raf=0;apply(m.t);btn();
+  }
+  /* 止めて ① に戻す */
+  function stop(){if(!m.play&&!m.paused)return;m.play=false;m.paused=false;m.t=0;cancelAnimationFrame(m.raf);m.raf=0;apply(0);btn()}
+  function setView(v){if(m.view===v)return;m.view=v;if(opt.onView)opt.onView(v);build()}
+  /* 飛行が変わった: 再生中はそのまま続け、止まっていれば ① に戻す */
+  function refresh(){if(m.play)apply(null);else{m.paused=false;m.t=0;apply(0);btn()}}
+  function dispose(){m.play=false;m.paused=false;cancelAnimationFrame(m.raf);m.raf=0;if(m.viewer){m.viewer.dispose();m.viewer=null}}
+  return {el,build,play,pause,stop,refresh,dispose,state:m};
 }
+/* 見え方の一覧の「動きで見る」。画面を離れるまで持っておく（作り直すと読み込みが長いため） */
+let galMv=null;
+function galDispose(){if(galMv){galMv.dispose();galMv=null}}
+
 /* ===== 解説の中の見え方（操縦操作・完全版）=====
-   その問題の ①→②③ を、出題と同じ飛行（flight.js）で動かして見せる。絵は毎コマ描き直す */
-let fbRaf=0,fbT0=0,fbPlaying=false;
-function fbSimApply(t){
-  const sv=$('#fbSim')&&$('#fbSim').querySelector('svg');
-  if(!sv||!q||!q.frames)return;
-  if(!q.traj)q.traj=E.simControl(q.init,q.ops,q.simul);   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
-  const {ft,near}=seqTime(t),st=AAT_FLIGHT.at(q.traj,ft);
-  sv.parentElement.innerHTML=E.svgCockpit(st,{hud:q.hud!==false});   /* 絵は毎コマ描き直す（ピンホールの写像なので、部品の平行移動では表せない） */
-  const lb=$('#fbSimStep');
-  if(lb)lb.textContent=`${'①②③'[near]} のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°`;
-}
-function fbSimStop(){fbPlaying=false;cancelAnimationFrame(fbRaf);fbRaf=0}
-function fbSimStart(){fbPlaying=true;fbT0=performance.now();
-  const step=now=>{if(!fbPlaying)return;fbSimApply(((now-fbT0)/1000)%GAL_DUR);fbRaf=requestAnimationFrame(step)};
-  cancelAnimationFrame(fbRaf);fbRaf=requestAnimationFrame(step)}
+   その問題の ①→②③ を、出題と同じ飛行（flight.js）で、見え方の一覧の「動きで見る」と同じ部品で動かして見せる（利用者の指示 2026-09-14）。
+   視点は問題をまたいで覚える。3D は解説を出すたびに作り、次の出題で捨てる */
+let fbMv=null,fbView='first';
+function fbSimStop(){if(fbMv){fbMv.dispose();fbMv=null}}
 function fbSimShow(){
   const box=$('#fbSim');if(!box)return;
   fbSimStop();
   if(!(q&&q.type==='control'&&q.frames&&isFull())){box.hidden=true;box.innerHTML='';return}
-  const f=q.frames;
   box.hidden=false;
-  box.innerHTML=`<div class="fbsimh"><span>この問題の見え方</span><button class="btn ghost" id="fbSimBtn">止める</button></div>
-    <div class="gfp">${E.svgCockpit(f[0],{hud:q.hud!==false})}</div>
-    <div class="sub gstep" id="fbSimStep"></div>`;
-  $('#fbSimBtn').addEventListener('click',()=>{const b=$('#fbSimBtn');
-    if(fbPlaying){fbSimStop();b.textContent='動かす'}else{fbSimStart();b.textContent='止める'}});
-  fbSimApply(0);fbSimStart();
+  box.innerHTML=`<div class="fbsimh"><span>この問題の見え方</span></div>`;
+  const qq=q;
+  fbMv=makeMover({traj:()=>{if(!qq.traj)qq.traj=E.simControl(qq.init,qq.ops,qq.simul);return qq.traj},   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
+    forces:seg=>forcesOf(qq.ops,qq.simul,seg),hud:qq.hud!==false,view:fbView,onView:v=>{fbView=v}});
+  box.appendChild(fbMv.el);
+  fbMv.build();fbMv.play();   /* 解説が出たら動かし始める（以前と同じ） */
 }
-/* 筋書きのいまの時刻（秒） */
-const galNow=()=>((performance.now()-galT0)/1000/galSpeed())%GAL_DUR;
-function galPlay(){
-  if(gal.play)return;
-  const resume=gal.paused;gal.paused=false;gal.play=true;
-  galT0=performance.now()-(resume?gal.t*1000*galSpeed():0);   /* 一時停止していたら、その瞬間から続ける */
-  if(galViewer&&!resume)galViewer.h.resetLook();   /* 三人称は南からの初期の視点に（利用者の指示 2026-09-13）。続きのときは回した視点のまま */
-  cancelAnimationFrame(galRaf);
-  const step=now=>{if(!gal.play)return;
-    galApply(((now-galT0)/1000/galSpeed())%GAL_DUR);
-    galRaf=requestAnimationFrame(step)};
-  galRaf=requestAnimationFrame(step);
-  galBtn();
-}
-/* 一時停止: ① に戻さず、その瞬間で止める（三人称の矢印と航跡も残す。利用者の指示 2026-09-14）。再生を押すとそこから続く */
-function galPause(){
-  if(!gal.play)return;
-  gal.t=galNow();gal.play=false;gal.paused=true;cancelAnimationFrame(galRaf);galRaf=0;galApply(gal.t);galBtn();
-}
-/* 再生ボタンの絵: 再生中は「一時停止」、止まっているときは「再生」 */
-function galBtn(){const b=$('#gPlay');if(!b)return;const p=gal.play;b.innerHTML=ic(p?'pause':'play');b.setAttribute('aria-label',p?'一時停止':'再生');b.title=p?'一時停止':'再生'}
-/* 止めて ① に戻す（画面を離れるとき） */
-function galStop(){if(!gal.play&&!galRaf&&!gal.paused)return;gal.play=false;gal.paused=false;gal.t=0;cancelAnimationFrame(galRaf);galRaf=0;galApply(0);galBtn()}
 
 /* ===== 記録・設定 ===== */
 function renderStats(){

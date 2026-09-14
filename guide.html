@@ -789,10 +789,11 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
   };
   spy();
 
-  /* カードの図は、アプリが実際に描いている部品（engine.js）をそのまま出す。
-     読み込めなかったときは、図の枠ごと消して文章だけにする */
-  var sc=document.createElement('script'); sc.src='/engine.js?v=62';
-  sc.onload=function(){
+  /* カードの図は、アプリが実際に描いている部品（flight.js の世界と engine.js の描画）をそのまま出す。
+     読み込めなかったときは、図の枠ごと消して文章だけにする。
+     v05.17 から操縦操作の視界は flight.js（試験の景色の世界と飛行モデル）が要る。engine.js だけ読んでいて、操縦操作の図が消えていた（利用者の指摘 2026-09-14） */
+  var load=function(src,ok){var sc=document.createElement('script'); sc.src=src; sc.onload=ok; sc.onerror=function(){document.querySelectorAll('.part').forEach(function(e){e.remove()})}; document.head.appendChild(sc)};
+  load('/flight.js?v=6',function(){ load('/engine.js?v=62',function(){
     var E=window.AAT; if(!E)return;
     var fix=function(h){return h.replace(/(src|href)="img\//g,'$1="/img/')};
     var put=function(sel,html){var e=document.querySelector(sel); if(e)e.innerHTML=fix(html)};
@@ -800,17 +801,14 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     put('[data-part=ai] .one', E.svgAI(25,12));
     var c=document.querySelector('[data-part=combo]');
     if(c){c.children[0].innerHTML=fix(E.svgAI(-15,-10)); c.children[1].innerHTML=fix(E.svgHI(120,0));}
+    /* 視界は出題と同じ飛行（水平から 操縦桿 右 ×2）の①②③ */
+    var f=E.simControl({bank:0,pitch:0,yaw:0},['stick-right','stick-right'],false).frames;
+    var fig=function(x,label){return '<figure>'+fix(E.svgCockpit(x))+'<figcaption>'+label+'</figcaption></figure>'};
     var k=document.querySelector('[data-part=ck2] .ck2');
-    /* 姿勢の列は、出題で実際に生じるもの（操縦桿 右 ×2: バンク 0 → 20 → 40、ピッチは変わらない）。
-       以前の [25,−6] のような手で置いた値は出題では生じない（総点検 2026-09-13） */
-    if(k)k.innerHTML=[[0,0,'①'],[40,0,'③']].map(function(v){
-      return '<figure>'+fix(E.svgCockpit({bank:v[0],pitch:v[1],yaw:0,dx:0,dy:0,dz:0}))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
+    if(k)k.innerHTML=fig(f[0],'①')+fig(f[2],'③');
     var k3=document.querySelector('[data-part=ck3] .ck2');
-    if(k3)k3.innerHTML=[[0,0,'①'],[20,0,'②'],[40,0,'③']].map(function(v,i){
-      return '<figure>'+fix(E.svgCockpit({bank:v[0],pitch:v[1],yaw:0,dx:0,dy:0,dz:0}))+'<figcaption>'+v[2]+'</figcaption></figure>'}).join('');
-  };
-  sc.onerror=function(){document.querySelectorAll('.part').forEach(function(e){e.remove()})};
-  document.head.appendChild(sc);
+    if(k3)k3.innerHTML=fig(f[0],'①')+fig(f[1],'②')+fig(f[2],'③');
+  }); });
 
   /* つまずき: 押すと開く */
   document.querySelectorAll('#acc .it').forEach(function(it){

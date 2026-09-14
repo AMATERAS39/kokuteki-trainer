@@ -24,8 +24,12 @@ setKey('UISupportedInterfaceOrientations', arr(ORIENT_PHONE));
 setKey('UISupportedInterfaceOrientations~ipad', arr(ORIENT_PAD));
 setKey('ITSAppUsesNonExemptEncryption', '\n\t<false/>');
 setKey('CFBundleDisplayName', '\n\t<string>TENRYU</string>');
+/* 日本語のアプリだと App Store に伝える。Capacitor の雛形は Base/en しか持たないので、これが無いと
+   ストアの「言語」が英語だけになる（iTunes Lookup の languageCodesISO2A が ['EN']。案内サイトの監査 2026-09-14 で発見） */
+setKey('CFBundleDevelopmentRegion', '\n\t<string>ja</string>');
+setKey('CFBundleLocalizations', arr(['ja']));
 fs.writeFileSync(PLIST, s);
-console.log('Info.plist を直しました（向き・輸出コンプライアンス・表示名）');
+console.log('Info.plist を直しました（向き・輸出コンプライアンス・表示名・言語 ja）');
 
 /* Xcode プロジェクトのバンドル ID を確実に書き込む。
    ここが Capacitor の既定値のままだと、取ってきたプロビジョニングプロファイルと

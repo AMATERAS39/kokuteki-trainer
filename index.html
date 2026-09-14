@@ -856,7 +856,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .dirlist{margin-top:.5rem;gap:clamp(.375rem,1dvh,.625rem)}
   .dirlist .ab{min-height:clamp(3.25rem,8.5dvh,5rem)}
   .dirlist .ab .lab{display:none}   /* 数字は PC のキー（1〜8）の案内。スマホでは出さない（利用者の指示 2026-09-14） */
-  .dirlist .ab .t{font-size:clamp(1.375rem,3.4dvh,1.875rem);letter-spacing:.06em;line-height:1.1}
+  .dirlist .ab .t{font-size:clamp(1.25rem,3dvh,1.625rem);font-weight:500;letter-spacing:.1em;line-height:1.1}   /* 700 は太すぎて窮屈（利用者 2026-09-14）。中の太さで字間を広く */
   /* 操縦操作: 3 枚の視界 */
   .frames{flex:1;min-height:0;gap:.375rem}
   .frame{flex:1;min-height:3.5rem;grid-template-rows:minmax(0,1fr);gap:.375rem}
@@ -1364,7 +1364,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.39';
+const APP_VER='v05.40';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */

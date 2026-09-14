@@ -141,6 +141,8 @@ main{overflow-x:clip}
 .btn.sec{border:1px solid var(--line2);color:var(--text)}
 .btn.sec:hover{border-color:rgba(90,209,230,.6);background:rgba(90,209,230,.08);transform:translateY(-.19rem);color:var(--text)}
 .btn:active{transform:translateY(.06rem) scale(.98)}
+.ctanote{margin-top:1rem;font-size:var(--small);color:var(--muted);max-width:44ch;animation:rise .9s .52s both}
+.ctanote b{color:var(--amber);font-family:var(--mono);font-weight:600}
 .facts{display:flex;gap:clamp(1.25rem,5vw,2.125rem);margin-top:2.25rem;padding-top:1.625rem;border-top:1px solid var(--line);animation:rise .9s .58s both}
 .facts div{margin:0}
 .facts dt{font-size:var(--tiny);letter-spacing:.18em;color:var(--faint);font-family:var(--mono)}
@@ -209,6 +211,9 @@ main{overflow-x:clip}
 .tile b{display:block;font-family:var(--mono);font-size:clamp(1.5rem,4vw,2rem);font-weight:600;color:var(--amber)}
 .tile b.cy{font-family:var(--disp);font-weight:900;color:var(--cyan)}
 .tile span{display:block;font-size:var(--small);color:var(--muted);margin-top:.25rem}
+.tile .avg{display:none;font-style:normal;font-family:var(--mono);font-size:var(--tiny);color:var(--cyan);margin-top:.375rem}
+.tile .avg.on{display:block}
+.tnote{grid-column:1/-1;font-size:var(--tiny);color:var(--faint);line-height:1.7}
 .two{display:grid;grid-template-columns:1fr;gap:clamp(1.25rem,4vw,2.75rem);align-items:start;margin-top:1.375rem}
 @media (min-width:48rem){.two{grid-template-columns:1.15fr .85fr}}
 
@@ -226,6 +231,9 @@ main{overflow-x:clip}
 .card .tip dt{font-size:var(--tiny);letter-spacing:.16em;color:var(--amber);font-family:var(--mono)}
 .card .tip dd{margin:.5rem 0 0;color:var(--muted);font-size:var(--small)}
 
+.more{margin-top:1.5rem;font-size:var(--small)}
+.more a{display:inline-block;padding:.5rem .875rem;border:1px solid rgba(90,209,230,.4);border-radius:.625rem;font-weight:700}
+.more a:hover{background:rgba(90,209,230,.1)}
 /* 操縦の節 */
 .simgrid{display:grid;grid-template-columns:1fr;gap:1.125rem;margin-top:1.75rem}
 @media (min-width:52rem){.simgrid{grid-template-columns:1fr 1fr}}
@@ -258,7 +266,7 @@ main{overflow-x:clip}
 .term dd{margin:.25rem 0 0;color:var(--muted);font-size:var(--small)}
 
 /* 価格 */
-.rate{margin-top:1.5rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
+.rate{margin-top:2rem;max-width:46rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden}
 .rr{display:grid;grid-template-columns:1.2fr 1fr 1fr .8fr;gap:.5rem;padding:.75rem clamp(.625rem,2vw,1rem);font-size:var(--small)}
 .rr+.rr{border-top:1px solid var(--line)}
 .rr .num{font-family:var(--mono);color:var(--muted)}
@@ -375,11 +383,11 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     <nav class="nav">
       <a href="#subjects">4 種目</a>
       <a href="#sim">操縦</a>
+      <a href="#start">始め方</a>
+      <a href="#price">価格</a>
       <a href="#practice">練習</a>
       <a href="#pitfalls">つまずき</a>
       <a href="#terms">用語</a>
-      <a href="#price">価格</a>
-      <a href="#start">始め方</a>
       <a href="#faq">質問</a>
       <a href="/privacy">プライバシー</a>
     </nav>
@@ -424,12 +432,13 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <div class="chip"><i></i>GUIDE</div>
       <div class="wordmark">TENRYU</div>
       <h1 class="subtitle">航空学生 適性検査トレーニング<span class="subsub">方位判読・姿勢判読</span></h1>
-      <p class="lead">航空学生の一次試験は、学科試験と適性検査に分かれます。その適性検査で出る方位判読・姿勢判読・操縦操作の 4 種目を、本番を再現した制限時間（市販の問題集と受検者の話にもとづく）で練習できるアプリです。航空自衛隊でも海上自衛隊でも、出る課目は同じです。</p>
+      <p class="lead">航空学生の一次試験にある適性検査の 4 種目（方位判読・姿勢判読・操縦操作）を、本番に近い制限時間で練習するアプリです。出題の形式と時間は、市販の問題集と、実際に受検した人からの直接の聞き取りにもとづきます。航空自衛隊でも海上自衛隊でも、出る課目は同じです。</p>
       <div class="cta">
-        <a class="btn pri" href="/">ブラウザで体験版を始める</a>
-        <a class="btn sec" href="https://apps.apple.com/app/id6808281696">App Store の完全版</a>
-        <a class="btn sec" id="ctaAndroid" href="/android">Android 版（Google Play）</a>
+        <a class="btn pri" href="/">無料の体験版をブラウザで開く</a>
+        <a class="btn sec" href="https://apps.apple.com/app/id6808281696">App Store（完全版）</a>
+        <a class="btn sec" id="ctaAndroid" href="/android">Android（完全版）</a>
       </div>
+      <p class="ctanote">体験版は無料・登録なしで、4 種目とも試せます。完全版は買い切り <b id="heroPrice">2,000 円</b>、広告なし<span id="heroPriceNote">（一次試験のあと、9 月 27 日から 1,000 円）</span>。</p>
       <dl class="facts">
         <div><dt>一次試験</dt><dd>09/19 · 09/26</dd></div>
         <div><dt>第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit">日</span></dd></div>
@@ -446,17 +455,25 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <p class="lead">適性検査は覚えた量を測る試験ではありません。1 問あたり数秒。計器の絵を見て、迷わずに答えを選べるかどうかだけが問われます。読み方の手順を体に入れておくと、その数秒が余ります。</p>
       <div class="tiles">
         <p class="tlab" id="tlab">1 問の持ち時間（アプリのデフォルト）</p>
-        <div class="tile" data-m="heading"><b>5 秒</b><span>方位</span></div>
-        <div class="tile" data-m="attitude"><b>10 秒</b><span>姿勢指示器</span></div>
-        <div class="tile" data-m="combo"><b>15 秒</b><span>方位×姿勢指示器</span></div>
-        <div class="tile" data-m="control"><b>20 秒</b><span>操縦操作</span></div>
+        <div class="tile" data-m="heading"><b>5 秒</b><span>方位</span><i class="avg"></i></div>
+        <div class="tile" data-m="attitude"><b>10 秒</b><span>姿勢指示器</span><i class="avg"></i></div>
+        <div class="tile" data-m="combo"><b>15 秒</b><span>方位×姿勢指示器</span><i class="avg"></i></div>
+        <div class="tile" data-m="control"><b>20 秒</b><span>操縦操作</span><i class="avg"></i></div>
+        <p class="tnote" id="tnote" hidden>小さい数字は、作者の端末で計った平均回答時間です（参考）。慣れると持ち時間の半分以下で読めます。</p>
       </div>
     </div>
+    <div class="rate">
+      <div class="rr th" style="color:var(--faint);font-family:var(--mono);font-size:var(--tiny)"><div><span class="nb">令和 7 年度</span> <span class="nb">航空学生</span></div><div>応募</div><div>採用</div><div>倍率</div></div>
+      <div class="rr"><b>航空要員</b><div class="num">1,354 人</div><div class="num">70 人</div><div class="hi">19.3 倍</div></div>
+      <div class="rr"><b>海上要員</b><div class="num">237 人</div><div class="num">55 人</div><div class="num">4.3 倍</div></div>
+    </div>
+    <p class="sub">出典: 防衛省「自衛官等の充足・採用状況」（2026 年 3 月 31 日現在）。女子は航空要員 26.8 倍、海上要員 6.0 倍。</p>
+    <p class="lead">航空要員は 20 人に 1 人も通りません。そのなかで、適性検査は<b>直前でいちばん動くところ</b>です。学力はいまから積み上がりません。身体検査は変えられません。面接は水物です。適性検査だけは、残りの日数でも変わります。知識ではなく速さの勝負だからです。</p>
   </section>
 
   <section id="subjects" data-reveal>
     <h2>適性検査の 4 種目</h2>
-    <p class="sub">それぞれ何を答える問題か、どう読むと速いかをまとめます。図はアプリの実際の画面です。</p>
+    <p class="sub">それぞれ何を答える問題か、どこで差がつくかをまとめます。図はアプリの実際の画面です。</p>
     <div class="grid">
 
       <article class="card">
@@ -464,7 +481,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <div class="in">
           <div class="n">01</div><h3>方位</h3>
           <p><b>方位判読</b>と呼ばれる課目です。上から見た機体の絵と方位の印（N とは限りません）から、機首がどの方位を向いているかを答えます。</p>
-          <dl class="tip"><dt>読み方のコツ</dt><dd>N マークの向きは Normal 以上で毎回変わるので、画面の上を北だと思い込むと外します。N の位置を先に見て、そこから時計回りに 45 度ずつ数えます。</dd></dl>
+          <dl class="tip"><dt>ここで差がつく</dt><dd>画面の上が北とは限りません。印の位置から読む手順が決まっている人は、5 秒で足ります。</dd></dl>
         </div>
       </article>
 
@@ -473,7 +490,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <div class="in">
           <div class="n">02</div><h3>姿勢指示器</h3>
           <p><b>姿勢判読</b>と呼ばれる課目です。南から見た機体の姿勢に合う姿勢指示器を、4 つの絵から選びます。</p>
-          <dl class="tip"><dt>読み方のコツ</dt><dd>視点は常に南なので、機首がこちらを向くほど左右が逆に見えます。先に上下（機首の上げ下げ）、次に左右の傾きと、見る順番を固定します。</dd></dl>
+          <dl class="tip"><dt>ここで差がつく</dt><dd>視点は常に南です。機首がこちらを向くと左右が入れ替わって見え、ここで迷う人が多い。見る順番を固定するのが要です。</dd></dl>
         </div>
       </article>
 
@@ -482,7 +499,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <div class="in">
           <div class="n">03</div><h3>方位×姿勢指示器</h3>
           <p><b>方位判読と姿勢判読を同時に</b>行う課目です。同じ絵から方位と姿勢の両方を読み、姿勢指示器と方位指示器の組み合わせを選びます。</p>
-          <dl class="tip"><dt>読み方のコツ</dt><dd>読むものが 2 つに増えるぶん、時間の差が出ます。先に方位、次に上下と決めておくと、絵が変わっても手順が変わりません。</dd></dl>
+          <dl class="tip"><dt>ここで差がつく</dt><dd>読むものが 2 つに増えるぶん、時間の差が出ます。順番を決めておくと、絵が変わっても手順は変わりません。</dd></dl>
         </div>
       </article>
 
@@ -491,27 +508,29 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <div class="in">
           <div class="n">04</div><h3>操縦操作</h3>
           <p><b>空間認識</b>を見る課目です。コックピットからの視界 3 枚の変化を見て、そのあいだに行われた操作（操縦桿と方向舵）を選びます。</p>
-          <dl class="tip"><dt>読み方のコツ</dt><dd>操縦桿を右に倒せば機体は右に傾き、景色は左に傾きます。この対応を絵で暗記するのではなく、一度動きで確かめておくと迷いません。</dd></dl>
+          <dl class="tip"><dt>ここで差がつく</dt><dd>操縦桿の向きだけでは決まりません。方向舵まで見ないと外します。操作と視界の対応は、下の 3D で自分で確かめられます。</dd></dl>
         </div>
       </article>
 
     </div>
+    <p class="more"><a href="/">4 種目とも、無料の体験版で試せます</a></p>
   </section>
 
   <section id="sim" data-reveal>
     <div class="eyebrow">3D シミュレーター</div>
     <h2 style="margin-top:.75rem">操縦操作は、視界の変化で覚える</h2>
-    <p class="lead">操縦操作は、操作と視界の対応が身についていると速くなります。アプリには機体を 3D で動かせるシミュレーターが入っていて、操縦桿と方向舵を入れたときに外がどう動くかを、その場で確かめられます。視点は機内、計器だけ、後方、前方、地上の 5 つです。</p>
+    <p class="lead">操縦操作の問題は、操作と視界の対応が体に入っていると速くなります。「操縦桿を右に倒す → 機体が右に傾く → 景色は左に傾いて見える」という関係を、絵で暗記するのではなく、自分で動かして確かめるためのシミュレーターです。操縦桿と方向舵を入れると、視界がその場で変わります。視点は機内、計器だけ、後方、前方、地上の 5 つです。</p>
     <div class="simgrid">
       <figure class="shot app part wide" data-part="ck3">
         <div class="ck2" style="grid-template-columns:1fr 1fr 1fr"></div>
-        <figcaption class="cap">操縦操作の「見え方」。視界の変化の例です。アプリの描画部品で描いています。</figcaption>
+        <figcaption class="cap">操縦桿を右に倒したときの視界。①が操作前、③が操作後。機体が右に傾くと、景色は左に傾いて見えます。出題の絵と同じ描画です。</figcaption>
       </figure>
       <figure>
         <div class="shot"><img src="/img/guide/sim3d.webp" width="720" height="684" alt="3D シミュレーターの視界。滑走路と山、機首の先に地平線" loading="lazy" decoding="async"></div>
-        <figcaption class="cap">3D シミュレーター。操縦桿と方向舵で、自分で飛ばせます。</figcaption>
+        <figcaption class="cap">3D シミュレーター。操縦桿と方向舵で、自分で飛ばせます。体験版でも操縦できます。</figcaption>
       </figure>
     </div>
+    <p class="sub">下の 2 枚は展示飛行モードです。練習の合間の息抜きで、受験対策そのものではありません。</p>
     <div class="pair">
       <figure>
         <div class="shot"><img src="/img/guide/cupid.webp" width="900" height="414" alt="展示飛行モードのキューピッド。2 機がハートを描き、1 機が矢のように貫く" loading="lazy" decoding="async"></div>
@@ -522,6 +541,36 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <figcaption class="cap">スタークロス。地上に降りて、頭の上を抜けるところを見上げられます。</figcaption>
       </figure>
     </div>
+  </section>
+
+  <section id="start" data-reveal>
+    <h2>始め方は 2 つ</h2>
+    <p class="sub">まずブラウザで試して、続けるならアプリ版へ。</p>
+    <div class="plans">
+      <div class="plan free">
+        <div class="top"><h3>ブラウザで試す</h3><span class="tag">体験版</span></div>
+        <p>4 種目とも試せます。3D シミュレーターも自分で操縦できます。展示飛行モードも短めなら見られます。難易度は Easy、出題数はデフォルトの半分までです。</p>
+        <a href="/">無料の体験版を開く</a>
+      </div>
+      <div class="plan pay">
+        <div class="top"><h3>アプリ版（完全版）</h3><span class="yen" id="price">2,000 円</span></div>
+        <p>買い切り、広告なし。難易度 Normal・Hard・Max（Max は操縦操作だけ）、出題数の指定、編隊とスモーク、タイヤとライト、写真の保存、背景（夕方・夜）、技を単発で選ぶときの全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせが使えます。iPhone・iPad は App Store から。Android は Google Play から（テスト版として販売。中身と価格は同じです）。</p>
+        <p class="note" id="pricenote">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</p>
+        <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
+        <a href="/android">Android 版の購入方法</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="price" data-reveal>
+    <h2 id="whyh">価格</h2>
+    <p class="lead" id="whyp">完全版は買い切り 2,000 円です。一次試験までの価格で、9 月 27 日から 1,000 円に下げます。</p>
+    <dl class="terms">
+      <div class="term"><dt>買う前に試せます</dt><dd>体験版は無料・登録なしで、4 種目とも解けます。3D シミュレーターも操縦できます。</dd></div>
+      <div class="term"><dt>買い切り</dt><dd>月額の課金も、アプリの中の追加の課金も、広告もありません。</dd></div>
+      <div class="term"><dt>他にない練習</dt><dd>App Store で「姿勢指示器」と検索して出てくるのは、このアプリだけです（2026 年 9 月 14 日に確認）。</dd></div>
+      <div class="term"><dt>問題集 1 冊の価格帯</dt><dd>市販の問題集は 1 冊 1,500 円から 2,000 円します。こちらは制限時間つきで、何度でも別の問題が出ます。</dd></div>
+    </dl>
   </section>
 
   <section id="practice" data-reveal>
@@ -539,14 +588,14 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 
   <section id="pitfalls" data-reveal>
     <h2>つまずきやすいところ</h2>
-    <p class="sub">読み方を決めていないと、同じところで毎回止まります。</p>
+    <p class="sub">読み方を決めていないと、同じところで毎回止まります。アプリでは、毎問の解説と「見え方」でここを潰します。</p>
     <div class="acc" id="acc">
       <div class="it"><button type="button"><span class="mk">＋</span><span>画面の上を北だと思い込む</span></button>
-        <div class="bd"><p>方位では、Normal 以上で N マークの向きが毎回変わります。先に N の位置を見て、そこから時計回りに数えます。</p></div></div>
+        <div class="bd"><p>Normal 以上では印の向きが毎回変わり、Hard では印が N とも限りません。アプリの解説が、印から北を決める手順を毎問示します。</p></div></div>
       <div class="it"><button type="button"><span class="mk">＋</span><span>南から見ていることを忘れる</span></button>
-        <div class="bd"><p>姿勢指示器は南から見た絵です。機首がこちらを向くほど、左右が逆に見えます。</p></div></div>
+        <div class="bd"><p>姿勢指示器は南から見た絵です。機首がこちらを向くほど、左右が逆に見えます。アプリの解説で、毎問その場で確かめられます。</p></div></div>
       <div class="it"><button type="button"><span class="mk">＋</span><span>読む順番が絵ごとに変わる</span></button>
-        <div class="bd"><p>方位×姿勢指示器は読むものが 2 つあります。先に方位、次に上下、と決めておけば手順が変わりません。</p></div></div>
+        <div class="bd"><p>方位×姿勢指示器は読むものが 2 つあります。順番を決めていないと、絵ごとに読み方が変わって時間を失います。</p></div></div>
       <div class="it"><button type="button"><span class="mk">＋</span><span>操縦桿の向きだけで答えを決める</span></button>
         <div class="bd"><p>操縦操作では、同じ操縦桿の向きで方向舵だけが違う選択肢が並びます。方向舵を踏んでいるかどうかまで見ないと外します。</p></div></div>
     </div>
@@ -565,52 +614,19 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     </dl>
   </section>
 
-  <section id="price" data-reveal>
-    <h2 id="whyh">なぜ 2,000 円か</h2>
-    <p class="lead" id="whyp">一次試験までのあいだ、完全版を 2,000 円にしています。試験が終わったら 1,000 円に下げます。</p>
-    <div class="rate">
-      <div class="rr th" style="color:var(--faint);font-family:var(--mono);font-size:var(--tiny)"><div><span class="nb">令和 7 年度</span> <span class="nb">航空学生</span></div><div>応募</div><div>採用</div><div>倍率</div></div>
-      <div class="rr"><b>航空要員</b><div class="num">1,354 人</div><div class="num">70 人</div><div class="hi">19.3 倍</div></div>
-      <div class="rr"><b>海上要員</b><div class="num">237 人</div><div class="num">55 人</div><div class="num">4.3 倍</div></div>
-    </div>
-    <p class="sub">出典: 防衛省「自衛官等の充足・採用状況」（2026 年 3 月 31 日現在）。女子は航空要員 26.8 倍、海上要員 6.0 倍。</p>
-    <p class="lead">20 人に 1 人も通らない試験のなかで、適性検査は<b>直前でいちばん動くところ</b>です。学力はいまから積み上がりません。身体検査は変えられません。面接は水物です。適性検査だけは、残りの日数でも変わります。知識ではなく速さの勝負だからです。</p>
-    <p class="lead">そして、いまこれを練習できるアプリは他にありません。App Store で「姿勢指示器」と検索して出てくるのは、このアプリだけです（2026 年 9 月 8 日に確認）。数年前まであった同じ目的のアプリは、App Store からも Google Play からも消えました。作ったのも、それが理由です。</p>
-    <p class="lead">問題集を 1 冊買えば 1,500 円から 2,000 円します。海外向けの同じようなアプリは 2,820 円です。とても狭き門だからこそ、買ってくれた方を応援し、他と差をつけられるように、強気の価格にしました。高いと思う方は、体験版で雰囲気をつかんでください。4 種目とも試せます。</p>
-  </section>
-
-  <section id="start" data-reveal>
-    <h2>始め方は 2 つ</h2>
-    <p class="sub">まずブラウザで試して、続けるならアプリ版へ。</p>
-    <div class="plans">
-      <div class="plan free">
-        <div class="top"><h3>ブラウザで試す</h3><span class="tag">体験版</span></div>
-        <p>4 種目とも試せます。3D シミュレーターも自分で操縦できます。展示飛行モードも短めなら見られます。難易度は Easy、出題数はデフォルトの半分までです。</p>
-        <a href="/">体験版を開く</a>
-      </div>
-      <div class="plan pay">
-        <div class="top"><h3>アプリ版（完全版）</h3><span class="yen" id="price">2,000 円</span></div>
-        <p>買い切り、広告なし。難易度 Normal・Hard・Max（Max は操縦操作だけ）、出題数の指定、編隊とスモーク、タイヤとライト、写真の保存、背景（夕方・夜）、技を単発で選ぶときの全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせが使えます。iPhone・iPad は App Store から。Android は Google Play から（テスト版として販売。中身と価格は同じです）。</p>
-        <p class="note" id="pricenote">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</p>
-        <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
-        <a href="/android">Android 版の購入方法</a>
-      </div>
-    </div>
-  </section>
-
   <section id="faq" data-reveal>
     <h2>よくある質問</h2>
     <div class="qas">
       <div class="qa"><div class="q"><span>Q</span><h3>方位判読・姿勢判読とは何ですか。</h3></div><div class="a"><span>A</span><p>適性検査で出る課目の呼び方です。方位判読は、上から見た機体と方位の印から機首の方位を答えるもの。姿勢判読は、機体の姿勢に合う姿勢指示器を選ぶもの。どちらも計器と機体の向きを結びつけて読む速さを見ます。このアプリでは「方位」「姿勢指示器」という名前で練習できます。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>海上自衛隊の航空学生でも同じ検査ですか。</h3></div><div class="a"><span>A</span><p>航空学生は航空自衛隊と海上自衛隊の両方にあり、一次試験の適性検査で出る課目は同じです。このアプリはどちらの受験にも使えます。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>いつから対策を始めればいいですか。</h3></div><div class="a"><span>A</span><p>適性検査は知識ではなく速さと慣れを見る検査なので、直前に詰め込むより、少しずつ回数を重ねるほうが伸びます。1 日 5 分でも、方位判読と姿勢判読を毎日続けるのが早道です。学科試験の対策と並行して進めてください。</p></div></div>
-      <div class="qa"><div class="q"><span>Q</span><h3>過去問はありますか。</h3></div><div class="a"><span>A</span><p>適性検査の問題は公表されていません。このアプリの出題は、市販の問題集と受検した人の話をもとにした練習用の再現です。形式と時間の感覚を合わせてあります。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>過去問はありますか。</h3></div><div class="a"><span>A</span><p>適性検査の問題は公表されていません。このアプリの出題は、市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした練習用の再現です。形式と時間の感覚を合わせてあります。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>一次試験はいつですか。</h3></div><div class="a"><span>A</span><p>2026 年の一次試験は 9 月 19 日と 9 月 26 日です。日程と会場は募集要項で確認してください。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>航空学生の倍率はどれくらいですか。</h3></div><div class="a"><span>A</span><p>令和 7 年度は、航空要員が応募 1,354 人に対して採用 70 人で 19.3 倍、海上要員が応募 237 人に対して採用 55 人で 4.3 倍でした（防衛省「自衛官等の充足・採用状況」）。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>このアプリだけで対策になりますか。</h3></div><div class="a"><span>A</span><p>適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>体験版と完全版の違いは何ですか。</h3></div><div class="a"><span>A</span><p>体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、タイヤとライト、写真の保存、背景の切り替え、技の単発選択の全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせは完全版です。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>Android では使えますか。</h3></div><div class="a"><span>A</span><p>使えます。Android 版は Google Play の<strong>テスト版として販売</strong>しています。中身と価格は App Store 版と同じです。テスト版なので Play ストアの検索には出ません。<a href="/android">購入方法</a>の手順（Google グループに参加 → テスト版に参加 → Google Play で購入）で入手してください。ブラウザ版は最近のブラウザ（Safari・Chrome など）で動きます。</p></div></div>
-      <div class="qa"><div class="q"><span>Q</span><h3>出題は本番と同じですか。</h3></div><div class="a"><span>A</span><p>市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>出題は本番と同じですか。</h3></div><div class="a"><span>A</span><p>市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div><div class="a"><span>A</span><p>買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。</p></div></div>
     </div>
   </section>
@@ -619,7 +635,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 
 <footer>
   <div class="fin">
-    <p>このサイトと TENRYU は個人が作ったもので、防衛省・航空自衛隊の公式ではありません。出題内容は市販の問題集と受検した人の話をもとにした練習用の再現で、試験の出題形式や採点基準を保証するものではありません。試験の詳細は必ず募集要項で確認してください。機体の 3D モデルは「航空自衛隊アクロバットチーム T-4ブルーインパルス」（3Dえいじくん 様）を購入して使っています。</p>
+    <p>このサイトと TENRYU は個人が作ったもので、防衛省・自衛隊（航空自衛隊・海上自衛隊）の公式ではありません。出題内容は市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした練習用の再現で、試験の出題形式や採点基準を保証するものではありません。試験の詳細は必ず募集要項で確認してください。機体の 3D モデルは「航空自衛隊アクロバットチーム T-4ブルーインパルス」（3Dえいじくん 様）を購入して使っています。</p>
     <form class="ask" id="ask" novalidate>
       <h2>お問い合わせ</h2>
       <p>不具合のご報告、ご要望、取材のご依頼など。返信が要るときは、返信先も書いてください。</p>
@@ -642,7 +658,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <a href="https://note.com/amateras87/n/n304f337b3d21">開発の記事</a>
       <a href="/privacy">プライバシーポリシー</a>
     </div>
-    <div class="sig">TENRYU · 2026</div>
+    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-14</div>
   </div>
 </footer>
 
@@ -664,16 +680,16 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 </script>
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-13","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/guide/ogp.jpg","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
+{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-14","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/guide/ogp.jpg","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"方位判読・姿勢判読とは何ですか。","acceptedAnswer":{"@type":"Answer","text":"適性検査で出る課目の呼び方です。方位判読は、上から見た機体と方位の印から機首の方位を答えるもの。姿勢判読は、機体の姿勢に合う姿勢指示器を選ぶもの。どちらも計器と機体の向きを結びつけて読む速さを見ます。"}},{"@type":"Question","name":"海上自衛隊の航空学生でも同じ検査ですか。","acceptedAnswer":{"@type":"Answer","text":"航空学生は航空自衛隊と海上自衛隊の両方にあり、一次試験の適性検査で出る課目は同じです。どちらの受験にも使えます。"}},{"@type":"Question","name":"いつから対策を始めればいいですか。","acceptedAnswer":{"@type":"Answer","text":"適性検査は知識ではなく速さと慣れを見る検査なので、直前に詰め込むより少しずつ回数を重ねるほうが伸びます。1 日 5 分でも毎日続けるのが早道です。"}},{"@type":"Question","name":"過去問はありますか。","acceptedAnswer":{"@type":"Answer","text":"適性検査の問題は公表されていません。出題は市販の問題集と受検した人の話をもとにした練習用の再現で、形式と時間の感覚を合わせてあります。"}},
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"方位判読・姿勢判読とは何ですか。","acceptedAnswer":{"@type":"Answer","text":"適性検査で出る課目の呼び方です。方位判読は、上から見た機体と方位の印から機首の方位を答えるもの。姿勢判読は、機体の姿勢に合う姿勢指示器を選ぶもの。どちらも計器と機体の向きを結びつけて読む速さを見ます。"}},{"@type":"Question","name":"海上自衛隊の航空学生でも同じ検査ですか。","acceptedAnswer":{"@type":"Answer","text":"航空学生は航空自衛隊と海上自衛隊の両方にあり、一次試験の適性検査で出る課目は同じです。どちらの受験にも使えます。"}},{"@type":"Question","name":"いつから対策を始めればいいですか。","acceptedAnswer":{"@type":"Answer","text":"適性検査は知識ではなく速さと慣れを見る検査なので、直前に詰め込むより少しずつ回数を重ねるほうが伸びます。1 日 5 分でも毎日続けるのが早道です。"}},{"@type":"Question","name":"過去問はありますか。","acceptedAnswer":{"@type":"Answer","text":"適性検査の問題は公表されていません。出題は市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした練習用の再現で、形式と時間の感覚を合わせてあります。"}},
 {"@type":"Question","name":"一次試験はいつですか。","acceptedAnswer":{"@type":"Answer","text":"2026 年の一次試験は 9 月 19 日と 9 月 26 日です。日程と会場は募集要項で確認してください。"}},
 {"@type":"Question","name":"航空学生の倍率はどれくらいですか。","acceptedAnswer":{"@type":"Answer","text":"令和 7 年度は、航空要員が応募 1,354 人に対して採用 70 人で 19.3 倍、海上要員が応募 237 人に対して採用 55 人で 4.3 倍でした（防衛省「自衛官等の充足・採用状況」）。"}},
 {"@type":"Question","name":"このアプリだけで対策になりますか。","acceptedAnswer":{"@type":"Answer","text":"適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。"}},
 {"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、タイヤとライト、写真の保存、背景の切り替え、技の単発選択の全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせは完全版です。"}},
 {"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"使えます。Android 版は Google Play のテスト版として販売しています。中身と価格は App Store 版と同じです。テスト版なので Play ストアの検索には出ません。購入方法は https://kokuteki.amaterasu-vocab.com/android にあります（Google グループに参加 → テスト版に参加 → Google Play で購入）。ブラウザ版は最近のブラウザ（Safari・Chrome など）で動きます。"}},
-{"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、受検した人の話をもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
+{"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
 {"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。"}}]}
 </script>
 <script type="application/ld+json">
@@ -692,8 +708,9 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
   if(now >= Date.parse('2026-09-27T00:00:00+09:00')){
     var p=document.getElementById('price'); if(p)p.textContent='1,000 円';
     var n=document.getElementById('pricenote'); if(n)n.remove();
-    var h=document.getElementById('whyh'); if(h)h.textContent='価格について';
     var w=document.getElementById('whyp'); if(w)w.textContent='完全版は買い切り 1,000 円です。';
+    var hp=document.getElementById('heroPrice'); if(hp)hp.textContent='1,000 円';
+    var hn=document.getElementById('heroPriceNote'); if(hn)hn.remove();
   }
 
   /* 上の細い線で読み進み具合を出す */
@@ -834,12 +851,14 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     var tiles=[].slice.call(document.querySelectorAll('.tile[data-m]'));
     var any=tiles.some(function(t){ return got(d.stats[t.dataset.m]) });
     if(!any)return false;                       /* 1 つも記録がなければ、デフォルトの持ち時間のまま */
+    /* 持ち時間（大きい数字）はそのまま残す。初めて見る人に要るのはこちら。
+       平均は小さい 2 行目に「平均 6.3 秒」として添え、出所を下の注に書く（v05.36） */
     tiles.forEach(function(t){
-      var v=d.stats[t.dataset.m];
-      /* 記録のない種目は「—」。デフォルトの持ち時間を平均として見せない */
-      t.querySelector('b').textContent = got(v) ? (v.t/v.n).toFixed(1)+' 秒' : '—';
+      var v=d.stats[t.dataset.m], a=t.querySelector('.avg');
+      if(!a)return;
+      if(got(v)){ a.textContent='平均 '+(v.t/v.n).toFixed(1)+' 秒'; a.classList.add('on') }
     });
-    var l=document.getElementById('tlab'); if(l)l.textContent='平均回答時間';
+    var l=document.getElementById('tnote'); if(l)l.hidden=false;
     return true;
   };
   try{ fill(JSON.parse(localStorage.getItem(KEY))) }catch(e){}

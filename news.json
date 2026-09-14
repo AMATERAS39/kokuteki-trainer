@@ -1,6 +1,13 @@
 {
-  "latest": "v05.33",
+  "latest": "v05.34",
   "items": [
+    {
+      "id": "n-20260914-android",
+      "date": "2026-09-14",
+      "type": "notice",
+      "title": "Android 版を Google Play で販売しています",
+      "body": "Android 版を、Google Play のテスト版として販売しています。中身と価格は App Store 版と同じです（9 月 26 日まで 2,000 円、9 月 27 日から 1,000 円）。テスト版なので Play ストアの検索には出ません。案内サイトの「Android 版の購入方法」（kokuteki.amaterasu-vocab.com/android）の手順で入手してください。"
+    },
     {
       "id": "u-v0501",
       "date": "2026-09-13",

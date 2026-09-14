@@ -428,7 +428,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <div class="cta">
         <a class="btn pri" href="/">ブラウザで体験版を始める</a>
         <a class="btn sec" href="https://apps.apple.com/app/id6808281696">App Store の完全版</a>
-        <a class="btn sec" href="/android">Android 版（Google Play）</a>
+        <a class="btn sec" id="ctaAndroid" href="/android">Android 版（Google Play）</a>
       </div>
       <dl class="facts">
         <div><dt>一次試験</dt><dd>09/19 · 09/26</dd></div>
@@ -677,7 +677,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 {"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。"}}]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"2000","priceCurrency":"JPY"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Android, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"2000","priceCurrency":"JPY"}}
 </script>
 
 <script>
@@ -846,6 +846,13 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
   fetch('/api/avg',{cache:'no-store'}).then(function(r){ return r.ok?r.json():null }).then(function(d){
     if(fill(d)){ try{ localStorage.setItem(KEY,JSON.stringify(d)) }catch(e){} }
   }).catch(function(){});
+})();
+</script>
+<script>
+/* Android の端末で開いたら、Android 版のボタンを App Store の前に出す（v05.34） */
+(function(){
+  if(!/Android/i.test(navigator.userAgent))return;
+  var a=document.getElementById('ctaAndroid'); if(a&&a.previousElementSibling)a.parentNode.insertBefore(a,a.previousElementSibling);
 })();
 </script>
 

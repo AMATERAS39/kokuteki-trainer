@@ -165,14 +165,18 @@
        同じ操作の繰り返しや左右の切り返し（左に倒して右に倒す等）は 2 操作としては出さない */
     const STICK = OPS.filter(o => o.group === 'stick'), RUDDER = OPS.filter(o => o.group === 'rudder');
     /* 難易度: easy は 1 操作だけ、normal は 1 操作と 2 操作の混在、hard は混在＋視界の目盛りなし、
-       max は hard に加えて①が必ず傾き＋機首の上下の複合（利用者の指示 2026-09-13。本番にその写真がある） */
+       ①の姿勢（初期状態）: hard までは 水平・傾きだけ・機首の上下だけ のどれか（傾きと機首の上下の複合は出ない）。
+       max は hard に加えて複合も出る（水平・傾き・上下・複合の全パターンが対象。複合だけではない。利用者の指示 2026-09-14。
+       v05.42 までは max が必ず複合、hard までは傾きと上下を独立に引いていたので複合が 8/15 で出ていた） */
     const lv0 = lvOf(s), lv = lv0 === 'max' ? 'hard' : lv0, max = lv0 === 'max';
     const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && Math.random() < 1 / 3);
     const first = one ? pick(OPS).id : pick(STICK).id;
     const ops = one ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';
-    const init = max ? { bank: pick([-30, -15, 15, 30]), pitch: pick([-10, 10]), yaw: pick([-10, 0, 10]) }
-               : { bank: rand ? pick([-30, -15, 0, 15, 30]) : 0, pitch: rand ? pick([-10, 0, 10]) : 0, yaw: rand ? pick([-10, 0, 10]) : 0 };
+    const pat = max ? pick(['level', 'bank', 'pitch', 'both']) : rand ? pick(['level', 'bank', 'pitch']) : 'level';   // ①の姿勢の型
+    const init = { bank: (pat === 'bank' || pat === 'both') ? pick([-30, -15, 15, 30]) : 0,
+                   pitch: (pat === 'pitch' || pat === 'both') ? pick([-10, 10]) : 0,
+                   yaw: (max || rand) ? pick([-10, 0, 10]) : 0 };
     const single = ops[0] === ops[1];
     /* 2 操作は「順番」（①→②で操縦桿、②→③で方向舵）と「同時」（①→②でも②→③でも両方が進む）を半々で出す。
        答えの文はどちらも同じ。試験の写真がどちらの形かは文言から分からないので、両方に慣れる */

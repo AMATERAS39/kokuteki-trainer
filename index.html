@@ -1308,7 +1308,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=6"></script>
-<script src="engine.js?v=64"></script>
+<script src="engine.js?v=65"></script>
 <script>
 (function(){
 'use strict';
@@ -1364,7 +1364,7 @@ const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.42';
+const APP_VER='v05.43';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1633,7 +1633,7 @@ const LEVEL_HELP={
   heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。'},
   attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',normal:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
   combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'12 方向すべて。方位指示器の印は毎回変わる。'},
-  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ。視界の中央の目盛りは出ない。',max:'Hard に加えて、①は必ず傾きと機首の上下が重なった姿勢。'}};
+  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ。視界の中央の目盛りは出ない。①は水平か、傾きだけか、機首の上下だけ。',max:'Hard に加えて、①に傾きと機首の上下が重なった姿勢も出る。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();

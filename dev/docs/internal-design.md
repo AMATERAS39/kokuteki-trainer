@@ -4818,6 +4818,14 @@ iPad は 4 枚しかなく、iPhone にある方位・方位×姿勢指示器・
 出題は試験の絵に合わせた「操作 1 つ＝姿勢の回転 1 つ」の約束のままにし、その旨を INTRO に「この出題の絵の約束」と書いた。
 シミュレーターは物理、出題は試験の約束——この線引きを利用者に報告する。③で水平線が枠外へ出る 12% は、初期ピッチ ±10° と 8°×2 の組み合わせによるもので、目印で読めるので据え置き。
 
+## App Store 5.42 を審査へ提出した（2026-09-14 23:3x、利用者の指示「まとめて push し、変更内容も書いて審査提出まで」）
+
+- 状態: 5.31 は「デベロッパにより却下済み」（利用者が取り下げ）、4.97 が配信中。Codemagic のビルドは 12 時間前の #54（5.31）が最後で、新しいビルドは無かった（利用者「codemagic には push 済み」は main への push のこと。Codemagic は push では走らない）。
+- 手順: Codemagic の Builds（`/builds?app_id=…`）→ 一覧の「Start new build」（ref クリック）→ ダイアログ（branch main・workflow TENRYU iOS（App Store）が既定）→ Start。ビルド #55 = main 32c65a7（v05.42）、約 3 分でアップロード、Apple の処理は 10 分弱で「提出準備完了」（TestFlight の一覧で確かめられる）。
+- ASC: 却下済みの 5.31 の版の画面（`/distribution/ios/version/inflight`）で、バージョン欄を 5.42 に、「このバージョンの最新情報」を 826 字（`ストア掲載文.md` に同文。4.97 からの変更）に書き換えて保存 → ビルド 54 を削除（ビルドの行の中の `button[aria-label="削除"]` を focus して Enter。`削除` の文字のボタンは 11 個あり、最初のは掲載画像の削除）→ 保存 → 「ビルドを追加」→ ラジオは `focus()` して **space**（`click()` では入らない）→ 完了 → 保存 → 審査用に追加 → 出てきた「提出物の下書き」の中の「審査へ提出」（focus + Enter）→「1 項目が提出されました。審査には最大 48 時間」。
+- 今回の Chrome の癖: 窓が 968×318 と低く、`resize_window` は「Bounds must be at least 50% within visible screen space」で失敗することがある。`get_page_text` と JS で読み、押すものは focus + Enter。裏のタブは CDP が time out するので、タブは 1 つで順に使う。
+- 5.42 には案内サイト側の変更（guide/android/privacy、8b14202）と v05.36〜v05.42 の全部が入る。App Store の言語が EN だけの件（監査 #1）は未対応（次のビルドで patch-ios.js に CFBundleDevelopmentRegion/CFBundleLocalizations を入れる）。
+
 ## v05.42 方位の札の色分けを取りやめ（2026-09-14、利用者「見にくくなった」）
 
 v05.41（N をピンク・E をライトグリーン）を差し戻し、札の字は元の白（`--text`）に。`dirLabelHTML`・`--dir-n`／`--dir-e` も削除。

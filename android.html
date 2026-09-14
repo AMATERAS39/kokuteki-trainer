@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1017">
+<title>Android 版の購入方法｜TENRYU</title>
+<meta name="description" content="TENRYU（航空学生 適性検査トレーニング）Android 版の購入方法。Google Play のテスト版として、App Store 版と同じ内容・同じ価格で販売しています。">
+<link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/android">
+<link rel="icon" href="/favicon.ico" sizes="48x48 96x96">
+<link rel="icon" href="/icons/favicon-96.png?v=2" sizes="96x96">
+<link rel="icon" href="/icons/icon-192.png?v=2" sizes="192x192">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="TENRYU">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="Android 版の購入方法｜TENRYU">
+<meta property="og:url" content="https://kokuteki.amaterasu-vocab.com/android">
+<meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* 案内ページ（/guide）・プライバシーポリシーと同じ意匠。寸法はすべて相対単位 */
+:root{
+  --bg:#0b1017;--panel:#0f1620;
+  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.16);
+  --text:#e8eef5;--muted:#93a3b5;--faint:#6f8090;--soft:#a9b8c8;
+  --cyan:#5ad1e6;--amber:#ffb020;
+  --disp:"Zen Kaku Gothic New",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --wrap:52rem;
+  --pad:clamp(.875rem,3vw,1.375rem);
+  --sec:clamp(1.75rem,4vw,2.5rem);
+  --body:clamp(.9rem,1.6vw,1rem);
+  --small:clamp(.82rem,1.4vw,.9rem);
+  --tiny:clamp(.68rem,1.2vw,.75rem);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;overflow-x:clip;background:var(--bg);color:var(--text);
+  font-family:var(--disp);line-height:1.9;-webkit-font-smoothing:antialiased}
+h1,h2{margin:0;line-height:1.35;text-wrap:pretty}
+p,ul{margin:0}
+a{color:var(--cyan);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:.15em}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+.bar{position:sticky;top:0;z-index:50;backdrop-filter:blur(.875rem);
+  background:rgba(11,16,23,.82);border-bottom:1px solid var(--line)}
+.barin{max-width:var(--wrap);margin:0 auto;padding:.5rem var(--pad);
+  display:flex;align-items:center;gap:1rem}
+.brand{font-family:var(--mono);font-weight:600;letter-spacing:.18em;color:var(--text);
+  font-size:clamp(.8rem,2.2vw,.95rem);flex:none}
+.back{margin-left:auto;font-size:var(--small);color:var(--muted);padding:.3rem .5rem;border-radius:.5rem}
+.back:hover{color:var(--text);background:rgba(90,209,230,.1);text-decoration:none}
+
+main{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad) clamp(2.5rem,6vw,4rem)}
+.head{padding:clamp(2rem,5vw,3rem) 0 var(--sec)}
+.eyebrow{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan)}
+h1{font-size:clamp(1.5rem,4vw,2.25rem);font-weight:900;letter-spacing:-.01em;margin-top:.625rem}
+.meta{margin-top:.875rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint);letter-spacing:.06em}
+.intro{margin-top:1.25rem;color:var(--muted);font-size:var(--body);max-width:34rem}
+
+section{padding:var(--sec) 0;border-top:1px solid var(--line)}
+h2{font-size:var(--body);font-weight:700}
+h2 .n{font-family:var(--mono);font-size:var(--tiny);color:var(--amber);letter-spacing:.14em;margin-right:.625rem}
+section p{margin-top:.75rem;color:var(--soft);font-size:var(--small)}
+section ul{margin-top:.75rem;padding-left:1.15rem;color:var(--soft);font-size:var(--small)}
+li{margin-top:.25rem}
+li::marker{color:var(--faint)}
+.who{margin-top:.875rem;border:1px solid var(--line);border-radius:.875rem;overflow:hidden}
+.wr{display:grid;grid-template-columns:minmax(7rem,1fr) 2fr;gap:.5rem 1rem;
+  padding:.7rem clamp(.7rem,2vw,1rem);font-size:var(--small);align-items:baseline}
+.wr+.wr{border-top:1px solid var(--line)}
+.wr b{font-weight:700}
+.wr span{color:var(--muted)}
+@media (max-width:30rem){.wr{grid-template-columns:1fr;gap:.15rem}}
+
+footer{border-top:1px solid var(--line);background:var(--panel)}
+.fin{max-width:var(--wrap);margin:0 auto;padding:clamp(1.25rem,4vw,2rem) var(--pad)}
+footer p{color:var(--faint);font-size:var(--tiny);line-height:1.85}
+footer .links{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem;font-size:var(--small)}
+footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint)}
+@media (prefers-reduced-motion:reduce){.bar{backdrop-filter:none;background:rgba(11,16,23,.96)}}
+
+.steps{margin-top:1rem;display:grid;gap:.875rem;counter-reset:st}
+.step{border:1px solid var(--line);border-radius:.875rem;padding:clamp(.875rem,2.5vw,1.125rem);background:var(--panel)}
+.step h3{margin:0;font-size:var(--body);font-weight:700;line-height:1.5}
+.step h3::before{counter-increment:st;content:counter(st);display:inline-grid;place-items:center;width:1.6em;height:1.6em;margin-right:.6em;
+  border-radius:50%;background:rgba(255,176,32,.14);color:var(--amber);font-family:var(--mono);font-size:var(--tiny);vertical-align:.1em}
+.step p{margin-top:.5rem;color:var(--soft);font-size:var(--small)}
+.go{display:inline-block;margin-top:.875rem;padding:.7rem 1.15rem;border-radius:.625rem;font-weight:700;font-size:var(--small);
+  background:var(--amber);color:#1a1204}
+.go:hover{text-decoration:none;filter:brightness(1.06)}
+.go.sec{background:transparent;color:var(--text);border:1px solid var(--line2)}
+.price{margin-top:1rem;display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap}
+.price b{font-family:var(--mono);font-size:clamp(1.25rem,3.5vw,1.6rem);color:var(--amber);font-weight:600}
+.price span{color:var(--muted);font-size:var(--small)}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="barin">
+    <a class="brand" href="/guide">TENRYU</a>
+    <a class="back" href="/guide#price">案内ページへ戻る</a>
+  </div>
+</header>
+
+<main>
+
+  <div class="head">
+    <p class="eyebrow">ANDROID</p>
+    <h1>Android 版の購入方法</h1>
+    <p class="intro">Android 版は、Google Play の「テスト版」として販売しています。中身と価格は App Store 版と同じです。テスト版なので、Play ストアの検索には出ません。下の手順で購入してください。</p>
+    <div class="price"><b id="price">2,000 円</b><span id="pricenote">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</span></div>
+  </div>
+
+  <section>
+    <h2><span class="n">01</span>購入の手順</h2>
+    <div class="steps">
+      <div class="step">
+        <h3>Google グループに参加する</h3>
+        <p>Google Play で使っている Google アカウントで、グループ「tenryu-testers」に参加します。メールは届きません（届かない設定です）。</p>
+        <a class="go sec" href="https://groups.google.com/g/tenryu-testers">グループのページを開く</a>
+      </div>
+      <div class="step">
+        <h3>テスト版に参加する</h3>
+        <p>同じ Google アカウントのまま、テスト参加ページで「テスターになる」を押します。</p>
+        <a class="go sec" href="https://play.google.com/apps/testing/com.amaterasuvocab.kokuteki">テスト参加ページを開く</a>
+      </div>
+      <div class="step">
+        <h3>Google Play で購入してインストールする</h3>
+        <p>参加後に出る「Google Play でダウンロード」から、Play ストアのページを開いて購入します。反映まで数分かかることがあります。</p>
+        <a class="go" href="https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki">Google Play で開く</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">02</span>テスト版について</h2>
+    <ul>
+      <li>内容は App Store 版と同じです。更新も同じ時期に届きます。</li>
+      <li>Play ストアの検索には出ません。上の手順で参加した Google アカウントだけが購入できます。</li>
+      <li>Play ストアの評価・レビューは付けられません。ご意見は案内ページの問い合わせ欄からお送りください。</li>
+      <li>一般公開に切り替えたあとも、購入済みの方はそのまま使えます（買い直しは不要です）。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="n">03</span>うまくいかないとき</h2>
+    <ul>
+      <li>「アイテムが見つかりません」と出る: グループに参加したアカウントと、Play ストアのアカウントが同じか確かめてください。参加の直後は反映に数分かかります。</li>
+      <li>複数の Google アカウントを使っている: ブラウザと Play ストアの両方で、同じアカウントに切り替えてから開き直してください。</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  <div class="fin">
+    <p>このサイトと TENRYU は個人が作ったもので、防衛省や航空自衛隊の公式ではありません。</p>
+    <div class="links">
+      <a href="/guide">案内ページ</a>
+      <a href="/">体験版</a>
+      <a href="https://apps.apple.com/app/id6808281696">App Store</a>
+      <a href="/privacy">プライバシーポリシー</a>
+    </div>
+    <div class="sig">TENRYU · 2026</div>
+  </div>
+</footer>
+
+<script>
+/* 9 月 27 日から価格を 1,000 円に（案内ページと同じ切り替え） */
+(function(){
+  if(new Date()>=new Date('2026-09-27T00:00:00+09:00')){
+    var p=document.getElementById('price'); if(p)p.textContent='1,000 円';
+    var n=document.getElementById('pricenote'); if(n)n.remove();
+  }
+})();
+</script>
+</body>
+</html>

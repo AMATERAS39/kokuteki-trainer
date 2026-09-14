@@ -467,13 +467,15 @@ ${ckFrame(hud)}</svg>`;
   const IMG = 'img/t4-';
   function figTopDown(theta, phi, mark = 0) {
     /* 上面図は 3D モデルを真上から描画したもの（機首が上＝北）。theta をそのまま回転に使う。mark: 印の方位（0 = N。Hard では 8 方位のどれか） */
+    /* 絵は外接枠では中央だが、翼と尾翼の重みが尾側にあるため（面積の重心は中心より 9% 尾側）、絵を 6 上げて翼の付け根のあたりを環の中心（回転の軸）に置く。
+       中心に置くと、機体が中心から尾側へずれて見えた（利用者の指摘 2026-09-14） */
     /* 印（三角と文字）と機体の絵が重ならないように、機体を 144 → 108 に縮めて文字の内側に収める。印は絵の上に描き、文字に背景色の縁取り
        （尾翼や翼が印の方向にあると、文字が機体の下に隠れていた。利用者の指摘 2026-09-14） */
     const ticks = [0, 90, 180, 270].map(a => `<line x1="100" y1="14" x2="100" y2="24" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('') +
       [45, 135, 225, 315].map(a => `<line x1="100" y1="14" x2="100" y2="22" stroke="var(--faint)" stroke-width="2" transform="rotate(${a} 100 100)"/>`).join('');
     return `<svg viewBox="0 0 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="上面図">
 <circle cx="100" cy="100" r="96" fill="var(--bezel)"/><circle cx="100" cy="100" r="88" fill="var(--card)" stroke="var(--line2)" stroke-width="1"/>${ticks}
-<image href="img/t4-top.webp" x="46" y="46" width="108" height="108" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta} 100 100)"/>
+<image href="img/t4-top.webp" x="46" y="40" width="108" height="108" preserveAspectRatio="xMidYMid meet" transform="rotate(${theta} 100 100)"/>
 <g transform="rotate(${phi} 100 100)"><polygon points="100,13 94,27 106,27" fill="var(--accent)"/><text x="100" y="41" text-anchor="middle" font-family="var(--mono)" font-size="14" font-weight="700" fill="var(--accent)" stroke="var(--card)" stroke-width="4" stroke-linejoin="round" paint-order="stroke">${DIRS[mark].k}</text></g></svg>`;
   }
   function figAttitude(bank, pitch, front, sideRight) {

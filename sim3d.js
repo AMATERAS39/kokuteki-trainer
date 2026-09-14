@@ -4,7 +4,7 @@
    ±LIMIT m の四角い空間の中を一定速度で飛び、壁と地面で止まる。 */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import './flight.js?v=4';   // 飛行モデルと試験の景色の世界（globalThis.AAT_FLIGHT）
+import './flight.js?v=6';   // 飛行モデルと試験の景色の世界（globalThis.AAT_FLIGHT）
 
 const D = Math.PI / 180;
 export const LIMIT = 3300;                       // 壁までの距離（原点から、m）。壁は近づくまで見えない（place で薄くする）。1800 → 3300（利用者の指示 2026-09-13「制限範囲を拡大」。地面 8 km 角の内側）
@@ -378,8 +378,7 @@ export function mount(container, opt = {}) {
        ・雪山: 絵の三角（方位 −21.7°〜−8.3°、頂 −15° で 12°）と雪の四角形、3 km。色は --ck-mtn2 と --ck-snow
        ・塔: 絵の柱（方位 +38°〜+38.7°、高さ 6.7°）と赤い頭、2.5 km
        ・太陽: 方位 +18.3°（110 px）、仰角 16°（96 px）、半径 2.5°（15 px）。5.5 km 先（空の球の内側）
-       ・地面の放射の線: 進行方向に平行な線。絵の傾き k（x/y = k×130/240）は、高度 H で横ずれ d = 0.5417·k·H の線に当たる
-       ・地面の横の線: 絵では消失点系に貼り付いた 7 本だが、世界に置くと機体が上を通り過ぎる。150 m おきの繰り返しにする
+       ・地面の格子: 真上から見て正方形（WORLD.gap m おき）。遠近で消失点へ向かって見える
        ・水平線: 白い線（絵の opacity .8、太さ 1.5 px ＝ 0.25°）。目の高さの帯（円筒）。絵では山の根元の上に引くので、山より手前の 2.4 km に
        ・空: 絵と同じ縦のグラデーション（水平線の色 → 仰角 150° で上の色）。星は夜だけ、絵と同じ 70 個
        ・地面は光を当てない平らな色、水平線より下で地面の板の外は空の球が地面の色（絵は水平線から下が全部地面）
@@ -419,12 +418,12 @@ export function mount(container, opt = {}) {
     { const R = 5500 * K, az = PX(WD.sun.x), el = PX(-WD.sun.y);   // 太陽
       const sun = new THREE.Mesh(new THREE.SphereGeometry(R * Math.tan(PX(15)), 24, 12), new THREE.MeshBasicMaterial({ color: col.sun, fog: false }));
       sun.position.set(R * Math.sin(az) * Math.cos(el), R * Math.cos(az) * Math.cos(el), H0 + R * Math.sin(el)); ex.add(sun); }
-    { const lm = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false, fog: false });   // 地面の線（太さと間隔は高さに比例）
-      /* 横の線は 300 m おき: 機体は 2 秒で 400 m 進むので、線が流れて前へ進んでいることが分かる（高さに比例させた 1,875 m おきでは、進んでいないように見えた。利用者の指摘） */
-      const w = 2.5 * H0 / 80, L = 400000, gap = WD.gap;
-      WD.radial.forEach(k => { const d = 130 / 240 * k * H0;
-        const l = new THREE.Mesh(new THREE.PlaneGeometry(w, L), lm); l.position.set(d, 0, 0); l.renderOrder = -1; ex.add(l); });
-      for (let yy = -60000; yy <= 60000; yy += gap) { const l = new THREE.Mesh(new THREE.PlaneGeometry(L, w), lm); l.position.set(0, yy, 0); l.renderOrder = -1; ex.add(l); } }
+    { /* 地面の格子: 真上から見て正方形（東西・南北の線を gap m おき）。出題の絵と同じ細い線（画面で 1 px） */
+      const G = WD.gap, R = WD.gridR, pos = [];
+      for (let v = -R; v <= R; v += G) { pos.push(v, -R, 0, v, R, 0, -R, v, 0, R, v, 0); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false, fog: false }));
+      l.renderOrder = -1; ex.add(l); }
     /* 地面の目印（畑・湖・道・集落）: 出題の絵（svgCockpit）と同じ位置・同じ色の平らな多角形 */
     WD.ground.forEach(gd => { const sh = new THREE.Shape(gd.pts.map(p => new THREE.Vector2(p[0], p[1])));
       const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: cssColor(['--ck-' + gd.c], WD.colors[gd.c]), fog: false, depthWrite: false }));

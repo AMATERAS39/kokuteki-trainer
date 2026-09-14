@@ -414,13 +414,11 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     const sun = sunP ? `<circle cx="${fx(sunP[0])}" cy="${fx(sunP[1])}" r="${W.sun.r}" fill="var(--ck-sun, #ffd36b)"/>` : '';
     let stars = '';
     for (const sIt of W.stars) { const p = pr.pt(pr.dir(sIt.x / 6, -sIt.y / 6), 1e-3); if (p) stars += `<circle cx="${fx(p[0])}" cy="${fx(p[1])}" r="${sIt.r}"/>`; }
-    /* 地面: 放射の線（進行方向に平行）、横の線（gap m おき）、目印 */
+    /* 地面: 格子（真上から見て正方形。東西・南北の線を gap m おき、始めの位置のまわり ±gridR m）、目印 */
     let gl = '';
-    const oy = st.dy || 0;
-    for (const k of W.radial) { const X = 130 / 240 * k * W.H; const q = pr.seg(pr.gnd(X, oy - 2000), pr.gnd(X, oy + 60000), 1);
-      if (q) gl += `<line x1="${fx(q[0][0])}" y1="${fx(q[0][1])}" x2="${fx(q[1][0])}" y2="${fx(q[1][1])}"/>`; }
-    for (let Y = Math.ceil((oy - 2000) / W.gap) * W.gap; Y <= oy + 15000; Y += W.gap) { const q = pr.seg(pr.gnd(-12000, Y), pr.gnd(12000, Y), 1);
-      if (q) gl += `<line x1="${fx(q[0][0])}" y1="${fx(q[0][1])}" x2="${fx(q[1][0])}" y2="${fx(q[1][1])}"/>`; }
+    { const G = W.gap, R = W.gridR;   // 3D と同じ範囲（始めの位置のまわり ±R m）
+      const line = q => { if (q) gl += `<line x1="${fx(q[0][0])}" y1="${fx(q[0][1])}" x2="${fx(q[1][0])}" y2="${fx(q[1][1])}"/>`; };
+      for (let v = -R; v <= R; v += G) { line(pr.seg(pr.gnd(v, -R), pr.gnd(v, R), 1)); line(pr.seg(pr.gnd(-R, v), pr.gnd(R, v), 1)); } }
     let gf = '';
     for (const g of W.ground) gf += shape(g.pts.map(p => pr.gnd(p[0], p[1])), 1, `var(--ck-${g.c}, ${W.colors[g.c]})`);
     /* 目印の輪（雪山の頂・塔の先端）と ①の水平線 */

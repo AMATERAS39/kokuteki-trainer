@@ -429,18 +429,29 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     /* ①の正面の目印: ①で画面中央に交差していた 2 本の線（①の水平線と平行な線と、それに直角な線）を**景色に固定**し、いまの姿勢から写す。
        機体が右に傾けば線は左に傾いて見え、機首を上げれば下がり、方向舵で横へ流れる——景色と同じ動き（利用者の指示 2026-09-13「その位置で固定」）。
        線は無限遠の方向の集まり（①の機体座標で (u, 1, 0) と (0, 1, v)）なので、ピンホールでは直線に写る */
-    let ref = '';
-    if (o.ref) { const M0 = global.AAT_FLIGHT.matOf(o.ref.bank, o.ref.pitch, o.ref.yaw || 0);
-      const w = p => [M0[0][0] * p[0] + M0[0][1] * p[1] + M0[0][2] * p[2], M0[1][0] * p[0] + M0[1][1] * p[1] + M0[1][2] * p[2], M0[2][0] * p[0] + M0[2][1] * p[1] + M0[2][2] * p[2]];
-      for (const [p1, p2] of [[[-5, 1, 0], [5, 1, 0]], [[0, 1, -5], [0, 1, 5]]]) { const q = pr.seg(pr.vec(w(p1)), pr.vec(w(p2)), 1e-3);
-        if (q) ref += `<line x1="${fx(q[0][0])}" y1="${fx(q[0][1])}" x2="${fx(q[1][0])}" y2="${fx(q[1][1])}"/>`; }
-      ref = `<g stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9">${ref}</g>`; }
+    const ref = o.ref ? refLines(pr, o.ref) : '';
     return `<svg viewBox="0 0 360 240" width="100%" style="aspect-ratio:360/240;display:block" role="img" aria-label="コックピットからの視界">
 <defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--ck-sky-top, var(--ck-sky, var(--sky)))"/><stop offset="1" style="stop-color:var(--ck-sky-hz, var(--ck-sky, var(--sky)))"/></linearGradient></defs><rect width="360" height="240" fill="var(--bezel, #0a0d11)"/>
 <g clip-path="url(#${id})"><g transform="${att({ bank, pitch })}"><rect x="-1200" y="-1200" width="2400" height="1200" fill="url(#${id}s)"/><rect x="-1200" y="0" width="2400" height="1200" fill="var(--ck-earth, var(--earth))"/></g>
 <g fill="var(--ck-star, none)">${stars}</g>${sun}${ridge}${snow}${tower}<g stroke="#000" opacity=".12" stroke-width="1">${gl}</g>${gf}
 <g transform="${att({ bank, pitch })}"><line x1="-1200" x2="1200" y1="0" y2="0" stroke="#fff" stroke-width="1.5" opacity=".8"/></g>${mk}${ref}</g>
 ${ckFrame(hud)}</svg>`;
+  }
+  /* ①の正面の目印の 2 本の破線（svgCockpit の o.ref）。pr はいまの姿勢の写像、ref は ①の状態 */
+  function refLines(pr, ref) {
+    const M0 = global.AAT_FLIGHT.matOf(ref.bank, ref.pitch, ref.yaw || 0);
+    const w = p => [M0[0][0] * p[0] + M0[0][1] * p[1] + M0[0][2] * p[2], M0[1][0] * p[0] + M0[1][1] * p[1] + M0[1][2] * p[2], M0[2][0] * p[0] + M0[2][1] * p[1] + M0[2][2] * p[2]];
+    let out = '';
+    for (const [p1, p2] of [[[-5, 1, 0], [5, 1, 0]], [[0, 1, -5], [0, 1, 5]]]) { const q = pr.seg(pr.vec(w(p1)), pr.vec(w(p2)), 1e-3);
+      if (q) out += `<line x1="${fx(q[0][0])}" y1="${fx(q[0][1])}" x2="${fx(q[1][0])}" y2="${fx(q[1][1])}"/>`; }
+    return `<g stroke="#f2a93b" stroke-width="2" stroke-dasharray="7 6" opacity=".9">${out}</g>`;
+  }
+  /* 「動きで見る」の一人称（3D の景色）に重ねる ①の正面の目印。出題の絵と同じレンズなので、同じ写像で描けば景色に貼り付いて見える。
+     枠は出題と同じ 360×188 の切り取り（キャノピーの中だけに描く） */
+  function svgRefLines(st, ref) {
+    const id = 'rf' + (++uid);
+    return `<svg viewBox="0 0 360 188" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block" aria-hidden="true">
+<defs><clipPath id="${id}"><path d="M16,40 Q180,4 344,40 L344,182 L16,182 Z"/></clipPath></defs><g clip-path="url(#${id})">${refLines(projector(st), ref)}</g></svg>`;
   }
   /* 視界の枠（HUD の印・キャノピーの縁・グレアシールド）。svgCockpit と、3D の景色に重ねる svgCockpitFrame で同じものを使う */
   const ckFrame = hud => `${hud ? '<g stroke="var(--hud, #7cf59a)" stroke-width="2" fill="none"><line x1="180" y1="98" x2="180" y2="118"/><line x1="170" y1="108" x2="190" y2="108"/><path d="M118,108 h32 v8 M242,108 h-32 v8"/></g>' : ''}
@@ -489,5 +500,5 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
   }
 
   global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, simControl, opSegs, EXAM_DT, opsText,
-    gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, svgCockpitFrame, figTopDown, figAttitude, figDir14 };
+    gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, svgCockpitFrame, svgRefLines, figTopDown, figAttitude, figDir14 };
 })(window);

@@ -726,7 +726,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .lk{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:.125rem .4rem;white-space:nowrap}
 .demo{margin-top:.5rem;display:flex;align-items:center;gap:.625rem;background:var(--panel);border:1px dashed var(--line2);border-radius:.875rem;padding:.5rem .625rem .5rem .875rem;font-size:.75rem;color:var(--muted);line-height:1.35}
 .demo b{color:var(--accent)}
-.demo.review{border-style:solid}.demo.review .btn.ghost{margin-left:.25rem}
+.demo.review,.demo.ask{border-style:solid}.demo.review .btn.ghost,.demo.ask .btn.ghost{margin-left:.25rem}.demo.ask a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 .musbtns{display:flex;gap:.375rem;align-items:center}
 .musnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 #simTakeoff.busy{opacity:.7;pointer-events:none}   /* 加速中・曲を待っているあいだは押せない見た目にする */
@@ -1368,7 +1368,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.51';
+const APP_VER='v05.52';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2881,13 +2881,32 @@ function reviewDue(){
   const h=new Date().getHours();
   return Date.now()-t0>=24*3600*1000&&h>=16&&h<20;
 }
+/* ===== 受験者アンケート（アプリ版だけ）=====
+   最初にホームを開いたとき、今年度の一次試験を受ける予定かを 1 回だけ尋ねる（答えはこの端末にだけ残す。集計はしない。利用者の指示 2026-09-16）。
+   受ける人には、試験が終わったあと（公平のため第 2 日程 EXAM_END のあと）の夕方（16〜19 時）にホームで 1 回だけ、案内サイトのアンケートページを案内する。
+   アプリからは何も送らない約束なので、答えはサイトのページで集める（/survey）。来年度の日程は未定なので EXAM_END を毎年直す。
+   試験のあと 30 日を過ぎたら出さない（来年の受験生が古い日程で案内されないように） */
+const EXAM_END='2026-09-26',SURVEY_URL='https://kokuteki.amaterasu-vocab.com/survey';
+function examPlanDue(){return (NATIVE||IS_TWA)&&!store.get('examAsked')}
+function surveyDue(){
+  if(!(NATIVE||IS_TWA)||store.get('examPlan')!=='yes'||store.get('surveyAsked'))return false;
+  const end=Date.parse(EXAM_END+'T00:00:00+09:00'),now=Date.now(),h=new Date().getHours();
+  return now>=end&&now<end+31*86400000&&h>=16&&h<20;
+}
+function examPlanHTML(){return `<div class="demo ask"><span>今年度の航空学生の一次試験を受ける予定ですか。答えはこの端末にだけ残ります（集計はしません）。</span><button class="btn" id="planYes">受ける</button><button class="btn ghost" id="planNo">受けない</button></div>`}
+function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よければ受験者アンケートにご協力ください（3 分ほど。案内サイトのページが開きます。アプリからは何も送りません）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}
 function reviewCardHTML(){return `<div class="demo review"><span>もしよければ、${NATIVE?'App Store':'Google Play'} でレビューをお願いします。</span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODES[m]}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
     +(isFull()?'':`<div class="demo"><span><b>体験版</b>: 鍵のかかった機能は完全版で使えます</span><button class="btn" data-go2="buy">くわしく</button></div>`)
-    +(reviewDue()?reviewCardHTML():'');
+    +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
+  const py=$('#planYes');if(py){const ans=v=>{store.set('examPlan',v);store.set('examAsked',Date.now());py.closest('.ask').remove()};
+    py.addEventListener('click',()=>ans('yes'));$('#planNo').addEventListener('click',()=>ans('no'))}
+  const sg=$('#surveyGo');if(sg){store.set('surveyAsked',Date.now());   /* 出した時点で一度だけを満たす */
+    sg.addEventListener('click',()=>{setTimeout(()=>sg.closest('.ask')&&sg.closest('.ask').remove(),300)});
+    $('#surveyNo').addEventListener('click',()=>sg.closest('.ask').remove())}
   const rv=$('#reviewGo');if(rv){store.set('reviewAsked',Date.now());   /* 出した時点で一度だけを満たす（無視されても二度目は出さない） */
     rv.addEventListener('click',()=>{rv.closest('.review').remove();location.href=NATIVE?REVIEW_URL_IOS:REVIEW_URL_ANDROID});
     $('#reviewNo').addEventListener('click',()=>rv.closest('.review').remove())}

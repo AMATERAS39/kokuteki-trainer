@@ -84,6 +84,8 @@ footer p{color:var(--faint);font-size:var(--tiny);line-height:1.85}
 footer .links{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem;font-size:var(--small)}
 footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint)}
 @media (prefers-reduced-motion:reduce){.bar{backdrop-filter:none;background:rgba(11,16,23,.96)}}
+/* 語の途中で折り返さない（利用者の指示 2026-09-15）。.nw はカタカナ語・複合語、auto-phrase は対応ブラウザだけ */
+body{word-break:auto-phrase}.nw{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -91,7 +93,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
 <header class="bar">
   <div class="barin">
     <a class="brand" href="/guide">TENRYU</a>
-    <a class="back" href="/guide">案内ページへ戻る</a>
+    <a class="back" href="/guide">案内<span class="nw">ページ</span>へ戻る</a>
   </div>
 </header>
 
@@ -99,57 +101,57 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
 
   <div class="head">
     <p class="eyebrow">PRIVACY POLICY</p>
-    <h1>プライバシーポリシー</h1>
-    <p class="meta">TENRYU（航空学生 適性検査トレーニング）　制定 2026 年 9 月 2 日　改定 2026 年 9 月 10 日</p>
+    <h1><span class="nw">プライバシーポリシー</span></h1>
+    <p class="meta">TENRYU（<span class="nw">航空学生</span> <span class="nw">適性検査</span><span class="nw">トレーニング</span>）　制定 2026 年 9 月 2 日　改定 2026 年 9 月 10 日</p>
     <p class="intro">個人情報は集めません。練習の記録は端末の中だけに保存し、外へ送りません。以下はその詳細です。</p>
   </div>
 
   <section>
     <h2><span class="n">01</span>収集する情報</h2>
-    <p>本アプリと本サイトは、氏名、メールアドレス、位置情報などの個人情報を収集しません。
-      利用者を識別する情報を外部のサーバーへ送信することもありません。</p>
+    <p>本<span class="nw">アプリ</span>と本<span class="nw">サイト</span>は、氏名、<span class="nw">メールアドレス</span>、位置情報などの個人情報を収集しません。
+      利用者を識別する情報を外部の<span class="nw">サーバー</span>へ送信することもありません。</p>
   </section>
 
   <section>
     <h2><span class="n">02</span>端末の中に保存する情報</h2>
     <ul>
-      <li>設定（出題数、制限時間、表記、背景など）</li>
-      <li>練習の記録（出題数、正解数、解答時間）</li>
-      <li>説明画面の表示の有無、シミュレーターの視点・隊形・音量などの状態、全機能版の有効化の状態と、入力した解除コード</li>
+      <li>設定（<span class="nw">出題数</span>、<span class="nw">制限時間</span>、表記、背景など）</li>
+      <li>練習の記録（<span class="nw">出題数</span>、正解数、<span class="nw">解答時間</span>）</li>
+      <li>説明画面の表示の有無、<span class="nw">シミュレーター</span>の視点・隊形・音量などの状態、全機能版の有効化の状態と、入力した解除<span class="nw">コード</span></li>
       <li>「ご要望・お問い合わせ」で送った本文と名前の控え（自分の投稿を読み返すためのもの）</li>
-      <li>案内ページの平均回答時間を送る端末だけが持つ合言葉（通常の利用者の端末にはありません）</li>
+      <li>案内<span class="nw">ページ</span>の平均回答時間を送る端末だけが持つ合言葉（通常の利用者の端末にはありません）</li>
       <li>画面を読み込み直したときに元の位置へ戻るための一時的な表示位置（sessionStorage）</li>
-      <li>オフラインでも動くための、アプリのファイルと 3D モデルの写し（Cache Storage）</li>
+      <li><span class="nw">オフライン</span>でも動くための、<span class="nw">アプリ</span>の<span class="nw">ファイル</span>と 3D <span class="nw">モデル</span>の写し（Cache Storage）</li>
     </ul>
-    <p>これらは端末のブラウザ領域（記録と設定は localStorage、演目の曲は IndexedDB、一時的な表示位置は sessionStorage、ファイルの写しは Cache Storage）にだけ保存され、外部へ送信されません。
-      アプリのデータを削除すると消えます。</p>
+    <p>これらは端末の<span class="nw">ブラウザ</span>領域（記録と設定は localStorage、演目の曲は IndexedDB、一時的な表示位置は sessionStorage、<span class="nw">ファイル</span>の写しは Cache Storage）にだけ保存され、外部へ送信されません。
+      <span class="nw">アプリ</span>の<span class="nw">データ</span>を削除すると消えます。</p>
   </section>
 
   <section>
     <h2><span class="n">03</span>通信について</h2>
-    <p>本アプリは Web の技術で作られており、起動時と更新時に次の事業者のサーバーと通信します。
-      その際、通信に必要な情報（IP アドレス、端末や閲覧ソフトの種類など）が各事業者に送られることがあります。</p>
+    <p>本<span class="nw">アプリ</span>は Web の技術で作られており、起動時と更新時に次の事業者の<span class="nw">サーバー</span>と通信します。
+      その際、通信に必要な情報（IP <span class="nw">アドレス</span>、端末や閲覧<span class="nw">ソフト</span>の種類など）が各事業者に送られることがあります。</p>
     <div class="who">
-      <div class="wr"><b>Cloudflare</b><span>本アプリと本サイトの配信</span></div>
+      <div class="wr"><b>Cloudflare</b><span>本<span class="nw">アプリ</span>と本<span class="nw">サイト</span>の配信</span></div>
       <div class="wr"><b>Google Fonts</b><span>文字の書体の配信</span></div>
-      <div class="wr"><b>Google 広告</b><span>案内ページ（/guide・/android）の訪問の計測。アプリ本体では使いません</span></div>
+      <div class="wr"><b>Google 広告</b><span>案内<span class="nw">ページ</span>（/guide・/android）の訪問の計測。<span class="nw">アプリ</span>本体では使いません</span></div>
     </div>
-    <p>各事業者での取り扱いは、それぞれのプライバシーポリシーに従います。
-      3D 表示に使う部品と機体のデータは本アプリの中に持っているため、外部の配信サービスとは通信しません。
-      一度読み込んだ内容は端末に保存され、以後はオフラインでも動作します。</p>
+    <p>各事業者での取り扱いは、それぞれの<span class="nw">プライバシーポリシー</span>に従います。
+      3D 表示に使う部品と機体の<span class="nw">データ</span>は本<span class="nw">アプリ</span>の中に持っているため、外部の配信<span class="nw">サービス</span>とは通信しません。
+      一度読み込んだ内容は端末に保存され、以後は<span class="nw">オフライン</span>でも動作します。</p>
   </section>
 
   <section>
-    <h2><span class="n">04</span>案内ページに出る平均回答時間</h2>
-    <p>案内ページの札に出る平均回答時間は、作者が自分の端末で測った記録です。
+    <h2><span class="n">04</span>案内<span class="nw">ページ</span>に出る平均回答時間</h2>
+    <p>案内<span class="nw">ページ</span>の札に出る平均回答時間は、作者が自分の端末で測った記録です。
       利用者の記録を集めたものではありません。個々の端末から記録が送られることはありません。</p>
   </section>
 
   <section>
-    <h2><span class="n">05</span>広告とアクセス解析</h2>
-    <p>本アプリと本サイトに広告は表示しません。アプリ本体ではアクセス解析の道具も使っていません。
-      案内ページ（/guide・/android）だけは、Google 広告からの訪問を数えるために Google タグ（gtag.js）を読み込みます。
-      Google での取り扱いは Google のプライバシーポリシーに従います。個人を特定する情報は送りません。</p>
+    <h2><span class="n">05</span>広告と<span class="nw">アクセス</span>解析</h2>
+    <p>本<span class="nw">アプリ</span>と本<span class="nw">サイト</span>に広告は表示しません。<span class="nw">アプリ</span>本体では<span class="nw">アクセス</span>解析の道具も使っていません。
+      案内<span class="nw">ページ</span>（/guide・/android）だけは、Google 広告からの訪問を数えるために Google タグ（gtag.js）を読み込みます。
+      Google での取り扱いは Google の<span class="nw">プライバシーポリシー</span>に従います。個人を特定する情報は送りません。</p>
   </section>
 
   <section>
@@ -159,25 +161,25 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
 
   <section>
     <h2><span class="n">07</span>変更</h2>
-    <p>本ポリシーを変更する場合は、このページで公開します。</p>
+    <p>本<span class="nw">ポリシー</span>を変更する場合は、この<span class="nw">ページ</span>で公開します。</p>
   </section>
 
   <section>
     <h2><span class="n">08</span>お問い合わせ</h2>
-    <p>メール: <a href="mailto:kokutekisei@amaterasu-vocab.com">kokutekisei@amaterasu-vocab.com</a><br>
-      案内ページの最下部にある問い合わせ欄からも送れます。</p>
+    <p><span class="nw">メール</span>: <a href="mailto:kokutekisei@amaterasu-vocab.com">kokutekisei@amaterasu-vocab.com</a><br>
+      案内<span class="nw">ページ</span>の最下部にある問い合わせ欄からも送れます。</p>
   </section>
 
 </main>
 
 <footer>
   <div class="fin">
-    <p>このサイトと TENRYU は個人が作ったもので、防衛省や自衛隊（航空自衛隊・海上自衛隊）の公式ではありません。
-      機体の 3D モデルは「航空自衛隊アクロバットチーム T-4ブルーインパルス」（3Dえいじくん 様）を購入して使っています。</p>
+    <p>この<span class="nw">サイト</span>と TENRYU は個人が作ったもので、防衛省や<span class="nw">自衛隊</span>（<span class="nw">航空自衛隊</span>・<span class="nw">海上自衛隊</span>）の公式ではありません。
+      機体の 3D <span class="nw">モデル</span>は「<span class="nw">航空自衛隊</span><span class="nw">アクロバットチーム</span> T-4<span class="nw">ブルーインパルス</span>」（3Dえいじくん 様）を購入して使っています。</p>
     <div class="links">
-      <a href="/guide">案内ページ</a>
-      <a href="/">体験版</a>
-      <a href="https://apps.apple.com/app/id6808281696">App Store</a>
+      <a href="/guide">案内<span class="nw">ページ</span></a>
+      <a href="/"><span class="nw">体験版</span></a>
+      <a href="https://apps.apple.com/app/id6808281696">App Store</a>
     </div>
     <div class="sig">TENRYU · 2026</div>
   </div>

@@ -2793,7 +2793,8 @@ export function mount(container, opt = {}) {
        式: a = KL·q·(α·上 − α0·(上·ẑ)·ẑ) − KY·q·β·右 */
     const a0 = Math.min(PHY.ALPHA0 / q, 14 * D);   // 釣り合いの迎角は速さの二乗に反比例（遅いほど機首を上げて飛ぶ。上限 14° ＝ 失速の手前）
     pAcc.copy(bup).multiplyScalar(PHY.KL * alpha * q).addScaledVector(bright, -PHY.KY * beta * q);
-    pAcc.z -= (gravityOn || (manualGravity && !auto)) ? 9.81 : PHY.KL * a0 * q * bup.z;   // 動きで見ると手動操縦は本物の重力。自動操縦は釣り合いの揚力の鉛直成分で支える（重力を無視）
+    const gOn = gravityOn || (manualGravity && !auto);   // 重力を使うか（動きで見る、手動操縦）
+    pAcc.z -= gOn ? 9.81 : PHY.KL * a0 * q * bup.z;   // 動きで見ると手動操縦は本物の重力。自動操縦は釣り合いの揚力の鉛直成分で支える（重力を無視）
     const psi0 = Math.atan2(vel.x, vel.y);
     vel.addScaledVector(pAcc, dt).setLength(v);
     st.x += vel.x * dt; st.y += vel.y * dt; st.z += vel.z * dt;
@@ -2806,7 +2807,11 @@ export function mount(container, opt = {}) {
     /* 姿勢: 補助翼はロール角速度。昇降舵・方向舵は迎角・横滑り角を指令へ寄せる（機首を速度まわりに動かす） */
     const roll = RATE.roll * input.x * dt * D;
     if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
-    const alphaWant = a0 + (input.y < 0 ? -input.y * PHY.A_PULL : -input.y * PHY.A_PUSH);   // 手前（y<0）で迎角を増やす
+    /* 重力ありのときの釣り合い: 揚力は機体の上向きなので、鉛直成分は cos(機首の上げ角) ぶん減る。a0 のままだと 3.5° で 0.2% 足りず、
+       手を放していても 1 分に 36 m 沈み、2 分ほどで接地した（利用者の報告 2026-09-16「水平に保っていても着地してしまう」）。
+       機首の上げ角で割って、翼が水平なら高度をぴったり保つ。バンクの分は補正しない（旋回では引かないと沈む、実機どおり） */
+    const a0t = gOn ? a0 / Math.max(0.5, Math.cos(st.p * D)) : a0;
+    const alphaWant = a0t + (input.y < 0 ? -input.y * PHY.A_PULL : -input.y * PHY.A_PUSH);   // 手前（y<0）で迎角を増やす
     const betaWant = -input.r * PHY.BETA_MAX;                                                          // 右方向舵で機首を右へ（β は負）
     const dA = (alphaWant - alpha) * Math.min(1, dt / PHY.TAU_A), dB = (betaWant - beta) * Math.min(1, dt / PHY.TAU_B);
     if (dA) att.multiply(dq.setFromAxisAngle(AX, dA));

@@ -67,6 +67,12 @@ figure{margin:0}
 .nav::-webkit-scrollbar{display:none}
 .nav a{flex:none;white-space:nowrap;padding:.3rem .5rem;border-radius:.5rem;font-size:clamp(.7rem,2.2vw,.85rem);color:var(--muted);transition:color .2s,background .2s}
 .nav a:hover,.nav a.on{color:var(--text);background:rgba(90,209,230,.1)}
+/* お知らせの帯。上の帯のすぐ下、見出しの前に置いて最初に目に入るようにする。色は既存の変数だけを使う */
+.notice{background:var(--panel);border-bottom:1px solid var(--line)}
+.noticein{max-width:var(--wrap);margin:0 auto;padding:.625rem var(--pad)}
+.notice .nbox{border-left:.1875rem solid var(--amber);padding:.125rem 0 .125rem .875rem;font-size:var(--small);color:var(--soft);line-height:1.75}
+.notice .ntag{display:block;font-family:var(--mono);font-size:var(--tiny);letter-spacing:.14em;color:var(--amber);margin-bottom:.2rem}
+.notice p{margin:0}
 
 main{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad) clamp(3rem,8vw,6rem)}
 section{padding:var(--sec) 0;border-top:1px solid var(--line)}
@@ -410,6 +416,16 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
   </div>
 </header>
 
+<!-- iOS 5.46 の修正が配信されるまで出す。消すときはこのブロックごと -->
+<div class="notice" role="status">
+  <div class="noticein">
+    <div class="nbox">
+      <span class="ntag">お知らせ · 2026-09-15</span>
+      <p>iPhone・iPad 版（5.45 まで）で、操縦操作の出題と解説の「動きで見る」、見え方の「動きで見る」、3D シミュレーターが動かない不具合があります（アプリに同梱するファイルの欠けが原因で、通信は関係ありません）。修正版 5.46 を App Store に出し、優先審査を要請しています。配信され次第、この案内を消します。Android 版とブラウザ版には影響ありません。</p>
+    </div>
+  </div>
+</div>
+
 <section class="stage" id="top">
   <svg class="deco" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <defs>
@@ -454,7 +470,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <a class="btn sec" href="https://apps.apple.com/app/id6808281696">App Store（完全版）</a>
         <a class="btn sec" id="ctaAndroid" href="/android">Android（完全版）</a>
       </div>
-      <p class="ctanote">体験版は無料・登録なしで、4 種目とも試せます。完全版は買い切り <b id="heroPrice">2,000 円</b>、広告なし<span id="heroPriceNote">（一次試験のあと、9 月 27 日から 1,000 円）</span>。</p>
+      <p class="ctanote">体験版は無料・登録なしで、4 種目とも試せます。完全版は買い切り <b id="heroPrice">3,000 円</b>、広告なし。</p>
       <dl class="facts">
         <div><dt>一次試験</dt><dd>09/19 · 09/26</dd></div>
         <div><dt>第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit">日</span></dd></div>
@@ -569,9 +585,8 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <a href="/">無料の体験版を開く</a>
       </div>
       <div class="plan pay">
-        <div class="top"><h3>アプリ版（完全版）</h3><span class="yen" id="price">2,000 円</span></div>
+        <div class="top"><h3>アプリ版（完全版）</h3><span class="yen">3,000 円</span></div>
         <p>買い切り、広告なし。難易度 Normal・Hard・Max（Max は操縦操作だけ）、出題数の指定、編隊とスモーク、タイヤとライト、写真の保存、背景（夕方・夜）、技を単発で選ぶときの全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせが使えます。iPhone・iPad は App Store から。Android は Google Play から（テスト版として販売。中身と価格は同じです）。</p>
-        <p class="note" id="pricenote">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</p>
         <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
         <a href="/android">Android 版の購入方法</a>
       </div>
@@ -579,13 +594,23 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
   </section>
 
   <section id="price" data-reveal>
-    <h2 id="whyh">価格</h2>
-    <p class="lead" id="whyp">完全版は買い切り 2,000 円です。一次試験までの価格で、9 月 27 日から 1,000 円に下げます。</p>
+    <h2 id="whyh">価格の根拠</h2>
+    <p class="lead" id="whyp">完全版は買い切り 3,000 円です。合格すれば、給与を受けながら操縦訓練を受ける進路が開けます。その進路への投資として、この価格にしました。</p>
+    <!-- 出典: 防衛省 自衛官募集ホームページ「令和 8 年度 海上・航空自衛隊航空学生採用要項」PDF
+         https://www.mod.go.jp/gsdf/jieikanbosyu/pdf/y/r8_kougaku.pdf （2026-09-15 に読んだ。利用者から受け取った同じ PDF でも確認）
+         8 初任給（令和 8 年 1 月 1 日現在）: 月額 239,500 円（高卒）／254,200 円（大卒）（地域手当等を除く）、年 2 回の期末・勤勉手当、宿舎費は無料、食事・被服・寝具は支給または貸与
+         10 入隊後の教育課程: 海自 約 1 年 4 か月・空自 約 2 年間の基礎教育、入隊と同時に 2 等海士・2 等空士、約 2 年後に 3 等海曹・3 等空曹
+         11 昇任期間（最短の場合）の表: 身分は 航空学生 → 飛行幹部候補生、階級は 3 等海尉・3 等空尉（幹部）まで
+         4 第 1 次試験の種目: 適性検査「航空機搭乗員に必要な基礎的資質を測定するための検査」
+         航空手当の額は読める公式ページがなく、使っていない -->
     <dl class="terms">
+      <div class="term"><dt>給与を受けながら訓練</dt><dd>航空学生は入隊した月から給与が出ます。初任給は月額 239,500 円（高卒）で、宿舎費は無料、食事と被服も支給または貸与されます。防衛省の航空学生採用要項（令和 8 年度、2026 年 9 月に確認）。</dd></div>
+      <div class="term"><dt>初任給の 80 分の 1</dt><dd>3,000 円は、航空学生の最初の月の給与の 80 分の 1 ほどです。</dd></div>
+      <div class="term"><dt>その先は幹部</dt><dd>入隊と同時に 2 等海士・2 等空士、基礎教育を終える約 2 年後に 3 等海曹・3 等空曹。その先は飛行幹部候補生を経て、幹部（3 等海尉・3 等空尉）へ進む道です（同要項）。</dd></div>
+      <div class="term"><dt>適性検査は一次試験の一部</dt><dd>採用要項では「航空機搭乗員に必要な基礎的資質を測定するための検査」です。1 問数秒の速さと正確さは、練習で伸びます。</dd></div>
       <div class="term"><dt>買う前に試せます</dt><dd>体験版は無料・登録なしで、4 種目とも解けます。3D シミュレーターも操縦できます。</dd></div>
       <div class="term"><dt>買い切り</dt><dd>月額の課金も、アプリの中の追加の課金も、広告もありません。</dd></div>
       <div class="term"><dt>他にない練習</dt><dd>App Store で「姿勢指示器」と検索して出てくるのは、このアプリだけです（2026 年 9 月 14 日に確認）。</dd></div>
-      <div class="term"><dt>問題集 1 冊の価格帯</dt><dd>市販の問題集は 1 冊 1,500 円から 2,000 円します。こちらは制限時間つきで、何度でも別の問題が出ます。</dd></div>
     </dl>
   </section>
 
@@ -643,7 +668,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <div class="qa"><div class="q"><span>Q</span><h3>体験版と完全版の違いは何ですか。</h3></div><div class="a"><span>A</span><p>体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、タイヤとライト、写真の保存、背景の切り替え、技の単発選択の全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせは完全版です。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>Android では使えますか。</h3></div><div class="a"><span>A</span><p>使えます。Android 版は Google Play の<strong>テスト版として販売</strong>しています。中身と価格は App Store 版と同じです。テスト版なので Play ストアの検索には出ません。<a href="/android">購入方法</a>の手順（Google グループに参加 → テスト版に参加 → Google Play で購入）で入手してください。ブラウザ版は最近のブラウザ（Safari・Chrome など）で動きます。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>出題は本番と同じですか。</h3></div><div class="a"><span>A</span><p>市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。</p></div></div>
-      <div class="qa"><div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div><div class="a"><span>A</span><p>買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div><div class="a"><span>A</span><p>買い切りで 3,000 円です。月額の課金も、アプリの中での追加の課金もありません。</p></div></div>
     </div>
   </section>
 
@@ -665,7 +690,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <button class="btn sec" type="submit">メールで送る</button>
       </div>
       <p class="askn">押すと、お使いのメールアプリに下書きが開きます。入力した内容は、このページからはどこへも送りません。
-        下書きが開かないときは <a href="mailto:voyages_worsted_0a@icloud.com">voyages_worsted_0a@icloud.com</a> へ直接お送りください。</p>
+        下書きが開かないときは <a href="mailto:kokutekisei@amaterasu-vocab.com">kokutekisei@amaterasu-vocab.com</a> へ直接お送りください。</p>
     </form>
     <div class="links">
       <a href="/">体験版</a>
@@ -674,7 +699,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <a href="https://note.com/amateras87/n/n304f337b3d21">開発の記事</a>
       <a href="/privacy">プライバシーポリシー</a>
     </div>
-    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-14</div>
+    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-15</div>
   </div>
 </footer>
 
@@ -690,13 +715,13 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
     var body=t+((m.value||'').trim()?'\n\n返信先: '+m.value.trim():'')
       +'\n\n---\n見ていたページ: '+location.href+'\nお使いの環境: '+navigator.userAgent
       +'\n（この 2 行は不具合を調べるためのものです。要らなければ消してください）';
-    location.href='mailto:voyages_worsted_0a@icloud.com?subject='+encodeURIComponent('TENRYU へのお問い合わせ')+'&body='+encodeURIComponent(body);
+    location.href='mailto:kokutekisei@amaterasu-vocab.com?subject='+encodeURIComponent('TENRYU へのお問い合わせ')+'&body='+encodeURIComponent(body);
   });
 })();
 </script>
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-14","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/guide/ogp.jpg","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
+{"@context":"https://schema.org","@type":"Article","headline":"航空学生 適性検査の対策｜方位・姿勢指示器・操縦操作の読み方","description":"航空自衛隊 航空学生の適性検査で出る 4 種目の読み方と、練習の進め方をまとめました。","inLanguage":"ja","datePublished":"2026-09-08","dateModified":"2026-09-15","mainEntityOfPage":"https://kokuteki.amaterasu-vocab.com/guide","image":"https://kokuteki.amaterasu-vocab.com/img/guide/ogp.jpg","author":{"@type":"Person","name":"AMATERAS"},"publisher":{"@type":"Organization","name":"TENRYU"}}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"方位判読・姿勢判読とは何ですか。","acceptedAnswer":{"@type":"Answer","text":"適性検査で出る課目の呼び方です。方位判読は、上から見た機体と方位の印から機首の方位を答えるもの。姿勢判読は、機体の姿勢に合う姿勢指示器を選ぶもの。どちらも計器と機体の向きを結びつけて読む速さを見ます。"}},{"@type":"Question","name":"海上自衛隊の航空学生でも同じ検査ですか。","acceptedAnswer":{"@type":"Answer","text":"航空学生は航空自衛隊と海上自衛隊の両方にあり、一次試験の適性検査で出る課目は同じです。どちらの受験にも使えます。"}},{"@type":"Question","name":"いつから対策を始めればいいですか。","acceptedAnswer":{"@type":"Answer","text":"適性検査は知識ではなく速さと慣れを見る検査なので、直前に詰め込むより少しずつ回数を重ねるほうが伸びます。1 日 5 分でも毎日続けるのが早道です。"}},{"@type":"Question","name":"過去問はありますか。","acceptedAnswer":{"@type":"Answer","text":"適性検査の問題は公表されていません。出題は市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした練習用の再現で、形式と時間の感覚を合わせてあります。"}},
@@ -706,10 +731,10 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 {"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、タイヤとライト、写真の保存、背景の切り替え、技の単発選択の全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせは完全版です。"}},
 {"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"使えます。Android 版は Google Play のテスト版として販売しています。中身と価格は App Store 版と同じです。テスト版なので Play ストアの検索には出ません。購入方法は https://kokuteki.amaterasu-vocab.com/android にあります（Google グループに参加 → テスト版に参加 → Google Play で購入）。ブラウザ版は最近のブラウザ（Safari・Chrome など）で動きます。"}},
 {"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
-{"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。一次試験の期間（9 月 26 日まで）は 2,000 円、9 月 27 日から 1,000 円です。"}}]}
+{"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りで 3,000 円です。月額の課金も、アプリの中での追加の課金もありません。"}}]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Android, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"2000","priceCurrency":"JPY"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Android, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"3000","priceCurrency":"JPY"}}
 </script>
 
 <script>
@@ -719,15 +744,6 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
   for(var i=0;i<days.length;i++){var t=Date.parse(days[i]); if(t>now){next=t;break}}
   var el=document.getElementById('days');
   if(el) el.textContent = next===null ? '—' : Math.max(0,Math.ceil((next-now)/86400000));
-
-  /* 価格は一次試験の終わりで自動的に切り替える（直し忘れを防ぐ）。9/27 から 1,000 円 */
-  if(now >= Date.parse('2026-09-27T00:00:00+09:00')){
-    var p=document.getElementById('price'); if(p)p.textContent='1,000 円';
-    var n=document.getElementById('pricenote'); if(n)n.remove();
-    var w=document.getElementById('whyp'); if(w)w.textContent='完全版は買い切り 1,000 円です。';
-    var hp=document.getElementById('heroPrice'); if(hp)hp.textContent='1,000 円';
-    var hn=document.getElementById('heroPriceNote'); if(hn)hn.remove();
-  }
 
   /* 上の細い線で読み進み具合を出す */
   var bar=document.getElementById('prog');

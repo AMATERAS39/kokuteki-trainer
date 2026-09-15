@@ -103,11 +103,6 @@ svg text{user-select:none}
    左は ホーム＋戻る、右は 更新＋メニューで同じ幅になるので、タイトルは中央に来る */
 #backStep[hidden]{display:flex!important;visibility:hidden}   /* 553 行の [hidden]{display:none!important} より強くする */
 .updbtn.gone{visibility:hidden;pointer-events:none}
-/* アプリ版で新しい版が出ているときの帯（更新ボタンの代わり） */
-.updbanner{display:flex;align-items:center;gap:.625rem;margin:0 0 .75rem;background:var(--panel);border:1px solid var(--accent);border-radius:.875rem;padding:.5rem .625rem .5rem .875rem;font-size:.75rem;color:var(--text);line-height:1.35}
-.updbanner b{color:var(--accent)}
-.updbanner span{flex:1;min-width:0}
-.updbanner .btn{margin:0;flex:none;width:auto;height:2.125rem;font-size:.75rem;padding:0 .75rem}
 /* 更新ボタン: 新しい版が待機していると赤い点（.has）。押すと確認中は矢印が回る（.busy） */
 .updbtn{position:relative;width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;border-radius:.625rem;color:var(--accent);flex:none}
 @media (hover:hover){.updbtn:hover{background:var(--panel)}}
@@ -966,8 +961,12 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .d14{flex:1;min-height:8rem;display:flex;justify-content:center}
   .d14 img{height:100%!important;width:auto!important;max-width:100%;object-fit:contain}
   .figs.heading{grid-template-rows:minmax(0,1fr)}
-  .figs.heading > div:first-child{min-height:0;display:flex;flex-direction:column}
-  .fig.top,.answered .fig.top{flex:1;min-height:0;width:100%;display:flex;justify-content:center;transition:none}
+  /* 図の列は上下いっぱいに伸ばして高さを確定させる（札の列だけ中央）。格子の align-items:center のままだと図の容器の高さが不定になり、
+     中の svg の height:100% が Safari（iPad の横向き・Mac）で 0 に解決されて上面図が消えていた。Chrome は描いていたので気づかなかった
+     （利用者からの問い合わせ 2026-09-15「方位計測の時 写真がなくてどの方向向いてるかわからない」iPad の Safari） */
+  .figs.heading > div:first-child{align-self:stretch;min-height:0;display:flex;flex-direction:column}
+  .figs.heading .dirlist{align-self:center}
+  .fig.top,.answered .fig.top{flex:1;min-height:0;width:100%;display:flex;justify-content:center;align-items:center;transition:none}
   .fig.top svg{height:100%;width:auto;max-width:100%}
   .frames{flex:1;min-height:0}
   .frame{flex:1;min-height:0;grid-template-rows:minmax(0,1fr)}
@@ -1176,7 +1175,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <ul>
           <li>航空学生の適性検査（方位・姿勢指示器・操縦操作）を反復練習するアプリ。</li>
           <li id="edLine"></li>
-          <li>解答時間と正答率は端末内に記録。ホーム画面に追加するとアプリとして起動し、オフラインでも動く。</li>
+          <li id="netLine">解答時間と正答率は端末内に記録。ホーム画面に追加するとアプリとして起動し、オフラインでも動く。</li>
           <li>機体の 3D モデル: 航空自衛隊アクロバットチーム T-4ブルーインパルス（3Dえいじくん 様）。<a class="credit-link" href="https://eiji-mappa.booth.pm/items/3328542" target="_blank" rel="noopener">BOOTH で販売中</a>。</li>
         </ul>
       </div>
@@ -1363,8 +1362,12 @@ const showLenNow=()=>isFull()?+(settings.showLen||463):DEMO.showLen;
 const DEMO_ON=true;
 /* ネイティブの包み（Capacitor）で動いているか。アプリ内は常に全機能版で、サービスワーカーは使わない */
 const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
+/* 読み込めなかったときの文。アプリ版はファイルを全部同梱していて通信で取らないので、「通信環境を確認」は誤り
+   （同梱漏れのとき、この文で利用者が回線を疑ってしまった 2026-09-15）。アプリ版は開き直し → 入れ直しを案内する */
+const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
+  :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.45';
+const APP_VER='v05.46';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1701,7 +1704,7 @@ function showSummary(){
   toTop();
 }
 /* この端末の記録（種目ごとの 問数・正解数・合計の解答時間）を送る。
-   合言葉を持たない端末では何もしない。通信の設定にも従う */
+   合言葉を持たない端末では何もしない。ブラウザ版は通信の設定にも従う（アプリ版はつながっていれば送る） */
 function sendRec(){
   const k=store.get(REC_K,'');if(!k||!netOK())return;
   const out={};
@@ -2482,7 +2485,7 @@ function runSim(opt){applyScene();
         if(cSel){cSel.disabled=true;cSel.classList.add('lock')}
         sim.h.setFormation('solo');sim.smoke=false;sim.h.setSmoke(false);paint();paintGL()}
     })
-    .catch(err=>{if(sim===mySim)$('#simLoad').textContent='3D を読み込めませんでした。通信状態を確認してください。';console.error(err)});
+    .catch(err=>{if(sim===mySim)$('#simLoad').textContent=loadFailMsg('3D');console.error(err)});
   toTop();
 }
 function stopSim(){if(sim){if(sim.h)sim.h.dispose();window.removeEventListener('keydown',sim.kd);window.removeEventListener('keyup',sim.ku);
@@ -2638,7 +2641,7 @@ function makeMover(opt){
         m.viewer=v;const l=host.querySelector('.vload');if(l)l.remove();
         h.resetLook();   /* 三人称は南から（機体の後ろ）の初期の視点 */
         apply(m.play?null:(m.paused?m.t:0));})
-      .catch(e=>{console.error(e);m.loading=false;const l=host.querySelector('.vload');if(l)l.textContent='シミュレーターを読み込めませんでした（通信環境を確認してください）'});
+      .catch(e=>{console.error(e);m.loading=false;const l=host.querySelector('.vload');if(l)l.textContent=loadFailMsg('シミュレーター')});
   }
   /* 経過時間 t（秒）の様子にする。t が null なら、いまの時刻から求める */
   function apply(t){
@@ -2699,7 +2702,7 @@ function fbSimShow(){
   box.innerHTML=`<div class="fbsimh"><span>この問題の見え方</span></div>`;
   const qq=q;
   fbMv=makeMover({traj:()=>{if(!qq.traj)qq.traj=E.simControl(qq.init,qq.ops,qq.simul);return qq.traj},   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
-    forces:seg=>forcesOf(qq.ops,qq.simul,seg),hud:qq.hud!==false,view:fbView,onView:v=>{fbView=v}});
+    forces:seg=>forcesOf(qq.ops,qq.simul,seg),hud:true,view:fbView,onView:v=>{fbView=v}});   /* 中央の十字（HUD）は必ず出す。見え方の一覧の「動きで見る」と同じ。Hard でも出す。出題の絵 ①②③ は変えない（利用者の指示 2026-09-15） */
   box.appendChild(fbMv.el);
   fbMv.build();fbMv.play();   /* 解説が出たら動かし始める（以前と同じ） */
 }
@@ -2793,17 +2796,19 @@ function renderSettingsPage(){
       ${sel('theme','テーマ',[['auto','自動'],['dark','ダーク'],['light','ライト']])}
       ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']],v=>v!=='day')}
       ${sel('simDesc','演目の字幕解説',[['on','出す'],['off','出さない']])}
-      ${sel('net','通信',[['wifi','Wi-Fi のときだけ'],['any','いつでも']])}
-      <div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。回線の種類が分かる端末では、携帯の回線のときは通信しません（iPhone など回線の種類が分からない端末では通信します）。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div></div>
+      ${NATIVE?'':sel('net','通信',[['wifi','Wi-Fi のときだけ'],['any','いつでも']])+   /* 通信の設定はブラウザ版だけ。アプリ版は同梱のファイルで動き、お知らせ・更新・3D のための通信をしない（利用者の指示 2026-09-15） */
+      `<div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。回線の種類が分かる端末では、携帯の回線のときは通信しません（iPhone など回線の種類が分からない端末では通信します）。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div>`}</div>
     ${showSetHTML()}
     <div class="setgroup"><h4>記録</h4>
-      ${Object.keys(E.MODES).map(m=>{const s=stats[m]||{n:0,c:0,t:0};return `<div class="setting"><span>${E.MODES[m]}</span><span class="musbtns"><span>${s.n?`${s.n} 問・正答率 ${Math.round(s.c/s.n*100)}%・平均 ${(s.t/s.n).toFixed(1)} 秒`:'記録なし'}</span>${s.n?`<button class="btn sm ghost" data-rst="${m}">消す</button>`:''}</span></div>`}).join('')}
+      ${Object.keys(E.MODES).map(m=>{const s=stats[m]||{n:0,c:0,t:0};return `<div class="setting"><span>${E.MODES[m]}</span><span>${s.n?`${s.n} 問・正答率 ${Math.round(s.c/s.n*100)}%・平均 ${(s.t/s.n).toFixed(1)} 秒`:'記録なし'}</span></div>`}).join('')}
+      ${Object.keys(E.MODES).some(m=>stats[m]&&stats[m].n>0)?'<div class="setting"><span class="musbtns"><button class="btn sm ghost" id="rstAll">記録を削除</button></span></div>':''}
       <div class="sethelp">種目ごとの出題数・正答率・平均解答時間。この端末の中だけに保存されます。</div></div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
-      <div class="sethelp">ブラウザ版では、ヘッダーの更新ボタンで最新版を確認できます（赤い点は新しい版の印）。アプリ版では、新しい版が出るとホーム画面に帯でお知らせします。</div></div>
+      <div class="sethelp">${NATIVE?'新しい版は App Store / Google Play が配ります。アプリの中では新しい版の確認をしません。':'ヘッダーの更新ボタンで最新版を確認できます（赤い点は新しい版の印）。'}</div></div>
     <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
   wireShowSet($('#settingsPage'));
-  $('#settingsPage').querySelectorAll('[data-rst]').forEach(b=>b.addEventListener('click',()=>{const m=b.dataset.rst;if(!confirm(`${E.MODES[m]} の記録を消しますか？`))return;stats[m]={n:0,c:0,t:0};store.set('stats',stats);renderSettingsPage()}));
+  /* 記録の削除は種目ごとではなく 1 つのボタンで全種目（利用者の指示 2026-09-15） */
+  const rstAll=$('#rstAll');if(rstAll)rstAll.addEventListener('click',()=>{if(!confirm('すべての種目の記録を消しますか？'))return;Object.keys(E.MODES).forEach(m=>{stats[m]={n:0,c:0,t:0}});store.set('stats',stats);renderSettingsPage()});
   /* 共通の塊（展示飛行モード以下）の select は wireShowSet がつなぐので、ここでは除く */
   $('#settingsPage').querySelectorAll('select').forEach(s=>{if(s.closest('.showset'))return;s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()})});
 }
@@ -2870,7 +2875,9 @@ function renderHome(){
    既定では、Wi-Fi につながっているときだけ通信する（携帯の通信量を使わない）。
    端末が回線の種類を教えてくれないとき（iPhone など）は、判断できないので通信してよいことにする。
    通信を節約する設定（saveData）が入っているときは、どの回線でも通信しない。
-   なお、いちど読み込んだものは端末に残る（service worker）ので、通信しなくてもアプリは動く */
+   なお、いちど読み込んだものは端末に残る（service worker）ので、通信しなくてもアプリは動く。
+   アプリ版はこの決まりを使わない（通信の設定も無い）: ファイルを全部同梱していて、お知らせ・更新・3D のための通信をしない。
+   通信するのはご要望・お問い合わせと記録の送信（どちらも利用者の操作）だけなので、つながっているかだけ見る（利用者の指示 2026-09-15） */
 function netKind(){
   const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
   if(!c)return 'unknown';
@@ -2881,33 +2888,29 @@ function netKind(){
 }
 function netOK(){
   if(!navigator.onLine)return false;
+  if(NATIVE)return true;
   const k=netKind();
   if(k==='save'||k==='cell')return settings.net==='any';
   return true;
 }
 /* お知らせ: news.json（利用者が送るお知らせと、版ごとの更新情報）。新しいお知らせが届いたらメニューボタンに赤い点を出し、メニューを開いたら消す */
-let newsItems=null,latestNotice=null,newsLatest='';
-const NEWS_URL='https://kokuteki.amaterasu-vocab.com/news.json';   /* アプリ版が読む本番のお知らせ（worker.js が CORS の許可を付けて返す） */
+let newsItems=null,latestNotice=null;
 async function loadNews(){
   if(newsItems)return newsItems;
-  const get=async(o,u)=>{const r=await fetch(u||'news.json',o);if(!r.ok)throw 0;return r.json()};
+  const get=async(o)=>{const r=await fetch('news.json',o);if(!r.ok)throw 0;return r.json()};
   let d=null;
-  /* Wi-Fi でないときは取りに行かず、端末に残っているものだけを読む。
-     アプリ版は news.json を同梱している（mobile/copy-web.js）ので、相対で読むとビルド時の写ししか見えず、
-     サーバーの新しいお知らせも新しい版も届かなかった（総点検 2026-09-13）。通信できるときは本番の URL から取り、だめなら同梱の写し */
-  if(netOK()){
-    if(NATIVE){try{d=await get({cache:'no-store'},NEWS_URL)}catch(e){try{d=await get({})}catch(e2){d=null}}}
-    else{try{d=await get({cache:'no-store'})}catch(e){try{d=await get({})}catch(e2){d=null}}}}
+  /* アプリ版は同梱の news.json（mobile/copy-web.js）だけを読み、通信しない。新しいお知らせは新しい版と一緒にストアから届く
+     （利用者の指示 2026-09-15。以前は本番の URL から取って「新しい版が出ています」の帯を出していたが、アプリ版では要らない）。
+     ブラウザ版は Wi-Fi でないときは取りに行かず、端末に残っているものだけを読む */
+  if(NATIVE){try{d=await get({})}catch(e){d=null}}
+  else if(netOK()){try{d=await get({cache:'no-store'})}catch(e){try{d=await get({})}catch(e2){d=null}}}
   else{try{d=await get({cache:'force-cache'})}catch(e){d=null}}
   const list=(d&&Array.isArray(d.items)?d.items:[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id)));
-  if(d){newsItems=list;newsLatest=String(d.latest||'')}   // 読めなかったときは覚えない（次に開いたときにもう一度試す）
+  if(d)newsItems=list;   // 読めなかったときは覚えない（次に開いたときにもう一度試す）
   return list;
 }
 async function checkNews(){
   const items=await loadNews();
-  /* アプリ版: news.json の latest（いま配っている版）が、この端末の版より新しければ帯で知らせる（更新ボタンの代わり）。
-     お知らせの項目は節目ごとにまとめて書く（版ごとには足さない）ので、先頭の項目の版ではなく latest を見る */
-  if(NATIVE&&newsLatest&&verNum(newsLatest)>verNum(APP_VER)&&store.get('updSeen')!==newsLatest)showUpdBanner(newsLatest);
   const n=items.find(i=>i.type==='notice');if(!n)return;
   latestNotice=n.id;
   if(store.get('newsSeen')!==n.id){menuBtn.classList.add('has');$('#newsDot').hidden=false}
@@ -2928,7 +2931,7 @@ async function renderNews(){
    その合言葉で自分の投稿と返信だけを読み返せる。メールアドレスを書いた人にはメールでも届く。
    置き場所（Supabase）の設定が空のあいだは、これまでどおりメールの下書きを開く形で動く。
    利用者が書いた文字は、画面に出すときに必ず escape する */
-const CONTACT_MAIL='voyages_worsted_0a@icloud.com';
+const CONTACT_MAIL='kokutekisei@amaterasu-vocab.com';   /* 問い合わせ先（利用者の指示 2026-09-15） */
 const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nl2br=t=>esc(t).replace(/\n/g,'<br>');
 const ATTACH_OK=/^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/;   // 添付として扱える形式
@@ -3110,7 +3113,7 @@ async function initAbout(){
     $('#dirBtns').querySelector('.ab').classList.add('sel');
     renderVInst(0,0);
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
-  }catch(e){load.textContent='3D モデルを読み込めませんでした（通信環境を確認してください）';viewerLoading=false}
+  }catch(e){load.textContent=loadFailMsg('3D モデル');viewerLoading=false}
 }
 const VIEWS=['home','train','settings','about','news','contact','inbox','buy'];
 function show(v){document.body.dataset.view=v;VIEWS.forEach(x=>{$('#view-'+x).hidden=x!==v});toTop()}
@@ -3136,7 +3139,10 @@ function route(){
   else if(v==='news')renderNews();
   else if(v==='contact')renderContact();
   else if(v==='inbox')renderInbox();
-  else{renderAbout();$('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。4 種目とも試せて、3D シミュレーターは単機で操縦でき、横画面では自動操縦の演目も見られます。難易度は Easy まで、出題数は種目ごとに決まった数まで、編隊・スモーク・写真・タイヤ・ライト、「見え方」の 2 つの操作の組み合わせには鍵がかかっています。';initAbout();
+  else{renderAbout();
+    /* アプリ版: ホーム画面に追加は要らず、通信もしない（お知らせと 3D は同梱。新しい版はストアが配る）。通信するのはご要望・お問い合わせを送るときだけ（利用者の指示 2026-09-15） */
+    if(NATIVE)$('#netLine').textContent='解答時間と正答率は端末内に記録。通信なしで動く（通信するのはご要望・お問い合わせを送るときだけ。新しい版は App Store / Google Play が配る）。';
+    $('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。4 種目とも試せて、3D シミュレーターは単機で操縦でき、横画面では自動操縦の演目も見られます。難易度は Easy まで、出題数は種目ごとに決まった数まで、編隊・スモーク・写真・タイヤ・ライト、「見え方」の 2 つの操作の組み合わせには鍵がかかっています。';initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
   menuList.querySelector('[data-act="restore"]').hidden=NATIVE||isFull();   /* アプリ版は全機能版。復元も購入もない */
@@ -3168,7 +3174,7 @@ function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版</h3>
     <div class="sethelp">体験版でも 4 種目すべてと 3D シミュレーターを試せます。完全版では、次の鍵が外れます。</div>
     <ul><li>難易度 Normal・Hard・Max（Normal から方位の印の向きが毎回変わり、姿勢が 14 方向、操縦操作が 2 つの操作。Hard では方位の印が N とは限らず、姿勢に翼の傾き。Max は操縦操作だけ）。</li><li>出題数を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ、背景（夕方・夜・自動）。</li><li>技を単発で選ぶときの全演目、展示飛行モードの長さ（標準・長め）、演目の曲。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方、解説の中の「この問題の見え方」。</li><li>アプリの中の「ご要望・お問い合わせ」。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
-    <div class="sethelp">完全版はアプリでの買い切りです（2,000 円・広告なし）。一次試験の期間の価格で、9 月 27 日から 1,000 円に下げます。iPhone・iPad 版は <b>App Store</b>、Android 版は <b>Google Play</b> で販売しています。Android 版は Play ストアの検索に出ないテスト版なので、購入方法のページの手順で入手してください（中身と価格は同じです）。このブラウザ版は体験版で、買う場所ではありません。</div>
+    <div class="sethelp">完全版はアプリでの買い切りです（3,000 円・広告なし）。iPhone・iPad 版は <b>App Store</b>、Android 版は <b>Google Play</b> で販売しています。Android 版は Play ストアの検索に出ないテスト版なので、購入方法のページの手順で入手してください（中身と価格は同じです）。このブラウザ版は体験版で、買う場所ではありません。</div>
     <div class="acts">${IS_ANDROID
       ?`<a class="btn" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a><a class="btn ghost" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a>`
       :`<a class="btn" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><a class="btn ghost" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a>`}<button class="btn ghost" id="buyBack">体験版に戻る</button></div>
@@ -3204,16 +3210,6 @@ let swReg=null,toastId=null,updReady=false;
 function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastId);toastId=setTimeout(()=>{t.hidden=true},ms||2200)}
 if(NATIVE)$('#updBtn').classList.add('gone');   /* アプリ版はストアが更新するので、更新ボタンは使わない（場所は空けておく） */
 function setUpdateReady(){updReady=true;$('#updBtn').classList.add('has')}
-/* アプリ版で新しい版が出ているとき: お知らせの先頭の版と、この端末の版をくらべて、帯で知らせる */
-function verNum(v){const m=/v?(\d+)\.(\d+)/.exec(v||'');return m?(+m[1])*1000+(+m[2]):0}
-function showUpdBanner(ver){
-  if($('#updBanner'))return;
-  const d=document.createElement('div');d.id='updBanner';d.className='updbanner';
-  d.innerHTML=`<span>新しい版 <b>${ver}</b> が出ています。App Store または Google Play で更新できます。</span><button class="btn sm" id="updBanX">閉じる</button>`;
-  /* ホーム画面の先頭に出す。以前は main（訓練画面の出題カード）に入れていたので、ホームには出なかった（総点検 2026-09-13） */
-  $('#view-home').prepend(d);
-  $('#updBanX').addEventListener('click',()=>{try{store.set('updSeen',ver)}catch(e){}d.remove()});
-}
 function applyWaiting(){if(swReg&&swReg.waiting){try{sessionStorage.setItem('aat.updated','1')}catch(e){}swReg.waiting.postMessage('SKIP_WAITING');return true}return false}
 if('serviceWorker' in navigator&&!NATIVE&&/^https?:$/.test(location.protocol)){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;

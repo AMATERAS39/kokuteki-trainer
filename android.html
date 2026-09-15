@@ -131,7 +131,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     <p class="eyebrow">ANDROID</p>
     <h1>Android 版の購入方法</h1>
     <p class="intro">Android 版は、Google Play の「テスト版」として販売しています。中身と価格は App Store 版と同じです。テスト版なので、Play ストアの検索には出ません。下の手順で購入してください。</p>
-    <div class="price"><b id="price">2,000 円</b><span id="pricenote">一次試験の期間（9 月 26 日まで）の価格です。9 月 27 日から 1,000 円に下げます。</span></div>
+    <div class="price"><b id="price">3,000 円</b><span>買い切り、広告なし。</span></div>
   </div>
 
   <section>
@@ -188,14 +188,5 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   </div>
 </footer>
 
-<script>
-/* 9 月 27 日から価格を 1,000 円に（案内ページと同じ切り替え） */
-(function(){
-  if(new Date()>=new Date('2026-09-27T00:00:00+09:00')){
-    var p=document.getElementById('price'); if(p)p.textContent='1,000 円';
-    var n=document.getElementById('pricenote'); if(n)n.remove();
-  }
-})();
-</script>
 </body>
 </html>

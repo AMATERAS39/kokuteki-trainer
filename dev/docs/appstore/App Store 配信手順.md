@@ -25,7 +25,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 |---|---|
 | `mobile/package.json` | Capacitor と three.js の依存 |
 | `mobile/capacitor.config.json` | アプリ ID `com.amaterasuvocab.kokuteki`、名前 TENRYU、www を読む |
-| `mobile/copy-web.js` | 配信ファイルを `mobile/www` に集め、three.js を同梱して importmap をローカルに書き換える（sw.js と Google Fonts は入れない） |
+| `mobile/copy-web.js` | 配信ファイルを `mobile/www` に集め、three.js を同梱して importmap をローカルに書き換える（sw.js と Google Fonts は入れない）。`index.html` が読むファイル（`<script src>`・`import()`・importmap）が www に無ければビルドを止める（v05.46。`flight.js` が同梱されず 5.43 で操縦操作が動かなかった事故のあと） |
 | `codemagic.yaml`（リポジトリ直下） | クラウドでのビルドと TestFlight への配信。Codemagic は直下しか見ないので、ここに置く |
 
 アプリ側の作りは対応済み: Capacitor で動いているときはサービスワーカーを登録せず、版は常に全機能版になる（`index.html` の `NATIVE`）。
@@ -64,7 +64,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
    - 年齢制限: 4+（暴力・その他すべて「なし」）
    - プライバシーポリシー URL: https://kokuteki.amaterasu-vocab.com/privacy
 3. 「価格および配信状況」
-   - 価格: Tier 相当の 1,000 円（日本）。ほかの国は自動換算のままでよい
+   - 価格: 3,000 円（日本。2026-09-15 から）。ほかの国は自動換算のままでよい
    - 配信国: 日本のみ、または全世界（日本語だけなので日本のみで十分）
 4. 「App のプライバシー」
    - データを収集しない（No, we do not collect data）を選ぶ。設定と記録は端末内の localStorage だけで、外部に送らない
@@ -77,6 +77,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
 ## 4. 提出
 
 1. Codemagic のビルドが TestFlight まで上げる（Mac があるときは Xcode → Product → Archive → Distribute App）
+   - **提出の前に TestFlight の実機で、操縦操作の出題・解説の「動きで見る」・見え方の「動きで見る」・3D シミュレーターを 1 回は触る。** ブラウザ版で動いていても、アプリの同梱（`copy-web.js` の FILES/DIRS）に欠けがあるとアプリだけ動かない（v05.46: `flight.js` が無く、5.43 を操縦操作の動かないまま配信した）。`index.html` に新しいファイルを足したら `sw.js` と `copy-web.js` の両方
 2. App Store Connect でビルドを選び、輸出コンプライアンス（暗号化）に回答する。**HTTPS 通信だけなら「いいえ」**（`ITSAppUsesNonExemptEncryption` を `false` で Info.plist に入れておくと毎回聞かれない）
 3. 「審査へ提出」。初回は 1〜3 日で結果が来る
 
@@ -86,7 +87,7 @@ Google Play 側の手順は `dev/docs/play/Google Play 配信手順.md`。全機
   - アプリ内で完結して動く（通信なしで出題・採点・3D 練習ができる）。CDN 依存を減らし、モデルと three.js を同梱する
   - iOS らしい振る舞い: 縦向き固定、セーフエリア対応、スワイプで戻らない画面での確認、ハプティクス（`@capacitor/haptics` で正誤に軽い振動）を入れると強い
   - Web ブラウザに見える要素を出さない（アドレスバー、外部リンクの多用）。BOOTH へのクレジットのリンクは Safari で開く形にする
-- **3.1.1 アプリ内課金**: 買い切り 1,000 円の「有料アプリ」として出すなら課金は不要。アプリ内で「Web 版の全機能版コード」を売る形にすると App 内課金の対象になるので、**アプリ自体を有料にする**のが簡単
+- **3.1.1 アプリ内課金**: 買い切りの「有料アプリ」として出すなら課金は不要。アプリ内で「Web 版の全機能版コード」を売る形にすると App 内課金の対象になるので、**アプリ自体を有料にする**のが簡単
 - **5.1.1 データ収集**: 収集なしなので追跡許可（ATT）のダイアログは不要
 - **著作権**: 機体の 3D モデルは作者の許諾済み（BOOTH、クレジット掲載）。ブルーインパルスのエンブレムは使っていない（自作の紋章に差し替え済み）。審査で問われたら「モデルは購入品で作者の許諾あり」と回答する
 - **試験との関係**: 「航空学生の適性検査」を扱うが、公式・非公式の別を掲載文に明記する（非公式の学習アプリ）
@@ -133,7 +134,7 @@ Apple は版を数の並びで比べる。小数点以下は 2 桁の通し番�
 6. ビルドを実行 → TestFlight に上がる → iPhone で確認
    - `Cannot save Signing Certificates without certificate private key` で落ちたら `CERTIFICATE_PRIVATE_KEY` が入っていない
    - `"App" requires a provisioning profile` で落ちたら、バンドル ID の食い違い（`patch-ios.js` が直す）
-7. 掲載文・スクリーンショット・価格（1,000 円）・「App のプライバシー（収集なし）」を入れて審査へ提出
+7. 掲載文・スクリーンショット・価格（3,000 円）・「App のプライバシー（収集なし）」を入れて審査へ提出
 
 決めておくこと
 - iPad に対応させるか（対応するなら iPad のスクリーンショットも上げる。しないなら iPhone 専用にする）

@@ -4429,6 +4429,7 @@ export function mount(container, opt = {}) {
       if (st.err <= 2) console.error('sim frame error', e);
       if (st.err === 3) { endCork(); endFigure(); if (treeMode) setTreeMode(false); auto = false; oneShot = false; formation = userForm; formScale = 1; levelAttitude(); manPhase = 'do'; st.cue = ''; markOn = false; }
     }
+    st.ctl = auto ? smIn : null;   /* 自動操縦の舵（画面の操縦桿と方向舵を表示専用で動かす。利用者の指示 2026-09-16） */
     if (onState) onState(st);
     raf = requestAnimationFrame(frame);
   }

@@ -1,10 +1,10 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v05.52';
+const CACHE = 'aat-v05.53';
 /* 大きくて変わらないもの（3D モデル）は、版を上げても消さない入れ物に置く。
    ここを消してしまうと、更新のたびに 5.6 MB を取り直すことになり、オフラインで 3D が動かなくなる */
 const BIG = 'aat-big-v1';
 const BIG_RE = /\/model\/|\.glb($|\?)/;
-const ASSETS = ['./', './index.html', './flight.js?v=6', './engine.js?v=65', './viewer.js?v=8', './feedback.js?v=2', './sim3d.js?v=163',
+const ASSETS = ['./', './index.html', './flight.js?v=6', './engine.js?v=65', './viewer.js?v=8', './feedback.js?v=2', './sim3d.js?v=164',
   './vendor/three/three.module.js', './vendor/three/addons/loaders/GLTFLoader.js', './vendor/three/addons/controls/OrbitControls.js', './vendor/three/addons/utils/BufferGeometryUtils.js', './manifest.webmanifest', './privacy.html', './news.json',
   './icons/icon-192.png', './icons/icon-192.png?v=2', './icons/icon-512.png', './icons/apple-touch-icon.png', './favicon.ico', './icons/favicon-96.png?v=2', './img/t4-top.webp', './img/hero.webp?v=3',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down'].map(n => `./img/bi-${n}.webp`),

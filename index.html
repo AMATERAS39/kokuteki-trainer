@@ -267,9 +267,13 @@ body[data-view="train"][data-phase="sim"] .sim .thrbar{background:radial-gradien
 .ic.fmi{fill:currentColor;stroke:none}
 /* 自動操縦のとき、操縦桿とペダルは薄くして触っても効かないことを示す */
 .grip .plain{display:none}
-.sim.autoon .grip .col{display:none}
-.sim.autoon .grip .plain{display:block}
-.sim.autoon .rud{display:none}   /* 自動操縦のときは方向舵を出さない（操縦桿は視点を動かすのに使う） */
+/* 自動操縦のとき: 地上視点では操縦桿で立ち位置を動かす（灰色の丸、方向舵なし）。機内・三人称（.autoshow）では操縦桿と方向舵を表示専用にして、
+   自動操縦がいま何の操作をしているかを見せる（利用者の指示 2026-09-16。触っても効かない） */
+.sim.autoon:not(.autoshow) .grip .col{display:none}
+.sim.autoon:not(.autoshow) .grip .plain{display:block}
+.sim.autoon:not(.autoshow) .rud{display:none}
+.sim.autoshow .stick,.sim.autoshow .rud{pointer-events:none}
+.sim.autoshow .rud .pedal{opacity:.85}
 @media (orientation:portrait){.iconbtn.landscape{display:none}}
 .formwrap{position:relative;display:inline-flex}
 .formmenu{position:absolute;right:0;bottom:3rem;z-index:12;display:grid;grid-template-columns:repeat(3,1fr);gap:.25rem;
@@ -1368,7 +1372,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.52';
+const APP_VER='v05.53';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1724,7 +1728,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=163').then(mod=>{
+  import('./sim3d.js?v=164').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1811,7 +1815,9 @@ function runSim(opt){applyScene();
       knob.style.transform=`translate(${i.x*22}%,${-i.y*22}%) rotate(${i.x*18}deg)`}
     let r=0;sim.rud.forEach(v=>r+=v);if(k.has('o'))r-=1;if(k.has('p'))r+=1;i.r=Math.max(-1,Math.min(1,r));
     $('#sim').querySelectorAll('[data-r]').forEach(b=>b.classList.toggle('down',Math.sign(i.r)===+b.dataset.r))};
-  const setStick=e=>{const rc=stick.getBoundingClientRect();let dx=(e.clientX-(rc.left+rc.width/2))/(rc.width/2),dy=(e.clientY-(rc.top+rc.height/2))/(rc.height/2);const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
+  /* 自動操縦で地上視点でないとき: 画面の操縦桿と方向舵は表示専用（自動操縦の舵を映す）。触っても効かない */
+  const autoShow=()=>!!(sim&&sim.h&&sim.h.autoState()&&sim.viewName!=='ground');
+  const setStick=e=>{if(autoShow())return;const rc=stick.getBoundingClientRect();let dx=(e.clientX-(rc.left+rc.width/2))/(rc.width/2),dy=(e.clientY-(rc.top+rc.height/2))/(rc.height/2);const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
     /* 操縦桿は 8 方向に倒せる。斜めは 機首上げ下げ と 左右ロール の同時操作になる。
        倒した向きを 45 度ごとに丸めるので、真横に倒したつもりで前後がわずかに混じっても真横として扱う
        （丸めないと、横転しながら機首が少しずつ上下して、軌道が螺旋を描いてしまう）。
@@ -1826,7 +1832,7 @@ function runSim(opt){applyScene();
     sim.stickVec={x:0,y:0};if(sim.h){sim.h.input.x=0;sim.h.input.y=0}knob.style.transform='';applyInput()}));
   /* 方向舵（右）: 押している間だけ。両手で同時に操作できる */
   $('#sim').querySelectorAll('[data-r]').forEach(b=>{
-    b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();try{b.setPointerCapture(e.pointerId)}catch(_){}sim.rud.set(e.pointerId,+b.dataset.r);applyInput()});
+    b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(autoShow())return;try{b.setPointerCapture(e.pointerId)}catch(_){}sim.rud.set(e.pointerId,+b.dataset.r);applyInput()});
     ['pointerup','pointercancel'].forEach(ev=>b.addEventListener(ev,e=>{sim.rud.delete(e.pointerId);applyInput()}));
   });
   sim.kd=e=>{if(document.body.dataset.view!=='train'||!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;
@@ -2036,8 +2042,12 @@ function runSim(opt){applyScene();
     {const sk=$('#simSkip');if(sk){const show=s.mode==='land'||s.mode==='taxi';if(sk.hidden===show)sk.hidden=!show}}
     /* 自動操縦のときは、操縦桿の傾けぐあいで視点を動かす（機体は自動で飛ぶ） */
     if(sim.h&&sim.h.autoState()){
-      const v=sim.stickVec;
-      if(v&&(v.x||v.y)){if(sim.viewName==='ground')sim.h.groundWalk(v.x,v.y);else sim.h.addLook(-v.x*1.6,v.y*1.6)}
+      const v=sim.stickVec,show=sim.viewName!=='ground';
+      /* 地上視点: 操縦桿で立ち位置を動かす。それ以外: 操縦桿と方向舵は表示専用で、自動操縦の舵（s.ctl）をそのまま映す（利用者の指示 2026-09-16。以前は視点を動かしていた） */
+      if(!show&&v&&(v.x||v.y))sim.h.groundWalk(v.x,v.y);
+      {const el=$('#sim');if(el.classList.contains('autoshow')!==show)el.classList.toggle('autoshow',show)}
+      if(show&&s.ctl){const c=s.ctl;knob.style.transform=`translate(${(c.x*22).toFixed(1)}%,${(-c.y*22).toFixed(1)}%) rotate(${(c.x*18).toFixed(1)}deg)`;
+        $('#sim').querySelectorAll('[data-r]').forEach(b=>b.classList.toggle('down',(c.r<-0.15&&b.dataset.r==='-1')||(c.r>0.15&&b.dataset.r==='1')))}
       /* 演目名と進入の向きは、字幕解説を切っていても下に出す。旋回（次の課目への移動）は出さない */
       const nm=$('#showName');if(nm){const sh=(s.show&&s.show!=='旋回')?s.show:'';
         const t=sh?(s.cue?`${sh}｜${s.cue}`:sh):'';nm.textContent=t;nm.hidden=!t}
@@ -2049,7 +2059,9 @@ function runSim(opt){applyScene();
       if(!$('#sim').classList.contains('autoon'))$('#sim').classList.add('autoon');
     }else{const nm=$('#showName');if(nm&&!nm.hidden)nm.hidden=true;
       const de=$('#trickDesc');if(de&&!de.hidden)de.hidden=true;sim.lastShow='';
-      if($('#sim').classList.contains('autoon')&&!(sim.h&&sim.h.autoState())&&!$('#simAuto').classList.contains('on'))$('#sim').classList.remove('autoon')}
+      if($('#sim').classList.contains('autoon')&&!(sim.h&&sim.h.autoState())&&!$('#simAuto').classList.contains('on'))$('#sim').classList.remove('autoon')
+      /* 自動操縦をやめたら、表示専用にしていた操縦桿と方向舵を自分の入力に戻す */
+      if($('#sim').classList.contains('autoshow')){$('#sim').classList.remove('autoshow');if(sim.ptr===null)knob.style.transform='';applyInput()}}
     /* 画面の計器は「乗っている機体」の姿勢（s.sb/sp/sh）。無ければ 1 番機。2〜6 番機に乗ると 1 番機の姿勢を指していた件（総点検 2026-09-13） */
     const sb=typeof s.sb==='number'?s.sb:s.b, sp=typeof s.sp==='number'?s.sp:s.p, sh=typeof s.sh==='number'?s.sh:s.h;
     ais.forEach(a=>{a.querySelector('.ai-h').setAttribute('transform',`rotate(${-sb}) translate(0 ${(sp*K).toFixed(1)})`);a.querySelector('.ai-p').setAttribute('transform',`rotate(${-sb})`)});
@@ -2136,7 +2148,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=163').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=164').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2635,7 +2647,7 @@ function makeMover(opt){
     const host=$$('.gviewer');if(!host||m.loading)return;
     m.loading=true;
     /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
-    import('./sim3d.js?v=163').then(mod=>{
+    import('./sim3d.js?v=164').then(mod=>{
         /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
         const h=mod.mount(host,{view:m.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
         h.setCockpit(false);h.setProps(true);

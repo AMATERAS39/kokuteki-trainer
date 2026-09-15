@@ -24,7 +24,14 @@
     { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', view: '目印が左へ流れる' },
     { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', view: '目印が右へ流れる' }
   ];
-  const OP_BY_ID = Object.fromEntries(OPS.map(o => [o.id, o]));
+  /* 見え方の一覧だけの「おまけ」: 操縦桿の斜め（ロールと機首の上げ下げの同時）。出題（OPS）には入れない（利用者の指示 2026-09-16。断定はできないが、ほぼ試験には出ないと思われる） */
+  const EXTRA_OPS = [
+    { id: 'stick-forward-left', ja: '操縦桿 左奥', base: '操縦桿を左奥に倒す', cont: '操縦桿を左奥に倒し', group: 'stick', view: '景色が右に傾きながら水平線が上がる' },
+    { id: 'stick-forward-right', ja: '操縦桿 右奥', base: '操縦桿を右奥に倒す', cont: '操縦桿を右奥に倒し', group: 'stick', view: '景色が左に傾きながら水平線が上がる' },
+    { id: 'stick-back-left', ja: '操縦桿 左手前', base: '操縦桿を左手前に引く', cont: '操縦桿を左手前に引き', group: 'stick', view: '景色が右に傾きながら水平線が下がる' },
+    { id: 'stick-back-right', ja: '操縦桿 右手前', base: '操縦桿を右手前に引く', cont: '操縦桿を右手前に引き', group: 'stick', view: '景色が左に傾きながら水平線が下がる' }
+  ];
+  const OP_BY_ID = Object.fromEntries([...OPS, ...EXTRA_OPS].map(o => [o.id, o]));
   const OPPOSITE = { 'stick-right': 'stick-left', 'stick-left': 'stick-right', 'stick-forward': 'stick-back', 'stick-back': 'stick-forward', 'rudder-right': 'rudder-left', 'rudder-left': 'rudder-right' };
   /* 操作列を文にする: 単一操作なら「操縦桿を右に倒す」、2 操作なら「操縦桿を右に倒し、右方向舵を踏む」 */
   function opsText(ops) {

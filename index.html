@@ -1311,8 +1311,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
   <button class="x" id="installClose" aria-label="閉じる"><svg class="ic"><use href="#i-cross"/></svg></button>
 </div>
 
-<script src="flight.js?v=6"></script>
-<script src="engine.js?v=65"></script>
+<script src="flight.js?v=7"></script>
+<script src="engine.js?v=66"></script>
 <script>
 (function(){
 'use strict';
@@ -1372,7 +1372,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.53';
+const APP_VER='v05.54';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2529,7 +2529,10 @@ function showGallery(){applyScene();galDispose();
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと①②③が出ます。${isFull()?'操縦桿と方向舵は同時か順番かを選べます。':'体験版は操作 1 つずつです。'}</div>
     <div class="gsel"><div class="gl">初期状態</div><div class="gp" style="grid-template-columns:repeat(3,1fr)">${Object.entries(GAL_BANK).map(([k,v])=>`<button class="ab gi${dm&&k!=='level'?' lockb':''}" data-bank="${k}"${dm&&k!=='level'?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
     <div class="gsel"><div class="gl"></div><div class="gp" style="grid-template-columns:repeat(2,1fr)">${Object.entries(GAL_PITCH).map(([k,v])=>`<button class="ab gi${dm?' lockb':''}" data-pitch="${k}"${dm?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
-    ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}${row('方向舵',['rudder-left','rudder-right'],2,dm)}
+    ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}
+    ${row('斜め',['stick-forward-left','stick-forward-right','stick-back-left','stick-back-right'],4)}
+    <div class="sub">斜めはおまけです。左右の傾きと機首の上げ下げの同時操作で、断定はできませんが、ほぼ試験には出ないと思われます（出題にも入れていません）。</div>
+    ${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
     <div class="gsim${dm?' off':''}">
@@ -2595,7 +2598,8 @@ function seqTime(t){let rest=t,ft=0,seg=0;
   for(const s of GAL_SEQ){const d=s.hold||s.move;if(rest<=d){if(s.move)ft+=rest;return {ft,near:Math.round(ft/E.EXAM_DT),moveSeg:s.move?seg:-1}}rest-=d;if(s.move){ft+=d;seg++}}
   return {ft,near:2,moveSeg:-1}}
 /* いまの区間で舵に入っている操作 → 矢印の向き { roll, pitch, yaw }（±1／0）。待ちの間は無し */
-const FORCE_OF={'stick-right':{roll:1},'stick-left':{roll:-1},'stick-back':{pitch:1},'stick-forward':{pitch:-1},'rudder-right':{yaw:1},'rudder-left':{yaw:-1}};
+const FORCE_OF={'stick-right':{roll:1},'stick-left':{roll:-1},'stick-back':{pitch:1},'stick-forward':{pitch:-1},'rudder-right':{yaw:1},'rudder-left':{yaw:-1},
+  'stick-forward-left':{roll:-1,pitch:-1},'stick-forward-right':{roll:1,pitch:-1},'stick-back-left':{roll:-1,pitch:1},'stick-back-right':{roll:1,pitch:1}};   /* 斜め（見え方の一覧のおまけ） */
 function forcesOf(ops,simul,moveSeg){
   if(moveSeg<0||!ops||!ops.length)return null;
   const segs=E.opSegs(ops,simul),f={};

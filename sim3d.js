@@ -3964,10 +3964,11 @@ export function mount(container, opt = {}) {
     });
     marker.visible = markOn && curView === 'ground' && !follow;   // 進入の目印は、地上から自分で向きを決めているときだけ
     plane.position.set(st.x, st.y, st.z); plane.quaternion.setFromRotationMatrix(R);
-    /* 操縦桿を入力に合わせて傾ける（自動操縦のときは入力が 0 なので中立のまま） */
-    const sk = dt ? 1 - Math.exp(-dt / 0.09) : 1;
-    stickAim.x += (input.x - stickAim.x) * sk;
-    stickAim.y += (input.y - stickAim.y) * sk;
+    /* 操縦桿を入力に合わせて傾ける。自動操縦（展示飛行・技）のときは自動操縦の舵（smIn）で動かし、機内から見て何の操作をしているかが分かる
+       （利用者の指示 2026-09-16「演技の難しさを伝えるため」。ペダルは v05.0x から同じ）。画面の操縦桿（2D）は自動操縦では視点を動かす役目なので変えない */
+    const sk = dt ? 1 - Math.exp(-dt / 0.09) : 1, src = auto ? smIn : input;
+    stickAim.x += (src.x - stickAim.x) * sk;
+    stickAim.y += (src.y - stickAim.y) * sk;
     stickPivot.rotation.set(-stickAim.y * 0.22, stickAim.x * 0.24, 0);   // 引くと視界から外れないよう、傾きは控えめ
     shadow.position.set(st.x, st.y, 0.8); shadow.material.opacity = 0.4 * Math.max(0.15, 1 - st.z / 500);
   }

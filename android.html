@@ -131,7 +131,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
     <p class="eyebrow">ANDROID</p>
     <h1>Android 版の購入方法</h1>
     <p class="intro">Android 版は、Google Play の「テスト版」として販売しています。中身と価格は App Store 版と同じです。テスト版なので、Play ストアの検索には出ません。下の手順で購入してください。</p>
-    <div class="price"><b id="price">3,000 円</b><span>買い切り、広告なし。価格は今後変わることがあります。</span></div>
+    <div class="price"><b id="price">3,000 円</b><span>買い切り、広告なし。価格は時期で変わります（案内ページの「価格の根拠」）。</span></div>
   </div>
 
   <section>
@@ -188,5 +188,18 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
   </div>
 </footer>
 
+<script>
+(function(){
+  /* 価格の時期区分（2026-09-15）: 応募開始〜1 次試験 1 日目の 1 週間前 2,000 円、1 週間前〜2 日目 3,000 円、それ以外 1,000 円。
+     2026 年度: 受付 7/1〜8/28、1 次試験 9/19・9/26（令和 8 年度採用要項）→ 7/1〜9/11 2,000、9/12〜9/26 3,000、9/27〜 1,000。
+     来年度の日程は未定。決まったら periods に足す（開始日, 終了日の翌日, 円）。日本時間の 0 時を境にする */
+  var periods=[['2026-07-01','2026-09-12',2000],['2026-09-12','2026-09-27',3000]], now=Date.now(), yen=1000;
+  for(var i=0;i<periods.length;i++){if(now>=Date.parse(periods[i][0]+'T00:00:00+09:00')&&now<Date.parse(periods[i][1]+'T00:00:00+09:00')){yen=periods[i][2];break}}
+  var txt=yen.toLocaleString('ja-JP')+' 円';
+  ['heroPrice','planPrice','curPrice','price'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent=txt});
+  var ld=document.querySelectorAll('script[type="application/ld+json"]');
+  for(var j=0;j<ld.length;j++){if(/"price":"\d+"/.test(ld[j].textContent))ld[j].textContent=ld[j].textContent.replace(/"price":"\d+"/,'"price":"'+yen+'"')}
+})();
+</script>
 </body>
 </html>

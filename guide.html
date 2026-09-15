@@ -266,6 +266,9 @@ main{overflow-x:clip}
 .acc .it.open .bd{max-height:18rem}
 
 /* 用語 */
+.ptbl{margin-top:1.25rem;border:1px solid var(--line);border-radius:1rem;overflow:hidden;max-width:40rem}
+.ptbl .pr{display:grid;grid-template-columns:1fr auto;gap:1rem;padding:.625rem 1rem;font-size:var(--small);border-top:1px solid var(--line)}
+.ptbl .pr:first-child{border-top:0}.ptbl .th{color:var(--muted);font-size:var(--tiny);letter-spacing:.08em}.ptbl .num{font-family:var(--mono);font-weight:700;white-space:nowrap}
 .terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(16rem,100%),1fr));gap:1rem 1.75rem;margin-top:1.5rem}
 .term{border-left:.125rem solid rgba(90,209,230,.5);padding:.25rem 0 .25rem .875rem}
 .term dt{font-weight:700;font-size:var(--small)}
@@ -470,7 +473,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <a class="btn sec" href="https://apps.apple.com/app/id6808281696">App Store（完全版）</a>
         <a class="btn sec" id="ctaAndroid" href="/android">Android（完全版）</a>
       </div>
-      <p class="ctanote">体験版は無料・登録なしで、4 種目とも試せます。完全版は買い切り <b id="heroPrice">3,000 円</b>、広告なし。</p>
+      <p class="ctanote">体験版は無料・登録なしで、4 種目とも試せます。完全版は買い切り <b id="heroPrice">3,000 円</b>（時期で変わります）、広告なし。</p>
       <dl class="facts">
         <div><dt>一次試験</dt><dd>09/19 · 09/26</dd></div>
         <div><dt>第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit">日</span></dd></div>
@@ -585,8 +588,8 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
         <a href="/">無料の体験版を開く</a>
       </div>
       <div class="plan pay">
-        <div class="top"><h3>アプリ版（完全版）</h3><span class="yen">3,000 円</span></div>
-        <p>買い切り、広告なし。価格は今後変わることがあります。難易度 Normal・Hard・Max（Max は操縦操作だけ）、出題数の指定、編隊とスモーク、タイヤとライト、写真の保存、背景（夕方・夜）、技を単発で選ぶときの全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせが使えます。iPhone・iPad は App Store から。Android は Google Play から（テスト版として販売。中身と価格は同じです）。</p>
+        <div class="top"><h3>アプリ版（完全版）</h3><span class="yen" id="planPrice">3,000 円</span></div>
+        <p>買い切り、広告なし。価格は時期で変わります（下の「価格の根拠」）。難易度 Normal・Hard・Max（Max は操縦操作だけ）、出題数の指定、編隊とスモーク、タイヤとライト、写真の保存、背景（夕方・夜）、技を単発で選ぶときの全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせが使えます。iPhone・iPad は App Store から。Android は Google Play から（テスト版として販売。中身と価格は同じです）。</p>
         <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
         <a href="/android">Android 版の購入方法</a>
       </div>
@@ -595,7 +598,14 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 
   <section id="price" data-reveal>
     <h2 id="whyh">価格の根拠</h2>
-    <p class="lead" id="whyp">完全版は買い切り 3,000 円です。合格すれば、給与を受けながら操縦訓練を受ける進路が開けます。その進路への投資として、この価格にしました。価格は今後、変わることがあります（買い切りなので、購入後に追加の支払いはありません）。</p>
+    <p class="lead" id="whyp">完全版は買い切りで、価格は時期で変わります（いまは <b id="curPrice">3,000 円</b>）。合格すれば、給与を受けながら操縦訓練を受ける進路が開けます。その進路への投資として、この価格にしました。</p>
+    <div class="ptbl" aria-label="価格の時期区分">
+      <div class="pr th"><div>期間</div><div>価格</div></div>
+      <div class="pr"><div>応募開始から、1 次試験 1 日目の 1 週間前まで</div><div class="num">2,000 円</div></div>
+      <div class="pr"><div>1 次試験 1 日目の 1 週間前から、1 次試験 2 日目まで</div><div class="num">3,000 円</div></div>
+      <div class="pr"><div>それ以外の期間</div><div class="num">1,000 円</div></div>
+    </div>
+    <p class="sub">2026 年度は、7 月 1 日から 9 月 11 日までが 2,000 円、9 月 12 日から 9 月 26 日までが 3,000 円、9 月 27 日から 1,000 円です（受付期間 7 月 1 日〜8 月 28 日、1 次試験 9 月 19 日・26 日。令和 8 年度採用要項）。来年度の日程は未定で、決まりしだいこのページで案内します。買い切りなので、購入後に追加の支払いはありません。</p>
     <!-- 出典: 防衛省 自衛官募集ホームページ「令和 8 年度 海上・航空自衛隊航空学生採用要項」PDF
          https://www.mod.go.jp/gsdf/jieikanbosyu/pdf/y/r8_kougaku.pdf （2026-09-15 に読んだ。利用者から受け取った同じ PDF でも確認）
          8 初任給（令和 8 年 1 月 1 日現在）: 月額 239,500 円（高卒）／254,200 円（大卒）（地域手当等を除く）、年 2 回の期末・勤勉手当、宿舎費は無料、食事・被服・寝具は支給または貸与
@@ -605,7 +615,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
          航空手当の額は読める公式ページがなく、使っていない -->
     <dl class="terms">
       <div class="term"><dt>給与を受けながら訓練</dt><dd>航空学生は入隊した月から給与が出ます。初任給は月額 239,500 円（高卒）で、宿舎費は無料、食事と被服も支給または貸与されます。防衛省の航空学生採用要項（令和 8 年度、2026 年 9 月に確認）。</dd></div>
-      <div class="term"><dt>初任給の 80 分の 1</dt><dd>3,000 円は、航空学生の最初の月の給与の 80 分の 1 ほどです。</dd></div>
+      <div class="term"><dt>初任給の 80 分の 1</dt><dd>いちばん高い時期の 3,000 円でも、航空学生の最初の月の給与の 80 分の 1 ほどです。</dd></div>
       <div class="term"><dt>その先は幹部</dt><dd>入隊と同時に 2 等海士・2 等空士、基礎教育を終える約 2 年後に 3 等海曹・3 等空曹。その先は飛行幹部候補生を経て、幹部（3 等海尉・3 等空尉）へ進む道です（同要項）。</dd></div>
       <div class="term"><dt>適性検査は一次試験の一部</dt><dd>採用要項では「航空機搭乗員に必要な基礎的資質を測定するための検査」です。1 問数秒の速さと正確さは、練習で伸びます。</dd></div>
       <div class="term"><dt>買う前に試せます</dt><dd>体験版は無料・登録なしで、4 種目とも解けます。3D シミュレーターも操縦できます。</dd></div>
@@ -668,7 +678,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
       <div class="qa"><div class="q"><span>Q</span><h3>体験版と完全版の違いは何ですか。</h3></div><div class="a"><span>A</span><p>体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、タイヤとライト、写真の保存、背景の切り替え、技の単発選択の全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせは完全版です。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>Android では使えますか。</h3></div><div class="a"><span>A</span><p>使えます。Android 版は Google Play の<strong>テスト版として販売</strong>しています。中身と価格は App Store 版と同じです。テスト版なので Play ストアの検索には出ません。<a href="/android">購入方法</a>の手順（Google グループに参加 → テスト版に参加 → Google Play で購入）で入手してください。ブラウザ版は最近のブラウザ（Safari・Chrome など）で動きます。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>出題は本番と同じですか。</h3></div><div class="a"><span>A</span><p>市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。</p></div></div>
-      <div class="qa"><div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div><div class="a"><span>A</span><p>買い切りで 3,000 円です（2026 年 9 月 15 日現在）。月額の課金も、アプリの中での追加の課金もありません。価格は今後変わることがありますが、購入後に追加の支払いはありません。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>課金は買い切りですか。</h3></div><div class="a"><span>A</span><p>買い切りです。月額の課金も、アプリの中での追加の課金もありません。価格は時期で変わります。応募開始から 1 次試験 1 日目の 1 週間前までは 2,000 円、そこから 1 次試験 2 日目までは 3,000 円、それ以外の期間は 1,000 円です（2026 年度は 9 月 26 日まで 3,000 円、9 月 27 日から 1,000 円）。購入後に追加の支払いはありません。</p></div></div>
     </div>
   </section>
 
@@ -731,7 +741,7 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
 {"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、タイヤとライト、写真の保存、背景の切り替え、技の単発選択の全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、アプリ内の問い合わせは完全版です。"}},
 {"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"使えます。Android 版は Google Play のテスト版として販売しています。中身と価格は App Store 版と同じです。テスト版なので Play ストアの検索には出ません。購入方法は https://kokuteki.amaterasu-vocab.com/android にあります（Google グループに参加 → テスト版に参加 → Google Play で購入）。ブラウザ版は最近のブラウザ（Safari・Chrome など）で動きます。"}},
 {"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"市販の問題集と、実際に受検した人からの直接の聞き取りをもとにした再現です。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
-{"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りで 3,000 円です（2026 年 9 月 15 日現在）。月額の課金も、アプリの中での追加の課金もありません。価格は今後変わることがありますが、購入後に追加の支払いはありません。"}}]}
+{"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。価格は時期で変わります。応募開始から 1 次試験 1 日目の 1 週間前までは 2,000 円、そこから 1 次試験 2 日目までは 3,000 円、それ以外の期間は 1,000 円です（2026 年度は 9 月 26 日まで 3,000 円、9 月 27 日から 1,000 円）。購入後に追加の支払いはありません。"}}]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生 適性検査トレーニング","applicationCategory":"EducationalApplication","operatingSystem":"iOS, Android, Web","url":"https://kokuteki.amaterasu-vocab.com/","installUrl":"https://apps.apple.com/app/id6808281696","inLanguage":"ja","offers":{"@type":"Offer","price":"3000","priceCurrency":"JPY"}}
@@ -897,6 +907,19 @@ footer .askn{margin-top:.75rem;font-size:var(--tiny);color:var(--faint);line-hei
   fetch('/api/avg',{cache:'no-store'}).then(function(r){ return r.ok?r.json():null }).then(function(d){
     if(fill(d)){ try{ localStorage.setItem(KEY,JSON.stringify(d)) }catch(e){} }
   }).catch(function(){});
+})();
+</script>
+<script>
+(function(){
+  /* 価格の時期区分（2026-09-15）: 応募開始〜1 次試験 1 日目の 1 週間前 2,000 円、1 週間前〜2 日目 3,000 円、それ以外 1,000 円。
+     2026 年度: 受付 7/1〜8/28、1 次試験 9/19・9/26（令和 8 年度採用要項）→ 7/1〜9/11 2,000、9/12〜9/26 3,000、9/27〜 1,000。
+     来年度の日程は未定。決まったら periods に足す（開始日, 終了日の翌日, 円）。日本時間の 0 時を境にする */
+  var periods=[['2026-07-01','2026-09-12',2000],['2026-09-12','2026-09-27',3000]], now=Date.now(), yen=1000;
+  for(var i=0;i<periods.length;i++){if(now>=Date.parse(periods[i][0]+'T00:00:00+09:00')&&now<Date.parse(periods[i][1]+'T00:00:00+09:00')){yen=periods[i][2];break}}
+  var txt=yen.toLocaleString('ja-JP')+' 円';
+  ['heroPrice','planPrice','curPrice','price'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent=txt});
+  var ld=document.querySelectorAll('script[type="application/ld+json"]');
+  for(var j=0;j<ld.length;j++){if(/"price":"\d+"/.test(ld[j].textContent))ld[j].textContent=ld[j].textContent.replace(/"price":"\d+"/,'"price":"'+yen+'"')}
 })();
 </script>
 <script>

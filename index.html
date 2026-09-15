@@ -1367,7 +1367,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.46';
+const APP_VER='v05.47';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -3170,11 +3170,13 @@ function renderAbout(){
   $('#abSim').addEventListener('click',()=>{pendingBack='about';location.hash='#train/control/sim'});
   $('#abGallery').addEventListener('click',()=>{location.hash='#train/control/gallery'});
 }
+/* いまの価格（案内サイト guide.html の script と同じ区分。2026 年度: 7/1〜9/11 2,000、9/12〜9/26 3,000、9/27〜 1,000。来年度の日程は未定） */
+function curPrice(){const P=[['2026-07-01','2026-09-12',2000],['2026-09-12','2026-09-27',3000]],now=Date.now();let yen=1000;for(const [a,b,y] of P){if(now>=Date.parse(a+'T00:00:00+09:00')&&now<Date.parse(b+'T00:00:00+09:00')){yen=y;break}}return yen.toLocaleString('ja-JP')+' 円'}
 function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版</h3>
     <div class="sethelp">体験版でも 4 種目すべてと 3D シミュレーターを試せます。完全版では、次の鍵が外れます。</div>
     <ul><li>難易度 Normal・Hard・Max（Normal から方位の印の向きが毎回変わり、姿勢が 14 方向、操縦操作が 2 つの操作。Hard では方位の印が N とは限らず、姿勢に翼の傾き。Max は操縦操作だけ）。</li><li>出題数を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ、背景（夕方・夜・自動）。</li><li>技を単発で選ぶときの全演目、展示飛行モードの長さ（標準・長め）、演目の曲。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方、解説の中の「この問題の見え方」。</li><li>アプリの中の「ご要望・お問い合わせ」。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
-    <div class="sethelp">完全版はアプリでの買い切りです（3,000 円・広告なし）。iPhone・iPad 版は <b>App Store</b>、Android 版は <b>Google Play</b> で販売しています。Android 版は Play ストアの検索に出ないテスト版なので、購入方法のページの手順で入手してください（中身と価格は同じです）。このブラウザ版は体験版で、買う場所ではありません。</div>
+    <div class="sethelp">完全版はアプリでの買い切りです（${curPrice()}・広告なし。価格は時期で変わります: 応募開始から 1 次試験 1 日目の 1 週間前まで 2,000 円、そこから 1 次試験 2 日目まで 3,000 円、それ以外 1,000 円）。iPhone・iPad 版は <b>App Store</b>、Android 版は <b>Google Play</b> で販売しています。Android 版は Play ストアの検索に出ないテスト版なので、購入方法のページの手順で入手してください（中身と価格は同じです）。このブラウザ版は体験版で、買う場所ではありません。</div>
     <div class="acts">${IS_ANDROID
       ?`<a class="btn" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a><a class="btn ghost" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a>`
       :`<a class="btn" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><a class="btn ghost" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a>`}<button class="btn ghost" id="buyBack">体験版に戻る</button></div>

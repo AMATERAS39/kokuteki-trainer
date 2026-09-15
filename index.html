@@ -726,6 +726,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .lk{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:.125rem .4rem;white-space:nowrap}
 .demo{margin-top:.5rem;display:flex;align-items:center;gap:.625rem;background:var(--panel);border:1px dashed var(--line2);border-radius:.875rem;padding:.5rem .625rem .5rem .875rem;font-size:.75rem;color:var(--muted);line-height:1.35}
 .demo b{color:var(--accent)}
+.demo.review{border-style:solid}.demo.review .btn.ghost{margin-left:.25rem}
 .musbtns{display:flex;gap:.375rem;align-items:center}
 .musnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 #simTakeoff.busy{opacity:.7;pointer-events:none}   /* 加速中・曲を待っているあいだは押せない見た目にする */
@@ -1224,7 +1225,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3>3D シミュレーターで操縦する</h3>
-        <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方を確かめます。機体は物理で動きます（重力は除く）。</div>
+        <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方を確かめます。機体は実機と同じ物理で動きます（重力あり。縦画面で地面に触れると開始位置に戻ります）。</div>
         <ul>
           <li>端末を横にすると視界が画面いっぱいになり、編隊・スモーク・演目のボタンが出ます。</li>
           <li>音のボタンで、機体の通過音が鳴ります。近づくと高く、遠ざかると低く聞こえます。</li>
@@ -1367,7 +1368,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.49';
+const APP_VER='v05.50';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -1656,7 +1657,7 @@ function showSetup(){
     ${sw('introChk',!hideIntro[mode],'開始前に説明と練習 3 問')}
     <div class="acts"><button class="btn" id="setupGo">${hideIntro[mode]?'計測開始':'練習開始'}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupSim3">3D シミュレーターで操縦する</button><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
-    <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（重力は除く）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;
+    <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（実機と同じ物理、重力あり）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);if(el.dataset.key==='level')showSetup()}));
   if(!isFull()){const qs=$('#setup select[data-key="qCount"]');if(qs)qs.value=String(qMax())}   // 体験版は、実際に出す数（上限で切った値）を選んで見せる
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
@@ -1679,12 +1680,12 @@ function showIntro(){
 }
 function afterIntro(){startPractice()}
 function startPractice(){
-  setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessEnd').hidden=true;
+  markPlayed();setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessEnd').hidden=true;
   q=genQ();render();toTop();
 }
 function startMeasured(){
   setBack(null);
-  setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
+  markPlayed();setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
   session={n:0,c:0,t:0,start:performance.now(),ended:false};
   /* 出題数「制限なし」では結果画面に至る道が無いので、そのときだけ「ここで終える」を出す（総点検 2026-09-13） */
   $('#sessEnd').hidden=!(qMax()<=0);
@@ -1723,7 +1724,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=161').then(mod=>{
+  import('./sim3d.js?v=162').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -1991,6 +1992,7 @@ function runSim(opt){applyScene();
   sim.onOri=()=>{if(!sim||!sim.h)return;
     /* 縦画面は検証画面なので速さは 60 m/s 固定（スロットルは効かせない・見せない）。横画面はスロットルどおり（利用者の指示 2026-09-13） */
     if(sim.h.lockSpeed)sim.h.lockSpeed(sim.mqP.matches);
+    if(sim.h.setCrashReset)sim.h.setCrashReset(sim.mqP.matches);   /* 縦画面: 墜落は開始位置へ。横画面: 接地は着陸 */
     /* スロー再生（setTimeScale 0.3）は縦画面には掛けない（利用者が取り消し 2026-09-13。ゆっくりの三人称は「見え方」の「動きで見る」で行う） */
     if(sim.h.setTimeScale)sim.h.setTimeScale(1);
     if(sim.mqP.matches){if(sim.viewName!=='first'||sim.fpMode!=='inst')setViewTo('first','inst');sim.h.setProps(true)}
@@ -2134,7 +2136,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=161').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=162').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2144,6 +2146,9 @@ function runSim(opt){applyScene();
         /* 位置を移す瞬間は、機体に付いた視点（機内・三人称）にしておかない。地上視点に戻す（利用者の決め） */
         if(sim&&sim.setViewTo&&sim.viewName!=='ground'&&landFull()){sim.setViewTo('ground');sim.camHold=false}}});$('#simLoad').remove();applyInput();
       if(sim.h.setThrottle)sim.h.setThrottle(sim.thr);   /* 画面のスロットルの位置を 3D へ（速さとレバー） */
+      if(sim.h.setManualGravity)sim.h.setManualGravity(true);   /* 自分で操縦するときも重力あり（利用者の指示 2026-09-16。旋回では少し引かないと沈む） */
+      if(sim.h.setCrashReset)sim.h.setCrashReset(sim.mqP.matches);   /* 縦画面は地面に触れたら開始位置へ */
+      if(sim.h.setOnCrash)sim.h.setOnCrash(()=>toast('地面に触れたので、開始位置に戻しました'));
       /* 作り直しの最中に押された自動操縦のボタンは、読み込みが済んでから効かせる（下の autoStep を後で呼ぶ） */
       const autoReplay=autoQueue;autoQueue=0;
       /* 体験版でできること: 縦画面は単機の操縦。横画面はそれに加えて、自動操縦の演目（技も選べる）。
@@ -2630,7 +2635,7 @@ function makeMover(opt){
     const host=$$('.gviewer');if(!host||m.loading)return;
     m.loading=true;
     /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
-    import('./sim3d.js?v=161').then(mod=>{
+    import('./sim3d.js?v=162').then(mod=>{
         /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
         const h=mod.mount(host,{view:m.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
         h.setCockpit(false);h.setProps(true);
@@ -2863,11 +2868,29 @@ function applyShow(){if(!sim||!sim.h||!sim.h.setShowLen)return;
   sim.h.setProgram(settings.showProg==='custom'?store.get('progSlots',[]).filter(Boolean):null)}
 
 /* ===== 画面の切り替え（ホーム / 訓練 / 設定 / 説明）: URL のハッシュで管理 ===== */
+/* ===== レビューのお願い（アプリ版だけ、一度だけ）=====
+   最初にどれかの種目を練習・計測してから 24 時間以上たったあと、夕方（16〜19 時）にホームを開いたときに 1 回だけ控えめに出す
+   （利用者の指示 2026-09-16。朝は忙しく無視されやすいので夕方だけ）。出した時点で「一度だけ」を満たしたことにし、二度と出さない。
+   iPhone は App Store のレビュー画面（itms-apps: は WKWebView から App Store アプリが開く）、Android 版（TWA）は Play の掲載ページ */
+const REVIEW_URL_IOS='itms-apps://itunes.apple.com/app/id6808281696?action=write-review',REVIEW_URL_ANDROID='https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki';
+const IS_TWA=IS_ANDROID&&matchMedia('(display-mode:standalone)').matches;   /* Android 版（TWA）はホーム画面のアイコンから開いた standalone */
+function markPlayed(){if(!store.get('firstPlay'))store.set('firstPlay',Date.now())}
+function reviewDue(){
+  if(!(NATIVE||IS_TWA))return false;
+  const t0=store.get('firstPlay');if(!t0||store.get('reviewAsked'))return false;
+  const h=new Date().getHours();
+  return Date.now()-t0>=24*3600*1000&&h>=16&&h<20;
+}
+function reviewCardHTML(){return `<div class="demo review"><span>もしよければ、${NATIVE?'App Store':'Google Play'} でレビューをお願いします。</span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODES[m]}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
-    +(isFull()?'':`<div class="demo"><span><b>体験版</b>: 鍵のかかった機能は完全版で使えます</span><button class="btn" data-go2="buy">くわしく</button></div>`);
+    +(isFull()?'':`<div class="demo"><span><b>体験版</b>: 鍵のかかった機能は完全版で使えます</span><button class="btn" data-go2="buy">くわしく</button></div>`)
+    +(reviewDue()?reviewCardHTML():'');
+  const rv=$('#reviewGo');if(rv){store.set('reviewAsked',Date.now());   /* 出した時点で一度だけを満たす（無視されても二度目は出さない） */
+    rv.addEventListener('click',()=>{rv.closest('.review').remove();location.href=NATIVE?REVIEW_URL_IOS:REVIEW_URL_ANDROID});
+    $('#reviewNo').addEventListener('click',()=>rv.closest('.review').remove())}
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
   $('#modeCards').querySelectorAll('[data-go2]').forEach(b=>b.addEventListener('click',()=>{location.hash='#'+b.dataset.go2}));
 }

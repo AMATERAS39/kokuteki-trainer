@@ -1273,6 +1273,12 @@ export function mount(container, opt = {}) {
     st.b = Math.atan2(-bright.dot(WUP), bup.dot(WUP)) / D;
   }
   function levelAttitude() { att.setFromAxisAngle(AZ, -st.h * D); readAttitude(); velOk = false; }   // 姿勢を直書きしたら速度も作り直す
+  /* 開始位置（滑走路の南端上空 80 m、北向き、水平）へ戻す。数が壊れたときと、縦画面で墜落したとき */
+  function resetToStart() {
+    Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
+    levelAttitude(); auto = false; oneShot = false; formScale = 1;   // 軌跡は消さない（追従機が 1 番機の道をたどって降りてくる）
+    manPhase = 'do'; st.cue = ''; markOn = false;
+  }
   readAttitude();
   const N_MAX = 4;                     // 旋回に使える荷重倍数の上限（4 G）。横倒しでも旋回が暴れないようにする
   const input = { x: 0, y: 0, r: 0 };   // x: 操縦桿 左右（右 +）、y: 操縦桿 前後（奥 +）、r: 方向舵（右 +）
@@ -2747,6 +2753,9 @@ export function mount(container, opt = {}) {
      （利用者の指示 2026-09-13「三人称は別の仕組みではなくシミュレーター操作と同じ仕組み」「実機と全く同じ動きである必要があるので、重力の影響も考えたもの」）。
      操作モード（自分で操縦する画面）は重力を無視する決めなので、重力は gravityOn で切り替える（動きで見るは on） */
   let gravityOn = false;
+  /* 操作モード（自分で操縦する画面）にも重力（利用者の指示 2026-09-16。実機どおり、旋回では引かないと沈む）。自動操縦の演目は前のまま（重力なし）。
+     縦画面（検証画面）は地面に触れたら墜落として開始位置へ戻す（crashReset。横画面は着陸あつかいのまま） */
+  let manualGravity = false, crashReset = false, onCrash = null;
   /* ===== 手動操縦の物理（v2） ===== */
   /* TAU_B: 横滑り角が指令へ追いつく時定数。踏んでも離しても同じ（風見安定）。0.45 秒だと、離した瞬間に機首が 1 秒足らずで進路へ戻り
      「反動」に見えた（利用者の指摘 2026-09-13）。実機のヨーの固有周期は 1〜2 秒なので 0.8 秒に。戻る動きそのものは物理（横滑りが消えて機首が相対風に並ぶ） */
@@ -2784,7 +2793,7 @@ export function mount(container, opt = {}) {
        式: a = KL·q·(α·上 − α0·(上·ẑ)·ẑ) − KY·q·β·右 */
     const a0 = Math.min(PHY.ALPHA0 / q, 14 * D);   // 釣り合いの迎角は速さの二乗に反比例（遅いほど機首を上げて飛ぶ。上限 14° ＝ 失速の手前）
     pAcc.copy(bup).multiplyScalar(PHY.KL * alpha * q).addScaledVector(bright, -PHY.KY * beta * q);
-    pAcc.z -= gravityOn ? 9.81 : PHY.KL * a0 * q * bup.z;   // 動きで見るは本物の重力。操作モードは釣り合いの揚力の鉛直成分で支える（重力を無視）
+    pAcc.z -= (gravityOn || (manualGravity && !auto)) ? 9.81 : PHY.KL * a0 * q * bup.z;   // 動きで見ると手動操縦は本物の重力。自動操縦は釣り合いの揚力の鉛直成分で支える（重力を無視）
     const psi0 = Math.atan2(vel.x, vel.y);
     vel.addScaledVector(pAcc, dt).setLength(v);
     st.x += vel.x * dt; st.y += vel.y * dt; st.z += vel.z * dt;
@@ -2923,6 +2932,7 @@ export function mount(container, opt = {}) {
        離陸で外さないと、タイヤが離れたその瞬間に 45 m へ引き上げられ、空中へ瞬間移動して見える */
     if (auto && manPhase !== 'land' && !touchGo && !tkOn && st.z < 45) { st.z = 45; levelAttitude(); }
     if (touchGo) { if (st.z < 3) st.z = 3; }                        // 滑走路に触れても着陸あつかいにしない（自動でそのまま上げる）
+    else if (crashReset && !auto && st.z <= 3.2) { resetToStart(); if (onCrash) onCrash(); }   // 縦画面: 地面に触れたら墜落として開始位置へ（利用者の指示 2026-09-16）
     else if ((!auto || manPhase === 'land') && st.z <= 3.2) {       // 接地: 着陸とみなして減速に入る
       if (manPhase === 'land' && landClock < 0) landClock = 0;     // ここから、あとの組の出番を数える
       st.z = 3; gmode = 'land'; gv = SPEED * spdK; spdK = 1; spdWant = 1;
@@ -2935,11 +2945,7 @@ export function mount(container, opt = {}) {
     const ter = terrainAt(st.x, st.y);          // 0 なら平地。平地で持ち上げると着陸できなくなる
     if (ter > 0 && st.z < ter + OBST_CLEAR) { st.z = ter + OBST_CLEAR; st.cue = '山を越えます'; }
     else if (st.cue === '山を越えます') st.cue = '';
-    if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) {   // 数でなくなったら開始位置へ戻す
-      Object.assign(st, { x: START.x, y: START.y, z: START.z, h: START.h, ground: false, wall: false });
-      levelAttitude(); auto = false; oneShot = false; formScale = 1;   // 軌跡は消さない（追従機が 1 番機の道をたどって降りてくる）
-      manPhase = 'do'; st.cue = ''; markOn = false;
-    }
+    if (!Number.isFinite(st.x + st.y + st.z + st.h + st.p + st.b)) resetToStart();   // 数でなくなったら開始位置へ戻す
   }
   /* 先頭機の軌跡を残し、そこから編隊機の位置を決める */
   const mq = new THREE.Quaternion(), mp = new THREE.Vector3(), mo = new THREE.Vector3(), cq = new THREE.Quaternion(), fwant = new THREE.Vector3();
@@ -4496,6 +4502,11 @@ export function mount(container, opt = {}) {
     lockSpeed(on) { speedLock = !!on; return speedLock; },
     /* 重力の切り替え（動きで見る = on。操作モード = off） */
     setGravity(on) { gravityOn = !!on; return gravityOn; },
+    /* 手動操縦にも重力（操作モード）。自動操縦は変えない */
+    setManualGravity(on) { manualGravity = !!on; return manualGravity; },
+    /* 縦画面: 地面に触れたら墜落として開始位置へ戻す。fn は戻したときの知らせ */
+    setCrashReset(on) { crashReset = !!on; return crashReset; },
+    setOnCrash(fn) { onCrash = typeof fn === 'function' ? fn : null; },
     /* 外から与えた機体の様子を置く（「動きで見る」: flight.js で飛ばした姿勢と位置）。姿勢（度）は R = Rz(−yaw)·Rx(pitch)·Ry(bank)（flight.js の matOf と同じ順）、
        位置は START からのずれ dx・dy・dz（m）。置いているあいだ、この画面の物理は回さない。null で外す */
     /* 舵で加わっている回転の向き（動きで見るの三人称）。{ roll, pitch, yaw } それぞれ +1／−1／0。省略で消す */

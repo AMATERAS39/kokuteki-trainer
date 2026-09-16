@@ -476,7 +476,7 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .gallery .gi{display:flex;align-items:center;justify-content:center;padding:.125rem}.gallery .gi .ic{width:1.6rem;height:1.6rem;stroke-width:1.8}
 :is(.gallery,.fbsim) .gmove{margin-top:.5rem}
 .gallery .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%}
-/* 解説の中の「この問題の見え方」（操縦操作・完全版だけ） */
+/* 解説の中の「この問題の見え方」（操縦操作。体験版は一人称だけ） */
 .fbsim{margin-top:.75rem;border-top:1px solid var(--line);padding-top:.625rem}
 .fbsim .fbsimh{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.8125rem;font-weight:700;color:var(--muted)}
 .fbsim .fbsimh .btn{width:auto;height:2rem;font-size:.75rem;padding:0 .75rem;margin:0}
@@ -1372,7 +1372,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.59';
+const APP_VER='v05.60';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2520,10 +2520,10 @@ const GAL_PITCH={up:{ja:'機首上げ',p:10},down:{ja:'機首下げ',p:-10}};
 const galInit=()=>({bank:GAL_BANK[gal.bank].b,pitch:gal.pitch?GAL_PITCH[gal.pitch].p:0,yaw:0});
 function showGallery(){applyScene();galDispose();
   setPhase('gallery','見え方');showPane('gallery');
-  /* 体験版: 初期状態は水平飛行だけ、操作は操縦桿だけ、「動きで見る」は鍵。
+  /* 体験版: 初期状態は水平飛行だけ、操作は操縦桿だけ。「動きで見る」は出す（一人称だけ。三人称に鍵。利用者の指示 2026-09-17）。
      選べないものは消さずに灰色で見せる */
   const dm=!isFull();
-  if(dm){gal.bank='level';gal.pitch='';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false}
+  if(dm){gal.bank='level';gal.pitch='';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false;gal.view='first'}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols,lock)=>`<div class="gsel${lock?' off':''}"><div class="gl">${title}${lock?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと①②③が出ます。${isFull()?'操縦桿と方向舵は同時か順番かを選べます。':'体験版は操作 1 つずつです。'}</div>
@@ -2534,9 +2534,9 @@ function showGallery(){applyScene();galDispose();
     ${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
-    <div class="gsim${dm?' off':''}">
-      <h4 class="gsimh">動きで見る${dm?'（完全版）':''}</h4>
-      <div class="sub">同じ動きを再生します（操作はできません）。</div>
+    <div class="gsim">
+      <h4 class="gsimh">動きで見る</h4>
+      <div class="sub">同じ動きを再生します（操作はできません）。${dm?'体験版は一人称だけです。':''}</div>
       <div id="gmover"></div>
     </div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
@@ -2556,7 +2556,7 @@ function showGallery(){applyScene();galDispose();
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw()}));
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
   /* 「動きで見る」: 解説の「この問題の見え方」と同じ部品（利用者の指示 2026-09-14）。飛行はいまの選択から毎回作る */
-  galMv=makeMover({traj:()=>galFrames().traj,forces:seg=>{const fr=galFrames();return fr.ops.length?forcesOf(fr.ops,fr.simul,seg):null},hud:true,view:gal.view,onView:v=>{gal.view=v}});
+  galMv=makeMover({traj:()=>galFrames().traj,forces:seg=>{const fr=galFrames();return fr.ops.length?forcesOf(fr.ops,fr.simul,seg):null},hud:true,view:gal.view,onView:v=>{gal.view=v},lockThird:dm});
   $('#gmover').appendChild(galMv.el);
   galDraw();galMv.build();toTop();
 }
@@ -2613,17 +2613,20 @@ function forcesOf(ops,simul,moveSeg){
    opt.traj(): 飛行（flight.js の run の結果）、opt.forces(moveSeg): 矢印の向き、opt.hud: 一人称の HUD の印、opt.view: 最初の視点、opt.onView(v): 視点を変えたとき
    返すもの: el（画面に置く要素）、build()（箱と 3D を作る。el を画面に置いてから）、play/pause/stop、refresh()（飛行が変わった）、dispose() */
 function makeMover(opt){
-  const m={view:opt.view||'first',play:false,paused:false,t:0,T0:0,prevFt:0,viewer:null,loading:false,raf:0};
+  /* 体験版: 三人称に鍵（opt.lockThird）。ボタンは消さずに灰色で残し、押すと断りだけ出す。一人称は体験版でも使える（利用者の指示 2026-09-17） */
+  const m={view:(opt.lockThird&&opt.view==='third')?'first':(opt.view||'first'),play:false,paused:false,t:0,T0:0,prevFt:0,viewer:null,loading:false,raf:0};
   const speed=()=>m.view==='third'?2:1;   /* 三人称はゆっくり（2 倍の時間。3.5 倍は遅すぎた。利用者の指摘 2026-09-13）。一人称は解説の見え方と同じ速さ */
   const now=()=>((performance.now()-m.T0)/1000/speed())%GAL_DUR;
   const el=document.createElement('div');el.className='mover';
   el.innerHTML=`<div class="gsimbar">
-      <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab" data-gv="third">三人称</button></div>
+      <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab${opt.lockThird?' lockb':''}" data-gv="third"${opt.lockThird?' title="完全版"':''}>三人称</button></div>
       <div class="gp" style="grid-template-columns:1fr"><button class="btn gctl gplay" aria-label="再生" title="再生">${ic('play')}</button></div></div>
     <div class="gmove"></div>
     <div class="sub gstep">再生を押すと、①→②→③の見え方が動きで分かります</div>`;
   const $$=sel=>el.querySelector(sel);
-  el.querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.gv)));
+  el.querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{
+    if(opt.lockThird&&b.dataset.gv==='third'){toast('体験版では一人称だけです。三人称は完全版で使えます');return}
+    setView(b.dataset.gv)}));
   $$('.gplay').addEventListener('click',()=>{m.play?pause():play()});   /* 1 つのボタンで 再生 ⇄ 一時停止（利用者の指示 2026-09-14。止めたあと再開しようとして ① に戻るのが煩わしいため、戻す操作は無し） */
   /* 再生ボタンの絵: 再生中は「一時停止」、止まっているときは「再生」 */
   function btn(){const b=$$('.gplay'),p=m.play;b.innerHTML=ic(p?'pause':'play');b.setAttribute('aria-label',p?'一時停止':'再生');b.title=p?'一時停止':'再生';
@@ -2709,7 +2712,7 @@ function makeMover(opt){
 let galMv=null;
 function galDispose(){if(galMv){galMv.dispose();galMv=null}}
 
-/* ===== 解説の中の見え方（操縦操作・完全版）=====
+/* ===== 解説の中の見え方（操縦操作。体験版でも出す: 一人称だけ、三人称に鍵。利用者の指示 2026-09-17）=====
    その問題の ①→②③ を、出題と同じ飛行（flight.js）で、見え方の一覧の「動きで見る」と同じ部品で動かして見せる（利用者の指示 2026-09-14）。
    視点は問題をまたいで覚える。3D は解説を出すたびに作り、次の出題で捨てる */
 let fbMv=null,fbView='first';
@@ -2717,12 +2720,13 @@ function fbSimStop(){if(fbMv){fbMv.dispose();fbMv=null}}
 function fbSimShow(){
   const box=$('#fbSim');if(!box)return;
   fbSimStop();
-  if(!(q&&q.type==='control'&&q.frames&&isFull())){box.hidden=true;box.innerHTML='';return}
+  if(!(q&&q.type==='control'&&q.frames)){box.hidden=true;box.innerHTML='';return}
+  if(!isFull())fbView='first';
   box.hidden=false;
-  box.innerHTML=`<div class="fbsimh"><span>この問題の見え方</span></div>`;
+  box.innerHTML=`<div class="fbsimh"><span>この問題の見え方${isFull()?'':'（体験版は一人称だけ）'}</span></div>`;
   const qq=q;
   fbMv=makeMover({traj:()=>{if(!qq.traj)qq.traj=E.simControl(qq.init,qq.ops,qq.simul);return qq.traj},   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
-    forces:seg=>forcesOf(qq.ops,qq.simul,seg),hud:true,view:fbView,onView:v=>{fbView=v}});   /* 中央の十字（HUD）は必ず出す。見え方の一覧の「動きで見る」と同じ。Hard でも出す。出題の絵 ①②③ は変えない（利用者の指示 2026-09-15） */
+    forces:seg=>forcesOf(qq.ops,qq.simul,seg),hud:true,view:fbView,onView:v=>{fbView=v},lockThird:!isFull()});   /* 中央の十字（HUD）は必ず出す。見え方の一覧の「動きで見る」と同じ。Hard でも出す。出題の絵 ①②③ は変えない（利用者の指示 2026-09-15） */
   box.appendChild(fbMv.el);
   fbMv.build();fbMv.play();   /* 解説が出たら動かし始める（以前と同じ） */
 }
@@ -3201,7 +3205,7 @@ function route(){
   else{renderAbout();
     /* アプリ版: ホーム画面に追加は要らず、通信もしない（お知らせと 3D は同梱。新しい版はストアが配る）。通信するのはご要望・お問い合わせを送るときだけ（利用者の指示 2026-09-15） */
     if(NATIVE)$('#netLine').textContent='解答時間と正答率は端末内に記録。通信なしで動く（通信するのはご要望・お問い合わせを送るときだけ。新しい版は App Store / Google Play が配る）。';
-    $('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。4 種目とも試せて、3D シミュレーターは単機で操縦でき、横画面では自動操縦の演目も見られます。難易度は Easy まで、出題数は種目ごとに決まった数まで、編隊・スモーク・写真・タイヤ・ライト、「見え方」の 2 つの操作の組み合わせには鍵がかかっています。';initAbout();
+    $('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。4 種目とも試せて、3D シミュレーターは単機で操縦でき、横画面では自動操縦の演目も見られます。難易度は Easy まで、出題数は種目ごとに決まった数まで、編隊・スモーク・写真・タイヤ・ライト、「見え方」の 2 つの操作の組み合わせ、「動きで見る」の三人称には鍵がかかっています。';initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
   menuList.querySelector('[data-act="restore"]').hidden=NATIVE||isFull();   /* アプリ版は全機能版。復元も購入もない */
@@ -3234,7 +3238,7 @@ function curPrice(){const P=[['2026-07-01','2026-09-12',2000],['2026-09-12','202
 function renderBuy(){
   $('#buyPage').innerHTML=`<h3>全機能版</h3>
     <div class="sethelp">体験版でも 4 種目すべてと 3D シミュレーターを試せます。完全版では、次の鍵が外れます。</div>
-    <ul><li>難易度 Normal・Hard・Max（Normal から方位の印の向きが毎回変わり、姿勢が 14 方向、操縦操作が 2 つの操作。Hard では方位の印が N とは限らず、姿勢に翼の傾き。Max は操縦操作だけ）。</li><li>出題数を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ、背景（夕方・夜・自動）。</li><li>技を単発で選ぶときの全演目、展示飛行モードの長さ（標準・長め）、演目の曲。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方、解説の中の「この問題の見え方」。</li><li>アプリの中の「ご要望・お問い合わせ」。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
+    <ul><li>難易度 Normal・Hard・Max（Normal から方位の印の向きが毎回変わり、姿勢が 14 方向、操縦操作が 2 つの操作。Hard では方位の印が N とは限らず、姿勢に翼の傾き。Max は操縦操作だけ）。</li><li>出題数を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ、背景（夕方・夜・自動）。</li><li>技を単発で選ぶときの全演目、展示飛行モードの長さ（標準・長め）、演目の曲。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方、「動きで見る」（見え方・解説）の三人称。</li><li>アプリの中の「ご要望・お問い合わせ」。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
     <div class="sethelp">完全版はアプリでの買い切りです（${curPrice()}・広告なし。価格は時期で変わります: 通常価格 1,000 円、応募開始から 2,000 円、1 次試験の 1 週間前から 3,000 円）。iPhone・iPad 版は <b>App Store</b>、Android 版は <b>Google Play</b> で販売しています。Android 版は Play ストアの検索に出ないテスト版なので、購入方法のページの手順で入手してください（中身と価格は同じです）。このブラウザ版は体験版で、買う場所ではありません。</div>
     <div class="acts">${IS_ANDROID
       ?`<a class="btn" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a><a class="btn ghost" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a>`

@@ -1372,7 +1372,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.58';
+const APP_VER='v05.59';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2637,9 +2637,9 @@ function makeMover(opt){
     if(m.viewer){m.viewer.dispose();m.viewer=null}
     box.innerHTML=`<div class="viewer gtp gviewer"><div class="vload">シミュレーターを読み込み中…</div>${m.view==='first'?`<div class="gframe gref"></div><div class="gframe">${ckCompact(E.svgCockpitFrame(opt.hud!==false))}</div>`:''}</div>
       <div class="sub">${m.view==='first'?'出題の絵と同じ見え方です。破線は①の正面（景色に固定）。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝ロール、緑＝ピッチ、青＝ヨー。'}</div>`;
-    /* なぞって視点を回す（シミュレーターの三人称と同じ addLook） */
+    /* なぞって視点を回す（シミュレーターの三人称と同じ addLook）。一人称は出題の絵と同じ固定の視線で、なぞっても動かさない（利用者の指示 2026-09-16） */
     { const gv=$$('.gviewer'); let px=0,py=0,on=false;
-      gv.addEventListener('pointerdown',e=>{on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
+      gv.addEventListener('pointerdown',e=>{if(m.view!=='third')return;on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
       gv.addEventListener('pointermove',e=>{if(!on||!m.viewer)return;m.viewer.h.addLook((e.clientX-px)*0.35,(py-e.clientY)*0.35);px=e.clientX;py=e.clientY});
       gv.addEventListener('pointerup',()=>{on=false});gv.addEventListener('pointercancel',()=>{on=false}); }
     mountViewer();

@@ -1372,7 +1372,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.55';
+const APP_VER='v05.56';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2988,7 +2988,7 @@ async function renderNews(){
    その合言葉で自分の投稿と返信だけを読み返せる。メールアドレスを書いた人にはメールでも届く。
    置き場所（Supabase）の設定が空のあいだは、これまでどおりメールの下書きを開く形で動く。
    利用者が書いた文字は、画面に出すときに必ず escape する */
-const CONTACT_MAIL='kokutekisei@amaterasu-vocab.com';   /* 問い合わせ先（利用者の指示 2026-09-15） */
+const CONTACT_MAIL='tenryu-kokutekisei@amaterasu-vocab.com';   /* 問い合わせ先（利用者の指示 2026-09-15） */
 const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nl2br=t=>esc(t).replace(/\n/g,'<br>');
 const ATTACH_OK=/^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/;   // 添付として扱える形式

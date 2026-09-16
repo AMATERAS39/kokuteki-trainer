@@ -1372,7 +1372,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.57';
+const APP_VER='v05.58';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2898,7 +2898,8 @@ function reviewDue(){
 }
 /* ===== 受験者アンケート（アプリ版だけ）=====
    最初にホームを開いたとき、今年度の一次試験を受ける予定かを 1 回だけ尋ねる（答えはこの端末にだけ残す。集計はしない。利用者の指示 2026-09-16）。
-   受ける人にはその日程（9/19 か 9/26。答えは aat.examDate）の当日の夕方（16〜19 時）から、ホームで 1 回だけ案内サイトのアンケートページを案内する
+   受ける人にはその日程（9/19 か 9/26。答えは aat.examDate）の当日 16 時以降に最初にアプリを開いたとき、ホームで 1 回だけ案内サイトのアンケートページを案内する
+   （試験直後のほうが記憶が鮮明、利用者 2026-09-16。当日に開かなければ、その後 30 日のあいだは開いたときに時間帯を問わず）
    （利用者の指示 2026-09-16: 日程も尋ね、その日程の終了後に促す。公開するかは利用者次第なので不公平にはならない）。日程を答えていない古い端末は第 2 日程 EXAM_END のあと。
    アプリからは何も送らない約束なので、答えはサイトのページで集める（/survey）。来年度の日程は未定なので EXAM_END を毎年直す。
    試験のあと 30 日を過ぎたら出さない（来年の受験生が古い日程で案内されないように） */
@@ -2906,8 +2907,8 @@ const EXAM_DATES=[['2026-09-19','9 月 19 日'],['2026-09-26','9 月 26 日']],E
 function examPlanDue(){return (NATIVE||IS_TWA)&&!store.get('examAsked')}
 function surveyDue(){
   if(!(NATIVE||IS_TWA)||store.get('examPlan')!=='yes'||store.get('surveyAsked'))return false;
-  const d=store.get('examDate')||EXAM_END,end=Date.parse(d+'T00:00:00+09:00'),now=Date.now(),h=new Date().getHours();
-  return now>=end&&now<end+31*86400000&&h>=16&&h<20;   /* 受験日の当日 16 時以降（試験のあと）から 30 日のあいだ */
+  const d=store.get('examDate')||EXAM_END,end=Date.parse(d+'T16:00:00+09:00'),now=Date.now();
+  return now>=end&&now<end+30*86400000;   /* 受験日の当日 16 時以降（試験のあと）から 30 日のあいだ。時間帯は問わない */
 }
 function examPlanHTML(){return `<div class="demo ask askplan"><span>今年度の航空学生の一次試験を受ける予定ですか。受ける方は日程を選んでください。答えはこの端末にだけ残ります（集計はしません）。</span><span class="askbtns">${EXAM_DATES.map(([d,ja])=>`<button class="btn" data-plan="${d}">${ja}に受ける</button>`).join('')}<button class="btn ghost" id="planNo">受けない</button></span></div>`}
 function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よければ受験者アンケートにご協力ください（3 分ほど。案内サイトのページが開きます。アプリからは何も送りません）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}

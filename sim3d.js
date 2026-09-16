@@ -4839,11 +4839,11 @@ export function mount(container, opt = {}) {
       const ai = anthemIdx();
       if (ai > 0) await decodeAt(ai);          // 離陸で頭から流すので、先に decode しておく
       const found = findLead(ai > 0 && musDec.get(ai) ? musDec.get(ai) : musBuf);
-      /* 探した値があれば常に使う。無いときだけ既定の 13.5 秒に落ちる（総点検 2026-09-13）。
-         以前は「musLead <= 0 のときだけ探した値を使う」で、初期値 13.5 のせいに一度も発火せず、
-         解析結果を捨てて 13.5 秒固定で離陸していた。設定画面の「浮くタイミング」は v04.88 で廃止済みなので、
-         利用者に見える「曲の頭を調べて、音が立ち上がるところで離陸します」を真にするには、探した値を使うしかない */
-      if (found > 0) musLead = found; else if (musLead <= 0) musLead = 13.5;
+      /* anthem がリストにあるときは、隠し設定（曲の頭 13.5 秒、13.5 秒〜3:58 を繰り返す。設定画面の「浮くタイミング」を v04.88 で外したあとも、
+         anthem 限定でこの決まりは残す）をそのまま使い、解析した値で上書きしない。
+         v05.01 の総点検で「探した値を常に使う」に変えたところ、anthem で浮くタイミングが合わず、イントロが繰り返し流れた（利用者の指摘 2026-09-17「元のようにして」）。
+         anthem が無いときだけ、探した値を使う（見つからなければ 13.5 秒） */
+      if (ai >= 0) musLead = 13.5; else musLead = found > 0 ? found : 13.5;
       return { lead: musLead, found, dur: musBuf.duration, n: musList.length };
     },
     musicInfo() { return musBuf ? { lead: musLead, dur: musBuf.duration, n: musList.length } : null; },

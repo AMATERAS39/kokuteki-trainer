@@ -1156,8 +1156,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
             <button data-go="inbox" id="inboxItem" hidden>受信箱</button>
             <button data-go="settings">設定</button>
             <button data-go="about">アプリの説明</button>
-            <button data-url="https://kokuteki.amaterasu-vocab.com/guide">適性検査について<svg class="ic ext"><use href="#i-ext"/></svg></button>
-            <button data-act="restore">購入を復元</button>
+            <button data-url="https://kokuteki.amaterasu-vocab.com/guide">専用サイト<svg class="ic ext"><use href="#i-ext"/></svg></button>
             <button data-go="buy">全機能版について</button>
           </div>
         </div>
@@ -1354,6 +1353,7 @@ const FULL_HASH='c9bb76ecad45a99039353b7f2b9195f95f19fdda5fa8bd816da7cc06609ae06
 const APPSTORE_URL='https://apps.apple.com/app/id6808281696';
 /* Android 版は Google Play のクローズドテストのまま、App Store 版と同じ価格で販売する（v05.33）。検索に出ないので、案内サイトの購入方法のページへ送る */
 const ANDROID_URL='https://kokuteki.amaterasu-vocab.com/android';
+const GUIDE_URL='https://kokuteki.amaterasu-vocab.com/guide';   /* 専用サイト（解き方のガイドではなく、アプリの紹介と価格を載せる場所。完全版の紹介はここで行う） */
 const IS_ANDROID=/Android/i.test(navigator.userAgent);
 /* 体験版でできること。**機能は隠さずに見せて、鍵をかける**（選べないものは灰色にする）。
    levels: 選べる難易度／qDefRatio: 出題数の上限は、完全版の既定の何割か／
@@ -1372,7 +1372,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.60';
+const APP_VER='v05.61';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
 const isFull=()=>edition==='full';
 let autoQueue=0;   /* 昼の空へ作り直しているあいだに押された「自動操縦」の回数（読み込み後に行う） */
@@ -2915,7 +2915,7 @@ function surveyDue(){
   return now>=end&&now<end+30*86400000;   /* 受験日の当日 16 時以降（試験のあと）から 30 日のあいだ。時間帯は問わない */
 }
 function examPlanHTML(){return `<div class="demo ask askplan"><span>今年度の航空学生の一次試験を受ける予定ですか。受ける方は日程を選んでください。答えはこの端末にだけ残ります（集計はしません）。</span><span class="askbtns">${EXAM_DATES.map(([d,ja])=>`<button class="btn" data-plan="${d}">${ja}に受ける</button>`).join('')}<button class="btn ghost" id="planNo">受けない</button></span></div>`}
-function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よければ受験者アンケートにご協力ください（3 分ほど。案内サイトのページが開きます。アプリからは何も送りません）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}
+function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よければ受験者アンケートにご協力ください（3 分ほど。専用サイトのページが開きます。アプリからは何も送りません）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}
 function reviewCardHTML(){return `<div class="demo review"><span>もしよければ、${NATIVE?'App Store':'Google Play'} でレビューをお願いします。</span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
@@ -3146,7 +3146,6 @@ async function restorePurchase(){
 const menuBtn=$('#menuBtn'),menuList=$('#menuList');
 function closeMenu(){menuList.hidden=true;menuBtn.setAttribute('aria-expanded','false')}
 menuBtn.addEventListener('click',e=>{e.stopPropagation();menuList.hidden=!menuList.hidden;menuBtn.setAttribute('aria-expanded',String(!menuList.hidden));if(!menuList.hidden)markNewsSeen()});
-menuList.querySelectorAll('[data-act="restore"]').forEach(b=>b.addEventListener('click',()=>{closeMenu();restorePurchase()}));
 menuList.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{closeMenu();if(!confirmLeave())return;leaveSession();location.hash='#'+b.dataset.go}));
 /* 案内サイトは、アプリの中の画面ではないので別の窓で開く。
    住所は絶対（アプリ版は capacitor:// で動くので、/guide では届かない） */
@@ -3205,10 +3204,9 @@ function route(){
   else{renderAbout();
     /* アプリ版: ホーム画面に追加は要らず、通信もしない（お知らせと 3D は同梱。新しい版はストアが配る）。通信するのはご要望・お問い合わせを送るときだけ（利用者の指示 2026-09-15） */
     if(NATIVE)$('#netLine').textContent='解答時間と正答率は端末内に記録。通信なしで動く（通信するのはご要望・お問い合わせを送るときだけ。新しい版は App Store / Google Play が配る）。';
-    $('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。4 種目とも試せて、3D シミュレーターは単機で操縦でき、横画面では自動操縦の演目も見られます。難易度は Easy まで、出題数は種目ごとに決まった数まで、編隊・スモーク・写真・タイヤ・ライト、「見え方」の 2 つの操作の組み合わせ、「動きで見る」の三人称には鍵がかかっています。';initAbout();
+    $('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。鍵のかかった機能は完全版（アプリ）で使えます。くわしくは専用サイトをご覧ください。';initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();
-  menuList.querySelector('[data-act="restore"]').hidden=NATIVE||isFull();   /* アプリ版は全機能版。復元も購入もない */
 }
 $('#backHome').addEventListener('click',()=>{
   if(!confirmLeave())return;leaveSession();location.hash='#home'});
@@ -3233,30 +3231,21 @@ function renderAbout(){
   $('#abSim').addEventListener('click',()=>{pendingBack='about';location.hash='#train/control/sim'});
   $('#abGallery').addEventListener('click',()=>{location.hash='#train/control/gallery'});
 }
-/* いまの価格（案内サイト guide.html の script と同じ区分。2026 年度: 7/1〜9/11 2,000、9/12〜9/26 3,000、9/27〜 1,000。来年度の日程は未定） */
-function curPrice(){const P=[['2026-07-01','2026-09-12',2000],['2026-09-12','2026-09-27',3000]],now=Date.now();let yen=1000;for(const [a,b,y] of P){if(now>=Date.parse(a+'T00:00:00+09:00')&&now<Date.parse(b+'T00:00:00+09:00')){yen=y;break}}return yen.toLocaleString('ja-JP')+' 円'}
+/* いまの価格（専用サイト guide.html の script と同じ区分。応募開始〜1 次試験 1 日目の 1 週間前 2,500 円、1 週間前〜2 日目 3,000 円、それ以外は通常価格 2,000 円（2026-09-17）。2026 年度: 7/1〜9/11 2,500、9/12〜9/26 3,000、9/27〜 2,000。来年度の日程は未定） */
+function curPrice(){const P=[['2026-07-01','2026-09-12',2500],['2026-09-12','2026-09-27',3000]],now=Date.now();let yen=2000;for(const [a,b,y] of P){if(now>=Date.parse(a+'T00:00:00+09:00')&&now<Date.parse(b+'T00:00:00+09:00')){yen=y;break}}return yen.toLocaleString('ja-JP')+' 円'}
 function renderBuy(){
-  $('#buyPage').innerHTML=`<h3>全機能版</h3>
-    <div class="sethelp">体験版でも 4 種目すべてと 3D シミュレーターを試せます。完全版では、次の鍵が外れます。</div>
-    <ul><li>難易度 Normal・Hard・Max（Normal から方位の印の向きが毎回変わり、姿勢が 14 方向、操縦操作が 2 つの操作。Hard では方位の印が N とは限らず、姿勢に翼の傾き。Max は操縦操作だけ）。</li><li>出題数を自由に決められる（制限なしも選べる）。</li><li>6 機までの編隊とスモーク、写真の保存、タイヤとライトの出し入れ、背景（夕方・夜・自動）。</li><li>技を単発で選ぶときの全演目、展示飛行モードの長さ（標準・長め）、演目の曲。</li><li>「見え方」で操縦桿と方向舵を組み合わせた見え方、「動きで見る」（見え方・解説）の三人称。</li><li>アプリの中の「ご要望・お問い合わせ」。</li><li>買い切り。広告なし。オフラインでも動作。</li></ul>
-    <div class="sethelp">完全版はアプリでの買い切りです（${curPrice()}・広告なし。価格は時期で変わります: 通常価格 1,000 円、応募開始から 2,000 円、1 次試験の 1 週間前から 3,000 円）。iPhone・iPad 版は <b>App Store</b>、Android 版は <b>Google Play</b> で販売しています。Android 版は Play ストアの検索に出ないテスト版なので、購入方法のページの手順で入手してください（中身と価格は同じです）。このブラウザ版は体験版で、買う場所ではありません。</div>
+  /* 体験版では、完全版で増える機能の一覧・解除コード・購入の復元は出さない（利用者の指示 2026-09-17: 完全版の紹介は専用サイトで行う。
+     ブラウザの全機能版と解除コードは作者しか使わないので案内しない。?key= で開いて端末に記憶する道はそのまま） */
+  $('#buyPage').innerHTML=`<h3>完全版</h3>
+    <div class="sethelp">鍵のかかった機能は、完全版（アプリ）で使えます。完全版は買い切りで広告なし（いまは ${curPrice()}。価格は時期で変わります）。くわしくは専用サイトをご覧ください。</div>
     <div class="acts">${IS_ANDROID
       ?`<a class="btn" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a><a class="btn ghost" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a>`
-      :`<a class="btn" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><a class="btn ghost" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a>`}<button class="btn ghost" id="buyBack">体験版に戻る</button></div>
-    <h4 class="codeh">解除コードをお持ちの方</h4>
-    <div class="sethelp">解除コードを入力して有効にすると、この端末が全機能版になります。アプリ版を購入済みで PC でも使いたい方は、案内サイト最下部の問い合わせ欄から、購入の控えを添えて請求してください。</div>
-    <div class="coderow"><input id="buyCode" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="解除コード"><button class="btn sm" id="buyApply">有効にする</button></div>
-    <div class="sethelp" id="buyMsg"></div>`;
+      :`<a class="btn" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><a class="btn ghost" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a>`}
+      <a class="btn ghost" href="${GUIDE_URL}" target="_blank" rel="noopener">専用サイト</a><button class="btn ghost" id="buyBack">体験版に戻る</button></div>`;
   $('#buyBack').addEventListener('click',()=>{location.hash='#home'});
-  $('#buyApply').addEventListener('click',async()=>{const k=$('#buyCode').value.trim();if(!k)return;
-    const btn=$('#buyApply');btn.disabled=true;$('#buyMsg').textContent='確かめています…';
-    try{
-      const ok=await redeemCode(k);
-      if(ok){edition='full';store.set('edition','full');store.set('key',k);$('#buyMsg').textContent='全機能版を有効にしました。';setTimeout(()=>{location.hash='#home';renderHome()},600)}
-      else $('#buyMsg').textContent='このコードは使えません。'
-    }catch(e){$('#buyMsg').textContent='確かめられませんでした。通信できる状態で、もう一度お試しください。'}
-    btn.disabled=false});
 }
+/* 購入の復元（ブラウザの全機能版を ?key= で有効にした端末向け）は、作者しか使わないのでメニューから外した（2026-09-17）。合言葉は端末に残っているので、そのまま全機能版のまま動く */
+/* 解除コードの照合。いまは画面から呼ばない（解除コードの入力欄を出さなくした 2026-09-17）。発行の仕組みは残す */
 /* 解除コードを確かめる。置き場所（Supabase）があれば、そこで「未使用なら使用済みにして true」。
    置き場所がまだないあいだだけ、従来の合言葉（ハッシュ照合）を受け付ける */
 async function redeemCode(k){

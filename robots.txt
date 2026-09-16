@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
 Disallow: /survey
+Disallow: /survey-results
 
 Sitemap: https://kokuteki.amaterasu-vocab.com/sitemap.xml

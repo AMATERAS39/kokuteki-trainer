@@ -41,6 +41,7 @@ button.ghost{background:transparent;color:var(--accent)}
   <h1>受験者アンケートの集計</h1>
   <p>作成者用のページです。合言葉（平均回答時間と同じもの）を入れると、サイトにたまっている回答を集計して出します。回答は匿名で、名前・メール・端末の識別子・IP は含まれません。</p>
   <div class="keyrow"><input type="password" id="key" placeholder="合言葉" autocomplete="off"><button id="go">集計する</button><button class="ghost" id="dl" hidden>JSON を保存</button></div>
+  <p id="remember" hidden>合言葉はこの端末に覚えました。次からは開くだけで集計が出ます。<a href="#" id="forget">この端末から消す</a></p>
   <div class="status" id="st"></div>
   <div id="out"></div>
 </main>
@@ -74,13 +75,16 @@ button.ghost{background:transparent;color:var(--accent)}
       if(r.status===403){$('#st').textContent='合言葉が違います。';return}
       const d=await r.json();if(!d.ok)throw 0;
       last=d;render(d.items||[]);$('#st').textContent='';$('#dl').hidden=false;
-      try{sessionStorage.setItem('aat.surveyKey',key)}catch(e){}
+      try{localStorage.setItem('aat.surveyKey',key);$('#remember').hidden=false}catch(e){}   /* この端末に覚える（登録）。URL に ?key= を付けて開いても同じ */
     }catch(e){$('#st').textContent='取れませんでした。時間をおいてもう一度お試しください。'}
   }
   $('#go').addEventListener('click',go);
   $('#key').addEventListener('keydown',e=>{if(e.key==='Enter')go()});
   $('#dl').addEventListener('click',()=>{if(!last)return;const b=new Blob([JSON.stringify(last,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='survey-'+new Date().toISOString().slice(0,10)+'.json';a.click()});
-  try{const k=sessionStorage.getItem('aat.surveyKey');if(k){$('#key').value=k;go()}}catch(e){}
+  $('#forget').addEventListener('click',e=>{e.preventDefault();try{localStorage.removeItem('aat.surveyKey')}catch(x){}$('#key').value='';$('#remember').hidden=true;$('#out').innerHTML='';$('#dl').hidden=true;$('#st').textContent='この端末から消しました。'});
+  /* 登録: URL の ?key=合言葉 で開くと、その合言葉をこの端末に覚えて、URL からは消す（履歴やブックマークに残さない）。以後は開くだけで集計 */
+  try{const u=new URL(location.href),qk=u.searchParams.get('key');if(qk){localStorage.setItem('aat.surveyKey',qk);u.searchParams.delete('key');history.replaceState(null,'',u.pathname)}}catch(e){}
+  try{const k=localStorage.getItem('aat.surveyKey');if(k){$('#key').value=k;go()}}catch(e){}
 })();
 </script>
 </body>

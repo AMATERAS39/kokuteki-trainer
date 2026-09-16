@@ -14,7 +14,9 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__ or 'usage: survey_tally.py <合言葉> [保存先.json]'); sys.exit(1)
     key = sys.argv[1]
-    with urllib.request.urlopen(URL + '?' + urllib.parse.urlencode({'key': key})) as r:
+    # Python 既定の User-Agent は Cloudflare に弾かれる（403）ので、ふつうのブラウザ風の UA を付ける
+    req = urllib.request.Request(URL + '?' + urllib.parse.urlencode({'key': key}), headers={'User-Agent': 'Mozilla/5.0 (survey_tally)'})
+    with urllib.request.urlopen(req) as r:
         data = json.load(r)
     if not data.get('ok'):
         print('取れませんでした:', data); sys.exit(1)

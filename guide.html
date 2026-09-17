@@ -181,6 +181,11 @@ main{overflow-x:clip}
   background:linear-gradient(95deg,#0b1017 2%,rgba(11,16,23,.80) 34%,rgba(11,16,23,.40) 62%,transparent 84%)}
 @keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.4%)}}
 .hero>.txt{position:relative;z-index:1}
+/* iPad の縦（640〜895px）: スマホの決まり（right:-26%・幅 78%）だと機体の半分が右に切れて中途半端に見えた（利用者の指摘 2026-09-17）。
+   この幅だけ、機体を右上にまるごと見せる。スマホ（〜639px）と広い画面（896px〜）の決まりは触らない */
+@media (min-width:40rem) and (max-width:55.99rem){
+  .jetback .m{right:-2%;top:11%;width:min(30rem,48%)}
+}
 @media (min-width:56rem){
   .jetback .m{right:-4%;top:21%;width:min(46rem,56%)}   /* 広い画面でも同じく上へ（33% → 26% → 21%） */
   .jetback::after{background:linear-gradient(95deg,#0b1017 2%,rgba(11,16,23,.72) 22%,rgba(11,16,23,.18) 46%,transparent 64%)}

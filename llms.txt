@@ -22,6 +22,7 @@
 ## ページ
 - 専用サイト（アプリの紹介・価格・よくある質問）: https://kokuteki.amaterasu-vocab.com/guide
 - 体験版: https://kokuteki.amaterasu-vocab.com/
+- 航空学生の一次試験と適性検査（日程・内容・倍率・対策・入隊後。防衛省の採用要項にもとづく）: https://kokuteki.amaterasu-vocab.com/exam
 - Android 版の購入方法: https://kokuteki.amaterasu-vocab.com/android
 - プライバシーポリシー: https://kokuteki.amaterasu-vocab.com/privacy
 

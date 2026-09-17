@@ -22,6 +22,7 @@
 <title>TENRYU（体験版）｜航空学生 適性検査トレーニングアプリ</title>
 <meta name="description" content="航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査を、制限時間つきで反復練習できるアプリ。方位判読・姿勢判読・その複合・操縦操作の 4 種目と、操縦操作の見え方を確かめる 3D シミュレーターが入っています。ブラウザでそのまま試せます。">
 <link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/">
+<meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TENRYU">
 <meta property="og:locale" content="ja_JP">
@@ -36,7 +37,7 @@
 <meta name="twitter:description" content="方位・姿勢指示器・方位×姿勢指示器・操縦操作の 4 種目を、制限時間つきで反復練習。操縦操作は 3D シミュレーターで見え方を確かめられます。">
 <meta name="twitter:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"TENRYU","alternateName":"TENRYU 航空学生 適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/"}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ","inLanguage":"ja","description":"航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査（方位判読・姿勢判読・その複合・操縦操作）を反復練習する学習アプリ。操縦操作の見え方を確かめる 3D シミュレーターつき。ブラウザ版は体験版で、完全版は App Store のアプリ（有償）。"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","sameAs":["https://apps.apple.com/app/id6808281696","https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki","https://note.com/amateras87/n/n304f337b3d21"],"applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ","inLanguage":"ja","description":"航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査（方位判読・姿勢判読・その複合・操縦操作）を反復練習する学習アプリ。操縦操作の見え方を確かめる 3D シミュレーターつき。ブラウザ版は体験版で、完全版は App Store のアプリ（有償）。"}</script>
 <!-- three.js はこのアプリの中に置く（外の CDN だと、更新のたびに取り直しになり オフラインで 3D が動かない） -->
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
 <style>
@@ -1372,7 +1373,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.65';
+const APP_VER='v05.66';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';

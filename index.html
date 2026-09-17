@@ -712,7 +712,14 @@ ul.tips li{margin:.125rem 0}
 .wrow .wb i{display:block;height:100%;border-radius:.3rem;transform-origin:left;animation:barin .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*70ms)}
 .wrow .wn{font-family:var(--mono);font-size:.75rem;font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
 .wb i.hi,.seg.hi{background:var(--accent);fill:var(--accent)}.wb i.mid,.seg.mid{background:#e8b24a;fill:#e8b24a}.wb i.lo,.seg.lo{background:#d9534f;fill:#d9534f}.seg.na{fill:var(--panel2)}
-.compass,.cross,.pedals{display:block;height:auto;margin:.25rem auto 0}.compass{width:min(100%,15rem)}.cross{width:min(100%,10rem)}.pedals{width:min(100%,10rem)}
+.compass,.cross,.pedals{display:block;height:auto;margin:.25rem auto 0}
+/* 機首の向きの表（姿勢指示器） */
+.agrid{display:grid;gap:.2rem;margin-top:.25rem}.arow{display:grid;grid-template-columns:2.6rem repeat(8,1fr);gap:.2rem;align-items:center}
+.alab{font-size:.625rem;color:var(--muted);line-height:1.2}.ahd{font-size:.625rem;color:var(--muted);text-align:center}
+.acell{position:relative;aspect-ratio:1;border-radius:.4rem;background:var(--panel2);overflow:hidden;display:flex;align-items:center;justify-content:center;animation:fadein .5s ease-out both}
+.acell img{width:100%;height:100%;object-fit:cover;opacity:.9}.acell span{position:absolute;right:.1rem;bottom:0;font-family:var(--mono);font-size:.6rem;font-weight:700;color:#0b1017;background:rgba(255,255,255,.75);padding:0 .15rem;border-radius:.2rem}
+.acell.hi{box-shadow:inset 0 0 0 .14rem var(--accent)}.acell.mid{box-shadow:inset 0 0 0 .14rem #e8b24a}.acell.lo{box-shadow:inset 0 0 0 .14rem #d9534f}.acell.na{opacity:.45}.acell.blank{background:transparent;animation:none}
+.acell.hi span{background:var(--accent);color:#fff}.acell.mid span{background:#e8b24a}.acell.lo span{background:#d9534f;color:#fff}.compass{width:min(100%,15rem)}.cross{width:min(100%,10rem)}.pedals{width:min(100%,10rem)}
 .seg{stroke:var(--panel);stroke-width:1;animation:fadein .5s ease-out both;animation-delay:calc(var(--i,0)*70ms)}   /* 扇は北から時計回りに順に灯る */
 .cross .hub{fill:var(--panel2);stroke:var(--line)}
 .cl{font-size:8px;fill:var(--muted)}.cl2{font-size:8px;fill:var(--muted)}.cross .cl2{fill:#0b1017;opacity:.75}.cv{font-size:7px;font-weight:700;fill:#0b1017;font-family:var(--mono)}
@@ -1418,7 +1425,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.72';
+const APP_VER='v05.73';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3047,20 +3054,18 @@ function weakHTML(m){
         ${R.map((x,i)=>{const [lx,ly]=polar(cx,cy,i,31);return x.v?`<text x="${lx.toFixed(1)}" y="${(ly+3).toFixed(1)}" text-anchor="middle" class="cv fade" style="--i:${i}">${Math.round(x.acc*100)}</text>`:''}).join('')}</svg>
         <div class="sub2">中の数字は正答率（%）。灰色はまだ出ていない${g==='方位'?'方位':'位置'}。</div>`;
     }else if(g==='機首の向き'){
-      /* 姿勢の方位盤: 東西南北は 1 帯（水平）、斜めは内側が下・外側が上、中心は上半分が真上・下半分が真下 */
-      const cx=70,cy=70,names=['北','北東','東','南東','南','南西','西','北西'];
-      const cell=(k,d)=>{const v=get(g,k),a=acc(v);return `<path d="${d}" class="${accCls(a)} seg">${tip(k,v)}</path>`};
-      const num=(k,x,y)=>{const v=get(g,k);return v?`<text x="${x.toFixed(1)}" y="${(y+2.5).toFixed(1)}" text-anchor="middle" class="cv fade">${Math.round(acc(v)*100)}</text>`:''};
-      let parts='',nums='';
-      names.forEach((nm,i)=>{
-        if(i%2===0){parts+=cell(nm,wedge(cx,cy,i,18,48));const [x,y]=polar(cx,cy,i,33);nums+=num(nm,x,y)}
-        else{parts+=cell(nm+'下',wedge(cx,cy,i,18,33))+cell(nm+'上',wedge(cx,cy,i,33,48));const [x1,y1]=polar(cx,cy,i,25.5),[x2,y2]=polar(cx,cy,i,40.5);nums+=num(nm+'下',x1,y1)+num(nm+'上',x2,y2)}
-      });
-      parts+=cell('真上',`M${cx-14} ${cy} A14 14 0 0 1 ${cx+14} ${cy} Z`)+cell('真下',`M${cx+14} ${cy} A14 14 0 0 1 ${cx-14} ${cy} Z`);
-      nums+=num('真上',cx,cy-6)+num('真下',cx,cy+8);
-      h+=`<svg class="compass" viewBox="0 0 140 140" role="img" aria-label="機首の向きごとの正答率">${parts}
-        ${names.map((nm,i)=>{const [lx,ly]=polar(cx,cy,i,61);return `<text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" text-anchor="middle" class="cl">${nm}</text>`}).join('')}${nums}</svg>
-        <div class="sub2">東西南北は水平、斜めの向きは 内側＝機首下げ・外側＝機首上げ、中心は 上＝真上・下＝真下。数字は正答率（%）。</div>`;
+      /* 表: 列＝機首の方位（北西→西、時計回り）、行＝上・水平・下。マスにはアプリと同じ機体の絵（南から見た 14 方向）と正答率。真上・真下は別の行 */
+      const COLS=[['北西','nw'],['北','north'],['北東','ne'],['東','east'],['南東','se'],['南','south'],['南西','sw'],['西','west']];
+      const cellOf=(k,img)=>{const v=get(g,k),a=acc(v);return `<div class="acell ${accCls(a)}" title="${esc(k)} ${v?pct(a)+'（'+v.n+' 問）':'未出題'}"><img src="img/bi-${img}.webp" alt="${esc(k)}" loading="lazy"><span>${v?Math.round(a*100):'—'}</span></div>`};
+      const rowOf=(label,fn)=>`<div class="arow"><div class="alab">${label}</div>${COLS.map(([ja,id])=>{const r=fn(ja,id);return r?r:'<div class="acell blank"></div>'}).join('')}</div>`;
+      h+=`<div class="agrid">
+        <div class="arow ahead"><div class="alab"></div>${COLS.map(([ja])=>`<div class="ahd">${ja}</div>`).join('')}</div>
+        ${rowOf('上',(ja,id)=>id.length===2?cellOf(ja+'上',id+'_up'):null)}
+        ${rowOf('水平',(ja,id)=>id.length>2?cellOf(ja,id):null)}
+        ${rowOf('下',(ja,id)=>id.length===2?cellOf(ja+'下',id+'_down'):null)}
+        <div class="arow"><div class="alab">垂直</div>${cellOf('真上','up')}${cellOf('真下','down')}<div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div></div>
+      </div>
+      <div class="sub2">列が機首の方位、行が機首の上下（垂直の行は左が真上、右が真下）。数字は正答率（%）。薄いマスはまだ出ていない向き。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};

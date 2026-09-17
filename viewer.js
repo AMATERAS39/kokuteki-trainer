@@ -26,7 +26,7 @@ export const DIRS = [
 ];
 
 /* bare: 格子と軸を出さない（記録の「姿勢のレーダー」用。方位の札は出す）。onMarker: 頂点をタップしたときに id を渡す */
-export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, bare = false, onMarker = null } = {}) {
+export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, bare = false, onMarker = null, onReset = null } = {}) {
   const W = () => container.clientWidth, H = () => Math.round(container.clientWidth * 3 / 4);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -43,7 +43,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
 
   const cam = new THREE.PerspectiveCamera(30, W() / H(), 0.1, 500);
   cam.up.set(0, 0, 1);
-  const HOME = new THREE.Vector3(0, bare ? -31 : -24, 0);   /* bare（レーダー）は多面体が入るよう少し引く */
+  const HOME = new THREE.Vector3(0, bare ? -36 : -24, 0);   /* bare（レーダー）は多面体の全体が見えるよう離れた位置から */
   cam.position.copy(HOME); cam.lookAt(0, 0, 0);
   const controls = new OrbitControls(cam, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 9; controls.maxDistance = 80; controls.enablePan = false;
@@ -81,6 +81,8 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   gltf.scene.traverse(o => { if (o.isMesh) { if (underGear(o)) o.visible = false;
     const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
   pivot.add(gltf.scene);
+  /* 機首の先（機体の座標で +y の端）。札とカメラの寄りに使う */
+  const NOSE_Y = new THREE.Box3().setFromObject(gltf.scene).max.y;
 
   /* 向きの切り替え（短いアニメーション付き）。バンク b は機首の軸まわり: R = Rz(−h)·Rx(p)·Ry(b) */
   let qFrom = new THREE.Quaternion(), qTo = new THREE.Quaternion(), t0 = 0, animating = false;
@@ -105,18 +107,37 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
     for (const sh of shapes) {
       const pos = new Float32Array(sh.points.length * 3); sh.points.forEach((p, i) => { pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z; });
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(sh.tris.flat()); g.computeVertexNormals();
-      const mat = new THREE.MeshStandardMaterial({ color: sh.color, transparent: true, opacity: sh.opacity == null ? 0.42 : sh.opacity, side: THREE.DoubleSide, flatShading: true, roughness: 0.7, metalness: 0, depthWrite: false });
+      const mat = new THREE.MeshStandardMaterial({ color: sh.color, transparent: true, opacity: sh.opacity == null ? 0.16 : sh.opacity, side: THREE.DoubleSide, flatShading: true, roughness: 0.7, metalness: 0, depthWrite: false });
+      mat.userData.base = mat.opacity;
       const mesh = new THREE.Mesh(g, mat); mesh.userData.shape = sh.id; markerGroup.add(mesh);
-      const line = new THREE.LineSegments(new THREE.WireframeGeometry(g), new THREE.LineBasicMaterial({ color: sh.color, transparent: true, opacity: 0.55 })); markerGroup.add(line);
-      for (const p of sh.points) { const sp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: sh.color, roughness: 0.5 })); sp.position.set(p.x, p.y, p.z); sp.userData.id = p.id; sp.userData.pick = true; markerGroup.add(sp); }
+      const line = new THREE.LineSegments(new THREE.WireframeGeometry(g), new THREE.LineBasicMaterial({ color: sh.color, transparent: true, opacity: 0.3 })); line.material.userData.base = 0.3; markerGroup.add(line);
+      for (const p of sh.points) { const sp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: sh.color, roughness: 0.5, transparent: true, opacity: 0.95 })); sp.material.userData.base = 0.95; sp.position.set(p.x, p.y, p.z); sp.userData.id = p.id; sp.userData.pick = true; markerGroup.add(sp); }
     }
   }
   function highlight(id) { for (const c of markerGroup.children) { if (!c.userData.pick) continue; const on = c.userData.id === id; c.material.emissive = new THREE.Color(on ? 0xffffff : 0x000000); c.material.emissiveIntensity = on ? 0.6 : 0; c.scale.setScalar(on ? 1.9 : 1); } }
-  /* 頂点のタップ（なぞりと区別するため、押してから 6px 以上動いたら無視） */
-  const ray = new THREE.Raycaster(); let pdown = null;
+  /* チャートの見せ方: fadeTo(1) で見せる、fadeTo(0) で消す（毎コマ少しずつ）。カメラは flyTo で滑らかに動かす */
+  let chartK = 1, chartTarget = 1;
+  function fadeTo(t) { chartTarget = t; }
+  let fly = null;   // {from, to, look0, look1, t0, dur}
+  function flyTo(pos, look, dur = 800) { fly = { from: cam.position.clone(), to: pos.clone(), look0: controls.target.clone(), look1: look.clone(), t0: performance.now(), dur }; }
+  /* 数値を選んだとき: チャートを消し、機首の先（目標の姿勢で計算）へ寄る。札は機首の先に出る */
+  function focusNose() {
+    const tip = new THREE.Vector3(0, NOSE_Y, 0).applyQuaternion(qTo), dir = new THREE.Vector3(0, 1, 0).applyQuaternion(qTo);
+    const side = new THREE.Vector3(1, 0, 0).applyQuaternion(qTo), up = new THREE.Vector3(0, 0, 1).applyQuaternion(qTo);
+    const pos = tip.clone().add(dir.clone().multiplyScalar(9)).add(side.multiplyScalar(8)).add(up.clone().multiplyScalar(3.5));
+    fadeTo(0); flyTo(pos, tip.clone().add(dir.multiplyScalar(-0.8)).add(up.multiplyScalar(0.6)), 900);   /* 機首と札のあいだを見る（両方が中央に来る） */
+  }
+  /* 元の位置へ（ダブルタップ）。チャートを戻し、札を消す */
+  function resetView() { fadeTo(1); flyTo(HOME, new THREE.Vector3(0, 0, 0), 800); setNoseLabel(null); highlight(null); if (onReset) onReset(); }
+  /* 頂点のタップ（なぞりと区別するため、押してから 6px 以上動いたら無視）。ダブルタップで元の位置へ */
+  const ray = new THREE.Raycaster(); let pdown = null, lastTap = 0, lastXY = [0, 0];
   renderer.domElement.addEventListener('pointerdown', e => { pdown = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener('pointerup', e => {
-    if (!pdown || !onMarker) return; const moved = Math.hypot(e.clientX - pdown[0], e.clientY - pdown[1]); pdown = null; if (moved > 6) return;
+    if (!pdown) return; const moved = Math.hypot(e.clientX - pdown[0], e.clientY - pdown[1]); pdown = null; if (moved > 6) return;
+    const now = performance.now();
+    if (bare && now - lastTap < 350 && Math.hypot(e.clientX - lastXY[0], e.clientY - lastXY[1]) < 14) { lastTap = 0; resetView(); return; }
+    lastTap = now; lastXY = [e.clientX, e.clientY];
+    if (!onMarker) return;
     const r = renderer.domElement.getBoundingClientRect(), v = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(v, cam); const hit = ray.intersectObjects(markerGroup.children.filter(c => c.userData.pick), false)[0]; if (hit) onMarker(hit.object.userData.id);
   });
@@ -129,7 +150,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
     g.fillStyle = 'rgba(11,16,23,.82)'; g.beginPath(); g.roundRect(4, 4, 1016, 152, 28); g.fill();
     g.font = 'bold 52px "Zen Kaku Gothic New", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(text, 512, 82);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    nose = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false })); nose.position.set(0, 9.6, 0); nose.scale.set(12.8, 2, 1); nose.renderOrder = 9; pivot.add(nose);
+    nose = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false })); nose.position.set(0, NOSE_Y + 0.5, 1.0); nose.scale.set(4.2, 0.66, 1); nose.renderOrder = 9; pivot.add(nose);
   }
   function resetCamera() { cam.position.copy(HOME); controls.target.set(0, 0, 0); controls.update(); }
 
@@ -137,6 +158,8 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   function frame(now) {
     if (!running) return;
     if (animating) { const k = Math.min(1, (now - t0) / 450), e = k < .5 ? 2 * k * k : -1 + (4 - 2 * k) * k; pivot.quaternion.slerpQuaternions(qFrom, qTo, e); if (k >= 1) animating = false; }
+    if (chartK !== chartTarget) { chartK += Math.sign(chartTarget - chartK) * Math.min(Math.abs(chartTarget - chartK), 0.06); for (const c of markerGroup.children) { c.material.opacity = (c.material.userData.base == null ? 1 : c.material.userData.base) * chartK; c.visible = chartK > 0.02; } if (bare) marks.visible = chartK > 0.02; }   /* 寄っているあいだは方位の札も消す */
+    if (fly) { const k = Math.min(1, (now - fly.t0) / fly.dur), e = 1 - Math.pow(1 - k, 3); cam.position.lerpVectors(fly.from, fly.to, e); controls.target.lerpVectors(fly.look0, fly.look1, e); if (k >= 1) fly = null; }
     for (const sp of marks.children) { const k = sp.userData.base * cam.position.distanceTo(sp.position) / 24; sp.scale.set(k, k, 1); }
     controls.update(); renderer.render(scene, cam); raf = requestAnimationFrame(frame);
   }
@@ -145,7 +168,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   window.addEventListener('resize', onResize);
 
   return {
-    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, resetCamera,
+    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, focusNose, resetView, fadeTo, resetCamera,
     pause() { running = false; cancelAnimationFrame(raf); },
     resume() { if (!running) { running = true; raf = requestAnimationFrame(frame); } },
     dispose() { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); controls.dispose(); renderer.dispose(); renderer.domElement.remove(); }

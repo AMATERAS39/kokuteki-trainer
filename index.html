@@ -1435,7 +1435,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.75';
+const APP_VER='v05.76';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3087,7 +3087,7 @@ function weakHTML(m){
       const pv=(dj,sd)=>w['姿勢|'+dj+'|'+sd];
       h+=`<div class="wg2">姿勢のレーダー（頂点をタップ、または下の表の数値をタップ）</div>
         <div class="viewer pose3d" data-pose="${m}"><div class="vload">3D モデルを読み込み中…</div></div>
-        <div class="poselg"><span><i style="background:#f0a030"></i>水平</span><span><i style="background:#5ab0ff"></i>右バンク</span><span><i style="background:#3ed48a"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回ります。</span></div>
+        <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回り、数値を選ぶと機首の先へ寄ります。ダブルタップで元の位置へ。</span></div>
         <div class="ptbl2"><div class="ptr pth"><span></span>${SIDES.map(k=>`<span>${k}</span>`).join('')}</div>
         ${DIRS26.map(dj=>`<div class="ptr"><span class="pl">${dj}</span>${SIDES.map(sd=>{const v=pv(dj,sd),a=acc(v);return `<button class="pc ${accCls(a)}" data-pose3d="${dj}|${sd}" ${v?'':'disabled'}>${v?Math.round(a*100)+'<small>%</small>':'—'}</button>`}).join('')}</div>`).join('')}</div>
         <div class="sub2">数字は正答率（%）。— はまだ出ていない組み合わせ。</div>`;
@@ -3154,23 +3154,23 @@ async function initPose3D(page){
     const select=(key)=>{
       const [dj,sd]=key.split('|'),d=dirOf(dj);if(!d||!v)return;
       const rec=w['姿勢|'+dj+'|'+sd],b=sd==='右'?30:sd==='左'?-30:0;
-      v.setDirBank(d.heading==null?0:d.heading,d.pitch,b);v.highlight(key);
+      v.setDirBank(d.heading==null?0:d.heading,d.pitch,b);v.highlight(key);v.focusNose();   /* チャートを消して機首の先へ寄る（ダブルタップで戻る） */
       v.setNoseLabel(rec?`${dj}・${sd==='水平'?'水平':sd+'バンク'}　${Math.round(rec.c/rec.n*100)}%（${rec.n} 問）`:`${dj}・${sd}　未出題`);
       tbl.querySelectorAll('.pc.sel').forEach(x=>x.classList.remove('sel'));const btn=tbl.querySelector(`[data-pose3d="${key}"]`);if(btn)btn.classList.add('sel');
     };
-    try{const mod=await import('./viewer.js?v=9');v=await mod.mount(host,{bare:true,onMarker:select});host.querySelector('.vload')?.remove();poseViewers.push(v)}
+    try{const mod=await import('./viewer.js?v=9');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{tbl.querySelectorAll('.pc.sel').forEach(x=>x.classList.remove('sel'))}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
     catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;continue}
     /* レーダー: 8 方位 × 上・水平・下 の 24 頂点（姿勢指示器は真上・真下の 2 極も）。半径 ＝ 2.5 + 5.5 × 正答率（未出題は 2.5）。水平・右・左の 3 枚 */
     const HJ=['北','北東','東','南東','南','南西','西','北西'],PITCH=[[30,'上'],[0,''],[-30,'下']],poles=m==='attitude';
     const dirV=(hd,pc)=>{const D=Math.PI/180;return [Math.sin(hd*D)*Math.cos(pc*D),Math.cos(hd*D)*Math.cos(pc*D),Math.sin(pc*D)]};
-    const shapes=[];const COL={'水平':0xf0a030,'右':0x5ab0ff,'左':0x3ed48a};
+    const shapes=[];const COL={'水平':0xf2b56a,'右':0x7dbcff,'左':0x6fd6a8};
     for(const sd of ['水平','右','左']){
       const points=[],tris=[];const idx=(ri,hi)=>ri*8+(hi%8);
       PITCH.forEach(([pc,suf])=>HJ.forEach((hj,hi)=>{const dj=hj+suf,rec=w['姿勢|'+dj+'|'+sd],r=2.5+5.5*(rec?rec.c/rec.n:0);const [x,y,z]=dirV(hi*45,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}));
       for(let ri=0;ri<2;ri++)for(let hi=0;hi<8;hi++){tris.push([idx(ri,hi),idx(ri+1,hi),idx(ri+1,hi+1)]);tris.push([idx(ri,hi),idx(ri+1,hi+1),idx(ri,hi+1)])}
       if(poles){for(const [dj,pc] of [['真上',90],['真下',-90]]){const rec=w['姿勢|'+dj+'|'+sd],r=2.5+5.5*(rec?rec.c/rec.n:0);const [x,y,z]=dirV(0,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}
         const up=24,dn=25;for(let hi=0;hi<8;hi++){tris.push([up,idx(0,hi+1),idx(0,hi)]);tris.push([dn,idx(2,hi),idx(2,hi+1)])}}
-      shapes.push({id:sd,color:COL[sd],opacity:0.38,points,tris});
+      shapes.push({id:sd,color:COL[sd],opacity:0.16,points,tris});
     }
     v.setShapes(shapes);
     tbl.querySelectorAll('[data-pose3d]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.pose3d)));

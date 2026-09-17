@@ -1374,8 +1374,7 @@ const MODE_DEFAULTS={
   combo:{level:'easy',qCount:20,qLimit:15,skipExplain:true},
   control:{level:'easy',qCount:10,qLimit:20,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
 const modeSet=store.get('modeSet',{});
-const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';if(m.level==='max'&&mode!=='control')m.level='hard';
-  if(mock&&mode===MOCK_ORDER[mock.i])Object.assign(m,{qCount:MODE_DEFAULTS[mode].qCount,qLimit:MODE_DEFAULTS[mode].qLimit,skipExplain:true});   /* 模試は既定の数と時間、解説なし */   // medium は旧称。Max は操縦操作だけ
+const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';if(m.level==='max'&&mode!=='control')m.level='hard';   // medium は旧称。Max は操縦操作だけ
   if(DEMO_ON&&!isFull()){                                    // 体験版は Easy まで・出題数は上限まで（前に選んだ値が残っていても戻す）
     if(!DEMO.levels.includes(m.level))m.level=DEMO.levels[0];
     const cap=Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
@@ -1419,7 +1418,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.71';
+const APP_VER='v05.72';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1453,7 +1452,7 @@ let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
 let booting=true;
 function toTop(){if(!booting)window.scrollTo({top:0})}
 let session=null;   // 計測セッション {n,c,t,start,ended}
-/* 学習記録（v05.69、利用者の指示 2026-09-18）: 計測ごとの履歴 hist（新しい順、300 件まで）と、問題の型ごとの成績 weak（種目 → 型 → {n,c,t}）。
+/* 学習記録（v05.69、利用者の指示 2026-09-18）: 計測ごとの履歴 hist（新しい順、300 件まで）と、問題の型ごとの成績 weak（種目 → 型 → {n,c,t}）。分析はメニューの「記録」から（ホームには置かない。模試は v05.72 で外した: 本番は 50 問×60 分を 10 分休憩を挟む形で、通しの模試は現実的でない）。
    型: 方位は正解の方位、姿勢指示器は機首の向き、複合は方位、操縦操作は操作（1 操作はその操作、2 操作は 順番／同時）。端末の中だけに置き、どこにも送らない */
 let hist=store.get('hist',[]),weak=store.get('weak',{});
 const DIRJA=['北','北東','東','南東','南','南西','西','北西'];
@@ -1474,9 +1473,6 @@ function wlog(m,cats,ok,t){const w=weak[m]||(weak[m]={});for(const cat of cats){
   const nk=m==='heading'?'方位|'+k:m==='attitude'?'機首の向き|'+k.replace('機首 ',''):m==='combo'?'方位|'+k.replace('方位 ',''):/^2 操作/.test(k)?'操作の数|'+k:'操作|'+k;
   const c=weak[m][nk]||(weak[m][nk]={n:0,c:0,t:0});c.n+=v.n;c.c+=v.c;c.t+=v.t}}if(ch)store.set('weak',weak)})();
 function hlog(rec){hist=[rec,...hist].slice(0,300);store.set('hist',hist)}
-/* 模試（完全版）: 4 種目を既定の出題数と制限時間で通しで計測する。解説は出さない。結果は種目ごとと合計で出し、履歴に 1 件で残す */
-const MOCK_ORDER=['heading','attitude','combo','control'];
-let mock=null;   // {i: いま何種目め, parts: {種目: {n,c,t}}}
 
 let phase='';                         // setup | intro | practice | session | sim | summary
 let practiceLeft=0;
@@ -1529,7 +1525,7 @@ function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#pha
 function render(){
   qcount++;answered=false;applyScene();
   const inPractice=phase==='practice';
-  $('#qno').textContent=(mock?`模試 ${mock.i+1}/${MOCK_ORDER.length}　`:'')+(inPractice?`練習 ${PRACTICE_N-practiceLeft+1} / ${PRACTICE_N}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount));
+  $('#qno').textContent=(inPractice?`練習 ${PRACTICE_N-practiceLeft+1} / ${PRACTICE_N}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount));
   $('#qcard').classList.remove('answered');
   $('#quiz').classList.toggle('control',q.type==='control');   /* PC では視界を大きく見せるための印 */
   $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
@@ -1709,7 +1705,6 @@ function enterMode(m,sub){
   if(m==='control'&&sub==='sim'){startSim();return}
   if(m==='control'&&sub==='gallery'){showGallery();return}
   if(sub==='practice'){startPractice();return}   // アプリの説明から「練習する」（操縦操作も 3 問の練習問題）
-  if(sub==='mock'){if(!mock||!isFull()){location.hash='#home';return}startMeasured();return}   // 模試の種目（設定・説明・練習は飛ばして計測へ）
   showSetup();
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
@@ -1776,20 +1771,7 @@ function showSummary(){
   clearInterval(timerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
   const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
-  if(s.n>0)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit(),mock:!!mock});
-  if(mock){mock.parts[mode]={n:s.n,c:s.c,t:s.t};
-    if(mock.i<MOCK_ORDER.length-1){const nx=MOCK_ORDER[mock.i+1];
-      sm.innerHTML=`<h2>模試 ${mock.i+1}/${MOCK_ORDER.length}　${E.MODES[mode]} 終了</h2><div class="sub">正解 ${s.c} / ${s.n}（${acc}）・平均 ${avg}</div>
-        <div class="acts"><button class="btn" id="mockNext">次の種目へ（${E.MODES[nx]}）${ic('next','s')}</button><button class="btn ghost" id="toHome">やめる</button></div>`;
-      $('#mockNext').addEventListener('click',()=>{mock.i++;location.hash='#train/'+MOCK_ORDER[mock.i]+'/mock'});
-      $('#toHome').addEventListener('click',()=>{mock=null;leaveSession();location.hash='#home'});toTop();return}
-    const P=mock.parts,tot=MOCK_ORDER.reduce((a,m)=>{const x=P[m]||{n:0,c:0,t:0};return {n:a.n+x.n,c:a.c+x.c,t:a.t+x.t}},{n:0,c:0,t:0});
-    hlog({d:Date.now(),m:'mock',parts:P,n:tot.n,c:tot.c,t:+tot.t.toFixed(2)});
-    sm.innerHTML=`<h2>模試 終了</h2><div class="sub">4 種目 ${tot.n} 問・正解 ${tot.c}（${tot.n?Math.round(tot.c/tot.n*100):0}%）</div>
-      <div class="rings">${MOCK_ORDER.map(m=>{const x=P[m]||{n:0,c:0,t:0};return ringHTML(x.n?x.c/x.n:null,E.MODES[m].replace('方位×姿勢指示器','複合'))}).join('')}${ringHTML(tot.n?tot.c/tot.n:null,'合計')}</div>
-      <div class="rec mockrec">${MOCK_ORDER.map(m=>{const x=P[m]||{n:0,c:0,t:0};return `<span>${E.MODES[m]}</span><span>${x.c} / ${x.n}・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`}).join('')}</div>
-      <div class="acts"><button class="btn" id="toStats">記録を見る</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
-    mock=null;$('#toStats').addEventListener('click',()=>{leaveSession();location.hash='#stats'});$('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});sendRec();toTop();return}
+  if(s.n>0)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit()});
   sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>
     <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
@@ -3012,8 +2994,6 @@ function renderHome(){
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODES[m]}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
     +`<button class="mode" id="homeSim"><span class="ico">${ic('vfirst')}</span><span class="tx"><span class="n">3D シミュレーター</span><span class="avg">操縦桿と方向舵で飛ばして、見え方を体で覚える</span></span><span class="go">${ic('next','s')}</span></button>`
-    +`<button class="mode${isFull()?'':' locked'}" id="homeMock"><span class="ico">${ic(isFull()?'timer':'lock')}</span><span class="tx"><span class="n">模試（4 種目通し）${isFull()?'':'（完全版）'}</span><span class="avg">${mockText()}</span></span><span class="go">${ic('next','s')}</span></button>`
-    +`<div class="homelinks"><button class="btn ghost sm" data-go2="stats">記録を見る（履歴・推移・苦手）</button></div>`
     +(isFull()?'':`<div class="demo"><span><b>体験版</b>: 鍵のかかった機能は完全版で使えます</span><button class="btn" data-go2="buy">くわしく</button></div>`)
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};
@@ -3027,13 +3007,7 @@ function renderHome(){
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
   $('#modeCards').querySelectorAll('[data-go2]').forEach(b=>b.addEventListener('click',()=>{location.hash='#'+b.dataset.go2}));
   $('#homeSim').addEventListener('click',()=>{location.hash='#train/control/sim'});
-  $('#homeMock').addEventListener('click',()=>{
-    if(!isFull()){toast('模試は完全版で使えます');return}
-    if(!confirm('4 種目を通しで計測します（方位 20 問 → 姿勢指示器 10 問 → 方位×姿勢指示器 20 問 → 操縦操作 10 問。制限時間は既定、解説は出ません）。始めますか？'))return;
-    mock={i:0,parts:{}};location.hash='#train/'+MOCK_ORDER[0]+'/mock'});
 }
-/* 模試の最近の結果（ホームの札の 2 行目） */
-function mockText(){const h=hist.find(x=>x.m==='mock');return h?`前回 ${new Date(h.d).toLocaleDateString('ja-JP')}: ${h.c} / ${h.n}（${h.n?Math.round(h.c/h.n*100):0}%）`:'方位 → 姿勢指示器 → 複合 → 操縦操作を既定の数と時間で'}
 /* ===== 苦手の分析（v05.71）: 出題の形に合わせた絵で出す。開いたときに伸びる・回る演出つき（「視覚効果を減らす」なら止める）。
    方位・印の位置: 方位盤（8 方向の扇。色が正答率、中の数字が %）
    機首の向き: 姿勢の方位盤（東西南北は 1 帯、斜めは 内側＝機首下げ／外側＝機首上げ の 2 帯、中心の上半分＝真上・下半分＝真下）
@@ -3131,11 +3105,9 @@ function renderStatsPage(){
       <div class="sthead">${ringHTML(st.n?st.c/st.n:null,'正答率')}<div class="stnum"><div><b>${st.n}</b> 問</div><div><b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> 秒 / 問</div><div><b>${HL.length}</b> 回の計測</div></div></div>
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
       ${weakHTML(m)}
-      ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}${x.mock?'・模試':''}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}
+      ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}
     </div>`;
   }
-  const M=hist.filter(x=>x.m==='mock');
-  if(M.length)h+=`<div class="stmode"><h4 class="codeh">模試</h4>${M.slice(0,6).map((x,i)=>`<div class="mockrow pop" style="--i:${i}"><span class="md">${fmt(x.d)}</span><div class="rings">${MOCK_ORDER.map(mm=>{const p=x.parts&&x.parts[mm];return ringHTML(p&&p.n?p.c/p.n:null,E.MODES[mm].replace('方位×姿勢指示器','複合'))}).join('')}${ringHTML(x.n?x.c/x.n:null,'合計')}</div></div>`).join('')}</div>`;
   h+=`<div class="acts"><button class="btn ghost" id="stBack">ホームへ</button></div>`;
   page.innerHTML=h;$('#stBack').addEventListener('click',()=>{location.hash='#home'});
 }
@@ -3394,7 +3366,6 @@ function route(){
     if(!confirm('計測を中断してこの種目を終了しますか？')){history.replaceState(null,'',currentHash||'#train/'+mode);return}
   }
   leaveSession();
-  if(!(v==='train'&&sub==='mock'))mock=null;   /* 模試の途中で別の画面へ行ったら模試は終わり */
   if(v!=='about'&&viewer)viewer.pause();
   currentHash='#'+h;
   markNav();

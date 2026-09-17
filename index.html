@@ -714,6 +714,10 @@ ul.tips li{margin:.125rem 0}
 .wb i.hi,.seg.hi{background:var(--accent);fill:var(--accent)}.wb i.mid,.seg.mid{background:#e8b24a;fill:#e8b24a}.wb i.lo,.seg.lo{background:#d9534f;fill:#d9534f}.seg.na{fill:var(--panel2)}
 .compass,.cross,.pedals{display:block;height:auto;margin:.25rem auto 0}
 /* 機首の向きの表（姿勢指示器） */
+.wg2{font-size:.7rem;color:var(--muted);margin:.5rem 0 .1rem}
+.wrow.tap{cursor:pointer;border-radius:.4rem}.wrow.tap.sel .wl{color:var(--text);font-weight:700}.acell.sel{outline:2px solid var(--text);outline-offset:1px}
+.w3d{margin-top:.6rem}.w3dl{font-size:.8125rem;font-weight:700;margin-bottom:.25rem}.w3dv{aspect-ratio:4/3}.w3dv .vload{position:absolute;inset:0;display:grid;place-items:center;font-size:.8125rem;color:#334}
+.avert{grid-template-columns:2.6rem 3rem 2.6rem 3rem 1fr!important;align-items:center}
 .agrid{display:grid;gap:.2rem;margin-top:.25rem}.arow{display:grid;grid-template-columns:2.6rem repeat(8,1fr);gap:.2rem;align-items:center}
 .alab{font-size:.625rem;color:var(--muted);line-height:1.2}.ahd{font-size:.625rem;color:var(--muted);text-align:center}
 .acell{position:relative;aspect-ratio:1;border-radius:.4rem;background:var(--panel2);overflow:hidden;display:flex;align-items:center;justify-content:center;animation:fadein .5s ease-out both}
@@ -1267,7 +1271,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <h3>機体を動かす</h3>
         <ul>
           <li>ドラッグで視点を回転、ホイール／ピンチで拡大。</li>
-          <li>ボタンで機首の向きを 14 方向に切り替え。</li>
+          <li>ボタンで機首の向きを 26 方向に切り替え。</li>
         </ul>
         <div class="viewer" id="viewer"><div class="vload" id="vload">3D モデルを読み込み中…</div></div>
         <div class="legend"><span><i style="background:#ff6b6b"></i>東（x）</span><span><i style="background:#3ed48a"></i>北（y）</span><span><i style="background:#5ab0ff"></i>上（z）</span><span>格子＝水平面</span><span>水平面の「北・東・南・西」の字が方位</span></div>
@@ -1364,7 +1368,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=67"></script>
+<script src="engine.js?v=68"></script>
 <script>
 (function(){
 'use strict';
@@ -1425,7 +1429,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.73';
+const APP_VER='v05.74';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1468,7 +1472,7 @@ const pitchCat=p=>p>0?'機首上げ':p<0?'機首下げ':'水平', bankCat=b=>b?`
 function qCats(q){
   if(q.type==='heading')return ['方位|'+DIRJA[q.dir],'印の位置|'+DIRJA[q.mark||0]];
   if(q.type==='attitude')return ['機首の向き|'+(q.dir14.id==='up'?'真上':q.dir14.id==='down'?'真下':q.dir14.ja),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];
-  if(q.type==='combo')return ['方位|'+DIRJA[q.dir],'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];
+  if(q.type==='combo')return ['機首の向き|'+q.dir14.ja,'方位|'+DIRJA[q.dir],'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];
   const one=q.ops[0]===q.ops[1],st=E.OP_BY_ID[q.ops[0]],rd=one?null:E.OP_BY_ID[q.ops[1]];
   const L=['操作|'+(one?st.ja:st.ja+' + '+rd.ja),'操作の数|'+(one?'1 操作':q.simul?'2 操作（同時）':'2 操作（順番）')];
   if(st.group==='stick')L.push('操縦桿|'+st.ja.replace('操縦桿 ',''));
@@ -1717,8 +1721,8 @@ function enterMode(m,sub){
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
   heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。'},
-  attitude:{easy:'機首は北・真上・真下のみ。翼の傾きは変わる。',normal:'機首は 14 方向すべて。翼は水平のみ。',hard:'14 方向すべてに翼の傾きも加わる。'},
-  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'12 方向すべて。方位指示器の印は毎回変わる。'},
+  attitude:{easy:'機首は北の縦の面（北・北上・北下・真上・真下）だけ。翼の傾きは変わる。',normal:'機首は 26 方向すべて（8 方位 × 上・水平・下と真上・真下）。翼は水平のみ。',hard:'26 方向すべてに翼の傾きも加わる。'},
+  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'24 方向すべて（8 方位 × 上・水平・下）。方位指示器の印は毎回変わる。'},
   control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は必ず 2 つ（順番か同時）。視界の中央の目盛りは出ない。①は水平か、傾きだけか、機首の上下だけ。',max:'Hard に加えて、①に傾きと機首の上下が重なった姿勢も出る。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
@@ -3022,8 +3026,24 @@ function renderHome(){
    機首の上下・傾き・操作・操作の数: 横棒（決まった順。角度は左→水平→右）
    色: 80% 以上は accent、50〜80% は琥珀、50% 未満は赤、まだ出ていないものは灰色 ===== */
 const ORDER={'方位':DIRJA,'印の位置':DIRJA,'機首の上下':['機首上げ','水平','機首下げ'],'傾き':['左 60°','左 30°','水平','右 30°','右 60°'],'操作の数':['1 操作','2 操作（順番）','2 操作（同時）'],
-  '操縦桿':['奥','左','右','手前'],'方向舵':['左','右']};
-const GROUPS={heading:['方位','印の位置'],attitude:['機首の向き','機首の上下','傾き'],combo:['方位','機首の上下','傾き'],control:['操縦桿','方向舵','操作の数','操作']};
+  '操縦桿':['奥','左','右','手前'],'方向舵':['左','右'],'機首の向き':['北西上','北上','北東上','東上','南東上','南上','南西上','西上','北西','北','北東','東','南東','南','南西','西','北西下','北下','北東下','東下','南東下','南下','南西下','西下','真上','真下']};
+const GROUPS={heading:['方位','印の位置'],attitude:['機首の向き','機首の上下','傾き'],combo:['機首の向き','機首の上下','傾き'],control:['操縦桿','方向舵','操作の数','操作']};
+/* 記録の 3D（利用者の指示 2026-09-18）: 姿勢の表の数字をタップすると、その群の下に 3D の機体をその向きで出す。viewer.js を使い、記録の画面を離れたら捨てる */
+let statsViewer=null,statsViewerHost=null;
+function dirOf(label){const id=label==='真上'?'up':label==='真下'?'down':null;return id?E.DIR14.find(d=>d.id===id):E.DIR14.find(d=>d.ja===label)}
+async function show3D(box,label){
+  const d=dirOf(label);if(!d)return;
+  const h=d.heading==null?0:d.heading,pch=d.pitch;
+  box.hidden=false;box.querySelector('.w3dl').textContent=`${label}（南から見た姿）`;
+  const host=box.querySelector('.w3dv');
+  if(statsViewer&&statsViewerHost!==host){statsViewer.dispose();statsViewer=null}
+  if(!statsViewer){host.innerHTML='<div class="vload">3D モデルを読み込み中…</div>';statsViewerHost=host;
+    try{const mod=await import('./viewer.js?v=8');const v=await mod.mount(host,{});if(statsViewerHost!==host){v.dispose();return}statsViewer=v;host.querySelector('.vload')?.remove()}
+    catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;return}}
+  statsViewer.setDir(h,pch);box.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+function stats3DBox(){return `<div class="w3d" hidden><div class="w3dl"></div><div class="viewer w3dv"></div><div class="sub2">なぞると視点を回せます。ピンチで拡大。</div></div>`}
+function wire3D(page){page.querySelectorAll('[data-dir3d]').forEach(el=>el.addEventListener('click',()=>{const box=el.closest('.wgroup').querySelector('.w3d');page.querySelectorAll('[data-dir3d].sel').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');show3D(box,el.dataset.dir3d)}))}
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 /* 扇: 中心 (cx,cy)、角度 i×45°（北が上、時計回り）、幅 45°、半径 ri〜ro */
@@ -3054,18 +3074,26 @@ function weakHTML(m){
         ${R.map((x,i)=>{const [lx,ly]=polar(cx,cy,i,31);return x.v?`<text x="${lx.toFixed(1)}" y="${(ly+3).toFixed(1)}" text-anchor="middle" class="cv fade" style="--i:${i}">${Math.round(x.acc*100)}</text>`:''}).join('')}</svg>
         <div class="sub2">中の数字は正答率（%）。灰色はまだ出ていない${g==='方位'?'方位':'位置'}。</div>`;
     }else if(g==='機首の向き'){
-      /* 表: 列＝機首の方位（北西→西、時計回り）、行＝上・水平・下。マスにはアプリと同じ機体の絵（南から見た 14 方向）と正答率。真上・真下は別の行 */
+      /* 26 方向は 1 つの表にすると読みにくい（利用者 2026-09-18）ので、まず「方位ごと」（上・水平・下をまとめた正答率）を方位盤で、真上・真下を 2 マスで出し、
+         26 マスの表（列＝機首の方位、行＝上・水平・下）は折りたたみの「くわしく」に入れる */
       const COLS=[['北西','nw'],['北','north'],['北東','ne'],['東','east'],['南東','se'],['南','south'],['南西','sw'],['西','west']];
-      const cellOf=(k,img)=>{const v=get(g,k),a=acc(v);return `<div class="acell ${accCls(a)}" title="${esc(k)} ${v?pct(a)+'（'+v.n+' 問）':'未出題'}"><img src="img/bi-${img}.webp" alt="${esc(k)}" loading="lazy"><span>${v?Math.round(a*100):'—'}</span></div>`};
-      const rowOf=(label,fn)=>`<div class="arow"><div class="alab">${label}</div>${COLS.map(([ja,id])=>{const r=fn(ja,id);return r?r:'<div class="acell blank"></div>'}).join('')}</div>`;
-      h+=`<div class="agrid">
+      const sum=(keys)=>{let n=0,c=0,t=0;for(const k of keys){const v=get(g,k);if(v){n+=v.n;c+=v.c;t+=v.t}}return n?{n,c,t}:null};
+      const byHd=DIRJA.map(ja=>({k:ja,v:sum([ja,ja+'上',ja+'下'])})).map(x=>({...x,acc:acc(x.v)}));
+      const cx=70,cy=70;
+      h+=`<div class="wg2">方位ごと（上・水平・下をまとめて）</div><svg class="compass" viewBox="0 0 140 140" role="img" aria-label="機首の方位ごとの正答率">
+        ${byHd.map((x,i)=>`<path d="${wedge(cx,cy,i,16,46)}" class="${accCls(x.acc)} seg" style="--i:${i}">${tip('機首 '+x.k,x.v)}</path>`).join('')}
+        ${byHd.map((x,i)=>{const [lx,ly]=polar(cx,cy,i,60);return `<text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" text-anchor="middle" class="cl">${esc(x.k)}</text>`}).join('')}
+        ${byHd.map((x,i)=>{const [lx,ly]=polar(cx,cy,i,31);return x.v?`<text x="${lx.toFixed(1)}" y="${(ly+3).toFixed(1)}" text-anchor="middle" class="cv fade" style="--i:${i}">${Math.round(x.acc*100)}</text>`:''}).join('')}</svg>`;
+      const cellOf=(k,img)=>{const v=get(g,k),a=acc(v);return `<div class="acell ${accCls(a)}" data-dir3d="${esc(k)}" role="button" tabindex="0" title="${esc(k)} ${v?pct(a)+'（'+v.n+' 問）':'未出題'}。タップで 3D"><img src="img/bi-${img}.webp" alt="${esc(k)}" loading="lazy"><span>${v?Math.round(a*100):'—'}</span></div>`};
+
+      if(m==='attitude')h+=`<div class="wg2">垂直</div><div class="arow avert"><div class="alab">真上</div>${cellOf('真上','up')}<div class="alab">真下</div>${cellOf('真下','down')}</div>`;
+      const rowOf=(label,fn)=>`<div class="arow"><div class="alab">${label}</div>${COLS.map(([ja,id])=>fn(ja,id)).join('')}</div>`;
+      h+=`<details class="histd"><summary>${m==='attitude'?'26':'24'} 方向ごとに見る（マスをタップすると 3D）</summary><div class="agrid">
         <div class="arow ahead"><div class="alab"></div>${COLS.map(([ja])=>`<div class="ahd">${ja}</div>`).join('')}</div>
-        ${rowOf('上',(ja,id)=>id.length===2?cellOf(ja+'上',id+'_up'):null)}
-        ${rowOf('水平',(ja,id)=>id.length>2?cellOf(ja,id):null)}
-        ${rowOf('下',(ja,id)=>id.length===2?cellOf(ja+'下',id+'_down'):null)}
-        <div class="arow"><div class="alab">垂直</div>${cellOf('真上','up')}${cellOf('真下','down')}<div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div><div class="acell blank"></div></div>
-      </div>
-      <div class="sub2">列が機首の方位、行が機首の上下（垂直の行は左が真上、右が真下）。数字は正答率（%）。薄いマスはまだ出ていない向き。</div>`;
+        ${rowOf('上',(ja,id)=>cellOf(ja+'上',id+'_up'))}
+        ${rowOf('水平',(ja,id)=>cellOf(ja,id))}
+        ${rowOf('下',(ja,id)=>cellOf(ja+'下',id+'_down'))}
+      </div><div class="sub2">列が機首の方位、行が機首の上下。数字は正答率（%）。薄いマスはまだ出ていない向き。マスをタップすると下に 3D で出ます。</div></details>`+stats3DBox();
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3114,7 +3142,8 @@ function renderStatsPage(){
     </div>`;
   }
   h+=`<div class="acts"><button class="btn ghost" id="stBack">ホームへ</button></div>`;
-  page.innerHTML=h;$('#stBack').addEventListener('click',()=>{location.hash='#home'});
+  if(statsViewer){statsViewer.dispose();statsViewer=null;statsViewerHost=null}
+  page.innerHTML=h;wire3D(page);$('#stBack').addEventListener('click',()=>{location.hash='#home'});
 }
 /* ===== 通信の決まり =====
    既定では、Wi-Fi につながっているときだけ通信する（携帯の通信量を使わない）。
@@ -3372,6 +3401,7 @@ function route(){
   }
   leaveSession();
   if(v!=='about'&&viewer)viewer.pause();
+  if(v!=='stats'&&statsViewer){statsViewer.dispose();statsViewer=null;statsViewerHost=null}
   currentHash='#'+h;
   markNav();
   if(v!=='train')setBack(null);

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>T-4 14方向レンダラー</title>
+<title>T-4 26方向レンダラー</title>
 <style>body{margin:0;background:#888;font:12px monospace;color:#fff}#log{position:fixed;left:8px;top:8px;white-space:pre}</style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head>
@@ -115,7 +115,10 @@ const DP = +(P.get('dp') || 30);
 const DIRS = [
   ['north', 0, 0], ['south', 180, 0], ['east', 90, 0], ['west', 270, 0], ['up', 0, 90], ['down', 0, -90],
   ['ne_up', 45, DP], ['nw_up', 315, DP], ['se_up', 135, DP], ['sw_up', 225, DP],
-  ['ne_down', 45, -DP], ['nw_down', 315, -DP], ['se_down', 135, -DP], ['sw_down', 225, -DP]
+  ['ne_down', 45, -DP], ['nw_down', 315, -DP], ['se_down', 135, -DP], ['sw_down', 225, -DP],
+  /* v05.74（2026-09-18）: 東西南北の上下と、斜めの水平を足して 26 方向に（出題に欠けていた。利用者の指摘） */
+  ['north_up', 0, DP], ['north_down', 0, -DP], ['east_up', 90, DP], ['east_down', 90, -DP], ['south_up', 180, DP], ['south_down', 180, -DP], ['west_up', 270, DP], ['west_down', 270, -DP],
+  ['ne', 45, 0], ['nw', 315, 0], ['se', 135, 0], ['sw', 225, 0]
 ];
 async function save(name) {
   const data = canvas.toDataURL('image/png');

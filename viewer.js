@@ -9,7 +9,20 @@ export const DIRS = [
   { id: 'north', ja: '北', h: 0, p: 0 }, { id: 'south', ja: '南', h: 180, p: 0 }, { id: 'east', ja: '東', h: 90, p: 0 }, { id: 'west', ja: '西', h: 270, p: 0 },
   { id: 'up', ja: '真上', h: 0, p: 90 }, { id: 'down', ja: '真下', h: 0, p: -90 },
   { id: 'ne_up', ja: '北東上', h: 45, p: 30 }, { id: 'nw_up', ja: '北西上', h: 315, p: 30 }, { id: 'se_up', ja: '南東上', h: 135, p: 30 }, { id: 'sw_up', ja: '南西上', h: 225, p: 30 },
-  { id: 'ne_down', ja: '北東下', h: 45, p: -30 }, { id: 'nw_down', ja: '北西下', h: 315, p: -30 }, { id: 'se_down', ja: '南東下', h: 135, p: -30 }, { id: 'sw_down', ja: '南西下', h: 225, p: -30 }
+  { id: 'ne_down', ja: '北東下', h: 45, p: -30 }, { id: 'nw_down', ja: '北西下', h: 315, p: -30 }, { id: 'se_down', ja: '南東下', h: 135, p: -30 }, { id: 'sw_down', ja: '南西下', h: 225, p: -30 },
+  /* v05.74: 26 方向に */
+  { id: 'north_up', ja: '北上', h: 0, p: 30 },
+  { id: 'north_down', ja: '北下', h: 0, p: -30 },
+  { id: 'east_up', ja: '東上', h: 90, p: 30 },
+  { id: 'east_down', ja: '東下', h: 90, p: -30 },
+  { id: 'south_up', ja: '南上', h: 180, p: 30 },
+  { id: 'south_down', ja: '南下', h: 180, p: -30 },
+  { id: 'west_up', ja: '西上', h: 270, p: 30 },
+  { id: 'west_down', ja: '西下', h: 270, p: -30 },
+  { id: 'ne', ja: '北東', h: 45, p: 0 },
+  { id: 'nw', ja: '北西', h: 315, p: 0 },
+  { id: 'se', ja: '南東', h: 135, p: 0 },
+  { id: 'sw', ja: '南西', h: 225, p: 0 }
 ];
 
 export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress } = {}) {

@@ -7,7 +7,7 @@ IMG = os.path.join(ROOT, 'img'); PKG = os.environ.get('AAT_PKG') or os.path.join
 os.makedirs(PKG, exist_ok=True)
 Q = 92; PAD = 40
 files = sorted(glob.glob(os.path.join(IMG, 'bi-*.png')))
-files = [f for f in files if not os.path.basename(f).startswith(('bi-top', 'bi-icon', 'bi-logo', 'emblem'))]
+files = [f for f in files if not os.path.basename(f).startswith(('bi-top', 'bi-icon', 'bi-logo', 'emblem', 'bi-hero'))]   # bi-hero-* はホームの試し描き（別物）。混ぜると共通の枠が広がる（2026-09-18）
 ims = {f: Image.open(f).convert('RGBA') for f in files}
 bb = None
 for im in ims.values():

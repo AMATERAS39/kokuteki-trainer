@@ -39,7 +39,7 @@
     return ops.map((id, i) => i < ops.length - 1 ? OP_BY_ID[id].cont : OP_BY_ID[id].base).join('、');
   }
   const HI_LABELS = ['N', '3', '6', 'E', '12', '15', 'S', '21', '24', 'W', '30', '33'];
-  /* 第三者視点（南からの固定視点）で機首が向く 14 方向。heading は北 0° 時計回り、pitch は機首上げ正 [°]。
+  /* 第三者視点（南からの固定視点）で機首が向く 26 方向（v05.74 までは 14 方向。東西南北の上下 8 つと斜めの水平 4 つを足した。利用者の指摘 2026-09-18）。heading は北 0° 時計回り、pitch は機首上げ正 [°]。
      読み方: 画面の奥が北、手前が南、右が東、左が西。 */
   const DIR14 = [
     { id: 'north', ja: '北', heading: 0, pitch: 0, read: '機首が画面の奥を向いている → 北。' },
@@ -55,7 +55,19 @@
     { id: 'ne_down', ja: '北東下', heading: 45, pitch: -30, read: '機首が奥・右・下 → 北東へ降下。' },
     { id: 'nw_down', ja: '北西下', heading: 315, pitch: -30, read: '機首が奥・左・下 → 北西へ降下。' },
     { id: 'se_down', ja: '南東下', heading: 135, pitch: -30, read: '機首が手前・右・下 → 南東へ降下。' },
-    { id: 'sw_down', ja: '南西下', heading: 225, pitch: -30, read: '機首が手前・左・下 → 南西へ降下。' }
+    { id: 'sw_down', ja: '南西下', heading: 225, pitch: -30, read: '機首が手前・左・下 → 南西へ降下。' },
+    { id: 'north_up', ja: '北上', heading: 0, pitch: 30, read: '機首が奥・上 → 北へ上昇。' },
+    { id: 'north_down', ja: '北下', heading: 0, pitch: -30, read: '機首が奥・下 → 北へ降下。' },
+    { id: 'east_up', ja: '東上', heading: 90, pitch: 30, read: '機首が右・上 → 東へ上昇。側面が見えて、機首が上がっている。' },
+    { id: 'east_down', ja: '東下', heading: 90, pitch: -30, read: '機首が右・下 → 東へ降下。側面が見えて、機首が下がっている。' },
+    { id: 'south_up', ja: '南上', heading: 180, pitch: 30, read: '機首がこちら（手前）・上 → 南へ上昇。' },
+    { id: 'south_down', ja: '南下', heading: 180, pitch: -30, read: '機首がこちら（手前）・下 → 南へ降下。' },
+    { id: 'west_up', ja: '西上', heading: 270, pitch: 30, read: '機首が左・上 → 西へ上昇。側面が見えて、機首が上がっている。' },
+    { id: 'west_down', ja: '西下', heading: 270, pitch: -30, read: '機首が左・下 → 西へ降下。側面が見えて、機首が下がっている。' },
+    { id: 'ne', ja: '北東', heading: 45, pitch: 0, read: '機首が奥・右で水平 → 北東。' },
+    { id: 'nw', ja: '北西', heading: 315, pitch: 0, read: '機首が奥・左で水平 → 北西。' },
+    { id: 'se', ja: '南東', heading: 135, pitch: 0, read: '機首が手前・右で水平 → 南東。' },
+    { id: 'sw', ja: '南西', heading: 225, pitch: 0, read: '機首が手前・左で水平 → 南西。' }
   ];
 
   const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on', level: 'hard' };
@@ -91,7 +103,7 @@
     }
     return out;
   }
-  /* 種目2: 14 方向の絵 → 姿勢指示器。翼は常に水平なので、正解はバンク 0。
+  /* 種目2: 26 方向の絵 → 姿勢指示器。翼は常に水平なので、正解はバンク 0。
      誤答はバンクを付けたもの・ピッチを反転したもの・水平にしたもの。 */
   /* バンク: 設定 bank が 'off' でなければ、真上・真下を除く 12 方向で 0 / ±30 / ±60 から選ぶ（水平が 1/3） */
   const BANKS = [30, 60];
@@ -105,13 +117,13 @@
     return out;
   }
   /* 姿勢指示器の難易度
-     easy: 機首は北の縦の面だけ（北・真上・真下）。上下と傾きは変わる
-     medium: 14 方向すべて。翼は水平に固定
-     hard: 14 方向すべて + バンク */
+     easy: 機首は北の縦の面だけ（北・北上・北下・真上・真下）。上下と傾きは変わる
+     medium: 26 方向すべて。翼は水平に固定
+     hard: 26 方向すべて + バンク */
   function genAttitude(s) {
     if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
     const lv = lvOf(s);
-    const pool = lv === 'easy' ? DIR14.filter(x => x.id === 'north' || x.id === 'up' || x.id === 'down') : DIR14;
+    const pool = lv === 'easy' ? DIR14.filter(x => ['north', 'north_up', 'north_down', 'up', 'down'].includes(x.id)) : DIR14;
     const d = pick(pool), pitch = d.pitch, bank = lv === 'normal' ? 0 : pickBank(s, d);
     /* 誤答の組み方（点検 2026-09-13: 選択肢の並びだけで Easy 92%・Normal 71%・Hard 45% 当たっていた。当てずっぽうは 25%）
        - 真上・真下: 反対の ±90 を必ず混ぜる。以前は誤答がすべて ±30 だったので「±90 の選択肢があればそれが正解」だった（28,483/28,483）
@@ -129,12 +141,12 @@
     const opts = shuffle([{ bank, pitch, ok: true }, ...dis.map(([b, p]) => ({ bank: b, pitch: p, ok: false }))]);
     return { type: 'attitude', dir14: d, bank, pitch, opts, level: lv };
   }
-  /* 複合: 14 方向のうち方位が定まる 12 方向 → 姿勢指示器＋方位指示器。誤答は「方位違い（姿勢は同じ）」と「姿勢の区分違い（方位は同じ）」を混ぜる */
+  /* 複合: 26 方向のうち方位が定まる 24 方向 → 姿勢指示器＋方位指示器。誤答は「方位違い（姿勢は同じ）」と「姿勢の区分違い（方位は同じ）」を混ぜる */
   function genCombo(s) {
     if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
-    /* 難易度: easy は東西南北のみ・水平（上下も傾きもなし）、medium は東西南北のみ（傾きあり）、hard は 12 方向すべて */
+    /* 難易度: easy は東西南北のみ・水平（上下も傾きもなし）、medium は東西南北のみ（傾きあり）、hard は 24 方向すべて（斜めの水平・東西南北の上下も） */
     const lv = lvOf(s);
-    const pool = DIR14.filter(x => x.heading !== null && (lv === 'hard' || x.pitch === 0));
+    const pool = DIR14.filter(x => x.heading !== null && (lv === 'hard' || (x.pitch === 0 && x.heading % 90 === 0)));
     const d = pick(pool), heading = d.heading, pitch = d.pitch, bank = lv === 'easy' ? 0 : pickBank(s, d);
     /* 誤答は 2×2 の格子で組む: 方位 {正解, 別} × 姿勢 {正解, 別} の 4 つから正解を除いた 3 つ。
        どの選択肢も「方位を 1 つ、姿勢を 1 つ、他と共有する」対称な形になる。
@@ -502,7 +514,7 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
     return `<div class="att">${panel(front ? 'front' : 'rear', bankRot, front ? '前方から見た図' : '後方から見た図')}${panel(sideRight ? 'right' : 'left', pitchRot, sideRight ? '右側面から見た図' : '左側面から見た図')}</div>`;
   }
 
-  /* 14 方向の絵（南からの固定視点）と読み方の凡例。
+  /* 26 方向の絵（南からの固定視点）と読み方の凡例。
      北は画面の奥（紙面の表から裏）なので、**円に ×**で示す（矢の羽を後ろから見た形）。
      以前は斜めの矢印で描いていたが、奥行きなのか斜めの向きなのかが紛らわしかった（利用者の指摘 2026-09-11） */
   /* bank: 0 なら bi-<id>.webp、右バンク 30 なら bi-<id>-r30.webp、左バンク 60 なら bi-<id>-l60.webp */

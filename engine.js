@@ -176,7 +176,8 @@
        max は hard に加えて複合も出る（水平・傾き・上下・複合の全パターンが対象。複合だけではない。利用者の指示 2026-09-14。
        v05.42 までは max が必ず複合、hard までは傾きと上下を独立に引いていたので複合が 8/15 で出ていた） */
     const lv0 = lvOf(s), lv = lv0 === 'max' ? 'hard' : lv0, max = lv0 === 'max';
-    const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && Math.random() < 1 / 3);
+    /* v05.69: hard は必ず 2 操作（1 操作は出ない）。Normal との差が「目盛りなし＋枕 1 つ」だけで小さかった（点検 2026-09-18） */
+    const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && lv !== 'hard' && Math.random() < 1 / 3);
     const first = one ? pick(OPS).id : pick(STICK).id;
     const ops = one ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';

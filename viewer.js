@@ -25,7 +25,8 @@ export const DIRS = [
   { id: 'sw', ja: '南西', h: 225, p: 0 }
 ];
 
-export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress } = {}) {
+/* bare: 格子と軸を出さない（記録の「姿勢のレーダー」用。方位の札は出す）。onMarker: 頂点をタップしたときに id を渡す */
+export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, bare = false, onMarker = null } = {}) {
   const W = () => container.clientWidth, H = () => Math.round(container.clientWidth * 3 / 4);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -42,13 +43,13 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
 
   const cam = new THREE.PerspectiveCamera(30, W() / H(), 0.1, 500);
   cam.up.set(0, 0, 1);
-  const HOME = new THREE.Vector3(0, -24, 0);
+  const HOME = new THREE.Vector3(0, bare ? -31 : -24, 0);   /* bare（レーダー）は多面体が入るよう少し引く */
   cam.position.copy(HOME); cam.lookAt(0, 0, 0);
   const controls = new OrbitControls(cam, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 9; controls.maxDistance = 80; controls.enablePan = false;
 
   /* 地面の格子（z = −6 の水平面）と方位の矢印 */
-  const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; scene.add(grid);
+  const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; if (!bare) scene.add(grid);
   /* 方位の札（北・東・南・西）。板ではなく常に正面を向くスプライトなので、視点を回しても読める */
   function dirLabel(text, color) {
     const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -70,7 +71,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -6), 12, 0xff6b6b, 1.6, 0.9));
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -6), 12, 0x3ed48a, 1.6, 0.9));
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -6), 10, 0x5ab0ff, 1.6, 0.9));
-  scene.add(axes);
+  if (!bare) scene.add(axes);
 
   const pivot = new THREE.Group(); scene.add(pivot);
   const loader = new GLTFLoader();
@@ -94,6 +95,42 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   }
   /* 姿勢をそのまま入れる（動かして見せるとき。毎コマ呼ぶ） */
   function setAttitude(h, p, b) { animating = false; pivot.quaternion.copy(targetQuat(h, p, b)); }
+  /* 向きと傾きへ、短いアニメーションで */
+  function setDirBank(h, p, b = 0) { qFrom.copy(pivot.quaternion); qTo = targetQuat(h, p, b); t0 = performance.now(); animating = true; }
+  /* ===== 姿勢のレーダー（記録）: 5 角形チャートの立体版。shapes: [{id,color,opacity,points:[{id,x,y,z}],tris:[[a,b,c],...]}]。
+     面は半透明の多面体、頂点には小さな球（タップ用）。3 枚（水平・右バンク・左バンク）を重ねる ===== */
+  const markerGroup = new THREE.Group(); scene.add(markerGroup);
+  function setShapes(shapes) {
+    while (markerGroup.children.length) { const c = markerGroup.children.pop(); c.geometry && c.geometry.dispose(); c.material && c.material.dispose(); }
+    for (const sh of shapes) {
+      const pos = new Float32Array(sh.points.length * 3); sh.points.forEach((p, i) => { pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z; });
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(sh.tris.flat()); g.computeVertexNormals();
+      const mat = new THREE.MeshStandardMaterial({ color: sh.color, transparent: true, opacity: sh.opacity == null ? 0.42 : sh.opacity, side: THREE.DoubleSide, flatShading: true, roughness: 0.7, metalness: 0, depthWrite: false });
+      const mesh = new THREE.Mesh(g, mat); mesh.userData.shape = sh.id; markerGroup.add(mesh);
+      const line = new THREE.LineSegments(new THREE.WireframeGeometry(g), new THREE.LineBasicMaterial({ color: sh.color, transparent: true, opacity: 0.55 })); markerGroup.add(line);
+      for (const p of sh.points) { const sp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: sh.color, roughness: 0.5 })); sp.position.set(p.x, p.y, p.z); sp.userData.id = p.id; sp.userData.pick = true; markerGroup.add(sp); }
+    }
+  }
+  function highlight(id) { for (const c of markerGroup.children) { if (!c.userData.pick) continue; const on = c.userData.id === id; c.material.emissive = new THREE.Color(on ? 0xffffff : 0x000000); c.material.emissiveIntensity = on ? 0.6 : 0; c.scale.setScalar(on ? 1.9 : 1); } }
+  /* 頂点のタップ（なぞりと区別するため、押してから 6px 以上動いたら無視） */
+  const ray = new THREE.Raycaster(); let pdown = null;
+  renderer.domElement.addEventListener('pointerdown', e => { pdown = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (!pdown || !onMarker) return; const moved = Math.hypot(e.clientX - pdown[0], e.clientY - pdown[1]); pdown = null; if (moved > 6) return;
+    const r = renderer.domElement.getBoundingClientRect(), v = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(v, cam); const hit = ray.intersectObjects(markerGroup.children.filter(c => c.userData.pick), false)[0]; if (hit) onMarker(hit.object.userData.id);
+  });
+  /* 機首の先の札（記録の文）。機体と一緒に回る */
+  let nose = null;
+  function setNoseLabel(text) {
+    if (nose) { pivot.remove(nose); nose.material.map.dispose(); nose.material.dispose(); nose = null; }
+    if (!text) return;
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 160; const g = c.getContext('2d');
+    g.fillStyle = 'rgba(11,16,23,.82)'; g.beginPath(); g.roundRect(4, 4, 1016, 152, 28); g.fill();
+    g.font = 'bold 52px "Zen Kaku Gothic New", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(text, 512, 82);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    nose = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false })); nose.position.set(0, 9.6, 0); nose.scale.set(12.8, 2, 1); nose.renderOrder = 9; pivot.add(nose);
+  }
   function resetCamera() { cam.position.copy(HOME); controls.target.set(0, 0, 0); controls.update(); }
 
   let running = true, raf = 0;
@@ -108,7 +145,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   window.addEventListener('resize', onResize);
 
   return {
-    setDir, setAttitude, resetCamera,
+    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, resetCamera,
     pause() { running = false; cancelAnimationFrame(raf); },
     resume() { if (!running) { running = true; raf = requestAnimationFrame(frame); } },
     dispose() { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); controls.dispose(); renderer.dispose(); renderer.domElement.remove(); }

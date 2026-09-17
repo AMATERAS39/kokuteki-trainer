@@ -75,7 +75,7 @@ li::marker{color:var(--faint)}
   padding:.7rem clamp(.7rem,2vw,1rem);font-size:var(--small);align-items:baseline}
 .wr+.wr{border-top:1px solid var(--line)}
 .wr b{font-weight:700}
-.wr span{color:var(--muted)}
+.wr > span{color:var(--muted)}
 @media (max-width:30rem){.wr{grid-template-columns:1fr;gap:.15rem}}
 
 footer{border-top:1px solid var(--line);background:var(--panel)}
@@ -97,7 +97,7 @@ footer .sig{margin-top:1rem;font-family:var(--mono);font-size:var(--tiny);color:
 .go.sec{background:transparent;color:var(--text);border:1px solid var(--line2)}
 .price{margin-top:1rem;display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap}
 .price b{font-family:var(--mono);font-size:clamp(1.25rem,3.5vw,1.6rem);color:var(--amber);font-weight:600}
-.price span{color:var(--muted);font-size:var(--small)}
+.price > span{color:var(--muted);font-size:var(--small)}
 /* 語の途中で折り返さない（利用者の指示 2026-09-15）。.nw はカタカナ語・複合語、auto-phrase は対応ブラウザだけ */
 body{word-break:auto-phrase}.nw{white-space:nowrap}
 </style>

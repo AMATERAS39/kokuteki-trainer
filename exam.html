@@ -75,7 +75,7 @@ li::marker{color:var(--faint)}
 .tr+.tr{border-top:1px solid var(--line)}
 .tr>*{min-width:0;overflow-wrap:anywhere}
 .tr b{font-weight:700}
-.tr span{color:var(--muted)}
+.tr > span{color:var(--muted)}   /* 直下だけ（.nw に及ばないように） */
 .tr .num{font-family:var(--mono);color:var(--text)}
 .tr.th{background:rgba(255,255,255,.03);color:var(--faint);font-family:var(--mono);font-size:var(--tiny)}
 .t3 .tr{grid-template-columns:minmax(6rem,1fr) minmax(0,1fr) minmax(0,2fr)}

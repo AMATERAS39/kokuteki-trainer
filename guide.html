@@ -222,7 +222,8 @@ main{overflow-x:clip}
 .tile:hover{transform:translateY(-.19rem)}
 .tile b{display:block;font-family:var(--mono);font-size:clamp(1.5rem,4vw,2rem);font-weight:600;color:var(--amber)}
 .tile b.cy{font-family:var(--disp);font-weight:900;color:var(--cyan)}
-.tile span{display:block;font-size:var(--small);color:var(--muted);margin-top:.25rem}
+/* 直下の span だけ。折り返し防止の .nw（入れ子の span）に色や display が及ばないように（利用者の指摘 2026-09-17: Q&A の色分けが不自然、札の「方位×姿勢指示器」が 2 行に割れる） */
+.tile > span{display:block;font-size:var(--small);color:var(--muted);margin-top:.25rem}
 .tile .avg{display:none;font-style:normal;font-family:var(--mono);font-size:var(--tiny);color:var(--cyan);margin-top:.375rem}
 .tile .avg.on{display:block}
 .tnote{grid-column:1/-1;font-size:var(--tiny);color:var(--faint);line-height:1.7}
@@ -299,6 +300,9 @@ main{overflow-x:clip}
 .plan .yen{font-family:var(--mono);font-size:var(--small);color:var(--amber);font-weight:600}
 .plan p{color:var(--muted);font-size:var(--small);margin-top:.875rem}
 .plan .note{color:var(--faint);font-size:var(--tiny);margin-top:.75rem}
+.plan ul{margin:.875rem 0 0;padding-left:1.1rem;color:var(--muted);font-size:var(--small)}
+.plan li{margin-top:.25rem}
+.plan li::marker{color:var(--faint)}
 .plan a{display:inline-block;margin-top:1.25rem;padding:.75rem 1.25rem;border-radius:.625rem;font-weight:700;font-size:var(--small)}
 .plan.free a{border:1px solid rgba(90,209,230,.5);color:var(--cyan)}
 .plan.free a:hover{background:rgba(90,209,230,.12)}
@@ -308,10 +312,10 @@ main{overflow-x:clip}
 .qas{display:grid;gap:.75rem;margin-top:1.5rem}
 .qa{border:1px solid var(--line);border-radius:.875rem;padding:1rem clamp(.875rem,2vw,1.125rem);background:var(--panel)}
 .qa .q{display:flex;gap:.625rem}
-.qa .q span{font-family:var(--mono);font-size:var(--small);color:var(--cyan)}
+.qa .q > span{font-family:var(--mono);font-size:var(--small);color:var(--cyan)}
 .qa h3{font-size:var(--small);font-weight:700;line-height:1.7}
 .qa .a{display:flex;gap:.625rem;margin-top:.5rem}
-.qa .a span{font-family:var(--mono);font-size:var(--small);color:var(--faint)}
+.qa .a > span{font-family:var(--mono);font-size:var(--small);color:var(--faint)}
 .qa .a p{color:var(--muted);font-size:var(--small)}
 
 footer{border-top:1px solid var(--line);background:var(--panel)}
@@ -486,7 +490,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
   <section data-reveal>
     <h2>知識ではなく、瞬発力</h2>
     <div class="two">
-      <p class="lead"><span class="nw">適性検査</span>は覚えた量を測る試験ではありません。1 問あたり数秒。計器の絵を見て、迷わずに答えを選べるかどうかだけが問われます。読み方の手順を体に入れておくと、その数秒が余ります。</p>
+      <p class="lead"><span class="nw">適性検査</span>は覚えた量を測る試験ではありません。1 問あたり数秒。計器の絵を見て、迷わずに答えを選べるかどうかだけが問われます。</p>
       <div class="tiles">
         <p class="tlab" id="tlab">1 問の持ち時間（<span class="nw">アプリ</span>の<span class="nw">デフォルト</span>）</p>
         <div class="tile" data-m="heading"><b>5 秒</b><span>方位</span><i class="avg"></i></div>
@@ -502,7 +506,8 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <div class="rr"><b>海上要員</b><div class="num">237 人</div><div class="num">55 人</div><div class="num">4.3 倍</div></div>
     </div>
     <p class="sub">出典: 防衛省「自衛官等の充足・採用状況」（2026 年 3 月 31 日現在）。女子は航空要員 26.8 倍、海上要員 6.0 倍。</p>
-    <p class="lead">航空要員は 20 人に 1 人も通りません。そのなかで、<span class="nw">適性検査</span>は<b>直前でいちばん動くところ</b>です。学力はいまから積み上がりません。身体検査は変えられません。面接は水物です。<span class="nw">適性検査</span>だけは、残りの日数でも変わります。知識ではなく速さの勝負だからです。</p>
+    <p class="lead">航空要員は 20 人に 1 人も通りません。そのなかで<span class="nw">適性検査</span>は、最も練習が不足する課目です。普段操縦席になんて座らない人がほとんどである中、過去問や練習機会がないというのは、本気で<span class="nw">受験生</span>にとって致命的です。</p>
+    <p class="lead">また、<span class="nw">適性検査</span>は、他の課目に比べて<span class="nw">ライバル</span>に差をつけやすい部分でもあります。知識ではなく速さと慣れの勝負だからです。<span class="nw">センス</span>を測る課目ですが、<span class="nw">立体</span>感覚というのは、日常生活だけで身につくものではありません。</p>
   </section>
 
   <section id="subjects" data-reveal>
@@ -584,12 +589,13 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
     <div class="plans">
       <div class="plan free">
         <div class="top"><h3><span class="nw">ブラウザ</span>で試す</h3><span class="tag"><span class="nw">体験版</span></span></div>
-        <p>4 種目とも試せます。3D <span class="nw">シミュレーター</span>も自分で操縦できます。<span class="nw">展示飛行</span><span class="nw">モード</span>も短めなら見られます。<span class="nw">難易度</span>は Easy、<span class="nw">出題数</span>は<span class="nw">デフォルト</span>の半分までです。</p>
+        <ul><li>4 種目すべて（方位・<span class="nw">姿勢指示器</span>・方位×<span class="nw">姿勢指示器</span>・<span class="nw">操縦操作</span>）</li><li>3D <span class="nw">シミュレーター</span>の操縦（単機）。横画面では<span class="nw">展示飛行</span><span class="nw">モード</span>も短め（約 4 分）で見られる</li><li>解説と<span class="nw">見え方</span>の「<span class="nw">動きで見る</span>」（一人称）</li><li><span class="nw">難易度</span>は Easy、<span class="nw">出題数</span>は<span class="nw">デフォルト</span>の半分まで</li><li>無料・<span class="nw">登録なし</span>・<span class="nw">広告なし</span></li></ul>
         <a href="/">無料の<span class="nw">体験版</span>を開く</a>
       </div>
       <div class="plan pay">
         <div class="top"><h3><span class="nw">アプリ</span>版（<span class="nw">完全版</span>）</h3><span class="yen" id="planPrice">3,000 円</span></div>
-        <p><span class="nw">買い切り</span>、<span class="nw">広告なし</span>。<span class="nw">価格</span>は<span class="nw">時期</span>で変わります（下の「<span class="nw">価格</span>」）。<span class="nw">難易度</span> Normal・Hard・Max（Max は<span class="nw">操縦操作</span>だけ）、<span class="nw">出題数</span>の指定、編隊と<span class="nw">スモーク</span>、<span class="nw">タイヤ</span>と<span class="nw">ライト</span>、写真の保存、背景（夕方・夜）、技を単発で選ぶときの全演目、<span class="nw">展示飛行</span>の長さ、演目の曲、<span class="nw">見え方</span>の組み合わせ、<span class="nw">アプリ</span>内の問い合わせが使えます。iPhone・iPad は App Store から。Android は Google Play から（<span class="nw">テスト</span>版として販売。中身と<span class="nw">価格</span>は同じです）。</p>
+        <ul><li><span class="nw">難易度</span> Normal・Hard・Max（Max は<span class="nw">操縦操作</span>だけ）と、<span class="nw">出題数</span>の指定</li><li>「<span class="nw">動きで見る</span>」の三人称、「<span class="nw">見え方</span>」で<span class="nw">操縦桿</span>と<span class="nw">方向舵</span>の組み合わせ</li><li>6 機までの編隊と<span class="nw">スモーク</span>、<span class="nw">タイヤ</span>と<span class="nw">ライト</span>、写真の保存、背景（夕方・夜・自動）</li><li>技を単発で選ぶときの全演目、<span class="nw">展示飛行</span>の長さ（標準・長め）、演目の曲</li><li><span class="nw">アプリ</span>内の問い合わせ</li><li><span class="nw">買い切り</span>・<span class="nw">広告なし</span>・<span class="nw">オフライン</span>で動作。<span class="nw">価格</span>は<span class="nw">時期</span>で変わります（下の「<span class="nw">価格</span>」）</li></ul>
+        <p class="note">iPhone・iPad は App Store から。Android は Google Play から（<span class="nw">テスト</span>版として販売。中身と<span class="nw">価格</span>は同じです）。</p>
         <a href="https://apps.apple.com/app/id6808281696">App Store で見る</a>
         <a href="/android">Android 版の<span class="nw">購入方法</span></a>
       </div>

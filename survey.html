@@ -104,6 +104,8 @@ textarea::placeholder{color:var(--faint)}
 .note{margin-top:1rem;font-size:var(--tiny);color:var(--faint);line-height:1.85}
 
 /* 送ったあと */
+.codebox{margin:.75rem 0 0;font-size:.9375rem}.codebox b{font-family:ui-monospace,monospace;font-size:1.5rem;letter-spacing:.2em}.codebox small{color:#66788a;font-size:.8125rem;line-height:1.6;display:block;margin-top:.35rem}
+.more{margin-top:.25rem}
 .thanks{padding:var(--sec) 0 0;border-top:1px solid var(--line)}
 .thanks h2{font-size:clamp(1.2rem,3vw,1.5rem);font-weight:900}
 .thanks p{margin-top:.75rem;color:var(--soft);font-size:var(--body)}
@@ -140,74 +142,27 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
 
   <form id="survey" novalidate>
 
-    <fieldset>
-      <legend><span class="n">01</span>試験日程（第 1 次試験）</legend>
-      <div class="opts">
-        <label class="opt-row"><input type="radio" name="date" value="0919"><span>9 月 19 日</span></label>
-        <label class="opt-row"><input type="radio" name="date" value="0926"><span>9 月 26 日</span></label>
-        <label class="opt-row"><input type="radio" name="date" value="none"><span>受けていない</span></label>
-      </div>
-    </fieldset>
+<fieldset><legend><span class="n">01</span>試験日程（第 1 次試験）</legend><div class="opts"><label class="opt-row"><input type="radio" name="date" value="0919"><span>9 月 19 日</span></label><label class="opt-row"><input type="radio" name="date" value="0926"><span>9 月 26 日</span></label><label class="opt-row"><input type="radio" name="date" value="none"><span>受けていない</span></label></div></fieldset>
 
-    <fieldset>
-      <legend><span class="n">02</span>身体的性別</legend>
-      <div class="opts">
-        <label class="opt-row"><input type="radio" name="sex" value="m"><span>男性</span></label>
-        <label class="opt-row"><input type="radio" name="sex" value="f"><span>女性</span></label>
-        <label class="opt-row"><input type="radio" name="sex" value="na"><span>答えない</span></label>
-      </div>
-    </fieldset>
+<fieldset><legend><span class="n">02</span>方位判読（上面図から方位）</legend><div class="opts"><label class="opt-row"><input type="radio" name="seen_heading" value="yes"><span>出た</span></label><label class="opt-row"><input type="radio" name="seen_heading" value="no"><span>出なかった</span></label><label class="opt-row"><input type="radio" name="seen_heading" value="unk"><span>覚えていない</span></label></div><div class="more" data-for="heading" hidden><div class="sub"><h3><span class="k">量</span>問数</h3><div class="opts"><label class="opt-row"><input type="radio" name="cnt_heading" value="c10"><span>10 問以下</span></label><label class="opt-row"><input type="radio" name="cnt_heading" value="c20"><span>11〜20 問</span></label><label class="opt-row"><input type="radio" name="cnt_heading" value="c30"><span>21〜30 問</span></label><label class="opt-row"><input type="radio" name="cnt_heading" value="c31"><span>31 問以上</span></label><label class="opt-row"><input type="radio" name="cnt_heading" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">時</span>1 問の時間</h3><div class="opts"><label class="opt-row"><input type="radio" name="time_heading" value="spare"><span>余った</span></label><label class="opt-row"><input type="radio" name="time_heading" value="just"><span>ちょうど</span></label><label class="opt-row"><input type="radio" name="time_heading" value="short"><span>足りなかった</span></label><label class="opt-row"><input type="radio" name="time_heading" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">印</span>印が N 以外の位置に来た問題</h3><div class="opts"><label class="opt-row"><input type="radio" name="markNotN" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="markNotN" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="markNotN" value="unk"><span>覚えていない</span></label></div></div></div></fieldset>
 
-    <fieldset>
-      <legend><span class="n">03</span><span class="nw">適性検査</span>の<span class="nw">出題内容</span></legend>
-      <p class="hint">覚えている範囲でかまいません。当てはまるものをすべて選んでください。</p>
+<fieldset><legend><span class="n">03</span>姿勢判読（姿勢指示器を選ぶ）</legend><div class="opts"><label class="opt-row"><input type="radio" name="seen_attitude" value="yes"><span>出た</span></label><label class="opt-row"><input type="radio" name="seen_attitude" value="no"><span>出なかった</span></label><label class="opt-row"><input type="radio" name="seen_attitude" value="unk"><span>覚えていない</span></label></div><div class="more" data-for="attitude" hidden><div class="sub"><h3><span class="k">量</span>問数</h3><div class="opts"><label class="opt-row"><input type="radio" name="cnt_attitude" value="c10"><span>10 問以下</span></label><label class="opt-row"><input type="radio" name="cnt_attitude" value="c20"><span>11〜20 問</span></label><label class="opt-row"><input type="radio" name="cnt_attitude" value="c30"><span>21〜30 問</span></label><label class="opt-row"><input type="radio" name="cnt_attitude" value="c31"><span>31 問以上</span></label><label class="opt-row"><input type="radio" name="cnt_attitude" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">時</span>1 問の時間</h3><div class="opts"><label class="opt-row"><input type="radio" name="time_attitude" value="spare"><span>余った</span></label><label class="opt-row"><input type="radio" name="time_attitude" value="just"><span>ちょうど</span></label><label class="opt-row"><input type="radio" name="time_attitude" value="short"><span>足りなかった</span></label><label class="opt-row"><input type="radio" name="time_attitude" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">向</span>斜めの上昇・降下（北東上 など）</h3><div class="opts"><label class="opt-row"><input type="radio" name="oblique" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="oblique" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="oblique" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">垂</span>真上・真下</h3><div class="opts"><label class="opt-row"><input type="radio" name="vertical" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="vertical" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="vertical" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">傾</span>30°・60° 以外のバンク</h3><div class="opts"><label class="opt-row"><input type="radio" name="bankOther" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="bankOther" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="bankOther" value="unk"><span>覚えていない</span></label></div></div></div></fieldset>
 
-      <div class="sub">
-        <h3><span class="k">3a</span>出題されて、<span class="nw">アプリ</span>にもあったもの</h3>
-        <div class="opts">
-          <label class="opt-row"><input type="checkbox" name="had" value="heading"><span><span class="nw">方位判読</span>（<span class="nw">上面図</span>から方位）</span></label>
-          <label class="opt-row"><input type="checkbox" name="had" value="attitude"><span><span class="nw">姿勢判読</span>（<span class="nw">姿勢指示器</span>を選ぶ）</span></label>
-          <label class="opt-row"><input type="checkbox" name="had" value="combo"><span>方位×<span class="nw">姿勢指示器</span>（両方を読む）</span></label>
-          <label class="opt-row"><input type="checkbox" name="had" value="ctrl1"><span><span class="nw">操縦操作</span> 1 つ（<span class="nw">操縦桿</span>か<span class="nw">方向舵</span>）</span></label>
-          <label class="opt-row"><input type="checkbox" name="had" value="ctrl2"><span><span class="nw">操縦操作</span> 2 つ（同時）</span></label>
-          <label class="opt-row"><input type="checkbox" name="had" value="ctrl2seq"><span><span class="nw">操縦操作</span> 2 つ（順番: <span class="nw">操縦桿</span> → <span class="nw">方向舵</span>）</span></label>
-        </div>
-      </div>
+<fieldset><legend><span class="n">04</span>方位×姿勢指示器（両方を読む）</legend><div class="opts"><label class="opt-row"><input type="radio" name="seen_combo" value="yes"><span>出た</span></label><label class="opt-row"><input type="radio" name="seen_combo" value="no"><span>出なかった</span></label><label class="opt-row"><input type="radio" name="seen_combo" value="unk"><span>覚えていない</span></label></div><div class="more" data-for="combo" hidden><div class="sub"><h3><span class="k">量</span>問数</h3><div class="opts"><label class="opt-row"><input type="radio" name="cnt_combo" value="c10"><span>10 問以下</span></label><label class="opt-row"><input type="radio" name="cnt_combo" value="c20"><span>11〜20 問</span></label><label class="opt-row"><input type="radio" name="cnt_combo" value="c30"><span>21〜30 問</span></label><label class="opt-row"><input type="radio" name="cnt_combo" value="c31"><span>31 問以上</span></label><label class="opt-row"><input type="radio" name="cnt_combo" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">時</span>1 問の時間</h3><div class="opts"><label class="opt-row"><input type="radio" name="time_combo" value="spare"><span>余った</span></label><label class="opt-row"><input type="radio" name="time_combo" value="just"><span>ちょうど</span></label><label class="opt-row"><input type="radio" name="time_combo" value="short"><span>足りなかった</span></label><label class="opt-row"><input type="radio" name="time_combo" value="unk"><span>覚えていない</span></label></div></div></div></fieldset>
 
-      <div class="sub">
-        <h3><span class="k">3b</span>出題されたが、<span class="nw">アプリ</span>になかったもの</h3>
-        <label for="missing" class="hint">自由に書いてください。</label>
-        <textarea id="missing" name="missing" rows="3" maxlength="2000" placeholder="例: 操縦桿を斜めに倒す操作、3 つの操作、スロットル など"></textarea>
-      </div>
+<fieldset><legend><span class="n">05</span>操縦操作（①→②→③ から操作）</legend><div class="opts"><label class="opt-row"><input type="radio" name="seen_control" value="yes"><span>出た</span></label><label class="opt-row"><input type="radio" name="seen_control" value="no"><span>出なかった</span></label><label class="opt-row"><input type="radio" name="seen_control" value="unk"><span>覚えていない</span></label></div><div class="more" data-for="control" hidden><div class="sub"><h3><span class="k">量</span>問数</h3><div class="opts"><label class="opt-row"><input type="radio" name="cnt_control" value="c10"><span>10 問以下</span></label><label class="opt-row"><input type="radio" name="cnt_control" value="c20"><span>11〜20 問</span></label><label class="opt-row"><input type="radio" name="cnt_control" value="c30"><span>21〜30 問</span></label><label class="opt-row"><input type="radio" name="cnt_control" value="c31"><span>31 問以上</span></label><label class="opt-row"><input type="radio" name="cnt_control" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">時</span>1 問の時間</h3><div class="opts"><label class="opt-row"><input type="radio" name="time_control" value="spare"><span>余った</span></label><label class="opt-row"><input type="radio" name="time_control" value="just"><span>ちょうど</span></label><label class="opt-row"><input type="radio" name="time_control" value="short"><span>足りなかった</span></label><label class="opt-row"><input type="radio" name="time_control" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">数</span>操作の数（出たものをすべて）</h3><div class="opts"><label class="opt-row"><input type="checkbox" name="ops" value="one"><span>1 つ</span></label><label class="opt-row"><input type="checkbox" name="ops" value="two_simul"><span>2 つ同時</span></label><label class="opt-row"><input type="checkbox" name="ops" value="two_seq"><span>2 つ順番</span></label><label class="opt-row"><input type="checkbox" name="ops" value="three"><span>3 つ以上</span></label></div></div><div class="sub"><h3><span class="k">斜</span>操縦桿の斜め</h3><div class="opts"><label class="opt-row"><input type="radio" name="diag" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="diag" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="diag" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">推</span>スロットル</h3><div class="opts"><label class="opt-row"><input type="radio" name="throttle" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="throttle" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="throttle" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">①</span>①が水平でない（傾き・機首の上下）</h3><div class="opts"><label class="opt-row"><input type="radio" name="initTilt" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="initTilt" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="initTilt" value="unk"><span>覚えていない</span></label></div></div></div></fieldset>
 
-      <div class="sub">
-        <h3><span class="k">3c</span><span class="nw">アプリ</span>にあるが、出題されなかったもの</h3>
-        <div class="opts">
-          <label class="opt-row"><input type="checkbox" name="notHad" value="heading"><span><span class="nw">方位判読</span>（<span class="nw">上面図</span>から方位）</span></label>
-          <label class="opt-row"><input type="checkbox" name="notHad" value="attitude"><span><span class="nw">姿勢判読</span>（<span class="nw">姿勢指示器</span>を選ぶ）</span></label>
-          <label class="opt-row"><input type="checkbox" name="notHad" value="combo"><span>方位×<span class="nw">姿勢指示器</span>（両方を読む）</span></label>
-          <label class="opt-row"><input type="checkbox" name="notHad" value="ctrl1"><span><span class="nw">操縦操作</span> 1 つ（<span class="nw">操縦桿</span>か<span class="nw">方向舵</span>）</span></label>
-          <label class="opt-row"><input type="checkbox" name="notHad" value="ctrl2"><span><span class="nw">操縦操作</span> 2 つ（同時）</span></label>
-          <label class="opt-row"><input type="checkbox" name="notHad" value="ctrl2seq"><span><span class="nw">操縦操作</span> 2 つ（順番: <span class="nw">操縦桿</span> → <span class="nw">方向舵</span>）</span></label>
-        </div>
-      </div>
-    </fieldset>
+<fieldset><legend><span class="n">06</span>写真と、アプリになかったもの</legend><div class="sub"><h3><span class="k">見</span>写真の見た目</h3><div class="opts"><label class="opt-row"><input type="radio" name="imgStyle" value="photo"><span>実写</span></label><label class="opt-row"><input type="radio" name="imgStyle" value="cg"><span>CG</span></label><label class="opt-row"><input type="radio" name="imgStyle" value="mono"><span>白黒</span></label><label class="opt-row"><input type="radio" name="imgStyle" value="unk"><span>覚えていない</span></label></div></div><div class="sub"><h3><span class="k">無</span>出題されたが、アプリになかったもの<span class="opt">任意</span></h3><textarea id="missing" name="missing" rows="3" maxlength="2000" placeholder="例: 3 つの操作、計器の種類、写真の向き など"></textarea></div></fieldset>
 
-    <fieldset>
-      <legend><span class="n">04</span><span class="nw">アプリ</span>の感想<span class="opt">任意</span></legend>
-      <label for="impression" class="hint">よかった点、足りなかった点など、なんでも。</label>
-      <textarea id="impression" name="impression" rows="4" maxlength="2000" placeholder="例: 姿勢指示器の Hard がいちばん役に立った、制限時間はもう少し短くてもよい など"></textarea>
-    </fieldset>
+<fieldset><legend><span class="n">07</span>本番の手応え</legend><div class="opts"><label class="opt-row"><input type="radio" name="result" value="mostly"><span>ほぼできた</span></label><label class="opt-row"><input type="radio" name="result" value="half"><span>半分くらい</span></label><label class="opt-row"><input type="radio" name="result" value="little"><span>あまりできなかった</span></label><label class="opt-row"><input type="radio" name="result" value="unk"><span>分からない</span></label></div><div class="sub"><h3><span class="k">切</span>時間切れ</h3><div class="opts"><label class="opt-row"><input type="radio" name="timeout" value="yes"><span>あった</span></label><label class="opt-row"><input type="radio" name="timeout" value="no"><span>なかった</span></label><label class="opt-row"><input type="radio" name="timeout" value="unk"><span>覚えていない</span></label></div></div></fieldset>
 
-    <fieldset>
-      <legend><span class="n">05</span>難易度の印象<span class="opt">任意</span></legend>
-      <div class="opts">
-        <label class="opt-row"><input type="radio" name="difficulty" value="harder"><span><span class="nw">アプリ</span>より本番が難しかった</span></label>
-        <label class="opt-row"><input type="radio" name="difficulty" value="same"><span>同じくらい</span></label>
-        <label class="opt-row"><input type="radio" name="difficulty" value="easier"><span><span class="nw">アプリ</span>より易しかった</span></label>
-        <label class="opt-row"><input type="radio" name="difficulty" value="unknown"><span>分からない</span></label>
-      </div>
-    </fieldset>
+<fieldset><legend><span class="n">08</span>アプリの使い方</legend><div class="sub"><h3><span class="k">始</span>使い始めた時期</h3><div class="opts"><label class="opt-row"><input type="radio" name="startWhen" value="w1"><span>1 週間前から</span></label><label class="opt-row"><input type="radio" name="startWhen" value="w2_4"><span>2〜4 週間前から</span></label><label class="opt-row"><input type="radio" name="startWhen" value="m1_2"><span>1〜2 か月前から</span></label><label class="opt-row"><input type="radio" name="startWhen" value="m3p"><span>それより前から</span></label></div></div><div class="sub"><h3><span class="k">量</span>合計の使用時間</h3><div class="opts"><label class="opt-row"><input type="radio" name="hours" value="h1"><span>1 時間未満</span></label><label class="opt-row"><input type="radio" name="hours" value="h3"><span>1〜3 時間</span></label><label class="opt-row"><input type="radio" name="hours" value="h10"><span>3〜10 時間</span></label><label class="opt-row"><input type="radio" name="hours" value="h10p"><span>10 時間以上</span></label></div></div><div class="sub"><h3><span class="k">主</span>いちばん使った種目</h3><div class="opts"><label class="opt-row"><input type="radio" name="mostUsed" value="heading"><span>方位判読</span></label><label class="opt-row"><input type="radio" name="mostUsed" value="attitude"><span>姿勢判読</span></label><label class="opt-row"><input type="radio" name="mostUsed" value="combo"><span>方位×姿勢指示器</span></label><label class="opt-row"><input type="radio" name="mostUsed" value="control"><span>操縦操作</span></label><label class="opt-row"><input type="radio" name="mostUsed" value="sim"><span>3D シミュレーター</span></label></div></div><div class="sub"><h3><span class="k">難</span>到達した難易度</h3><div class="opts"><label class="opt-row"><input type="radio" name="level" value="easy"><span>Easy</span></label><label class="opt-row"><input type="radio" name="level" value="normal"><span>Normal</span></label><label class="opt-row"><input type="radio" name="level" value="hard"><span>Hard</span></label><label class="opt-row"><input type="radio" name="level" value="max"><span>Max</span></label></div></div><div class="sub"><h3><span class="k">版</span>使った版</h3><div class="opts"><label class="opt-row"><input type="radio" name="edition" value="trial"><span>体験版だけ</span></label><label class="opt-row"><input type="radio" name="edition" value="ios"><span>完全版（iPhone・iPad）</span></label><label class="opt-row"><input type="radio" name="edition" value="android"><span>完全版（Android）</span></label></div></div></fieldset>
+
+<fieldset><legend><span class="n">09</span>知ったきっかけと価格</legend><div class="sub"><h3><span class="k">経</span>知ったきっかけ（すべて）</h3><div class="opts"><label class="opt-row"><input type="checkbox" name="source" value="search"><span>検索</span></label><label class="opt-row"><input type="checkbox" name="source" value="sns"><span>SNS・動画</span></label><label class="opt-row"><input type="checkbox" name="source" value="friend"><span>知人</span></label><label class="opt-row"><input type="checkbox" name="source" value="school"><span>学校・予備校</span></label><label class="opt-row"><input type="checkbox" name="source" value="ai"><span>AI の回答</span></label><label class="opt-row"><input type="checkbox" name="source" value="other"><span>その他</span></label></div></div><div class="sub"><h3><span class="k">語</span>検索した言葉<span class="opt">任意</span></h3><textarea id="searchWords" name="searchWords" rows="2" maxlength="2000" placeholder="例: 航空学生 適性検査 アプリ"></textarea></div><div class="sub"><h3><span class="k">価</span>価格の受け止め</h3><div class="opts"><label class="opt-row"><input type="radio" name="price" value="cheap"><span>安い</span></label><label class="opt-row"><input type="radio" name="price" value="fair"><span>妥当</span></label><label class="opt-row"><input type="radio" name="price" value="worth"><span>高いが払う価値はあった</span></label><label class="opt-row"><input type="radio" name="price" value="high"><span>高い</span></label><label class="opt-row"><input type="radio" name="price" value="notbought"><span>買っていない</span></label></div></div></fieldset>
+
+<fieldset><legend><span class="n">10</span>あなたのこと<span class="opt">任意</span></legend><div class="sub"><h3><span class="k">志</span>志望</h3><div class="opts"><label class="opt-row"><input type="radio" name="target" value="jasdf"><span>航空自衛隊</span></label><label class="opt-row"><input type="radio" name="target" value="jmsdf"><span>海上自衛隊</span></label><label class="opt-row"><input type="radio" name="target" value="both"><span>両方</span></label></div></div><div class="sub"><h3><span class="k">区</span>区分</h3><div class="opts"><label class="opt-row"><input type="radio" name="status" value="hs"><span>高校在学</span></label><label class="opt-row"><input type="radio" name="status" value="grad"><span>高校既卒</span></label><label class="opt-row"><input type="radio" name="status" value="univ"><span>大学・専門在学</span></label><label class="opt-row"><input type="radio" name="status" value="work"><span>社会人</span></label><label class="opt-row"><input type="radio" name="status" value="other"><span>その他</span></label></div></div><div class="sub"><h3><span class="k">回</span>受験回数</h3><div class="opts"><label class="opt-row"><input type="radio" name="attempts" value="first"><span>初めて</span></label><label class="opt-row"><input type="radio" name="attempts" value="again"><span>2 回目以上</span></label></div></div><div class="sub"><h3><span class="k">他</span>他に使った対策（すべて）</h3><div class="opts"><label class="opt-row"><input type="checkbox" name="other" value="pastq"><span>過去問集・問題集</span></label><label class="opt-row"><input type="checkbox" name="other" value="prep"><span>予備校・塾</span></label><label class="opt-row"><input type="checkbox" name="other" value="web"><span>ネットの情報</span></label><label class="opt-row"><input type="checkbox" name="other" value="none"><span>特になし</span></label></div></div><div class="sub"><h3><span class="k">性</span>身体的性別</h3><div class="opts"><label class="opt-row"><input type="radio" name="sex" value="m"><span>男性</span></label><label class="opt-row"><input type="radio" name="sex" value="f"><span>女性</span></label><label class="opt-row"><input type="radio" name="sex" value="na"><span>答えない</span></label></div></div></fieldset>
+
+<fieldset><legend><span class="n">11</span>来年度に向けて<span class="opt">任意</span></legend><div class="sub"><h3><span class="k">困</span>他に困った検査（すべて）</h3><div class="opts"><label class="opt-row"><input type="checkbox" name="sections" value="A"><span>検査 A</span></label><label class="opt-row"><input type="checkbox" name="sections" value="B"><span>検査 B</span></label><label class="opt-row"><input type="checkbox" name="sections" value="C"><span>検査 C</span></label><label class="opt-row"><input type="checkbox" name="sections" value="D"><span>検査 D</span></label><label class="opt-row"><input type="checkbox" name="sections" value="second"><span>二次試験</span></label><label class="opt-row"><input type="checkbox" name="sections" value="none"><span>特になし</span></label></div></div><div class="sub"><h3><span class="k">欲</span>来年度の受験者のために欲しい機能</h3><textarea id="wants" name="wants" rows="3" maxlength="2000" placeholder="例: 検査 C の対策、二次試験の情報、模擬試験の形式 など"></textarea></div><div class="sub"><h3><span class="k">感</span>アプリの感想</h3><textarea id="impression" name="impression" rows="4" maxlength="2000" placeholder="よかった点、足りなかった点など、なんでも。"></textarea></div></fieldset>
 
     <div class="send">
       <button class="btn pri" type="submit" id="sendBtn">送る</button>
@@ -220,6 +175,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
 
   <div class="thanks" id="thanks" hidden>
     <h2>ありがとうございました。</h2>
+    <p class="codebox">あなたの回答コード: <b id="codeOut">------</b><br><small>合格発表のあとに短いアンケートを出します。そのときにこのコードを入れると、今日の回答と結びます。控えておいてください（名前や連絡先は取りません）。</small></p>
     <p>よければ、<span class="nw">アプリ</span>の<span class="nw">レビュー</span>もお願いします。</p>
     <div class="cta">
       <a class="btn sec" id="revIos" href="https://apps.apple.com/app/id6808281696?action=write-review" target="_blank" rel="noopener">App Store で<span class="nw">レビュー</span>を書く</a>
@@ -238,30 +194,34 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <a href="/"><span class="nw">体験版</span></a>
       <a href="/privacy"><span class="nw">プライバシーポリシー</span></a>
     </div>
-    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-16</div>
+    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-19</div>
   </div>
 </footer>
 
 <script>
-/* 回答を /api/survey に送る。送れなかったら答えを消さずに、そのまま残す（2026-09-16）。
-   必須は 01（試験日程）と 02（身体的性別）だけ。ほかは空でもよい */
+/* 回答を /api/survey に送る。送れなかったら答えを消さずに、そのまま残す。
+   必須は 01（試験日程）と 02〜05 の「出題」だけ。ほかは空でもよい（2026-09-19 に来年度向けの設問に作り直し） */
 (function(){
   var form=document.getElementById('survey'), msg=document.getElementById('msg'), btn=document.getElementById('sendBtn');
+  var ONE=["date", "seen_heading", "cnt_heading", "time_heading", "seen_attitude", "cnt_attitude", "time_attitude", "seen_combo", "cnt_combo", "time_combo", "seen_control", "cnt_control", "time_control", "markNotN", "oblique", "vertical", "bankOther", "diag", "throttle", "initTilt", "imgStyle", "result", "timeout", "startWhen", "hours", "mostUsed", "level", "edition", "price", "target", "status", "attempts", "sex"], MANY=["ops", "source", "other", "sections"], TEXT=["missing", "searchWords", "wants", "impression"];
   function picked(name){var e=form.querySelector('input[name="'+name+'"]:checked');return e?e.value:''}
   function all(name){var r=[],es=form.querySelectorAll('input[name="'+name+'"]:checked');for(var i=0;i<es.length;i++)r.push(es[i].value);return r}
   function say(t,err){msg.textContent=t;msg.className='msg'+(err?' err':'')}
   function focusFirst(name){var e=form.querySelector('input[name="'+name+'"]');if(e)e.focus()}
+  /* 種目ごとの詳しい設問は「出た」を選んだときだけ開く */
+  var TYPES=['heading','attitude','combo','control'];
+  function fold(){for(var i=0;i<TYPES.length;i++){var m=form.querySelector('.more[data-for="'+TYPES[i]+'"]');if(m)m.hidden=picked('seen_'+TYPES[i])!=='yes'}}
+  form.addEventListener('change',fold); fold();
+  /* 追跡コード（6 桁）: 合格発表後の短いアンケートと結ぶため。名前や連絡先は取らない */
+  var code=String(Math.floor(100000+Math.random()*900000));
   form.addEventListener('submit',function(ev){
     ev.preventDefault();
     if(!picked('date')){say('01 の試験日程を選んでください。',true);focusFirst('date');return}
-    if(!picked('sex')){say('02 の身体的性別を選んでください。',true);focusFirst('sex');return}
-    var body={
-      date:picked('date'), sex:picked('sex'),
-      had:all('had'), notHad:all('notHad'),
-      missing:form.missing.value.trim().slice(0,2000),
-      impression:form.impression.value.trim().slice(0,2000),
-      difficulty:picked('difficulty')
-    };
+    for(var i=0;i<TYPES.length;i++){if(!picked('seen_'+TYPES[i])){say((i+2<10?'0':'')+(i+2)+' の出題（出た・出なかった・覚えていない）を選んでください。',true);focusFirst('seen_'+TYPES[i]);return}}
+    var body={v:2,code:code};
+    for(var i=0;i<ONE.length;i++)body[ONE[i]]=picked(ONE[i]);
+    for(var i=0;i<MANY.length;i++)body[MANY[i]]=all(MANY[i]);
+    for(var i=0;i<TEXT.length;i++){var el=form.querySelector('[name="'+TEXT[i]+'"]');body[TEXT[i]]=el?el.value.trim().slice(0,2000):''}
     btn.disabled=true; say('送っています…');
     var failed=function(){btn.disabled=false;say('送れませんでした。時間をおいてもう一度お試しください。',true)};
     var p;
@@ -273,6 +233,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
        if(!j||j.ok!==true)throw 0;
        form.hidden=true; say('');
        var t=document.getElementById('thanks'); t.hidden=false;
+       var c=document.getElementById('codeOut'); if(c)c.textContent=code;
        try{t.scrollIntoView({block:'start',behavior:'smooth'})}catch(e){}
        t.querySelector('h2').setAttribute('tabindex','-1'); t.querySelector('h2').focus();
      })

@@ -13,12 +13,14 @@ const REC_HASH = 'f75f3e9b5efeb2268581f0c208ca2f72bc16a8648f8e0d7ba6556b573f1c59
 const MODES = ['heading', 'attitude', 'combo', 'control'];
 
 /* 受験者アンケート（2026-09-16）。選択肢の値はここに書いたものしか受け取らない */
-const SV_DATE = ['0919', '0926', 'none'];
-const SV_SEX = ['m', 'f', 'na'];
-const SV_ITEMS = ['heading', 'attitude', 'combo', 'ctrl1', 'ctrl2', 'ctrl2seq'];
-const SV_DIFF = ['harder', 'same', 'easier', 'unknown'];
+/* 受験者アンケートの項目（2026-09-19 に来年度向けに作り直し。v1 の had／notHad／difficulty も受ける）。survey.html・survey-results.html・survey_tally.py と同じ定義 */
+const SV_ONE = {"date": ["0919", "0926", "none"], "seen_heading": ["yes", "no", "unk"], "cnt_heading": ["c10", "c20", "c30", "c31", "unk"], "time_heading": ["spare", "just", "short", "unk"], "seen_attitude": ["yes", "no", "unk"], "cnt_attitude": ["c10", "c20", "c30", "c31", "unk"], "time_attitude": ["spare", "just", "short", "unk"], "seen_combo": ["yes", "no", "unk"], "cnt_combo": ["c10", "c20", "c30", "c31", "unk"], "time_combo": ["spare", "just", "short", "unk"], "seen_control": ["yes", "no", "unk"], "cnt_control": ["c10", "c20", "c30", "c31", "unk"], "time_control": ["spare", "just", "short", "unk"], "markNotN": ["yes", "no", "unk"], "oblique": ["yes", "no", "unk"], "vertical": ["yes", "no", "unk"], "bankOther": ["yes", "no", "unk"], "diag": ["yes", "no", "unk"], "throttle": ["yes", "no", "unk"], "initTilt": ["yes", "no", "unk"], "imgStyle": ["photo", "cg", "mono", "unk"], "result": ["mostly", "half", "little", "unk"], "timeout": ["yes", "no", "unk"], "startWhen": ["w1", "w2_4", "m1_2", "m3p"], "hours": ["h1", "h3", "h10", "h10p"], "mostUsed": ["heading", "attitude", "combo", "control", "sim"], "level": ["easy", "normal", "hard", "max"], "edition": ["trial", "ios", "android"], "price": ["cheap", "fair", "worth", "high", "notbought"], "target": ["jasdf", "jmsdf", "both"], "status": ["hs", "grad", "univ", "work", "other"], "attempts": ["first", "again"], "sex": ["m", "f", "na"]};
+const SV_MANY = {"ops": ["one", "two_simul", "two_seq", "three"], "source": ["search", "sns", "friend", "school", "ai", "other"], "other": ["pastq", "prep", "web", "none"], "sections": ["A", "B", "C", "D", "second", "none"]};
+const SV_TEXT = ["missing", "searchWords", "wants", "impression"];
+const SV_ITEMS = ['heading', 'attitude', 'combo', 'ctrl1', 'ctrl2', 'ctrl2seq'];   /* v1 */
+const SV_DIFF = ['harder', 'same', 'easier', 'unknown'];   /* v1 */
 const SV_TEXT_MAX = 2000;      /* 自由記述 1 つの上限（文字数） */
-const SV_BODY_MAX = 8 * 1024;  /* 本文の上限（バイト）。これより大きいものは読まずに断る */
+const SV_BODY_MAX = 16 * 1024;  /* 本文の上限（バイト）。これより大きいものは読まずに断る */
 const SV_LIST_MAX = 1000;      /* GET で返す件数の上限 */
 
 async function sha256(text) {
@@ -45,17 +47,15 @@ function clean(src) {
 function cleanSurvey(src) {
   if (!src || typeof src !== 'object') return null;
   const pick = (v, list) => (typeof v === 'string' && list.includes(v)) ? v : '';
-  const picks = (v) => Array.isArray(v) ? SV_ITEMS.filter(id => v.includes(id)) : [];
+  const picks = (v, list) => Array.isArray(v) ? list.filter(id => v.includes(id)) : [];
   const text = (v) => typeof v === 'string' ? v.slice(0, SV_TEXT_MAX) : '';
-  return {
-    date: pick(src.date, SV_DATE),
-    sex: pick(src.sex, SV_SEX),
-    had: picks(src.had),
-    notHad: picks(src.notHad),
-    missing: text(src.missing),
-    impression: text(src.impression),
-    difficulty: pick(src.difficulty, SV_DIFF)
-  };
+  const out = { v: src.v === 2 ? 2 : 1, code: /^\d{6}$/.test(String(src.code || '')) ? String(src.code) : '' };
+  for (const k of Object.keys(SV_ONE)) out[k] = pick(src[k], SV_ONE[k]);
+  for (const k of Object.keys(SV_MANY)) out[k] = picks(src[k], SV_MANY[k]);
+  for (const k of SV_TEXT) out[k] = text(src[k]);
+  /* v1 の項目 */
+  out.had = picks(src.had, SV_ITEMS); out.notHad = picks(src.notHad, SV_ITEMS); out.difficulty = pick(src.difficulty, SV_DIFF);
+  return out;
 }
 
 const json = (o, s, extra) => new Response(JSON.stringify(o), {

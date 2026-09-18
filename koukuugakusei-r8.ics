@@ -1,0 +1,177 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//TENRYU//koukuugakusei R8//JA
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:航空学生 令和 8 年度 試験日程
+X-WR-TIMEZONE:Asia/Tokyo
+BEGIN:VEVENT
+UID:r8-1st-1@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20260919
+DTEND;VALUE=DATE:20260920
+SUMMARY:航空学生 一次試験（第 1 日）
+DESCRIPTION:筆記試験と適性検査。CBT 方式。受験票と筆記
+ 用具。開始 30 分前までに到着。 出典: 令和 8 年度 海上
+ ・航空自衛隊航空学生採用要項。変更されることがあ
+ るので募集要項と地方協力本部の案内で確認。 https://ko
+ kuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明日: 航空学生 一次試験（第 1 日）
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-1st-2@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20260926
+DTEND;VALUE=DATE:20260927
+SUMMARY:航空学生 一次試験（第 2 日）
+DESCRIPTION:筆記試験と適性検査。CBT 方式。受験票と筆記
+ 用具。開始 30 分前までに到着。 出典: 令和 8 年度 海上
+ ・航空自衛隊航空学生採用要項。変更されることがあ
+ るので募集要項と地方協力本部の案内で確認。 https://ko
+ kuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明日: 航空学生 一次試験（第 2 日）
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-1st-pass@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20261009
+DTEND;VALUE=DATE:20261010
+SUMMARY:航空学生 一次試験 合格発表
+DESCRIPTION:自衛隊地方協力本部ホームページに掲載、合格
+ 通知書の送付。不合格者には通知なし。 出典: 令和 8 
+ 年度 海上・航空自衛隊航空学生採用要項。変更される
+ ことがあるので募集要項と地方協力本部の案内で確認
+ 。 https://kokuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明日: 航空学生 一次試験 合格発表
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-2nd@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20261015
+DTEND;VALUE=DATE:20261023
+SUMMARY:航空学生 二次試験（10/15〜22 のうち指定された 1 
+ 日）
+DESCRIPTION:航空身体検査・口述試験（個人面接）・適性検
+ 査（知能・性格）。日と会場は一次の合格通知で。T シ
+ ャツと短パン、矯正眼鏡（使う人）。 出典: 令和 8 年
+ 度 海上・航空自衛隊航空学生採用要項。変更されるこ
+ とがあるので募集要項と地方協力本部の案内で確認。 h
+ ttps://kokuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明日: 航空学生 二次試験（10/15〜22 のうち指定
+ された 1 日）
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-2nd-pass-asdf@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20261105
+DTEND;VALUE=DATE:20261106
+SUMMARY:航空学生 二次試験 合格発表（航空自衛隊）
+DESCRIPTION:自衛隊地方協力本部ホームページと自衛官募集
+ ホームページに掲載、合格通知書の送付。 出典: 令和 8
+  年度 海上・航空自衛隊航空学生採用要項。変更される
+ ことがあるので募集要項と地方協力本部の案内で確認
+ 。 https://kokuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明日: 航空学生 二次試験 合格発表（航空自衛
+ 隊）
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-2nd-pass-msdf@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20261112
+DTEND;VALUE=DATE:20261113
+SUMMARY:航空学生 二次試験 合格発表（海上自衛隊）
+DESCRIPTION:自衛隊地方協力本部ホームページと自衛官募集
+ ホームページに掲載、合格通知書の送付。 出典: 令和 8
+  年度 海上・航空自衛隊航空学生採用要項。変更される
+ ことがあるので募集要項と地方協力本部の案内で確認
+ 。 https://kokuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明日: 航空学生 二次試験 合格発表（海上自衛
+ 隊）
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-3rd-asdf@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20261114
+DTEND;VALUE=DATE:20261218
+SUMMARY:航空学生 三次試験（航空自衛隊: 11/14〜12/17 のう
+ ち指定された期間）
+DESCRIPTION:操縦適性検査（複座機での飛行適性検査・コン
+ ピュータ検査・面接）と医学適性検査。静浜基地また
+ は防府北基地。 出典: 令和 8 年度 海上・航空自衛隊航
+ 空学生採用要項。変更されることがあるので募集要項
+ と地方協力本部の案内で確認。 https://kokuteki.amaterasu-voca
+ b.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-3rd-msdf@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20261120
+DTEND;VALUE=DATE:20261217
+SUMMARY:航空学生 三次試験（海上自衛隊: 11/20〜12/16 のう
+ ち指定された 1 日）
+DESCRIPTION:航空身体検査（一部）。自衛隊病院・衛生隊。
+  出典: 令和 8 年度 海上・航空自衛隊航空学生採用要項
+ 。変更されることがあるので募集要項と地方協力本部
+ の案内で確認。 https://kokuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:r8-final@kokuteki.amaterasu-vocab.com
+DTSTAMP:20260919T000000Z
+DTSTART;VALUE=DATE:20270125
+DTEND;VALUE=DATE:20270126
+SUMMARY:航空学生 最終合格発表
+DESCRIPTION:自衛隊地方協力本部ホームページと自衛官募集
+ ホームページに掲載、合格通知書の送付。発表から 5 
+ 日たっても届かなければ地方協力本部へ。 出典: 令和 8
+  年度 海上・航空自衛隊航空学生採用要項。変更される
+ ことがあるので募集要項と地方協力本部の案内で確認
+ 。 https://kokuteki.amaterasu-vocab.com/exam
+URL:https://kokuteki.amaterasu-vocab.com/exam
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:明日: 航空学生 最終合格発表
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

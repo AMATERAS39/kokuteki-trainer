@@ -710,6 +710,8 @@ ul.tips li{margin:.125rem 0}
 .wrow .wl{color:var(--muted);line-height:1.3}
 .wrow .wb{display:block;height:.6rem;border-radius:.3rem;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
 .wrow .wb i{display:block;height:100%;border-radius:.3rem;transform-origin:left;animation:barin .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*70ms)}
+.stack{display:flex;height:.7rem;border-radius:.35rem;overflow:hidden;background:var(--panel2);margin-top:.35rem}.stack i{display:block;height:100%;transform-origin:left}
+.stlg{display:flex;flex-wrap:wrap;gap:.2rem .8rem;margin-top:.4rem;font-size:.75rem;color:var(--muted)}.stlg i{display:inline-block;width:.55rem;height:.55rem;border-radius:.15rem;margin-right:.3rem;vertical-align:-.03rem}.stlg b{color:var(--text);font-family:var(--mono);font-weight:600}.stlg small{font-size:.7rem}
 .whint{margin-top:.4rem;padding:.45rem .6rem;border-left:.125rem solid var(--accent);background:var(--panel2);border-radius:.4rem;font-size:.75rem;color:var(--text);line-height:1.5}
 .wrow .wn{font-family:var(--mono);font-size:.75rem;font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
 .wb i.hi,.seg.hi{background:var(--accent);fill:var(--accent)}.wb i.mid,.seg.mid{background:#e8b24a;fill:#e8b24a}.wb i.lo,.seg.lo{background:#d9534f;fill:#d9534f}.seg.na{fill:var(--panel2)}
@@ -1433,7 +1435,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.96';
+const APP_VER='v05.97';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3075,7 +3077,9 @@ const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら�
   '方向舵の有無':'方向舵を踏んでいるかどうかの見分けで落としています。本番の難しさもここです。②→③ の変化を見比べます。',
   '操縦桿と方向舵の両方':'操縦桿と方向舵の両方を落としています。①→② で操縦桿、②→③ で方向舵、と分けて読みます。',
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
-const GROUPS={heading:['方位','印の位置'],attitude:['誤り','見え方','機首の上下','傾き'],combo:['比べ','誤り','組み合わせ','見え方','機首の上下','傾き'],control:['誤り','①の姿勢','操縦桿','方向舵','操作の数','操作']};
+/* v05.97（利用者「機体の状態の詳細な正答率も不要。総合と複合での個別正答率が分かればよい。その上で苦手な部分の分析を記せば良い」）:
+   切り口ごとの棒はやめ、総合（輪）→ 誤りの種類（1 本の積み上げ）→ 苦手の札 → 一言、に絞る。見え方・機首の上下・傾き・①の姿勢・操作の数・操作 は記録だけして札の材料にする */
+const GROUPS={heading:['方位','印の位置'],attitude:['誤り'],combo:['比べ','誤り','組み合わせ'],control:['誤り','操縦桿','方向舵']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 /* 扇: 中心 (cx,cy)、角度 i×45°（北が上、時計回り）、幅 45°、半径 ri〜ro */
@@ -3107,24 +3111,27 @@ function weakHTML(m){
         ${R.map((x,i)=>{const [lx,ly]=polar(cx,cy,i,31);return x.v?`<text x="${lx.toFixed(1)}" y="${(ly+3).toFixed(1)}" text-anchor="middle" class="cv fade" style="--i:${i}">${Math.round(x.acc*100)}</text>`:''}).join('')}</svg>
         <div class="sub2">中の数字は正答率（%）。灰色はまだ出ていない${g==='方位'?'方位':'位置'}。</div>`;
     }else if(g==='誤り'){
-      /* 誤りの種類（v05.92）: 間違えた問題の内訳。棒は全誤りに対する割合。いちばん多い型に一言 */
+      /* 誤りの種類（v05.97）: 間違えた問題の内訳を 1 本の積み上げ棒と凡例で。いちばん多い型に一言 */
       const E2=R.filter(x=>x.v&&x.v.n),tot=E2.reduce((a,x)=>a+x.v.n,0);E2.sort((a,b)=>b.v.n-a.v.n);
-      h+=`<div class="sub2" style="margin-top:-.2rem">間違えた ${tot} 問の内訳</div>`;
-      h+=E2.map((x,i)=>`<div class="wrow"><span class="wl">${esc(x.k)}</span><span class="wb"><i class="lo grow" style="--i:${i};width:${Math.max(2,Math.round(x.v.n/tot*100))}%"></i></span><span class="wn">${x.v.n} 問・${Math.round(x.v.n/tot*100)}%</span></div>`).join('');
+      const SC=['#d9534f','#e8b24a','#7b8fa6','#5aa8ec','#6fbf9a','#b08cd6'];
+      h+=`<div class="sub2" style="margin-top:-.2rem">間違えた ${tot} 問の内訳</div>
+        <div class="stack">${E2.map((x,i)=>`<i class="grow" style="--i:${i};width:${x.v.n/tot*100}%;background:${SC[i%SC.length]}"><title>${esc(x.k)} ${x.v.n} 問</title></i>`).join('')}</div>
+        <div class="stlg">${E2.map((x,i)=>`<span><i style="background:${SC[i%SC.length]}"></i>${esc(x.k)} <b>${Math.round(x.v.n/tot*100)}%</b><small>（${x.v.n} 問）</small></span>`).join('')}</div>`;
       if(E2.length&&ERRHINT[E2[0].k])h+=`<div class="whint">${esc(ERRHINT[E2[0].k])}</div>`;
     }else if(g==='比べ'){
       /* 単独（方位モード・姿勢指示器モードの正答率）と、複合の中での 方位・姿勢 の正答率を並べ、複合になったときに何が落ちるかを一言（v05.96、利用者の指示 2026-09-18） */
       const sh=stats.heading||{n:0,c:0},sa=stats.attitude||{n:0,c:0},ph=get('部分','方位'),pa=get('部分','姿勢');
       const A=[['方位（単独: 方位モード）',sh.n?sh.c/sh.n:null,sh.n],['方位（複合の中）',acc(ph),ph?ph.n:0],['姿勢（単独: 姿勢指示器モード）',sa.n?sa.c/sa.n:null,sa.n],['姿勢（複合の中）',acc(pa),pa?pa.n:0]];
-      h+=A.map(([k,a,n],i)=>`<div class="wrow"><span class="wl">${k}</span><span class="wb"><i class="${accCls(a)} grow" style="--i:${i};width:${a==null?0:Math.max(2,Math.round(a*100))}%"></i></span><span class="wn">${a==null?'—':pct(a)+'・'+n+' 問'}</span></div>`).join('');
+      /* v05.97: 棒は出さない（総合と輪で足りる）。一言だけ */
       const hs=A[0][1],hc=A[1][1],as=A[2][1],ac=A[3][1],MIN=3;
       let v='';
       if(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)v='方位モード・姿勢指示器モード・複合をそれぞれ 3 問以上解くと、複合で何が落ちるかが出ます。';
-      else{const dh=hs-hc,da=as-ac,W=[];if(hs<0.7)W.push('方位は単独でも '+pct(hs)+'。まず方位モードで固めます。');if(as<0.7)W.push('姿勢は単独でも '+pct(as)+'。まず姿勢指示器モードで固めます。');
+      else v='単独では 方位 '+pct(hs)+'（方位モード '+sh.n+' 問）・姿勢 '+pct(as)+'（姿勢指示器モード '+sa.n+' 問）。複合の中では 方位 '+pct(hc)+'・姿勢 '+pct(ac)+'。';
+      if(!(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)){v+=' ';const dh=hs-hc,da=as-ac,W=[];if(hs<0.7)W.push('方位は単独でも '+pct(hs)+'。まず方位モードで固めます。');if(as<0.7)W.push('姿勢は単独でも '+pct(as)+'。まず姿勢指示器モードで固めます。');
         if(dh>=0.1&&da>=0.1)W.push('複合になると方位も姿勢も落ちています（方位 '+pct(hs)+' → '+pct(hc)+'、姿勢 '+pct(as)+' → '+pct(ac)+'）。方位 → 姿勢の順に 1 つずつ確かめる手順を固めます。');
         else if(dh>=0.1)W.push('単独では読めている方位を、複合になると落としています（'+pct(hs)+' → '+pct(hc)+'）。姿勢に気を取られて方位の確認が抜けています。');
         else if(da>=0.1)W.push('単独では読めている姿勢を、複合になると落としています（'+pct(as)+' → '+pct(ac)+'）。方位を読んだあと、姿勢を確かめ直します。');
-        if(!W.length)W.push('単独でも複合でも同じ精度で読めています。あとは速さです。');v=W.join(' ')}
+        if(!W.length)W.push('単独でも複合でも同じ精度で読めています。あとは速さです。');v+=W.join(' ')}
       h+=`<div class="whint">${esc(v)}</div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */

@@ -1441,7 +1441,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.106';
+const APP_VER='v05.107';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1488,7 +1488,7 @@ const patParse=k=>{const [o,m,b,pc]=k.split('|');const ids=o.split('+');return {
 const patLabel=k=>{const x=patParse(k),ini=[x.bank!=='level'?(x.bank==='rbank'?'右バンク':'左バンク'):'',x.pitch?(x.pitch==='up'?'機首上げ':'機首下げ'):''].filter(Boolean).join('・');
   const ops=x.single?E.OP_BY_ID[x.ops[0]].ja:E.OP_BY_ID[x.ops[0]].ja+' + '+E.OP_BY_ID[x.ops[1]].ja;return (ini?ini+'から ':'')+ops+(x.single?'':x.simul?'（同時）':'（順番）')};
 /* 苦手なパターン（2 問以上出て落としたもの、正答率の低い順） */
-const weakPatterns=(lim=6)=>Object.entries(weak.control||{}).filter(([k,v])=>k.startsWith('パターン|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({key:k.slice(5),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,lim);
+const weakPatterns=(lim=6)=>Object.entries(weak.control||{}).filter(([k,v])=>k.startsWith('パターン|')&&v.c<v.n)   /* v05.107: 落とした状況は 1 問から（同じ状況は滅多に 2 回出ない） */.map(([k,v])=>({key:k.slice(5),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,lim);
 /* 姿勢の名前（機首上げ・右バンク など。水平は「水平」） */
 const attName=q=>[q.pitch>0?'機首上げ':q.pitch<0?'機首下げ':'',q.bank>0?'右バンク':q.bank<0?'左バンク':''].filter(Boolean).join('・')||'水平';
 const viewCat=d=>d.heading==null?'真上・真下':[315,0,45].includes(d.heading)?'向こう向き（北側）':[135,180,225].includes(d.heading)?'こちら向き（南側）':'横向き（東・西）';
@@ -3182,7 +3182,7 @@ function weakHTML(m){
     }else if(g==='パターン'){
       /* 苦手な操作パターン（v05.99）: 2 問以上出て落としたものを正答率の低い順に。「苦手パターン表を開く」で見え方の一覧へ（そこに同じパターンのボタンが並ぶ） */
       const P=weakPatterns(5);
-      if(!P.length)h+=`<div class="sub2">2 問以上出て落としたパターンは、まだありません。</div>`;
+      if(!P.length)h+=`<div class="sub2">落とした状況は、まだありません。v05.99 より前の記録には状況が残っていないので、これからの計測から出ます。</div>`;
       /* v05.104: ①②③（見え方パターン表）はそのまま出し、畳むのは「動きで見る」だけ（利用者「苦手で畳まれるのは、動きで見るのみ」）。①の初期状態は記録した値で再現 */
       else h+=P.map((x,i)=>{const pf=patFrames(x.key,x.v.init);return `<div class="pat"><div class="wrow"><span class="wl">${esc(patLabel(x.key))}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>
         <div class="sub2">①は ${esc(initText3(pf.init))}${pf.x.single?'':pf.x.simul?'、2 つの操作は同時':'、2 つの操作は順番'}。</div>
@@ -3191,9 +3191,9 @@ function weakHTML(m){
       h+=`<div class="sub2">①②③ は出題のときの①の姿勢で作っています。「動きで見る」を開くと同じ動きを再生します。</div><div class="acts"><button class="btn ghost sm" data-go="#train/control/gallery">苦手パターン表を開く</button></div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
-      const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({raw:k.slice(6),k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
-      if(!C.length)h+=`<div class="sub2">2 問以上出て落とした組み合わせは、まだありません。</div>`;
-      else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">2 問以上出て落とした${m==='attitude'?'姿勢':'組み合わせ'}を、正答率の低い順に。絵は出題と同じ見え方（バンクは 30° の例）。</div>`;
+      const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.c<v.n).map(([k,v])=>({raw:k.slice(6),k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
+      if(!C.length)h+=`<div class="sub2">落とした${m==='attitude'?'姿勢':'組み合わせ'}は、まだありません。</div>`;
+      else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">落とした${m==='attitude'?'姿勢':'組み合わせ'}を、正答率の低い順に。絵は出題と同じ見え方（バンクは 30° の例）。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};

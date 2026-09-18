@@ -683,6 +683,8 @@ ul.tips li{margin:.125rem 0}
 .rec .acc{color:var(--accent)}
 .rec .lo{color:#d9534f}
 .trendrow{margin-top:.5rem}.trend{display:block;width:100%;max-width:14rem;height:2.5rem}.trend rect.hi{fill:var(--accent)}.trend rect.mid{fill:#e8b24a}.trend rect.lo{fill:#d9534f}
+.patd{margin-top:.15rem}.patd summary{list-style:none;display:grid;grid-template-columns:1fr 1.2rem;align-items:center;gap:.25rem;cursor:pointer}.patd summary::-webkit-details-marker{display:none}.patd .patchev .ic{width:1rem;height:1rem;transition:transform .2s;color:var(--muted)}.patd[open] .patchev .ic{transform:rotate(90deg)}
+.patbody{margin:.35rem 0 .75rem;padding:.5rem .6rem .75rem;border:1px solid var(--line);border-radius:.6rem;background:var(--panel2)}.patbody .frames{max-width:26rem;margin:.35rem auto 0}.patbody .gsimh{margin:.75rem 0 .25rem;font-size:.875rem}.patbody .glegend{font-size:.7rem;color:var(--muted);margin-top:.25rem}
 .histd{margin-top:.5rem}.histd summary{font-size:.8125rem;color:var(--muted);cursor:pointer}
 .homelinks{margin-top:.5rem}.homelinks .btn.sm{width:auto;font-size:.8125rem}
 .summary .mockrec{text-align:left;margin:0 auto 1rem;max-width:22rem}
@@ -1438,7 +1440,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.102';
+const APP_VER='v05.103';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1646,6 +1648,7 @@ function finish(g,timedOut,picked){
     streak=g.ok?streak+1:0;
     wlog(mode,qCats(q),g.ok,s);
     if(!g.ok)wlog(mode,errCats(q,timedOut?-1:picked),false,s);   /* 誤りの種類（n だけ数える） */
+    if(q.type==='control'&&q.init){const k='パターン|'+patKey(q.ops,q.simul,q.init),e=(weak.control||{})[k];if(e){e.init={bank:q.init.bank,pitch:q.init.pitch,yaw:q.init.yaw||0};store.set('weak',weak)}}   /* v05.103: ①の初期状態を覚えて記録で再現する */
     if(q.type==='combo'){const o=timedOut?null:q.opts[picked],c=q.opts.find(x=>x.ok);   /* v05.94: 方位・姿勢それぞれの正答率（輪）。時間切れは両方誤り */
       wlog(mode,['部分|方位'],!!o&&o.heading===c.heading,s);wlog(mode,['部分|姿勢'],!!o&&o.bank===c.bank&&o.pitch===c.pitch,s)}
     renderStats();
@@ -3124,7 +3127,7 @@ function weakHTML(m){
   /* 苦手は 1 つではなく、基準（70% 以下、3 問以上）を下回ったものを全部（正答率の低い順。利用者の指示 2026-09-18）。得意はいちばん高いもの 1 つ */
   let h='<div class="wtop">';const weakL=all.filter(x=>x.acc<=0.7);
   if(weakL.length)h+=weakL.map((x,i)=>{const im=weakImg(x.g,x.k);return `<div class="wbadge lo pop" style="--i:${i}"><span class="wk">苦手</span><span><b>${esc(x.k)}</b><small>（${esc(x.g)}）</small><br>${pct(x.acc)}・${x.n} 問</span>${im?`<span class="wimg"><img src="${im}" alt="${esc(x.k)}の出題の絵" loading="lazy"></span>`:''}</div>`}).join('');
-  else h+=`<div class="wbadge pop"><span class="wk">苦手</span><span><b>なし</b><br>3 問以上解いた型は、どれも 70% を超えています</span></div>`;
+  else h+=`<div class="wbadge pop"><span class="wk">苦手</span><span><b>なし</b><small>（3 問以上の型はどれも 70% 超）</small></span></div>`;   /* 1 行に収める（利用者「苦手なしのときもバッジは縦に伸びない」） */
   const best=all.length?all[all.length-1]:null;
   if(best&&best.acc>=0.8&&all.length>1)h+=`<div class="wbadge hi pop" style="--i:${weakL.length}"><span class="wk">得意</span><span><b>${esc(best.k)}</b><small>（${esc(best.g)}）</small><br>${pct(best.acc)}・${best.n} 問</span></div>`;
   h+='</div>';
@@ -3167,8 +3170,9 @@ function weakHTML(m){
       /* 苦手な操作パターン（v05.99）: 2 問以上出て落としたものを正答率の低い順に。「苦手パターン表を開く」で見え方の一覧へ（そこに同じパターンのボタンが並ぶ） */
       const P=weakPatterns(5);
       if(!P.length)h+=`<div class="sub2">2 問以上出て落としたパターンは、まだありません。</div>`;
-      else h+=P.map((x,i)=>`<div class="wrow"><span class="wl">${esc(patLabel(x.key))}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`).join('');
-      h+=`<div class="acts"><button class="btn ghost sm" data-go="#train/control/gallery">苦手パターン表を開く</button></div><div class="sub2">見え方の一覧に、ここの苦手パターンがボタンで並びます。押すとその①の姿勢と操作の見え方が出ます。</div>`;
+      /* v05.103: 各パターンは畳んであり、開くと ①②③（見え方パターン表）と「動きで見る」がそのパターン・その①の初期状態で出る（利用者の指示） */
+      else h+=P.map((x,i)=>`<details class="patd" data-pat="${esc(x.key)}" data-init="${esc(JSON.stringify(x.v.init||null))}"><summary><div class="wrow"><span class="wl">${esc(patLabel(x.key))}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div><span class="patchev">${ic('next')}</span></summary><div class="patbody"></div></details>`).join('');
+      h+=`<div class="sub2">開くと、そのパターンの ①②③ と動きで見るが、出題のときの①の姿勢で出ます。</div><div class="acts"><button class="btn ghost sm" data-go="#train/control/gallery">苦手パターン表を開く</button></div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
       const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({raw:k.slice(6),k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
@@ -3207,6 +3211,22 @@ function trendHTML(L){
 /* 円グラフ（正答率）。開いたときに弧が伸びる */
 function ringHTML(acc,label){const v=acc==null?0:Math.round(acc*100);
   return `<div class="ring ${accCls(acc)}"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" class="bg"/><circle cx="22" cy="22" r="18" class="fg" pathLength="100" style="stroke-dasharray:${v} 100"/></svg><div class="rv"><b>${acc==null?'—':v+'%'}</b><span>${label}</span></div></div>`}
+/* 記録の苦手パターンの中身（v05.103）: 出題と同じ飛行（flight.js）で ①②③ を作り、見え方の一覧と同じ「動きで見る」を置く。①の初期状態は記録した値（なければパターンの区分から 30°/10°） */
+const statMovers=[];
+function disposeStatMovers(){while(statMovers.length){const m=statMovers.pop();try{m.dispose()}catch(e){}}}
+function buildPatBody(d){
+  const x=patParse(d.dataset.pat);let init=null;try{init=JSON.parse(d.dataset.init)}catch(e){}
+  if(!init)init={bank:x.bank==='rbank'?30:x.bank==='lbank'?-30:0,pitch:x.pitch==='up'?10:x.pitch==='down'?-10:0,yaw:0};
+  const traj=E.simControl(init,x.ops,x.simul),f=traj.frames;
+  const body=d.querySelector('.patbody');
+  body.innerHTML=`<div class="sub2">①は ${esc(initText3(init))}${x.single?'':x.simul?'、2 つの操作は同時':'、2 つの操作は順番'}。</div>
+    <div class="frames">${f.map((fr,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(fr,{marks:true,ref:f[0]}))}</div></div>`).join('')}</div>
+    <div class="sub glegend"><span style="color:var(--accent)">○</span> 山頂・塔の先端　<span style="color:var(--accent)">- - -</span> ①の正面（景色に固定）</div>
+    <h4 class="gsimh">動きで見る</h4><div class="patmv"></div>`;
+  const mv=makeMover({traj:()=>traj,forces:seg=>forcesOf(x.ops,x.simul,seg),hud:true,view:'first',onView:()=>{},lockThird:!isFull()});
+  body.querySelector('.patmv').appendChild(mv.el);mv.build();statMovers.push(mv);
+}
+const initText3=i=>{const t=[i.bank?(i.bank>0?'右バンク':'左バンク')+Math.abs(i.bank)+'°':'',i.pitch?(i.pitch>0?'機首上げ':'機首下げ')+Math.abs(i.pitch)+'°':'',i.yaw?'機首が'+(i.yaw>0?'右':'左')+'へ '+Math.abs(i.yaw)+'°':''].filter(Boolean);return t.length?t.join('・'):'水平'};
 /* ===== 記録のページ: 種目ごとの 正答率の輪・累計・推移・苦手・履歴 ===== */
 function renderStatsPage(){
   const page=$('#statsPage');
@@ -3224,6 +3244,8 @@ function renderStatsPage(){
   h+=`<div class="acts"><button class="btn ghost" id="stBack">ホームへ</button></div>`;
   page.innerHTML=h;$('#stBack').addEventListener('click',()=>{location.hash='#home'});
   page.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{location.hash=b.dataset.go}));
+  disposeStatMovers();
+  page.querySelectorAll('details.patd').forEach(d=>d.addEventListener('toggle',()=>{if(!d.open||d.dataset.built)return;d.dataset.built='1';buildPatBody(d)}));
 }
 /* ===== 通信の決まり =====
    既定では、Wi-Fi につながっているときだけ通信する（携帯の通信量を使わない）。
@@ -3481,6 +3503,7 @@ function route(){
   }
   leaveSession();
   if(v!=='about'&&viewer)viewer.pause();
+  if(v!=='stats')disposeStatMovers();
   currentHash='#'+h;
   markNav();
   if(v!=='train')setBack(null);

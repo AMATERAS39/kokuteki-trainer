@@ -732,7 +732,7 @@ ul.tips li{margin:.125rem 0}
 .acell{position:relative;aspect-ratio:1;border-radius:.4rem;background:var(--panel2);overflow:hidden;display:flex;align-items:center;justify-content:center;animation:fadein .5s ease-out both}
 .acell img{width:100%;height:100%;object-fit:cover;opacity:.9}.acell span{position:absolute;right:.1rem;bottom:0;font-family:var(--mono);font-size:.6rem;font-weight:700;color:#0b1017;background:rgba(255,255,255,.75);padding:0 .15rem;border-radius:.2rem}
 .acell.hi{box-shadow:inset 0 0 0 .14rem var(--accent)}.acell.mid{box-shadow:inset 0 0 0 .14rem #e8b24a}.acell.lo{box-shadow:inset 0 0 0 .14rem #d9534f}.acell.na{opacity:.45}.acell.blank{background:transparent;animation:none}
-.acell.hi span{background:var(--accent);color:#fff}.acell.mid span{background:#e8b24a}.acell.lo span{background:#d9534f;color:#fff}.compass{width:min(100%,15rem)}.compass .cl.mk{fill:var(--accent);font-weight:700}.compass .ct{font-size:4px;fill:rgba(11,16,23,.7);font-family:var(--mono);pointer-events:none}.cross{width:min(100%,10rem)}.pedals{width:min(100%,10rem)}
+.acell.hi span{background:var(--accent);color:#fff}.acell.mid span{background:#e8b24a}.acell.lo span{background:#d9534f;color:#fff}.compass{width:min(100%,15rem)}.cross{width:min(100%,10rem)}.pedals{width:min(100%,10rem)}
 .seg{stroke:var(--panel);stroke-width:1;animation:fadein .5s ease-out both;animation-delay:calc(var(--i,0)*70ms)}   /* 扇は北から時計回りに順に灯る */
 .cross .hub{fill:var(--panel2);stroke:var(--line)}
 .cl{font-size:8px;fill:var(--muted)}.cl2{font-size:8px;fill:var(--muted)}.cross .cl2{fill:#0b1017;opacity:.75}.cv{font-size:7px;font-weight:700;fill:#0b1017;font-family:var(--mono)}
@@ -1438,7 +1438,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.100';
+const APP_VER='v05.101';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1479,8 +1479,6 @@ const DIRJA=['北','北東','東','南東','南','南西','西','北西'];
 /* 1 問の型を切り口ごとに（「切り口|値」）。方位: 方位・印の位置、姿勢指示器: 見え方・機首の上下・傾き、複合: 見え方・方位・印の位置・機首の上下・傾き、操縦操作: 操作・操縦桿・方向舵・2 操作の形。
    v05.92（利用者の分析 2026-09-18）: 姿勢指示器の答えは バンク × ピッチ で方位は答えに含まれない。26 方向 × バンクの正答率は 1 回 10〜20 問では埋まらず揺れを描くだけなので、
    方向は「見え方」の 4 区分にまとめる（こちら向きの南側は左右が逆に見えて間違えやすい、など次の練習に結びつく粒度）。誤りの種類は errCats で別に数える */
-/* 方位: 印から時計回りに数えた位置（0 = 印と同じ、1〜3 = 右回り、4 = 反対、5〜7 = 左回り） */
-const RELJA=['印と同じ','右回り 45°','右回り 90°','右回り 135°','反対','左回り 135°','左回り 90°','左回り 45°'];
 /* 操縦操作のパターンの鍵: 操作|同時か順番か|①の傾き|①の上下（見え方の一覧の状態と 1 対 1）。例 stick-right+rudder-left|seq|rbank|up */
 const patKey=(ops,simul,ini)=>{const one=ops[0]===ops[1];return (one?ops[0]:ops[0]+'+'+ops[1])+'|'+(one?'single':simul?'simul':'seq')+'|'+(ini.bank>0?'rbank':ini.bank<0?'lbank':'level')+'|'+(ini.pitch>0?'up':ini.pitch<0?'down':'')};
 const patParse=k=>{const [o,m,b,pc]=k.split('|');const ids=o.split('+');return {ops:ids.length===1?[ids[0],ids[0]]:ids,simul:m==='simul',single:m==='single',bank:b,pitch:pc}};
@@ -1493,7 +1491,7 @@ const attName=q=>[q.pitch>0?'機首上げ':q.pitch<0?'機首下げ':'',q.bank>0?
 const viewCat=d=>d.heading==null?'真上・真下':[315,0,45].includes(d.heading)?'向こう向き（北側）':[135,180,225].includes(d.heading)?'こちら向き（南側）':'横向き（東・西）';
 const pitchCat=p=>p>0?'機首上げ':p<0?'機首下げ':'水平', bankCat=b=>b>0?'右バンク':b<0?'左バンク':'水平', sideCat=b=>b>0?'右':b<0?'左':'水平';   /* v05.93: 角度（30°/60°）は分けない（利用者「バンク角度は分析に関係ない」） */
 function qCats(q){
-  if(q.type==='heading'){const rel=((q.dir-(q.mark||0))%8+8)%8;return ['印からの位置|'+RELJA[rel],'回り|'+(rel===0?'印と同じ':rel===4?'反対':rel<4?'右回り':'左回り')]}   /* v05.100: 方位そのものではなく、印から見た位置（利用者「印より右側が苦手、左回りが苦手、が欲しい」） */
+  if(q.type==='heading')return [];   /* v05.101: 方位は苦手分析なし。総合の正答率・推移・履歴だけ（利用者「方位に関しては苦手分析はいらない。正答率表示のみで良い」） */
   if(q.type==='attitude'){const d=q.dir14,dj=d.heading==null?(d.pitch>0?'真上':'真下'):DIRJA[d.heading/45],att=d.heading==null?(q.bank>0?'右バンク':q.bank<0?'左バンク':'水平'):attName(q);
     return ['見え方|'+viewCat(d),'組み合わせ|'+dj+'|'+att,'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)]}   /* v05.99: 組み合わせ（方位 × 姿勢）を絵つきで苦手に出す */
   if(q.type==='combo')return ['見え方|'+viewCat(q.dir14),'組み合わせ|'+DIRJA[q.dir]+'|'+attName(q),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];   /* v05.94: 方位ごとの正答率は出さない（利用者「方角の詳細な正答率は不要」）。組み合わせは 方位 × 姿勢 */
@@ -1507,9 +1505,7 @@ function qCats(q){
 /* 誤りの種類（v05.92）: 選んだ選択肢と正解の差から確定する。姿勢指示器: 傾きの左右（左右を逆に読んだ）・傾きの大きさ・有無（30°/60°、水平との取り違え）・機首の上下・両方。
    複合: 選択肢が 方位 {正解, 別} × 姿勢 {正解, 別} の 2×2 なので 方位だけ・姿勢だけ・両方 が確定する。時間切れは別に数える。方位・操縦操作は対象外 */
 function errCats(q,i){
-  if(q.type==='heading'){   /* v05.100: 選んだ方位と正解の関係。左右を逆に（印を挟んで鏡）、隣に 1 つずれ、反対、その他 */
-    if(i==null||i<0)return ['誤り|時間切れ'];const mk=q.mark||0,rc=((q.dir-mk)%8+8)%8,ro=((i-mk)%8+8)%8,d=((i-q.dir)%8+8)%8;if(d===0)return [];
-    return ['誤り|'+(rc!==0&&rc!==4&&ro===(8-rc)%8?'左右を逆に':d===1||d===7?'隣に 1 つずれ':d===4?'反対':'その他')]}
+  if(q.type==='heading')return [];
   if(i==null||i<0||!q.opts[i])return ['誤り|時間切れ'];
   const o=q.opts[i],c=q.opts.find(x=>x.ok);if(!o||!c||o===c)return [];
   if(q.type==='control'){   /* 操縦操作: 操縦桿の向き／有無、方向舵の左右／有無、両方（利用者の指示 2026-09-18「操縦操作も同じく分析して」） */
@@ -1525,7 +1521,7 @@ function errCats(q,i){
 if(/^(127\.0\.0\.1|localhost)$/.test(location.hostname))window.__aatDbg={qCats,errCats,viewCat};
 function wlog(m,cats,ok,t){const w=weak[m]||(weak[m]={});for(const cat of cats){const c=w[cat]||(w[cat]={n:0,c:0,t:0});c.n++;if(ok)c.c++;c.t+=t}store.set('weak',weak)}
 /* v05.69 の型（切り口なし）を切り口つきに直す。v05.92: 使わなくなった 機首の向き・姿勢 の切り口は捨てる */
-(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')||((m==='combo'||m==='heading')&&(k.startsWith('方位|')||k.startsWith('印の位置|')))){delete weak[m][k];ch=true;continue}
+(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')||m==='heading'||(m==='combo'&&(k.startsWith('方位|')||k.startsWith('印の位置|')))){delete weak[m][k];ch=true;continue}
   const mv=/^傾き\|(左|右) \d+°$/.test(k)?'傾き|'+k[3]+'バンク':k==='誤り|傾きの大きさ・有無'?'誤り|傾きの有無':null;
   if(mv){const v=weak[m][k];delete weak[m][k];const c=weak[m][mv]||(weak[m][mv]={n:0,c:0,t:0});c.n+=v.n;c.c+=v.c;c.t+=v.t;ch=true;continue}
   if(k.includes('|'))continue;const v=weak[m][k];delete weak[m][k];ch=true;
@@ -3083,13 +3079,12 @@ function renderHome(){
    操縦桿: 十字（奥・手前・左・右）、方向舵: 左右のペダル
    機首の上下・傾き・操作・操作の数: 横棒（決まった順。角度は左→水平→右）
    色: 80% 以上は accent、50〜80% は琥珀、50% 未満は赤、まだ出ていないものは灰色 ===== */
-const ORDER={'印からの位置':RELJA,'回り':['印と同じ','右回り','左回り','反対'],'機首の上下':['機首上げ','水平','機首下げ'],'傾き':['左バンク','水平','右バンク'],'操作の数':['1 操作','2 操作（順番）','2 操作（同時）'],
+const ORDER={'機首の上下':['機首上げ','水平','機首下げ'],'傾き':['左バンク','水平','右バンク'],'操作の数':['1 操作','2 操作（順番）','2 操作（同時）'],
   '操縦桿':['奥','左','右','手前'],'方向舵':['左','右'],'見え方':['向こう向き（北側）','こちら向き（南側）','横向き（東・西）','真上・真下'],
   '①の姿勢':['水平','傾きあり','機首の上下あり','傾き＋上下'],
-  '誤り':['左右を逆に','隣に 1 つずれ','反対','その他','傾きの左右','傾きの有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
+  '誤り':['傾きの左右','傾きの有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
 /* 誤りの種類ごとの一言（次に何を意識するか。要所だけ） */
-const ERRHINT={'左右を逆に':'印から数える向きを左右逆にしています。印より右なら時計回り、左なら反時計回りに数えます。','隣に 1 つずれ':'数え間違いです。45° ずつ 1 つずつ数えます。','反対':'反対側を答えています。印の位置を先に確かめます。','その他':'印の位置の読み違いです。まず印がどこかを見ます。',
-  '傾きの左右':'左右を逆に読んでいます。こちら向き（南側）の絵は左右が逆に見えます。機首の向きを基準に、どちらの翼が下がっているかを読みます。',
+const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら向き（南側）の絵は左右が逆に見えます。機首の向きを基準に、どちらの翼が下がっているかを読みます。',
   '傾きの有無':'傾いているかどうかの見分けで落としています。水平線が傾いているかを先に見ます。',
   '機首の上下':'機首の上下を逆に読んでいます。腹面が見えれば機首上げ、背面が見えれば機首下げ。',
   '両方':'傾きと機首の上下の両方を落としています。まず上下、次に傾き、と順に確かめます。',
@@ -3103,13 +3098,9 @@ const ERRHINT={'左右を逆に':'印から数える向きを左右逆にして�
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
 /* v05.97（利用者「機体の状態の詳細な正答率も不要。総合と複合での個別正答率が分かればよい。その上で苦手な部分の分析を記せば良い」）:
    切り口ごとの棒はやめ、総合（輪）→ 誤りの種類（1 本の積み上げ）→ 苦手の札 → 一言、に絞る。見え方・機首の上下・傾き・①の姿勢・操作の数・操作 は記録だけして札の材料にする */
-const GROUPS={heading:['誤り','印からの位置'],attitude:['誤り','組み合わせ'],combo:['比べ','誤り','組み合わせ'],control:['誤り','パターン','操縦桿','方向舵']};
+const GROUPS={heading:[],attitude:['誤り','組み合わせ'],combo:['比べ','誤り','組み合わせ'],control:['誤り','パターン','操縦桿','方向舵']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
-/* 扇: 中心 (cx,cy)、角度 i×45°（北が上、時計回り）、幅 45°、半径 ri〜ro */
-function wedge(cx,cy,i,ri,ro){const a0=(i*45-22.5-90)*Math.PI/180,a1=(i*45+22.5-90)*Math.PI/180;const P=(r,a)=>`${(cx+r*Math.cos(a)).toFixed(1)} ${(cy+r*Math.sin(a)).toFixed(1)}`;
-  return `M${P(ri,a0)} L${P(ro,a0)} A${ro} ${ro} 0 0 1 ${P(ro,a1)} L${P(ri,a1)} A${ri} ${ri} 0 0 0 ${P(ri,a0)} Z`}
-const polar=(cx,cy,i,r)=>{const a=(i*45-90)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)]};
 const tip=(k,v)=>`<title>${esc(k)} ${v&&v.n?pct(v.c/v.n)+'（'+v.n+' 問・平均 '+(v.t/v.n).toFixed(1)+' s）':'未出題'}</title>`;
 /* 苦手の型を出題の絵で見せる（v05.98、利用者「苦手な機体の状態の見え方（出題画面）くらいは見たいかも。文字だけじゃイメージしづらい」）。
    切り口の値から代表の絵（img/bi-*.webp、出題と同じ）を選ぶ。絵のない切り口（操縦操作の①の姿勢など）は null */
@@ -3139,19 +3130,7 @@ function weakHTML(m){
   let gi=0;
   for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ'&&g!=='比べ'&&g!=='パターン')continue;gi++;
     h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g==='組み合わせ'?(m==='attitude'?'苦手な姿勢':'苦手な方位と姿勢の組み合わせ'):g==='比べ'?'単独と複合の比べ':g==='パターン'?'苦手な操作パターン':g}</div>`;
-    if(g==='印からの位置'){
-      /* v05.100: 印を上にして、印から時計回りの位置ごとの正答率と平均秒。方位そのものは出さない */
-      const cx=70,cy=70,SH=['印','右45','右90','右135','反対','左135','左90','左45'];
-      h+=`<svg class="compass" viewBox="0 0 140 140" role="img" aria-label="印からの位置ごとの正答率">
-        ${R.map((x,i)=>`<path d="${wedge(cx,cy,i,16,46)}" class="${accCls(x.acc)} seg" style="--i:${i}">${tip(x.k,x.v)}</path>`).join('')}
-        ${R.map((x,i)=>{const [lx,ly]=polar(cx,cy,i,60);return `<text x="${lx.toFixed(1)}" y="${(ly+3.5).toFixed(1)}" text-anchor="middle" class="cl${i?'':' mk'}">${SH[i]}</text>`}).join('')}
-        ${R.map((x,i)=>{const [lx,ly]=polar(cx,cy,i,31);return x.v?`<text x="${lx.toFixed(1)}" y="${(ly+1.5).toFixed(1)}" text-anchor="middle" class="cv fade" style="--i:${i}">${Math.round(x.acc*100)}</text><text x="${lx.toFixed(1)}" y="${(ly+6.5).toFixed(1)}" text-anchor="middle" class="ct fade" style="--i:${i}">${(x.v.t/x.v.n).toFixed(1)}s</text>`:''}).join('')}</svg>
-        <div class="sub2">印を上にして、印から時計回りに数えた位置ごとの正答率（%）と平均秒。灰色はまだ出ていない位置。</div>`;
-      /* 印から遠い位置（135°・反対）が低いか遅いなら、反対側から数える助言 */
-      const far=R.filter((x,i)=>x.v&&x.v.n>=2&&(i===3||i===4||i===5)),near=R.filter((x,i)=>x.v&&x.v.n>=2&&(i===1||i===7));
-      const avg=(L,f)=>L.length?L.reduce((a,x)=>a+f(x),0)/L.length:null,fa=avg(far,x=>x.acc),ft=avg(far,x=>x.v.t/x.v.n),na=avg(near,x=>x.acc),nt=avg(near,x=>x.v.t/x.v.n);
-      if(fa!=null&&na!=null&&(fa<=na-0.15||(ft!=null&&nt!=null&&ft>=nt*1.4)))h+=`<div class="whint">印から遠い位置（135°・反対）で落ちるか遅くなっています。印の反対側（180°）から数えると 1〜2 個で済みます。</div>`;
-    }else if(g==='誤り'){
+    if(g==='誤り'){    }else if(g==='誤り'){
       /* 誤りの種類（v05.97）: 間違えた問題の内訳を 1 本の積み上げ棒と凡例で。いちばん多い型に一言 */
       const E2=R.filter(x=>x.v&&x.v.n),tot=E2.reduce((a,x)=>a+x.v.n,0);E2.sort((a,b)=>b.v.n-a.v.n);
       const SC=['#d9534f','#e8b24a','#7b8fa6','#5aa8ec','#6fbf9a','#b08cd6'];
@@ -3228,7 +3207,7 @@ function renderStatsPage(){
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
       <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div><b>${st.n}</b> 問</div><div><b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> 秒 / 問</div><div><b>${HL.length}</b> 回の計測</div></div></div>
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
-      ${weakHTML(m)}
+      ${m==='heading'?'':weakHTML(m)}
       ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}
     </div>`;
   }

@@ -495,6 +495,7 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .gallery .gsel.off{opacity:.35;pointer-events:none}
 .gallery .gsim.off{opacity:.4;pointer-events:none}
 .gallery .ab.lockb{opacity:.4}
+.gallery .gpw{grid-template-columns:1fr 1fr}.gallery .gpw .ab.gw{font-size:.7rem;font-weight:600;line-height:1.3;padding:.3rem .4rem;min-height:2.6rem;white-space:normal;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.05rem}.gallery .gpw .ab.gw small{font-family:var(--mono);font-size:.65rem;color:var(--muted)}.gallery .gl small{font-size:.65rem;color:var(--faint)}
 /* 見え方画面は 1 画面に収める: 記録チップを隠し、フレームは画面の高さから逆算 */
 body[data-phase="gallery"] aside{display:none}
 body[data-phase="gallery"] .hdr{padding-bottom:.25rem}
@@ -1437,7 +1438,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.98';
+const APP_VER='v05.99';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1478,17 +1479,26 @@ const DIRJA=['北','北東','東','南東','南','南西','西','北西'];
 /* 1 問の型を切り口ごとに（「切り口|値」）。方位: 方位・印の位置、姿勢指示器: 見え方・機首の上下・傾き、複合: 見え方・方位・印の位置・機首の上下・傾き、操縦操作: 操作・操縦桿・方向舵・2 操作の形。
    v05.92（利用者の分析 2026-09-18）: 姿勢指示器の答えは バンク × ピッチ で方位は答えに含まれない。26 方向 × バンクの正答率は 1 回 10〜20 問では埋まらず揺れを描くだけなので、
    方向は「見え方」の 4 区分にまとめる（こちら向きの南側は左右が逆に見えて間違えやすい、など次の練習に結びつく粒度）。誤りの種類は errCats で別に数える */
+/* 操縦操作のパターンの鍵: 操作|同時か順番か|①の傾き|①の上下（見え方の一覧の状態と 1 対 1）。例 stick-right+rudder-left|seq|rbank|up */
+const patKey=(ops,simul,ini)=>{const one=ops[0]===ops[1];return (one?ops[0]:ops[0]+'+'+ops[1])+'|'+(one?'single':simul?'simul':'seq')+'|'+(ini.bank>0?'rbank':ini.bank<0?'lbank':'level')+'|'+(ini.pitch>0?'up':ini.pitch<0?'down':'')};
+const patParse=k=>{const [o,m,b,pc]=k.split('|');const ids=o.split('+');return {ops:ids.length===1?[ids[0],ids[0]]:ids,simul:m==='simul',single:m==='single',bank:b,pitch:pc}};
+const patLabel=k=>{const x=patParse(k),ini=[x.bank!=='level'?(x.bank==='rbank'?'右バンク':'左バンク'):'',x.pitch?(x.pitch==='up'?'機首上げ':'機首下げ'):''].filter(Boolean).join('・');
+  const ops=x.single?E.OP_BY_ID[x.ops[0]].ja:E.OP_BY_ID[x.ops[0]].ja+' + '+E.OP_BY_ID[x.ops[1]].ja;return (ini?ini+'から ':'')+ops+(x.single?'':x.simul?'（同時）':'（順番）')};
+/* 苦手なパターン（2 問以上出て落としたもの、正答率の低い順） */
+const weakPatterns=(lim=6)=>Object.entries(weak.control||{}).filter(([k,v])=>k.startsWith('パターン|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({key:k.slice(5),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,lim);
 /* 姿勢の名前（機首上げ・右バンク など。水平は「水平」） */
 const attName=q=>[q.pitch>0?'機首上げ':q.pitch<0?'機首下げ':'',q.bank>0?'右バンク':q.bank<0?'左バンク':''].filter(Boolean).join('・')||'水平';
 const viewCat=d=>d.heading==null?'真上・真下':[315,0,45].includes(d.heading)?'向こう向き（北側）':[135,180,225].includes(d.heading)?'こちら向き（南側）':'横向き（東・西）';
 const pitchCat=p=>p>0?'機首上げ':p<0?'機首下げ':'水平', bankCat=b=>b>0?'右バンク':b<0?'左バンク':'水平', sideCat=b=>b>0?'右':b<0?'左':'水平';   /* v05.93: 角度（30°/60°）は分けない（利用者「バンク角度は分析に関係ない」） */
 function qCats(q){
   if(q.type==='heading')return ['方位|'+DIRJA[q.dir],'印の位置|'+DIRJA[q.mark||0]];
-  if(q.type==='attitude')return ['見え方|'+viewCat(q.dir14),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];
+  if(q.type==='attitude'){const d=q.dir14,dj=d.heading==null?(d.pitch>0?'真上':'真下'):DIRJA[d.heading/45],att=d.heading==null?(q.bank>0?'右バンク':q.bank<0?'左バンク':'水平'):attName(q);
+    return ['見え方|'+viewCat(d),'組み合わせ|'+dj+'|'+att,'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)]}   /* v05.99: 組み合わせ（方位 × 姿勢）を絵つきで苦手に出す */
   if(q.type==='combo')return ['見え方|'+viewCat(q.dir14),'組み合わせ|'+DIRJA[q.dir]+'|'+attName(q),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];   /* v05.94: 方位ごとの正答率は出さない（利用者「方角の詳細な正答率は不要」）。組み合わせは 方位 × 姿勢 */
   const one=q.ops[0]===q.ops[1],st=E.OP_BY_ID[q.ops[0]],rd=one?null:E.OP_BY_ID[q.ops[1]];
   const ini=q.init||{},initCat=ini.bank&&ini.pitch?'傾き＋上下':ini.bank?'傾きあり':ini.pitch?'機首の上下あり':'水平';
-  const L=['操作|'+(one?st.ja:st.ja+' + '+rd.ja),'操作の数|'+(one?'1 操作':q.simul?'2 操作（同時）':'2 操作（順番）'),'①の姿勢|'+initCat];
+  const L=['操作|'+(one?st.ja:st.ja+' + '+rd.ja),'操作の数|'+(one?'1 操作':q.simul?'2 操作（同時）':'2 操作（順番）'),'①の姿勢|'+initCat,
+    'パターン|'+patKey(q.ops,q.simul,ini)];   /* v05.99: 苦手パターン（見え方の一覧で選べる形） */
   if(st.group==='stick')L.push('操縦桿|'+st.ja.replace('操縦桿 ',''));
   const r=one?(st.group==='rudder'?st:null):rd;if(r)L.push('方向舵|'+r.ja.replace('ヨー ',''));
   return L}
@@ -2652,6 +2662,7 @@ function showGallery(){applyScene();galDispose();
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}
     ${row('おまけ',['stick-forward-left','stick-forward-right','stick-back-left','stick-back-right'],4)}   <!-- 操縦桿の斜め。おまけ（ほぼ試験には出ないと思われる。出題には入れない）。説明は要らない（利用者 2026-09-16） -->
     ${row('方向舵',['rudder-left','rudder-right'],2,dm)}
+    ${(()=>{const P=weakPatterns(6);return P.length?`<div class="gsel"><div class="gl">苦手<br><small>記録から</small></div><div class="gp gpw">${P.map(x=>`<button class="ab gw" data-pat="${x.key}" title="${pct(x.acc)}・${x.v.n} 問">${esc(patLabel(x.key))}<small>${pct(x.acc)}</small></button>`).join('')}</div></div>`:''})()}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
     <div class="gsim">
@@ -2674,6 +2685,10 @@ function showGallery(){applyScene();galDispose();
     if(b.dataset.bank)gal.bank=b.dataset.bank;else gal.pitch=gal.pitch===b.dataset.pitch?'':b.dataset.pitch;   /* 機首の上下はもう一度押すと戻る */
     galDraw()}));
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw()}));
+  /* 苦手パターン（v05.99）: 押すと ①の姿勢・操作・同時か順番か をそのパターンにする。体験版で使えない組み合わせは鍵の案内 */
+  $('#gallery').querySelectorAll('[data-pat]').forEach(b=>b.addEventListener('click',()=>{const x=patParse(b.dataset.pat);
+    if(dm&&(x.bank!=='level'||x.pitch||x.ops.some(id=>E.OP_BY_ID[id].group==='rudder')||!x.single)){toast('このパターンは完全版で見られます（体験版は水平飛行から操縦桿 1 つずつ）');return}
+    gal.bank=x.bank;gal.pitch=x.pitch;gal.sel=x.single?[x.ops[0]]:x.ops.slice();gal.seq=!x.single&&!x.simul;galDraw();$('#gout').scrollIntoView({block:'start',behavior:'smooth'})}));
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
   /* 「動きで見る」: 解説の「この問題の見え方」と同じ部品（利用者の指示 2026-09-14）。飛行はいまの選択から毎回作る */
   galMv=makeMover({traj:()=>galFrames().traj,forces:seg=>{const fr=galFrames();return fr.ops.length?forcesOf(fr.ops,fr.simul,seg):null},hud:true,view:gal.view,onView:v=>{gal.view=v},lockThird:dm});
@@ -2698,6 +2713,8 @@ function galDraw(){
   $('#gallery').querySelectorAll('[data-pitch]').forEach(b=>b.classList.toggle('sel',b.dataset.pitch===gal.pitch));
   $('#gseqRow').classList.toggle('off',gal.sel.length<2);
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.classList.toggle('sel',(b.dataset.seq==='1')===gal.seq));
+  const cur=gal.sel.length?patKey(gal.sel.length>=2?gal.sel.slice().sort((a,b)=>(E.OP_BY_ID[a].group==='stick'?0:1)-(E.OP_BY_ID[b].group==='stick'?0:1)):[gal.sel[0],gal.sel[0]],gal.sel.length>=2&&!gal.seq,galInit()):'';
+  $('#gallery').querySelectorAll('[data-pat]').forEach(b=>b.classList.toggle('sel',b.dataset.pat===cur));
   const fr=galFrames(),f=fr.f;
   const initTx=(gal.bank==='level'&&!gal.pitch)?'':[gal.bank!=='level'?GAL_BANK[gal.bank].ja:'',gal.pitch?GAL_PITCH[gal.pitch].ja:''].filter(Boolean).join('・')+'から　';
   let desc=gal.sel.length?gal.sel.map(id=>E.OP_BY_ID[id].view).join('／'):'初期状態から手を放して何もしない動き（出題にはない）。上のボタンで操作を選ぶと入れ替わります';
@@ -3081,7 +3098,7 @@ const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら�
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
 /* v05.97（利用者「機体の状態の詳細な正答率も不要。総合と複合での個別正答率が分かればよい。その上で苦手な部分の分析を記せば良い」）:
    切り口ごとの棒はやめ、総合（輪）→ 誤りの種類（1 本の積み上げ）→ 苦手の札 → 一言、に絞る。見え方・機首の上下・傾き・①の姿勢・操作の数・操作 は記録だけして札の材料にする */
-const GROUPS={heading:['方位','印の位置'],attitude:['誤り'],combo:['比べ','誤り','組み合わせ'],control:['誤り','操縦桿','方向舵']};
+const GROUPS={heading:['方位','印の位置'],attitude:['誤り','組み合わせ'],combo:['比べ','誤り','組み合わせ'],control:['誤り','パターン','操縦桿','方向舵']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 /* 扇: 中心 (cx,cy)、角度 i×45°（北が上、時計回り）、幅 45°、半径 ri〜ro */
@@ -3097,7 +3114,8 @@ function weakImg(g,k){
   if(g==='見え方')id={'向こう向き（北側）':'north','こちら向き（南側）':'south','横向き（東・西）':'east','真上・真下':'up'}[k];
   else if(g==='機首の上下')id=k==='機首上げ'?'north_up':k==='機首下げ'?'north_down':'north';
   else if(g==='傾き'){id='north';bank=k==='右バンク'?'-r30':k==='左バンク'?'-l30':''}
-  else if(g==='組み合わせ'){const [hj,att]=k.split('|');id=HJID[hj];if(!id)return null;if(/機首上げ/.test(att))id+='_up';else if(/機首下げ/.test(att))id+='_down';bank=/右バンク/.test(att)?'-r30':/左バンク/.test(att)?'-l30':''}
+  else if(g==='組み合わせ'){const [hj,att]=k.split('|');if(hj==='真上'||hj==='真下')return `img/bi-${hj==='真上'?'up':'down'}.webp`;   /* 真上・真下はバンクの絵がない */
+    id=HJID[hj];if(!id)return null;if(/機首上げ/.test(att))id+='_up';else if(/機首下げ/.test(att))id+='_down';bank=/右バンク/.test(att)?'-r30':/左バンク/.test(att)?'-l30':''}
   return id?`img/bi-${id}${bank}.webp`:null;
 }
 function weakHTML(m){
@@ -3105,7 +3123,7 @@ function weakHTML(m){
   const get=(g,k)=>w[g+'|'+k],acc=v=>v&&v.n?v.c/v.n:null;
   const rows=g=>(ORDER[g]?ORDER[g].slice():Object.keys(w).filter(k=>k.startsWith(g+'|')).map(k=>k.slice(g.length+1)).sort((a,b)=>acc(get(g,a))-acc(get(g,b)))).map(k=>({k,v:get(g,k),acc:acc(get(g,k))}));
   /* 先頭に一言: いちばんの苦手と得意（3 問以上） */
-  const all=Object.entries(w).filter(([k,v])=>v.n>=3&&!/^(誤り|部分|組み合わせ)\|/.test(k)).map(([k,v])=>({g:k.split('|')[0],k:k.split('|')[1],acc:v.c/v.n,n:v.n})).sort((a,b)=>a.acc-b.acc);
+  const all=Object.entries(w).filter(([k,v])=>v.n>=3&&!/^(誤り|部分|組み合わせ|パターン)\|/.test(k)).map(([k,v])=>({g:k.split('|')[0],k:k.split('|')[1],acc:v.c/v.n,n:v.n})).sort((a,b)=>a.acc-b.acc);
   /* 苦手は 1 つではなく、基準（70% 以下、3 問以上）を下回ったものを全部（正答率の低い順。利用者の指示 2026-09-18）。得意はいちばん高いもの 1 つ */
   let h='<div class="wtop">';const weakL=all.filter(x=>x.acc<=0.7);
   if(weakL.length)h+=weakL.map((x,i)=>{const im=weakImg(x.g,x.k);return `<div class="wbadge lo pop" style="--i:${i}"><span class="wk">苦手</span><span><b>${esc(x.k)}</b><small>（${esc(x.g)}）</small><br>${pct(x.acc)}・${x.n} 問</span>${im?`<span class="wimg"><img src="${im}" alt="${esc(x.k)}の出題の絵" loading="lazy"></span>`:''}</div>`}).join('');
@@ -3114,8 +3132,8 @@ function weakHTML(m){
   if(best&&best.acc>=0.8&&all.length>1)h+=`<div class="wbadge hi pop" style="--i:${weakL.length}"><span class="wk">得意</span><span><b>${esc(best.k)}</b><small>（${esc(best.g)}）</small><br>${pct(best.acc)}・${best.n} 問</span></div>`;
   h+='</div>';
   let gi=0;
-  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ'&&g!=='比べ')continue;gi++;
-    h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g==='組み合わせ'?'苦手な方位と姿勢の組み合わせ':g==='比べ'?'単独と複合の比べ':g}</div>`;
+  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ'&&g!=='比べ'&&g!=='パターン')continue;gi++;
+    h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g==='組み合わせ'?(m==='attitude'?'苦手な姿勢':'苦手な方位と姿勢の組み合わせ'):g==='比べ'?'単独と複合の比べ':g==='パターン'?'苦手な操作パターン':g}</div>`;
     if(g==='方位'||g==='印の位置'){
       const cx=70,cy=70;
       h+=`<svg class="compass" viewBox="0 0 140 140" role="img" aria-label="${g}ごとの正答率">
@@ -3146,11 +3164,17 @@ function weakHTML(m){
         else if(da>=0.1)W.push('単独では読めている姿勢を、複合になると落としています（'+pct(as)+' → '+pct(ac)+'）。方位を読んだあと、姿勢を確かめ直します。');
         if(!W.length)W.push('単独でも複合でも同じ精度で読めています。あとは速さです。');v+=W.join(' ')}
       h+=`<div class="whint">${esc(v)}</div>`;
+    }else if(g==='パターン'){
+      /* 苦手な操作パターン（v05.99）: 2 問以上出て落としたものを正答率の低い順に。「苦手パターン表を開く」で見え方の一覧へ（そこに同じパターンのボタンが並ぶ） */
+      const P=weakPatterns(5);
+      if(!P.length)h+=`<div class="sub2">2 問以上出て落としたパターンは、まだありません。</div>`;
+      else h+=P.map((x,i)=>`<div class="wrow"><span class="wl">${esc(patLabel(x.key))}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`).join('');
+      h+=`<div class="acts"><button class="btn ghost sm" data-go="#train/control/gallery">苦手パターン表を開く</button></div><div class="sub2">見え方の一覧に、ここの苦手パターンがボタンで並びます。押すとその①の姿勢と操作の見え方が出ます。</div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
       const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({raw:k.slice(6),k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
       if(!C.length)h+=`<div class="sub2">2 問以上出て落とした組み合わせは、まだありません。</div>`;
-      else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">2 問以上出た組み合わせのうち、正答率の低い順。絵は出題と同じ見え方（バンクは 30° の例）。</div>`;
+      else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">2 問以上出て落とした${m==='attitude'?'姿勢':'組み合わせ'}を、正答率の低い順に。絵は出題と同じ見え方（バンクは 30° の例）。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3200,6 +3224,7 @@ function renderStatsPage(){
   }
   h+=`<div class="acts"><button class="btn ghost" id="stBack">ホームへ</button></div>`;
   page.innerHTML=h;$('#stBack').addEventListener('click',()=>{location.hash='#home'});
+  page.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{location.hash=b.dataset.go}));
 }
 /* ===== 通信の決まり =====
    既定では、Wi-Fi につながっているときだけ通信する（携帯の通信量を使わない）。

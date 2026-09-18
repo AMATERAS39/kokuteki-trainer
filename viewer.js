@@ -43,7 +43,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
 
   const cam = new THREE.PerspectiveCamera(30, W() / H(), 0.1, 500);
   cam.up.set(0, 0, 1);
-  const HOME = new THREE.Vector3(0, bare ? -36 : -24, 0);   /* bare（レーダー）は多面体の全体が見えるよう離れた位置から */
+  const HOME = bare ? new THREE.Vector3(0, -32, 16) : new THREE.Vector3(0, -24, 0);   /* bare（レーダー）は多面体の全体と羅針盤が見えるよう、離れた少し高い位置から（v05.89） */
   cam.position.copy(HOME); cam.lookAt(0, 0, 0);
   const controls = new OrbitControls(cam, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 9; controls.maxDistance = 80; controls.enablePan = false;
@@ -52,20 +52,37 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; if (!bare) scene.add(grid);
   /* 方位の札（北・東・南・西）。板ではなく常に正面を向くスプライトなので、視点を回しても読める */
   function dirLabel(text, color) {
-    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;   /* 2 文字（北東 など）も入る幅 */
     const g = c.getContext('2d');
     g.font = 'bold 92px "Zen Kaku Gothic New", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineWidth = 10; g.strokeStyle = 'rgba(255,255,255,.9)'; g.strokeText(text, 64, 70);
-    g.fillStyle = color; g.fillText(text, 64, 70);
+    g.lineWidth = 10; g.strokeStyle = 'rgba(255,255,255,.9)'; g.strokeText(text, 128, 70);
+    g.fillStyle = color; g.fillText(text, 128, 70);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    return new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true })); sp.userData.aspect = 2; return sp;
   }
   /* 水平面の四方に置く。画面上での大きさが一定になるよう、毎フレーム カメラとの距離で拡大率を直す（機体に重ならない大きさ） */
   const marks = new THREE.Group();
-  for (const [t, x, y, col, base] of [['北', 0, 12, '#1f8f5a', 2.6], ['東', 11, 0, '#c0392b', 2.2], ['南', 0, -12, '#3c4b5c', 2.2], ['西', -11, 0, '#3c4b5c', 2.2]]) {
-    const sp = dirLabel(t, col); sp.position.set(x, y, -5.6); sp.userData.base = base; marks.add(sp);
+  /* bare（レーダー）は羅針盤を機体の中心に置く（v05.89、利用者の指示 2026-09-18「東西南北ではなく羅針盤で 8 方位を示す」）:
+     水平面（z = 0）に半径 9.6 の輪と 16 の目盛り、南北・東西の細い線、輪のすぐ外に小さな 8 方位の名前。通常は四方の遠くに大きな札 */
+  const R8 = 11.4, D = Math.PI / 180;
+  const LAB = bare ? [['北', 0, 0, '#1f8f5a', 1.25], ['北東', 45, 0, '#3c4b5c', 0.9], ['東', 90, 0, '#c0392b', 1.05], ['南東', 135, 0, '#3c4b5c', 0.9], ['南', 180, 0, '#3c4b5c', 1.05], ['南西', 225, 0, '#3c4b5c', 0.9], ['西', 270, 0, '#3c4b5c', 1.05], ['北西', 315, 0, '#3c4b5c', 0.9]].map(([t, a, _, c, b]) => [t, Math.sin(a * D) * R8, Math.cos(a * D) * R8, c, b])
+                   : [['北', 0, 12, '#1f8f5a', 2.6], ['東', 11, 0, '#c0392b', 2.2], ['南', 0, -12, '#3c4b5c', 2.2], ['西', -11, 0, '#3c4b5c', 2.2]];
+  for (const [t, x, y, col, base] of LAB) {
+    const sp = dirLabel(t, col); sp.position.set(x, y, bare ? 0 : -5.6); sp.userData.base = base; marks.add(sp);
   }
   scene.add(marks);
+  const rose = new THREE.Group();
+  if (bare) {
+    const RR = 9.6, ring = [];
+    for (let i = 0; i <= 96; i++) { const a = i / 96 * Math.PI * 2; ring.push(new THREE.Vector3(Math.sin(a) * RR, Math.cos(a) * RR, 0)); }
+    const lm = new THREE.LineBasicMaterial({ color: 0x8592a1, transparent: true, opacity: 0.55 }), lm2 = new THREE.LineBasicMaterial({ color: 0x8592a1, transparent: true, opacity: 0.28 });
+    rose.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lm));
+    const seg = [];
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, r0 = i % 4 === 0 ? RR - 1.3 : i % 2 === 0 ? RR - 0.8 : RR - 0.45; seg.push(new THREE.Vector3(Math.sin(a) * r0, Math.cos(a) * r0, 0), new THREE.Vector3(Math.sin(a) * RR, Math.cos(a) * RR, 0)); }
+    rose.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg), lm));
+    rose.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -RR, 0), new THREE.Vector3(0, RR, 0), new THREE.Vector3(-RR, 0, 0), new THREE.Vector3(RR, 0, 0)]), lm2));
+    scene.add(rose);
+  }
 
   const axes = new THREE.Group();
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -6), 12, 0xff6b6b, 1.6, 0.9));
@@ -159,9 +176,9 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   function frame(now) {
     if (!running) return;
     if (animating) { const k = Math.min(1, (now - t0) / 450), e = k < .5 ? 2 * k * k : -1 + (4 - 2 * k) * k; pivot.quaternion.slerpQuaternions(qFrom, qTo, e); if (k >= 1) animating = false; }
-    if (chartK !== chartTarget) { chartK += Math.sign(chartTarget - chartK) * Math.min(Math.abs(chartTarget - chartK), 0.06); for (const c of markerGroup.children) { c.material.opacity = (c.material.userData.base == null ? 1 : c.material.userData.base) * chartK; c.visible = chartK > 0.02; } if (bare) marks.visible = chartK > 0.02; }   /* 寄っているあいだは方位の札も消す */
+    if (chartK !== chartTarget) { chartK += Math.sign(chartTarget - chartK) * Math.min(Math.abs(chartTarget - chartK), 0.06); for (const c of markerGroup.children) { c.material.opacity = (c.material.userData.base == null ? 1 : c.material.userData.base) * chartK; c.visible = chartK > 0.02; } if (bare) { marks.visible = chartK > 0.02; rose.visible = marks.visible; } }   /* 寄っているあいだは方位の札と羅針盤も消す */
     if (fly) { const k = Math.min(1, (now - fly.t0) / fly.dur), e = 1 - Math.pow(1 - k, 3); cam.position.lerpVectors(fly.from, fly.to, e); controls.target.lerpVectors(fly.look0, fly.look1, e); if (k >= 1) fly = null; }
-    for (const sp of marks.children) { const k = sp.userData.base * cam.position.distanceTo(sp.position) / 24; sp.scale.set(k, k, 1); }
+    for (const sp of marks.children) { const k = sp.userData.base * cam.position.distanceTo(sp.position) / 24; sp.scale.set(k * (sp.userData.aspect || 1), k, 1); }
     controls.update(); renderer.render(scene, cam); raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);

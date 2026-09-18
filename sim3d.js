@@ -2761,6 +2761,10 @@ export function mount(container, opt = {}) {
      「反動」に見えた（利用者の指摘 2026-09-13）。実機のヨーの固有周期は 1〜2 秒なので 0.8 秒に。戻る動きそのものは物理（横滑りが消えて機首が相対風に並ぶ） */
   const PHY = { ALPHA0: 3.5 * D, KY: 14, TAU_A: 0.35, TAU_B: 0.8, A_PULL: 10.5 * D, A_PUSH: 7 * D, BETA_MAX: 10 * D };
   PHY.KL = 9.81 / PHY.ALPHA0;                 // 揚力傾斜（m/s² / rad）。釣り合いの迎角で揚力＝重力になる値
+  /* 手動操縦の舵の効き（v06.03、利用者の指示 2026-09-18「ブルーインパルスの軌道を手動でもぎりぎり再現できる程度に、方向舵や機首上げの角度・角速度を調整」）。
+     出題・動きで見る（flight.js）には触れない。操縦桿いっぱいで: ロール 120°/s（T-4 は 200°/s 超だが、画面の操縦桿では速すぎると保てない）、
+     引き 迎角 +12°・押し −8°、方向舵 横滑り 12°。揚力の加速度は +7 g／−3 g で頭打ち（T-4 の制限荷重）。速い（q が大きい）ほど同じ迎角で強く曲がる */
+  const MAN = { roll: 120, pull: 12 * D, push: 8 * D, beta: 12 * D, gmax: 7 * 9.81, gmin: -3 * 9.81 };
   const vel = new THREE.Vector3(), pAcc = new THREE.Vector3(), pTmp = new THREE.Vector3();
   /* 速度を機首から作り直す: 速度＝機首の向き（迎角 0）。昇降舵の指令が 0.35 秒ほどで迎角を釣り合いまで立ち上げ、
      機首が経路より上を向く。最初に経路を機首より下へ向ける形にすると、機首が水平のまま 3.5° の降下になり、
@@ -2792,27 +2796,32 @@ export function mount(container, opt = {}) {
          引けば α − α0 のぶんの揚力が機体の上向きに働いて上昇（背面で引けば降下）、方向舵の横力はそのまま。
        式: a = KL·q·(α·上 − α0·(上·ẑ)·ẑ) − KY·q·β·右 */
     const a0 = Math.min(PHY.ALPHA0 / q, 14 * D);   // 釣り合いの迎角は速さの二乗に反比例（遅いほど機首を上げて飛ぶ。上限 14° ＝ 失速の手前）
-    pAcc.copy(bup).multiplyScalar(PHY.KL * alpha * q).addScaledVector(bright, -PHY.KY * beta * q);
     const gOn = gravityOn || (manualGravity && !auto);   // 重力を使うか（動きで見る、手動操縦）
+    const kl = auto ? PHY.KL * alpha * q : clamp(PHY.KL * alpha * q, MAN.gmin, MAN.gmax);   // 手動は荷重で頭打ち（v06.03）
+    pAcc.copy(bup).multiplyScalar(kl).addScaledVector(bright, -PHY.KY * beta * q);
     pAcc.z -= gOn ? 9.81 : PHY.KL * a0 * q * bup.z;   // 動きで見ると手動操縦は本物の重力。自動操縦は釣り合いの揚力の鉛直成分で支える（重力を無視）
-    const psi0 = Math.atan2(vel.x, vel.y);
+    pTmp.copy(vel).normalize();                     // 速度の向き（前）
     vel.addScaledVector(pAcc, dt).setLength(v);
     st.x += vel.x * dt; st.y += vel.y * dt; st.z += vel.z * dt;
-    /* 方向安定: 速度の向きが（旋回で）変わったぶんだけ機首も世界の上下軸まわりに回す。実機は風見安定が強く、旋回中も横滑りはほぼ 0。
-       これが無いと、機首は横滑り角の時定数（0.8 秒）でしか速度を追えず、旋回中に約 3° の横滑りが残って
-       横力がバンクの下向きに働き（10 秒で −38 m）、旋回率も g·sinφ/V より 25% 遅かった（実測 2026-09-13）。
-       方向舵で作る横滑りはこの後の dB でこれまでどおり */
-    { let dpsi = Math.atan2(vel.x, vel.y) - psi0; if (dpsi > Math.PI) dpsi -= 2 * Math.PI; else if (dpsi < -Math.PI) dpsi += 2 * Math.PI;
-      if (dpsi) att.premultiply(dq.setFromAxisAngle(AZ, -dpsi)); }
+    /* 風見安定（縦横）: 速度の向きが変わったぶんだけ、機首も同じ回転（速度の前×後の軸まわり）で回す。flight.js（出題・動きで見る）と同じ。
+       v06.02 までは世界の上下軸まわり（方位の変化 dpsi）だけだった。垂直に近いと方位が定まらず（atan2 が毎コマ ±180° 跳ぶ）、
+       機体を毎コマ 180° 回して揚力の向きを打ち消し、全力で引いても宙返りの頂点から先へ進めなかった（点検 2026-09-18）。
+       縦の回転も機首に写すので、迎角は舵の指令でしか変わらない（実機の縦の安定） */
+    { const c = pTmp.dot(vel) / v, ax = pTmp.clone().cross(vel), sn = ax.length() / v;
+      if (sn > 1e-9) att.premultiply(dq.setFromAxisAngle(ax.normalize(), Math.atan2(sn, c))); }
     /* 姿勢: 補助翼はロール角速度。昇降舵・方向舵は迎角・横滑り角を指令へ寄せる（機首を速度まわりに動かす） */
-    const roll = RATE.roll * input.x * dt * D;
+    const roll = (auto ? RATE.roll : MAN.roll) * input.x * dt * D;
     if (roll) att.multiply(dq.setFromAxisAngle(AY, roll));
     /* 重力ありのときの釣り合い: 揚力は機体の上向きなので、鉛直成分は cos(機首の上げ角) ぶん減る。a0 のままだと 3.5° で 0.2% 足りず、
        手を放していても 1 分に 36 m 沈み、2 分ほどで接地した（利用者の報告 2026-09-16「水平に保っていても着地してしまう」）。
        機首の上げ角で割って、翼が水平なら高度をぴったり保つ。バンクの分は補正しない（旋回では引かないと沈む、実機どおり） */
-    const a0t = gOn ? a0 / Math.max(0.5, Math.cos(st.p * D)) : a0;
-    const alphaWant = a0t + (input.y < 0 ? -input.y * PHY.A_PULL : -input.y * PHY.A_PUSH);   // 手前（y<0）で迎角を増やす
-    const betaWant = -input.r * PHY.BETA_MAX;                                                          // 右方向舵で機首を右へ（β は負）
+    /* 釣り合いの迎角の補正: 機首の上げ角 60° までは 1/cos（高度を保つ）、それより立てると cos に比例して 0 へ（60° で連続）。
+       垂直では釣り合いの揚力が 0 なので、手を放せば真っ直ぐ上へ（重力で減速はしない。速さ一定の模型）。v06.02 までは 1/cos を 0.5 で止めていたので、
+       垂直で手を放すと迎角 7° の揚力で機首が倒れ、押し切らないと真っ直ぐ上れなかった（利用者「垂直に真っ直ぐ飛ぶ」の再現、2026-09-18） */
+    const cp = Math.abs(Math.cos(st.p * D)), a0t = gOn ? a0 * (cp >= 0.5 ? 1 / cp : cp / 0.25) : a0;
+    const PULL = auto ? PHY.A_PULL : MAN.pull, PUSH = auto ? PHY.A_PUSH : MAN.push, BMAX = auto ? PHY.BETA_MAX : MAN.beta;
+    const alphaWant = a0t + (input.y < 0 ? -input.y * PULL : -input.y * PUSH);   // 手前（y<0）で迎角を増やす
+    const betaWant = -input.r * BMAX;                                             // 右方向舵で機首を右へ（β は負）
     const dA = (alphaWant - alpha) * Math.min(1, dt / PHY.TAU_A), dB = (betaWant - beta) * Math.min(1, dt / PHY.TAU_B);
     if (dA) att.multiply(dq.setFromAxisAngle(AX, dA));
     if (dB) att.multiply(dq.setFromAxisAngle(AZ, dB));                // 機首を右へ振るのは z まわりの負の回転（engine.js と同じ約束）

@@ -483,7 +483,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <p class="ctanote"><span class="nw">体験版</span>は無料・<span class="nw">登録なし</span>で、4 種目とも試せます。<span class="nw">完全版</span>は<span class="nw">買い切り</span> <b id="heroPrice">3,000 円</b>（<span class="nw">時期</span>で変わります）、<span class="nw">広告なし</span>。</p>
       <dl class="facts">
         <div><dt><span class="nw">一次試験</span></dt><dd>09/19 · 09/26</dd></div>
-        <div><dt>第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit">日</span></dd></div>
+        <div><dt id="daysLbl">第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit" id="daysUnit">日</span></dd></div>
       </dl>
     </div>
   </div>
@@ -755,11 +755,13 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
 
 <script>
 (function(){
-  /* 一次試験の第 1 日までの残り日数。日本時間の 0 時を基準に数える */
-  var days=['2026-09-19T00:00:00+09:00','2026-09-26T00:00:00+09:00'], now=Date.now(), next=null;
-  for(var i=0;i<days.length;i++){var t=Date.parse(days[i]); if(t>now){next=t;break}}
-  var el=document.getElementById('days');
-  if(el) el.textContent = next===null ? '—' : Math.max(0,Math.ceil((next-now)/86400000));
+  /* 一次試験までの残り日数。日本時間の 0 時を基準に数える。第 1 日の当日は「第 1 日 本日」、翌日からは第 2 日まで（利用者の指摘 2026-09-19: 第 1 日の当日に「第 1 日まで 7 日」と出ていた） */
+  var days=['2026-09-19T00:00:00+09:00','2026-09-26T00:00:00+09:00'], now=Date.now(), DAY=86400000, lbl=document.getElementById('daysLbl'), el=document.getElementById('days'), un=document.getElementById('daysUnit');
+  if(el){var shown=false;
+    for(var i=0;i<days.length;i++){var t0=Date.parse(days[i]);
+      if(now<t0){lbl.textContent='第 '+(i+1)+' 日まで';el.textContent=Math.ceil((t0-now)/DAY);un.textContent='日';shown=true;break}
+      if(now<t0+DAY){lbl.textContent='第 '+(i+1)+' 日';el.textContent='本日';un.textContent='';shown=true;break}}
+    if(!shown){lbl.textContent='一次試験';el.textContent='終了';un.textContent=''}}
 
   /* 上の細い線で読み進み具合を出す */
   var bar=document.getElementById('prog');

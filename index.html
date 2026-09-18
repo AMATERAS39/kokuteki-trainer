@@ -3151,6 +3151,8 @@ function renderStatsPage(){
 function octoHTML(m,pv){
   const cx=120,cy=120,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
   const P=(a,r)=>{const t=a*Math.PI/180;return `${(cx+r*Math.sin(t)).toFixed(1)},${(cy-r*Math.cos(t)).toFixed(1)}`};
+  /* 八角形の辺の上の点: くさび i（中心角 i×45°）の辺（角 ±22.5° の 2 点を結ぶ直線）を、角 a の位置で内分する。円弧にしないので外周が角形になる */
+  const Q=(i,a,r)=>{const a0=i*45-22.5,t=(a-a0)/45,[x0,y0]=P(a0,r).split(',').map(Number),[x1,y1]=P(a0+45,r).split(',').map(Number);return `${(x0+(x1-x0)*t).toFixed(1)},${(y0+(y1-y0)*t).toFixed(1)}`};
   const BANDS=[['上',106,76],['',76,46],['下',46,16]];   // [ピッチの接尾, 外の半径, 内の半径]。外側から 機首上げ・水平・機首下げ
   const COLS=['左','水平','右'];   // 同じ段の中で 左バンク｜水平｜右バンク
   /* 色: 正答率で 赤 → 琥珀 → 青 の連続。未出題は薄い灰 */
@@ -3161,13 +3163,13 @@ function octoHTML(m,pv){
   HJ.forEach((hj,i)=>{const a0=i*45-22.5;
     BANDS.forEach(([suf,ro,ri])=>{const dj=hj+suf;
       COLS.forEach((sd,k)=>{const b0=a0+15*k,b1=b0+15,bm=b0+7.5,v=pv(dj,sd),ac=v&&v.n?v.c/v.n:null,c=col(ac);
-        cells+=`<path d="M${P(b0,ro)} L${P(b1,ro)} L${P(b1,ri)} L${P(b0,ri)} Z" class="seg${c?'':' na'}" ${c?`style="fill:${c}"`:''} data-pose3d="${dj}|${sd}"><title>${dj}・${sd==='水平'?'水平':sd+'バンク'} ${v?Math.round(ac*100)+'%（'+v.n+' 問）':'未出題'}</title></path>`;
-        if(v&&ri>=46){const [x,y]=P(bm,(ro+ri)/2).split(',');texts+=`<text x="${x}" y="${(+y+2).toFixed(1)}" text-anchor="middle" class="cv">${Math.round(ac*100)}</text>`}})});
+        cells+=`<path d="M${Q(i,b0,ro)} L${Q(i,b1,ro)} L${Q(i,b1,ri)} L${Q(i,b0,ri)} Z" class="seg${c?'':' na'}" ${c?`style="fill:${c}"`:''} data-pose3d="${dj}|${sd}"><title>${dj}・${sd==='水平'?'水平':sd+'バンク'} ${v?Math.round(ac*100)+'%（'+v.n+' 問）':'未出題'}</title></path>`;
+        if(v&&ri>=46){const [x,y]=Q(i,bm,(ro+ri)/2).split(',');texts+=`<text x="${x}" y="${(+y+2).toFixed(1)}" text-anchor="middle" class="cv">${Math.round(ac*100)}</text>`}})});
   });
   /* 線の階層: 段の境（環）と方位の境（放射）は少し濃く、バンクの境は細く薄く */
   const ring=r=>`<path d="${HJ.map((_,i)=>(i?'L':'M')+P(i*45-22.5,r)).join(' ')} Z" class="gr"/>`;
   let guides=[106,76,46,16].map(ring).join('')+HJ.map((_,i)=>`<path d="M${P(i*45-22.5,16)} L${P(i*45-22.5,106)}" class="gr"/>`).join('');
-  guides+=HJ.map((_,i)=>[7.5,-7.5].map(o=>`<path d="M${P(i*45+o,16)} L${P(i*45+o,106)}" class="gr2"/>`).join('')).join('');
+  guides+=HJ.map((_,i)=>[7.5,-7.5].map(o=>`<path d="M${Q(i,i*45+o,16)} L${Q(i,i*45+o,106)}" class="gr2"/>`).join('')).join('');
   const lab=HJ.map((hj,i)=>{const [x,y]=P(i*45,115).split(',');return `<text x="${x}" y="${(+y+2.5).toFixed(1)}" text-anchor="middle" class="cl">${hj}</text><text x="${x}" y="${(+y+8.5).toFixed(1)}" text-anchor="middle" class="cle">${EN[i]}</text>`}).join('');
   let center='';
   if(m==='attitude'){for(const [dj,d] of [['真上',`M${cx-13},${cy} A13,13 0 0 1 ${cx+13},${cy} Z`],['真下',`M${cx+13},${cy} A13,13 0 0 1 ${cx-13},${cy} Z`]]){const v=pv(dj,'水平'),ac=v&&v.n?v.c/v.n:null,c=col(ac);

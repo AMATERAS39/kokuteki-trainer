@@ -3156,7 +3156,7 @@ function octoHTML(m,pv){
   /* 色: 正答率で 赤 → 琥珀 → 青 の連続。未出題は薄い灰 */
   const mix=(c1,c2,t)=>c1.map((v,i)=>Math.round(v+(c2[i]-v)*t));
   /* 色相で補間（赤 4° → 琥珀 42° → 緑を経て 青 205°）。RGB の直線補間だと琥珀と青の間が濁る */
-  const col=ac=>{if(ac==null)return null;const R=[4,68,56],A=[42,78,58],B=[205,62,48];const c=ac<0.5?mix(R,A,ac/0.5):mix(A,B,(ac-0.5)/0.5);return `hsl(${c[0]} ${c[1]}% ${c[2]}%)`};
+  const col=ac=>{if(ac==null)return null;const R=[4,52,60],A=[40,62,62],B=[205,48,52];   /* 彩度を抑えて落ち着いた色に */const c=ac<0.5?mix(R,A,ac/0.5):mix(A,B,(ac-0.5)/0.5);return `hsl(${c[0]} ${c[1]}% ${c[2]}%)`};
   let cells='',texts='';
   HJ.forEach((hj,i)=>{const a0=i*45-22.5;
     BANDS.forEach(([suf,ro,ri])=>{const dj=hj+suf;

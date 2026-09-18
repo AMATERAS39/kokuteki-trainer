@@ -1433,7 +1433,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.93';
+const APP_VER='v05.94';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1474,12 +1474,14 @@ const DIRJA=['北','北東','東','南東','南','南西','西','北西'];
 /* 1 問の型を切り口ごとに（「切り口|値」）。方位: 方位・印の位置、姿勢指示器: 見え方・機首の上下・傾き、複合: 見え方・方位・印の位置・機首の上下・傾き、操縦操作: 操作・操縦桿・方向舵・2 操作の形。
    v05.92（利用者の分析 2026-09-18）: 姿勢指示器の答えは バンク × ピッチ で方位は答えに含まれない。26 方向 × バンクの正答率は 1 回 10〜20 問では埋まらず揺れを描くだけなので、
    方向は「見え方」の 4 区分にまとめる（こちら向きの南側は左右が逆に見えて間違えやすい、など次の練習に結びつく粒度）。誤りの種類は errCats で別に数える */
+/* 姿勢の名前（機首上げ・右バンク など。水平は「水平」） */
+const attName=q=>[q.pitch>0?'機首上げ':q.pitch<0?'機首下げ':'',q.bank>0?'右バンク':q.bank<0?'左バンク':''].filter(Boolean).join('・')||'水平';
 const viewCat=d=>d.heading==null?'真上・真下':[315,0,45].includes(d.heading)?'向こう向き（北側）':[135,180,225].includes(d.heading)?'こちら向き（南側）':'横向き（東・西）';
 const pitchCat=p=>p>0?'機首上げ':p<0?'機首下げ':'水平', bankCat=b=>b>0?'右バンク':b<0?'左バンク':'水平', sideCat=b=>b>0?'右':b<0?'左':'水平';   /* v05.93: 角度（30°/60°）は分けない（利用者「バンク角度は分析に関係ない」） */
 function qCats(q){
   if(q.type==='heading')return ['方位|'+DIRJA[q.dir],'印の位置|'+DIRJA[q.mark||0]];
   if(q.type==='attitude')return ['見え方|'+viewCat(q.dir14),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];
-  if(q.type==='combo')return ['見え方|'+viewCat(q.dir14),'方位|'+DIRJA[q.dir],'印の位置|'+DIRJA[q.mark||0],'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];
+  if(q.type==='combo')return ['見え方|'+viewCat(q.dir14),'組み合わせ|'+DIRJA[q.dir]+'|'+attName(q),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];   /* v05.94: 方位ごとの正答率は出さない（利用者「方角の詳細な正答率は不要」）。組み合わせは 方位 × 姿勢 */
   const one=q.ops[0]===q.ops[1],st=E.OP_BY_ID[q.ops[0]],rd=one?null:E.OP_BY_ID[q.ops[1]];
   const ini=q.init||{},initCat=ini.bank&&ini.pitch?'傾き＋上下':ini.bank?'傾きあり':ini.pitch?'機首の上下あり':'水平';
   const L=['操作|'+(one?st.ja:st.ja+' + '+rd.ja),'操作の数|'+(one?'1 操作':q.simul?'2 操作（同時）':'2 操作（順番）'),'①の姿勢|'+initCat];
@@ -1629,6 +1631,8 @@ function finish(g,timedOut,picked){
     streak=g.ok?streak+1:0;
     wlog(mode,qCats(q),g.ok,s);
     if(!g.ok)wlog(mode,errCats(q,timedOut?-1:picked),false,s);   /* 誤りの種類（n だけ数える） */
+    if(q.type==='combo'){const o=timedOut?null:q.opts[picked],c=q.opts.find(x=>x.ok);   /* v05.94: 方位・姿勢それぞれの正答率（輪）。時間切れは両方誤り */
+      wlog(mode,['部分|方位'],!!o&&o.heading===c.heading,s);wlog(mode,['部分|姿勢'],!!o&&o.bank===c.bank&&o.pitch===c.pitch,s)}
     renderStats();
     if(session&&qMax()>0&&session.n>=qMax())session.ended=true;
   }else if(practiceLeft>0)practiceLeft--;
@@ -3071,7 +3075,7 @@ const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら�
   '方向舵の有無':'方向舵を踏んでいるかどうかの見分けで落としています。本番の難しさもここです。②→③ の変化を見比べます。',
   '操縦桿と方向舵の両方':'操縦桿と方向舵の両方を落としています。①→② で操縦桿、②→③ で方向舵、と分けて読みます。',
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
-const GROUPS={heading:['方位','印の位置'],attitude:['誤り','見え方','機首の上下','傾き'],combo:['誤り','方位','印の位置','見え方','機首の上下','傾き'],control:['誤り','①の姿勢','操縦桿','方向舵','操作の数','操作']};
+const GROUPS={heading:['方位','印の位置'],attitude:['誤り','見え方','機首の上下','傾き'],combo:['誤り','組み合わせ','見え方','機首の上下','傾き'],control:['誤り','①の姿勢','操縦桿','方向舵','操作の数','操作']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 /* 扇: 中心 (cx,cy)、角度 i×45°（北が上、時計回り）、幅 45°、半径 ri〜ro */
@@ -3084,7 +3088,7 @@ function weakHTML(m){
   const get=(g,k)=>w[g+'|'+k],acc=v=>v&&v.n?v.c/v.n:null;
   const rows=g=>(ORDER[g]?ORDER[g].slice():Object.keys(w).filter(k=>k.startsWith(g+'|')).map(k=>k.slice(g.length+1)).sort((a,b)=>acc(get(g,a))-acc(get(g,b)))).map(k=>({k,v:get(g,k),acc:acc(get(g,k))}));
   /* 先頭に一言: いちばんの苦手と得意（3 問以上） */
-  const all=Object.entries(w).filter(([k,v])=>v.n>=3&&!k.startsWith('誤り|')).map(([k,v])=>({g:k.split('|')[0],k:k.split('|')[1],acc:v.c/v.n,n:v.n})).sort((a,b)=>a.acc-b.acc);
+  const all=Object.entries(w).filter(([k,v])=>v.n>=3&&!/^(誤り|部分|組み合わせ)\|/.test(k)).map(([k,v])=>({g:k.split('|')[0],k:k.split('|')[1],acc:v.c/v.n,n:v.n})).sort((a,b)=>a.acc-b.acc);
   let h='<div class="wtop">';
   if(all.length&&all[0].acc<=0.7)h+=`<div class="wbadge lo pop"><span class="wk">苦手</span><span><b>${esc(all[0].k)}</b><small>（${esc(all[0].g)}）</small><br>${pct(all[0].acc)}・${all[0].n} 問</span></div>`;
   else h+=`<div class="wbadge pop"><span class="wk">苦手</span><span><b>なし</b><br>3 問以上解いた型は、どれも 70% を超えています</span></div>`;
@@ -3092,8 +3096,8 @@ function weakHTML(m){
   if(best&&best.acc>=0.8&&all.length>1)h+=`<div class="wbadge hi pop" style="--i:1"><span class="wk">得意</span><span><b>${esc(best.k)}</b><small>（${esc(best.g)}）</small><br>${pct(best.acc)}・${best.n} 問</span></div>`;
   h+='</div>';
   let gi=0;
-  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v))continue;gi++;
-    h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g}</div>`;
+  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ')continue;gi++;
+    h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g==='組み合わせ'?'苦手な方位と姿勢の組み合わせ':g}</div>`;
     if(g==='方位'||g==='印の位置'){
       const cx=70,cy=70;
       h+=`<svg class="compass" viewBox="0 0 140 140" role="img" aria-label="${g}ごとの正答率">
@@ -3107,6 +3111,11 @@ function weakHTML(m){
       h+=`<div class="sub2" style="margin-top:-.2rem">間違えた ${tot} 問の内訳</div>`;
       h+=E2.map((x,i)=>`<div class="wrow"><span class="wl">${esc(x.k)}</span><span class="wb"><i class="lo grow" style="--i:${i};width:${Math.max(2,Math.round(x.v.n/tot*100))}%"></i></span><span class="wn">${x.v.n} 問・${Math.round(x.v.n/tot*100)}%</span></div>`).join('');
       if(E2.length&&ERRHINT[E2[0].k])h+=`<div class="whint">${esc(ERRHINT[E2[0].k])}</div>`;
+    }else if(g==='組み合わせ'){
+      /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
+      const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
+      if(!C.length)h+=`<div class="sub2">2 問以上出て落とした組み合わせは、まだありません。</div>`;
+      else h+=C.map((x,i)=>`<div class="wrow"><span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`).join('')+`<div class="sub2">2 問以上出た組み合わせのうち、正答率の低い順。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3148,7 +3157,7 @@ function renderStatsPage(){
   for(const m of Object.keys(E.MODES)){
     const st=stats[m]||{n:0,c:0,t:0},HL=hist.filter(x=>x.m===m),L=HL.slice(0,12).reverse();
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
-      <div class="sthead">${ringHTML(st.n?st.c/st.n:null,'正答率')}<div class="stnum"><div><b>${st.n}</b> 問</div><div><b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> 秒 / 問</div><div><b>${HL.length}</b> 回の計測</div></div></div>
+      <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div><b>${st.n}</b> 問</div><div><b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> 秒 / 問</div><div><b>${HL.length}</b> 回の計測</div></div></div>
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
       ${weakHTML(m)}
       ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}

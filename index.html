@@ -718,7 +718,7 @@ ul.tips li{margin:.125rem 0}
 .pose3d{aspect-ratio:4/3;background:linear-gradient(#dfe5ec,#c3ccd6)}
 .poselg{display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center;font-size:.7rem;color:var(--muted);margin:.35rem 0}.poselg i{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.25rem;vertical-align:-.05rem}.poselg .sub2{flex-basis:100%;margin:0}
 .octo{display:block;width:min(100%,22rem);height:auto;margin:.5rem auto 0}.octo .seg{stroke:var(--panel);stroke-width:.8;cursor:pointer;animation:none}.octo .seg.na{fill:var(--panel2)}.octo .seg.sel{stroke:var(--text);stroke-width:1.6}
-.octo .cv{font-size:5.2px;font-weight:700;fill:#0b1017;font-family:var(--mono);pointer-events:none}.octo .cl{font-size:8px;fill:var(--muted)}.octo .cb{font-size:4.6px;fill:var(--muted);pointer-events:none}
+.octo .cv{font-size:5px;font-weight:700;fill:#0b1017;font-family:var(--mono);pointer-events:none}.octo .cv.sm{font-size:4px}.octo .cl{font-size:8px;fill:var(--muted)}.octo .cb{font-size:4.6px;fill:var(--muted);pointer-events:none}
 .ptbl2{display:grid;gap:.15rem;margin-top:.25rem}.ptr{display:grid;grid-template-columns:4.2rem repeat(3,1fr);gap:.2rem;align-items:center}.pth span{font-size:.7rem;color:var(--muted);text-align:center}
 .ptr .pl{font-size:.8125rem;color:var(--muted)}.pc{font:inherit;font-family:var(--mono);font-size:.8125rem;font-weight:700;padding:.3rem 0;border-radius:.4rem;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
 .pc small{font-size:.6rem;font-weight:400;color:var(--muted)}.pc[disabled]{color:var(--faint);cursor:default;background:transparent}
@@ -1437,7 +1437,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.77';
+const APP_VER='v05.78';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3091,7 +3091,7 @@ function weakHTML(m){
         <div class="viewer pose3d" data-pose="${m}"><div class="vload">3D モデルを読み込み中…</div></div>
         <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回り、数値を選ぶと機首の先へ寄ります。ダブルタップで元の位置へ。</span></div>
         ${octoHTML(m,pv)}
-        <div class="sub2">八角形は 8 方位。外側から 水平・機首上げ・機首下げ の 3 段、各段は上から 右バンク・水平・左バンク。中心は真上・真下。数字は正答率（%）。マスをタップすると 3D が寄ります。</div>`;
+        <div class="sub2">八角形は 8 方位。外側から 機首上げ・水平・機首下げ の 3 段。各段は左から 左バンク・水平・右バンク。中心は真上・真下。数字は正答率（%）。マスをタップすると 3D が寄ります。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3148,14 +3148,14 @@ function renderStatsPage(){
 function octoHTML(m,pv){
   const cx=110,cy=110,HJ=['北','北東','東','南東','南','南西','西','北西'];
   const P=(a,r)=>{const t=a*Math.PI/180;return `${(cx+r*Math.sin(t)).toFixed(1)},${(cy-r*Math.cos(t)).toFixed(1)}`};
-  const BANDS=[['',96,70],['上',70,44],['下',44,18]];   // [ピッチの接尾, 外の半径, 内の半径]
-  const ROWS=['右','水平','左'];
+  const BANDS=[['上',96,70],['',70,44],['下',44,18]];   // [ピッチの接尾, 外の半径, 内の半径]。外側から 機首上げ・水平・機首下げ（利用者の指示 2026-09-18）
+  const COLS=['左','水平','右'];   // 同じ段の中で 左バンク｜水平｜右バンク（くさびの左が左バンク、右が右バンク。利用者の指示 2026-09-18）
   let cells='',texts='';
-  HJ.forEach((hj,i)=>{const a0=i*45-22.5,a1=i*45+22.5,am=i*45;
-    BANDS.forEach(([suf,ro,ri])=>{const step=(ro-ri)/3;
-      ROWS.forEach((sd,k)=>{const rA=ro-step*k,rB=rA-step,dj=hj+suf,v=pv(dj,sd),ac=v&&v.n?v.c/v.n:null;
-        cells+=`<path d="M${P(a0,rA)} L${P(a1,rA)} L${P(a1,rB)} L${P(a0,rB)} Z" class="seg ${accCls(ac)}" data-pose3d="${dj}|${sd}"><title>${dj}・${sd==='水平'?'水平':sd+'バンク'} ${v?Math.round(ac*100)+'%（'+v.n+' 問）':'未出題'}</title></path>`;
-        if(v){const [x,y]=P(am,(rA+rB)/2).split(',');texts+=`<text x="${x}" y="${(+y+2).toFixed(1)}" text-anchor="middle" class="cv">${Math.round(ac*100)}</text>`}})});
+  HJ.forEach((hj,i)=>{const a0=i*45-22.5;
+    BANDS.forEach(([suf,ro,ri])=>{const dj=hj+suf;
+      COLS.forEach((sd,k)=>{const b0=a0+15*k,b1=b0+15,bm=b0+7.5,v=pv(dj,sd),ac=v&&v.n?v.c/v.n:null;
+        cells+=`<path d="M${P(b0,ro)} L${P(b1,ro)} L${P(b1,ri)} L${P(b0,ri)} Z" class="seg ${accCls(ac)}" data-pose3d="${dj}|${sd}"><title>${dj}・${sd==='水平'?'水平':sd+'バンク'} ${v?Math.round(ac*100)+'%（'+v.n+' 問）':'未出題'}</title></path>`;
+        if(v){const [x,y]=P(bm,(ro+ri)/2).split(',');texts+=`<text x="${x}" y="${(+y+1.8).toFixed(1)}" text-anchor="middle" class="cv${ro<50?' sm':''}">${Math.round(ac*100)}</text>`}})});
   });
   const lab=HJ.map((hj,i)=>{const [x,y]=P(i*45,104).split(',');return `<text x="${x}" y="${(+y+3.5).toFixed(1)}" text-anchor="middle" class="cl">${hj}</text>`}).join('');
   let center='';

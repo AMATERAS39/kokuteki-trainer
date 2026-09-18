@@ -718,12 +718,12 @@ ul.tips li{margin:.125rem 0}
 .pose3d{aspect-ratio:4/3;background:linear-gradient(#dfe5ec,#c3ccd6)}
 .poselg{display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center;font-size:.7rem;color:var(--muted);margin:.35rem 0}.poselg i{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.25rem;vertical-align:-.05rem}.poselg .sub2{flex-basis:100%;margin:0}
 .octow{margin:.5rem auto 0;width:min(100%,26rem)}.ltab{display:flex;width:max-content;margin:0 auto .35rem;padding:.2rem;border-radius:999px;background:var(--panel2);gap:.15rem}.ltab button{border:0;background:none;color:var(--muted);font:inherit;font-size:.8rem;padding:.32rem .95rem;border-radius:999px;cursor:pointer;transition:background .2s,color .2s}.ltab button.on{background:var(--panel);color:var(--text);font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.25)}
-.octo{display:block;width:100%;height:auto}.octo .gr{fill:none;stroke:var(--panel);stroke-width:2.2;stroke-linecap:round;pointer-events:none}.octo .gr2{fill:none;stroke:var(--panel);stroke-width:.9;pointer-events:none}
+.octo{display:block;width:100%;height:auto}.octo .gr{fill:none;stroke:var(--panel);stroke-width:1.8;stroke-linecap:round;pointer-events:none}.octo .gr2{fill:none;stroke:var(--panel);stroke-width:.8;pointer-events:none}
 .octo .cl{font-size:8px;font-weight:700;fill:var(--text)}.octo .cle{font-size:4.6px;letter-spacing:.12em;fill:var(--muted);font-family:var(--mono)}
 .octo g.lyr{opacity:0;transition:opacity .25s;pointer-events:none}.octo g.lyr.on{opacity:1;pointer-events:auto}
 .octo .seg{stroke:none;cursor:pointer;animation:none;transition:opacity .2s}.octo .seg.na{fill:rgba(120,135,150,.13)}.octo .seg:hover{opacity:.85}.octo .seg.sel{stroke:var(--text);stroke-width:1.8;stroke-linejoin:round}
-.octo .cv{font-size:6.4px;font-weight:600;fill:rgba(11,16,23,.85);font-family:var(--mono);pointer-events:none}
-.octo .pt{cursor:pointer}.octo .polec{fill:rgba(120,135,150,.13);stroke:none;transition:stroke .15s}.octo .pt.sel .polec{stroke:var(--text);stroke-width:1.8}.octo .pn{font-size:6.4px;font-weight:700;fill:rgba(11,16,23,.85);pointer-events:none}.octo .pv{font-size:6.4px;font-weight:600;fill:rgba(11,16,23,.85);font-family:var(--mono);pointer-events:none}.octo .pole.na .pn,.octo .pole.na .pv{fill:var(--muted)}
+.octo .cv{font-size:5.6px;font-weight:600;fill:#fff;font-family:var(--mono);pointer-events:none}
+.octo .pt{cursor:pointer}.octo .polec{fill:rgba(120,135,150,.13);stroke:none;transition:stroke .15s}.octo .pt.sel .polec{stroke:var(--text);stroke-width:1.8}.octo .pn{font-size:5.8px;font-weight:700;fill:#fff;pointer-events:none}.octo .pv{font-size:6px;font-weight:600;fill:#fff;font-family:var(--mono);pointer-events:none}.octo .pole.na .pn,.octo .pole.na .pv{fill:var(--muted)}
 .poseout{margin-top:.4rem;min-height:1.4rem;text-align:center}.poseout.on{color:var(--text);font-weight:700}
 .ptbl2{display:grid;gap:.15rem;margin-top:.25rem}.ptr{display:grid;grid-template-columns:4.2rem repeat(3,1fr);gap:.2rem;align-items:center}.pth span{font-size:.7rem;color:var(--muted);text-align:center}
 .ptr .pl{font-size:.8125rem;color:var(--muted)}.pc{font:inherit;font-family:var(--mono);font-size:.8125rem;font-weight:700;padding:.3rem 0;border-radius:.4rem;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
@@ -1443,7 +1443,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.83';
+const APP_VER='v05.84';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3097,7 +3097,7 @@ function weakHTML(m){
         <div class="viewer pose3d" data-pose="${m}"><div class="vload">3D モデルを読み込み中…</div></div>
         <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回り、頂点を選ぶと機首の先へ寄ります。選んだ頂点をもう一度タップすると元の位置へ。</span></div>
         ${octoHTML(m,pv)}
-        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、各方位は左から 左バンク・水平・右バンク の 3 マス。色と数字が正答率（赤 0% → 琥珀 50% → 青 100%。灰色は未出題）。真上・真下は機首上げ・機首下げの層の中心。マスをタップすると記録が下に出て 3D が寄り、もう一度タップすると戻ります。</div>`;
+        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、各方位は左から 左バンク・水平・右バンク の 3 マス。色と数字が正答率（ローズ 0% → スレート 50% → ティール 100%。薄い灰は未出題）。真上・真下は機首上げ・機首下げの層の中心。マスをタップすると記録が下に出て 3D が寄り、もう一度タップすると戻ります。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3154,15 +3154,15 @@ function renderStatsPage(){
    姿勢指示器は 真上 を機首上げの層、真下 を機首下げの層の中心に置く（球を上から見た極）。値は 3 つのバンクを合わせた正答率。
    利用者の決め（2026-09-18）: チャート（多角形）だと分かりづらいので表のまま */
 function octoHTML(m,pv){
-  const cx=125,cy=125,RO=104,RI=52,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
+  const cx=125,cy=125,RO=104,RI=90,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
   const P=(a,r)=>{const t=a*Math.PI/180;return `${(cx+r*Math.sin(t)).toFixed(1)},${(cy-r*Math.cos(t)).toFixed(1)}`};
   /* 八角形の辺の上の点: くさび i の辺（角 ±22.5° の 2 点を結ぶ直線）を角 a で内分。円弧にしないので角形になる */
   const Q=(i,a,r)=>{const a0=i*45-22.5,t=(a-a0)/45,[x0,y0]=P(a0,r).split(',').map(Number),[x1,y1]=P(a0+45,r).split(',').map(Number);return `${(x0+(x1-x0)*t).toFixed(1)},${(y0+(y1-y0)*t).toFixed(1)}`};
   const LAYERS=[['上','機首上げ'],['','水平'],['下','機首下げ']];
   const COLS=['左','水平','右'];   // 同じ方位の中で 左バンク｜水平｜右バンク
-  /* 色: 正答率で 赤 → 琥珀 → 青 の連続（色相で補間、彩度は抑えめ）。未出題は薄い灰 */
+  /* 色: 正答率で ローズ（0%）→ スレート（50%）→ ティール（100%）の落ち着いた発散配色（RGB で補間）。数字は白。未出題は薄い灰 */
   const mix=(c1,c2,t)=>c1.map((v,i)=>Math.round(v+(c2[i]-v)*t));
-  const col=ac=>{if(ac==null)return null;const R=[4,52,60],A=[40,62,62],B=[205,48,52];const c=ac<0.5?mix(R,A,ac/0.5):mix(A,B,(ac-0.5)/0.5);return `hsl(${c[0]} ${c[1]}% ${c[2]}%)`};
+  const col=ac=>{if(ac==null)return null;const R=[224,86,107],M=[107,122,143],T=[34,181,163];const c=ac<0.5?mix(R,M,ac/0.5):mix(M,T,(ac-0.5)/0.5);return `rgb(${c[0]} ${c[1]} ${c[2]})`};
   const lab=HJ.map((hj,i)=>{const [x,y]=P(i*45,116).split(',');return `<text x="${x}" y="${(+y+2.5).toFixed(1)}" text-anchor="middle" class="cl">${hj}</text><text x="${x}" y="${(+y+8.5).toFixed(1)}" text-anchor="middle" class="cle">${EN[i]}</text>`}).join('');
   /* 方位の境は少し太い線、バンクの境は細い線（どちらも背景色で、マスの隙間に見せる） */
   const guides=HJ.map((_,i)=>`<path d="M${P(i*45-22.5,RI)} L${P(i*45-22.5,RO)}" class="gr"/>`+[7.5,-7.5].map(o=>`<path d="M${Q(i,i*45+o,RI)} L${Q(i,i*45+o,RO)}" class="gr2"/>`).join('')).join('');
@@ -3173,7 +3173,7 @@ function octoHTML(m,pv){
         if(v){const [x,y]=Q(i,bm,(RO+RI)/2).split(',');texts+=`<text x="${x}" y="${(+y+2.3).toFixed(1)}" text-anchor="middle" class="cv">${Math.round(ac*100)}</text>`}})});
     let center='';
     if(m==='attitude'&&li!==1){const dj=li===0?'真上':'真下';let n=0,c=0;for(const sd of ['水平','右','左']){const v=pv(dj,sd);if(v&&v.n){n+=v.n;c+=v.c}}const ac=n?c/n:null,cc=col(ac);
-      center=`<g class="pt pole${cc?'':' na'}" data-pose3d="${dj}|水平"><circle cx="${cx}" cy="${cy}" r="24" class="polec" ${cc?`style="fill:${cc}"`:''}/><text x="${cx}" y="${cy-2}" text-anchor="middle" class="pn">${dj}</text><text x="${cx}" y="${cy+8}" text-anchor="middle" class="pv">${cc?Math.round(ac*100):'—'}</text><title>${dj} ${cc?Math.round(ac*100)+'%（'+n+' 問）':'未出題'}</title></g>`}
+      center=`<g class="pt pole${cc?'':' na'}" data-pose3d="${dj}|水平"><circle cx="${cx}" cy="${cy}" r="20" class="polec" ${cc?`style="fill:${cc}"`:''}/><text x="${cx}" y="${cy-1.5}" text-anchor="middle" class="pn">${dj}</text><text x="${cx}" y="${cy+7}" text-anchor="middle" class="pv">${cc?Math.round(ac*100):'—'}</text><title>${dj} ${cc?Math.round(ac*100)+'%（'+n+' 問）':'未出題'}</title></g>`}
     return `<g class="lyr${li===1?' on':''}" data-lyr="${li}"><g filter="url(#octosh)">${cells}${center}</g>${guides}${texts}</g>`}).join('');
   const tabs=`<div class="ltab" role="tablist">${LAYERS.map(([,nm],li)=>`<button type="button" role="tab" aria-selected="${li===1}" class="${li===1?'on':''}" data-lyr="${li}">${nm}</button>`).join('')}</div>`;
   return `<div class="octow posetbl">${tabs}<svg class="octo" viewBox="0 0 250 250" role="img" aria-label="方位とバンクごとの正答率"><defs><filter id="octosh" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#0b1017" flood-opacity=".18"/></filter></defs>${lab}${layers}</svg><div class="poseout sub2">マスをタップすると、ここに姿勢と記録が出ます。</div></div>`;

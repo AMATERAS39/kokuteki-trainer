@@ -717,10 +717,12 @@ ul.tips li{margin:.125rem 0}
 .wg2{font-size:.7rem;color:var(--muted);margin:.5rem 0 .1rem}
 .pose3d{aspect-ratio:4/3;background:linear-gradient(#dfe5ec,#c3ccd6)}
 .poselg{display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center;font-size:.7rem;color:var(--muted);margin:.35rem 0}.poselg i{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.25rem;vertical-align:-.05rem}.poselg .sub2{flex-basis:100%;margin:0}
-.octo{display:block;width:min(100%,26rem);height:auto;margin:.5rem auto 0}.octo .seg{stroke:none;cursor:pointer;animation:none;transition:opacity .2s}.octo .seg.na{fill:rgba(120,135,150,.13)}.octo .seg:hover{opacity:.85}
-.octo .seg.sel{stroke:#0b1017;stroke-width:1.6;stroke-linejoin:round}.octo .gr{fill:none;stroke:rgba(255,255,255,.75);stroke-width:1.1;stroke-linejoin:round;pointer-events:none}.octo .gr2{fill:none;stroke:rgba(255,255,255,.45);stroke-width:.5;pointer-events:none}
-.octo .hub{fill:var(--panel);stroke:rgba(120,135,150,.35);stroke-width:.8}
-.octo .cv{font-size:5px;font-weight:600;fill:rgba(11,16,23,.85);font-family:var(--mono);pointer-events:none}.octo .cl{font-size:8px;font-weight:700;fill:var(--text)}.octo .cle{font-size:4.6px;letter-spacing:.12em;fill:var(--muted);font-family:var(--mono)}
+.octow{margin:.5rem auto 0;width:min(100%,26rem)}.ltab{display:flex;width:max-content;margin:0 auto .35rem;padding:.2rem;border-radius:999px;background:var(--panel2);gap:.15rem}.ltab button{border:0;background:none;color:var(--muted);font:inherit;font-size:.8rem;padding:.32rem .95rem;border-radius:999px;cursor:pointer;transition:background .2s,color .2s}.ltab button.on{background:var(--panel);color:var(--text);font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.octo{display:block;width:100%;height:auto}.octo .gr{fill:none;stroke:var(--line2);stroke-width:.5;stroke-linejoin:round;opacity:.7;pointer-events:none}.octo .gro{stroke-width:.9;opacity:1}.octo .gl{font-size:4px;fill:var(--faint);font-family:var(--mono)}
+.octo .cl{font-size:8px;font-weight:700;fill:var(--text)}.octo .cle{font-size:4.6px;letter-spacing:.12em;fill:var(--muted);font-family:var(--mono)}
+.octo g.lyr{opacity:0;transition:opacity .25s;pointer-events:none}.octo g.lyr.on{opacity:1;pointer-events:auto}.octo .area{opacity:.14;stroke:none;pointer-events:none}.octo .line{fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.octo .pt{cursor:pointer}.octo .hit{fill:transparent}.octo .dot{stroke:var(--panel);stroke-width:1.2;transition:r .15s}.octo .pt:hover .dot,.octo .pt.sel .dot{r:5;stroke:var(--text);stroke-width:1.4}
+.poles{display:flex;justify-content:center;gap:.5rem;margin-top:.2rem}.poles .pole{border:1px solid var(--line2);background:var(--panel);color:var(--muted);font:inherit;font-size:.75rem;padding:.25rem .7rem;border-radius:999px;cursor:pointer}.poles .pole b{margin-left:.35rem;color:var(--text);font-family:var(--mono)}.poles .pole.sel{border-color:var(--text);color:var(--text)}.poles .pole.na{opacity:.6}
 .poseout{margin-top:.4rem;min-height:1.4rem;text-align:center}.poseout.on{color:var(--text);font-weight:700}
 .ptbl2{display:grid;gap:.15rem;margin-top:.25rem}.ptr{display:grid;grid-template-columns:4.2rem repeat(3,1fr);gap:.2rem;align-items:center}.pth span{font-size:.7rem;color:var(--muted);text-align:center}
 .ptr .pl{font-size:.8125rem;color:var(--muted)}.pc{font:inherit;font-family:var(--mono);font-size:.8125rem;font-weight:700;padding:.3rem 0;border-radius:.4rem;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
@@ -1440,7 +1442,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.80';
+const APP_VER='v05.81';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3090,11 +3092,11 @@ function weakHTML(m){
       const DIRS26=['北','北上','北下','北東','北東上','北東下','東','東上','東下','南東','南東上','南東下','南','南上','南下','南西','南西上','南西下','西','西上','西下','北西','北西上','北西下'].concat(m==='attitude'?['真上','真下']:[]);
       const SIDES=['水平','右','左'];
       const pv=(dj,sd)=>w['姿勢|'+dj+'|'+sd];
-      h+=`<div class="wg2">姿勢のレーダー（頂点をタップ、または下の表の数値をタップ）</div>
+      h+=`<div class="wg2">姿勢のレーダー（頂点をタップ、または下のチャートの頂点をタップ）</div>
         <div class="viewer pose3d" data-pose="${m}"><div class="vload">3D モデルを読み込み中…</div></div>
         <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回り、数値を選ぶと機首の先へ寄ります。ダブルタップで元の位置へ。</span></div>
         ${octoHTML(m,pv)}
-        <div class="sub2">八角形は 8 方位。細い環が外側から 機首上げ・水平・機首下げ の 3 段。各段は左から 左バンク・水平・右バンク。中心は真上・真下。色が正答率（赤 0% → 琥珀 50% → 緑 → 青 100%。灰色は未出題）、数字は %。マスをタップすると記録が下に出て、3D が寄ります。</div>`;
+        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、中心からの距離が正答率（外側ほど正解）。緑が左バンク、橙が水平、青が右バンク。未出題の方位には頂点がありません。頂点をタップすると記録が下に出て、3D が寄ります。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3146,38 +3148,30 @@ function renderStatsPage(){
   if(statsViewer){statsViewer.dispose();statsViewer=null;statsViewerHost=null}
   page.innerHTML=h;wire3D(page);initPose3D(page);$('#stBack').addEventListener('click',()=>{location.hash='#home'});
 }
-/* 八角形の表（v05.77）: 8 方位のくさび × 3 段（外側から 水平・上げ・下げ）× 3 行（右・水平・左）。中心は真上・真下（姿勢指示器だけ）。
-   直線の八角形の帯で描く。マスは data-pose3d を持ち、タップで 3D が寄る */
+/* 八角形チャート（v05.81）: 機首上げ・水平・機首下げ の 3 層を上のボタンで切り替えて見る。各層は 8 方位の八角形レーダーで、
+   左バンク・水平・右バンク の 3 本の多角形（中心からの距離 ＝ 正答率）。頂点をタップすると 3D がその姿勢になる。
+   未出題の方位は頂点を置かず、線もつながない。姿勢指示器は 真上・真下 をチャートの下の札で */
 function octoHTML(m,pv){
-  const cx=125,cy=125,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
+  const cx=125,cy=125,R=96,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
   const P=(a,r)=>{const t=a*Math.PI/180;return `${(cx+r*Math.sin(t)).toFixed(1)},${(cy-r*Math.cos(t)).toFixed(1)}`};
-  /* 八角形の辺の上の点: くさび i（中心角 i×45°）の辺（角 ±22.5° の 2 点を結ぶ直線）を、角 a の位置で内分する。円弧にしないので外周が角形になる */
-  const Q=(i,a,r)=>{const a0=i*45-22.5,t=(a-a0)/45,[x0,y0]=P(a0,r).split(',').map(Number),[x1,y1]=P(a0+45,r).split(',').map(Number);return `${(x0+(x1-x0)*t).toFixed(1)},${(y0+(y1-y0)*t).toFixed(1)}`};
-  /* 3 段は同じ幅の細い環（ダーツの的のように内側を狭くしない）。環の間は 5 空けて背景を見せる。中心は空けて 真上・真下 だけ置く（v05.80） */
-  const BANDS=[['上',108,94],['',89,75],['下',70,56]];   // [ピッチの接尾, 外の半径, 内の半径]。外側から 機首上げ・水平・機首下げ
-  const COLS=['左','水平','右'];   // 同じ段の中で 左バンク｜水平｜右バンク
-  /* 色: 正答率で 赤 → 琥珀 → 青 の連続。未出題は薄い灰 */
-  const mix=(c1,c2,t)=>c1.map((v,i)=>Math.round(v+(c2[i]-v)*t));
-  /* 色相で補間（赤 4° → 琥珀 42° → 緑を経て 青 205°）。RGB の直線補間だと琥珀と青の間が濁る */
-  const col=ac=>{if(ac==null)return null;const R=[4,52,60],A=[40,62,62],B=[205,48,52];   /* 彩度を抑えて落ち着いた色に */const c=ac<0.5?mix(R,A,ac/0.5):mix(A,B,(ac-0.5)/0.5);return `hsl(${c[0]} ${c[1]}% ${c[2]}%)`};
-  let cells='',texts='';
-  HJ.forEach((hj,i)=>{const a0=i*45-22.5;
-    BANDS.forEach(([suf,ro,ri])=>{const dj=hj+suf;
-      COLS.forEach((sd,k)=>{const b0=a0+15*k,b1=b0+15,bm=b0+7.5,v=pv(dj,sd),ac=v&&v.n?v.c/v.n:null,c=col(ac);
-        cells+=`<path d="M${Q(i,b0,ro)} L${Q(i,b1,ro)} L${Q(i,b1,ri)} L${Q(i,b0,ri)} Z" class="seg${c?'':' na'}" ${c?`style="fill:${c}"`:''} data-pose3d="${dj}|${sd}"><title>${dj}・${sd==='水平'?'水平':sd+'バンク'} ${v?Math.round(ac*100)+'%（'+v.n+' 問）':'未出題'}</title></path>`;
-        if(v){const [x,y]=Q(i,bm,(ro+ri)/2).split(',');texts+=`<text x="${x}" y="${(+y+2).toFixed(1)}" text-anchor="middle" class="cv">${Math.round(ac*100)}</text>`}})});
-  });
-  /* 線の階層: 段の境は環の隙間、方位の境（放射）は少し濃い線、バンクの境は細く薄い線。線は環ごとに引き、隙間には引かない */
-  let guides='';
-  BANDS.forEach(([,ro,ri])=>{guides+=HJ.map((_,i)=>`<path d="M${P(i*45-22.5,ri)} L${P(i*45-22.5,ro)}" class="gr"/>`).join('');
-    guides+=HJ.map((_,i)=>[7.5,-7.5].map(o=>`<path d="M${Q(i,i*45+o,ri)} L${Q(i,i*45+o,ro)}" class="gr2"/>`).join('')).join('')});
-  const lab=HJ.map((hj,i)=>{const [x,y]=P(i*45,117).split(',');return `<text x="${x}" y="${(+y+2.5).toFixed(1)}" text-anchor="middle" class="cl">${hj}</text><text x="${x}" y="${(+y+8.5).toFixed(1)}" text-anchor="middle" class="cle">${EN[i]}</text>`}).join('');
-  let center='';
-  if(m==='attitude'){for(const [dj,d] of [['真上',`M${cx-18},${cy} A18,18 0 0 1 ${cx+18},${cy} Z`],['真下',`M${cx+18},${cy} A18,18 0 0 1 ${cx-18},${cy} Z`]]){const v=pv(dj,'水平'),ac=v&&v.n?v.c/v.n:null,c=col(ac);
-    center+=`<path d="${d}" class="seg${c?'':' na'}" ${c?`style="fill:${c}"`:''} data-pose3d="${dj}|水平"><title>${dj} ${v?Math.round(ac*100)+'%（'+v.n+' 問）':'未出題'}</title></path>`}
-    center+=`<path d="M${cx-18},${cy} L${cx+18},${cy}" class="gr"/>`+(pv('真上','水平')?`<text x="${cx}" y="${cy-6}" text-anchor="middle" class="cv">${Math.round(pv('真上','水平').c/pv('真上','水平').n*100)}</text>`:'')+(pv('真下','水平')?`<text x="${cx}" y="${cy+10}" text-anchor="middle" class="cv">${Math.round(pv('真下','水平').c/pv('真下','水平').n*100)}</text>`:'');}
-  else center='';
-  return `<svg class="octo posetbl" viewBox="0 0 250 250" role="img" aria-label="方位と姿勢ごとの正答率"><defs><filter id="octosh" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#0b1017" flood-opacity=".18"/></filter></defs><g filter="url(#octosh)">${cells}${center}</g>${guides}${lab}${texts}</svg><div class="poseout sub2">マスをタップすると、ここに姿勢と記録が出ます。</div>`;
+  const LAYERS=[['上','機首上げ'],['','水平'],['下','機首下げ']];
+  const SER=[['左','#45c48c'],['水平','#e6a24a'],['右','#5aa8ec']];   /* 3D の多面体と同じ色分け */
+  const oct=r=>HJ.map((_,i)=>(i?'L':'M')+P(i*45,r)).join(' ')+' Z';
+  let grid=[24,48,72,96].map((r,j)=>`<path d="${oct(r)}" class="gr${j===3?' gro':''}"/>`).join('')+HJ.map((_,i)=>`<path d="M${cx},${cy} L${P(i*45,R)}" class="gr"/>`).join('');
+  grid+=[50,100].map(pc=>{const [x,y]=P(0,R*pc/100).split(',');return `<text x="${(+x+2).toFixed(1)}" y="${(+y-1.5).toFixed(1)}" class="gl">${pc}</text>`}).join('');
+  const lab=HJ.map((hj,i)=>{const [x,y]=P(i*45,113).split(',');return `<text x="${x}" y="${(+y+2.5).toFixed(1)}" text-anchor="middle" class="cl">${hj}</text><text x="${x}" y="${(+y+8.5).toFixed(1)}" text-anchor="middle" class="cle">${EN[i]}</text>`}).join('');
+  const layers=LAYERS.map(([suf],li)=>{let g='';
+    SER.forEach(([sd,c])=>{const pts=HJ.map((hj,i)=>{const dj=hj+suf,v=pv(dj,sd);if(!v||!v.n)return null;const ac=v.c/v.n;return {dj,v,ac,xy:P(i*45,R*ac)}});
+      const have=pts.filter(Boolean);
+      if(have.length>=3)g+=`<path d="M${have.map(p=>p.xy).join(' L')} Z" class="area" style="fill:${c}"/>`;
+      let ln='';pts.forEach((p,i)=>{const q=pts[(i+1)%8];if(p&&q)ln+=`M${p.xy} L${q.xy} `});if(ln)g+=`<path d="${ln.trim()}" class="line" style="stroke:${c}"/>`;
+      pts.forEach(p=>{if(!p)return;const [x,y]=p.xy.split(',');g+=`<g class="pt" data-pose3d="${p.dj}|${sd}"><circle cx="${x}" cy="${y}" r="9" class="hit"/><circle cx="${x}" cy="${y}" r="3.2" class="dot" style="fill:${c}"/><title>${p.dj}・${sd==='水平'?'水平':sd+'バンク'} ${Math.round(p.ac*100)}%（${p.v.n} 問）</title></g>`});
+    });
+    return `<g class="lyr${li===1?' on':''}" data-lyr="${li}">${g}</g>`}).join('');
+  const tabs=`<div class="ltab" role="tablist">${LAYERS.map(([,nm],li)=>`<button type="button" role="tab" aria-selected="${li===1}" class="${li===1?'on':''}" data-lyr="${li}">${nm}</button>`).join('')}</div>`;
+  let poles='';
+  if(m==='attitude'){poles=`<div class="poles">${[['真上',0],['真下',2]].map(([dj,li])=>{const v=pv(dj,'水平'),ac=v&&v.n?v.c/v.n:null;return `<button type="button" class="pole${ac==null?' na':''}" data-pose3d="${dj}|水平" data-lyr="${li}">${dj}<b>${ac==null?'—':Math.round(ac*100)+'%'}</b></button>`}).join('')}</div>`}
+  return `<div class="octow posetbl">${tabs}<svg class="octo" viewBox="0 0 250 250" role="img" aria-label="方位とバンクごとの正答率">${grid}${lab}${layers}</svg>${poles}<div class="poseout sub2">頂点をタップすると、ここに姿勢と記録が出ます。</div></div>`;
 }
 /* 姿勢のレーダーの 3D。種目（姿勢指示器・複合）ごとに 1 つ。記録の画面を離れたら捨てる */
 const poseViewers=[];
@@ -3188,15 +3182,19 @@ async function initPose3D(page){
     const m=host.dataset.pose,w=weak[m]||{};
     const tbl=host.parentElement.querySelector('.posetbl');
     let v=null;
+    /* 層の切り替え（機首上げ・水平・機首下げ）。3D の頂点や真上・真下の札から選んだときも、その層へ切り替える */
+    const showLayer=li=>{tbl.querySelectorAll('.ltab button').forEach(b=>{const on=+b.dataset.lyr===li;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});tbl.querySelectorAll('g.lyr').forEach(g=>g.classList.toggle('on',+g.dataset.lyr===li))};
+    tbl.querySelectorAll('.ltab button').forEach(b=>b.addEventListener('click',()=>showLayer(+b.dataset.lyr)));
     const select=(key)=>{
       const [dj,sd]=key.split('|'),d=dirOf(dj);if(!d||!v)return;
+      showLayer(dj.endsWith('上')?0:dj.endsWith('下')?2:1);
       const rec=w['姿勢|'+dj+'|'+sd],b=sd==='右'?30:sd==='左'?-30:0;
       v.setDirBank(d.heading==null?0:d.heading,d.pitch,b);v.highlight(key);v.focusNose();   /* チャートを消して機首の先へ寄る（ダブルタップで戻る） */
       const txt=rec?`${dj}・${sd==='水平'?'水平':sd+'バンク'}　${Math.round(rec.c/rec.n*100)}%（${rec.n} 問・平均 ${(rec.t/rec.n).toFixed(1)} s）`:`${dj}・${sd==='水平'?'水平':sd+'バンク'}　未出題`;
       v.setNoseLabel(txt);const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent=txt;ro.classList.add('on')}
       tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const btn=tbl.querySelector(`[data-pose3d="${key}"]`);if(btn)btn.classList.add('sel');
     };
-    try{const mod=await import('./viewer.js?v=9');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent='マスをタップすると、ここに姿勢と記録が出ます。';ro.classList.remove('on')}}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
+    try{const mod=await import('./viewer.js?v=9');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent='頂点をタップすると、ここに姿勢と記録が出ます。';ro.classList.remove('on')}}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
     catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;continue}
     /* レーダー: 8 方位 × 上・水平・下 の 24 頂点（姿勢指示器は真上・真下の 2 極も）。半径 ＝ 2.5 + 5.5 × 正答率（未出題は 2.5）。水平・右・左の 3 枚 */
     const HJ=['北','北東','東','南東','南','南西','西','北西'],PITCH=[[30,'上'],[0,''],[-30,'下']],poles=m==='attitude';

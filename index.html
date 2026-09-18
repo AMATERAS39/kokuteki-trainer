@@ -702,6 +702,8 @@ ul.tips li{margin:.125rem 0}
 .trend .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.2s ease-out .1s both}
 .wtop{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
 .wbadge{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:.75rem;border:1px solid var(--line);background:var(--panel2);font-size:.75rem;color:var(--muted);line-height:1.4}
+.wimg{display:block;width:4rem;height:4rem;flex:none;border-radius:.5rem;overflow:hidden;background:#dfe5ec}.wimg img{display:block;width:100%;height:100%;object-fit:cover;transform:scale(2.3)}   /* 出題の絵は機体が小さいので中央を拡大 */
+.wbadge .wimg{margin-left:auto}.wrow.wrow-img{grid-template-columns:2.6rem minmax(5rem,7rem) 1fr auto}.wimg.s{width:2.6rem;height:2.6rem;border-radius:.35rem}
 .wbadge b{color:var(--text);font-size:.8125rem}.wbadge small{font-size:.7rem;color:var(--muted)}
 .wbadge .wk{font-family:var(--mono);font-size:.625rem;letter-spacing:.14em;padding:.15rem .4rem;border-radius:.3rem;border:1px solid currentColor;color:var(--muted)}
 .wbadge.lo .wk{color:#d9534f}.wbadge.hi .wk{color:var(--accent)}.wbadge.lo{border-left:.125rem solid #d9534f}.wbadge.hi{border-left:.125rem solid var(--accent)}
@@ -1435,7 +1437,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.97';
+const APP_VER='v05.98';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3087,6 +3089,17 @@ function wedge(cx,cy,i,ri,ro){const a0=(i*45-22.5-90)*Math.PI/180,a1=(i*45+22.5-
   return `M${P(ri,a0)} L${P(ro,a0)} A${ro} ${ro} 0 0 1 ${P(ro,a1)} L${P(ri,a1)} A${ri} ${ri} 0 0 0 ${P(ri,a0)} Z`}
 const polar=(cx,cy,i,r)=>{const a=(i*45-90)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)]};
 const tip=(k,v)=>`<title>${esc(k)} ${v&&v.n?pct(v.c/v.n)+'（'+v.n+' 問・平均 '+(v.t/v.n).toFixed(1)+' s）':'未出題'}</title>`;
+/* 苦手の型を出題の絵で見せる（v05.98、利用者「苦手な機体の状態の見え方（出題画面）くらいは見たいかも。文字だけじゃイメージしづらい」）。
+   切り口の値から代表の絵（img/bi-*.webp、出題と同じ）を選ぶ。絵のない切り口（操縦操作の①の姿勢など）は null */
+const HJID={'北':'north','北東':'ne','東':'east','南東':'se','南':'south','南西':'sw','西':'west','北西':'nw'};
+function weakImg(g,k){
+  let id=null,bank='';
+  if(g==='見え方')id={'向こう向き（北側）':'north','こちら向き（南側）':'south','横向き（東・西）':'east','真上・真下':'up'}[k];
+  else if(g==='機首の上下')id=k==='機首上げ'?'north_up':k==='機首下げ'?'north_down':'north';
+  else if(g==='傾き'){id='north';bank=k==='右バンク'?'-r30':k==='左バンク'?'-l30':''}
+  else if(g==='組み合わせ'){const [hj,att]=k.split('|');id=HJID[hj];if(!id)return null;if(/機首上げ/.test(att))id+='_up';else if(/機首下げ/.test(att))id+='_down';bank=/右バンク/.test(att)?'-r30':/左バンク/.test(att)?'-l30':''}
+  return id?`img/bi-${id}${bank}.webp`:null;
+}
 function weakHTML(m){
   const w=weak[m]||{};if(!Object.keys(w).length)return '';
   const get=(g,k)=>w[g+'|'+k],acc=v=>v&&v.n?v.c/v.n:null;
@@ -3095,7 +3108,7 @@ function weakHTML(m){
   const all=Object.entries(w).filter(([k,v])=>v.n>=3&&!/^(誤り|部分|組み合わせ)\|/.test(k)).map(([k,v])=>({g:k.split('|')[0],k:k.split('|')[1],acc:v.c/v.n,n:v.n})).sort((a,b)=>a.acc-b.acc);
   /* 苦手は 1 つではなく、基準（70% 以下、3 問以上）を下回ったものを全部（正答率の低い順。利用者の指示 2026-09-18）。得意はいちばん高いもの 1 つ */
   let h='<div class="wtop">';const weakL=all.filter(x=>x.acc<=0.7);
-  if(weakL.length)h+=weakL.map((x,i)=>`<div class="wbadge lo pop" style="--i:${i}"><span class="wk">苦手</span><span><b>${esc(x.k)}</b><small>（${esc(x.g)}）</small><br>${pct(x.acc)}・${x.n} 問</span></div>`).join('');
+  if(weakL.length)h+=weakL.map((x,i)=>{const im=weakImg(x.g,x.k);return `<div class="wbadge lo pop" style="--i:${i}"><span class="wk">苦手</span><span><b>${esc(x.k)}</b><small>（${esc(x.g)}）</small><br>${pct(x.acc)}・${x.n} 問</span>${im?`<span class="wimg"><img src="${im}" alt="${esc(x.k)}の出題の絵" loading="lazy"></span>`:''}</div>`}).join('');
   else h+=`<div class="wbadge pop"><span class="wk">苦手</span><span><b>なし</b><br>3 問以上解いた型は、どれも 70% を超えています</span></div>`;
   const best=all.length?all[all.length-1]:null;
   if(best&&best.acc>=0.8&&all.length>1)h+=`<div class="wbadge hi pop" style="--i:${weakL.length}"><span class="wk">得意</span><span><b>${esc(best.k)}</b><small>（${esc(best.g)}）</small><br>${pct(best.acc)}・${best.n} 問</span></div>`;
@@ -3135,9 +3148,9 @@ function weakHTML(m){
       h+=`<div class="whint">${esc(v)}</div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
-      const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
+      const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({raw:k.slice(6),k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
       if(!C.length)h+=`<div class="sub2">2 問以上出て落とした組み合わせは、まだありません。</div>`;
-      else h+=C.map((x,i)=>`<div class="wrow"><span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`).join('')+`<div class="sub2">2 問以上出た組み合わせのうち、正答率の低い順。</div>`;
+      else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">2 問以上出た組み合わせのうち、正答率の低い順。絵は出題と同じ見え方（バンクは 30° の例）。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};

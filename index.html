@@ -338,9 +338,12 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .formmenu .mclose .ic{width:1rem;height:1rem;color:var(--muted)}
 .formmenu button.sel{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text)}
 @media (orientation:portrait){.formwrap.landscape{display:none}}
-@media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse),(min-width:64rem) and (orientation:landscape){.simbar .portrait{display:none}}
+@media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse),(min-width:64rem) and (orientation:landscape){.simbar .portrait,.sim .acts .portrait{display:none}}
 /* 縦画面は試験対策のシミュレーターとして簡素に。編隊のスモークなど遊びの操作は横画面だけ */
 @media (orientation:portrait){.simbar #simSmoke,.simbar #simColor{display:none}}
+/* v06.01 縦画面は学習用の最低限: 道具の列は出さず、視界の右下に 水平・初期位置 だけ。視点は一人称固定（ボタンなし）。計器は小さめにして視界を縦に大きく取る（利用者「縦画面の画面が縦に小さい」） */
+.sim .pbar{display:none;position:absolute;right:.5rem;bottom:.5rem;z-index:6;gap:.4rem}.sim .pbar .iconbtn{background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.25);color:#fff}
+@media (orientation:portrait){.sim .simbar{display:none}.sim .pbar{display:flex}.sim .instrow{margin-top:.4rem;gap:1rem}.sim .instrow .inst{height:clamp(3.5rem,9dvh,5.5rem)}.sim .ctl{margin-top:.25rem}.sim .rotate{margin-top:.25rem}.sim .acts{margin-top:.4rem}}
 /* ===== 横画面のシミュレーター: 操作に集中できるよう、視界を画面いっぱいにして操縦桿とペダルを重ねる ===== */
 @media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse),(min-width:64rem) and (orientation:landscape){
   body[data-view="train"][data-phase="sim"]{height:100dvh;padding:0;overflow:hidden}
@@ -1441,7 +1444,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.00';
+const APP_VER='v06.01';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1892,6 +1895,7 @@ function runSim(opt){applyScene();
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="showname" id="showName" hidden></div>
       <div class="pausemsg" id="pauseMsg" hidden>一時停止中（画面を 2 回叩くと再開）</div>
+      <div class="pbar"><button class="iconbtn" id="pLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button><button class="iconbtn" id="pHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button></div>   <!-- 縦画面だけ。学習に要る最低限（v06.01） -->
       <div class="trickdesc" id="trickDesc" hidden></div>
       <button class="iconbtn landback" id="simBack" aria-label="一つ前に戻る" title="一つ前（シミュレーターの設定）に戻る"><svg class="ic"><use href="#i-back"/></svg></button>
       <button class="btn takeoff" id="simTakeoff" hidden>テイクオフ</button>
@@ -1914,7 +1918,6 @@ function runSim(opt){applyScene();
       <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技（押すと一覧。押したまま技のほうへなぞって離すとホイール）"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
-      <button class="btn ghost sm portrait" id="simBack2">選択に戻る</button>
       <button class="iconbtn showui" id="simUI" aria-label="操作一覧を出す／しまう" title="操作一覧を出す／しまう"><svg class="ic"><use href="#i-cog"/></svg></button>
       <button class="iconbtn showui landscape" id="simSmall" aria-label="画面を小さくする" title="戻る・計測へ進むを出す"><svg class="ic"><use href="#i-vthird"/></svg></button>
       <button class="iconbtn" id="simSkipIn" aria-label="開始位置へ" title="進入を飛ばして、技の開始位置へ" hidden><svg class="ic"><use href="#i-next"/></svg></button>
@@ -1931,7 +1934,7 @@ function runSim(opt){applyScene();
     <div class="viewhint keyhint">2 回クリックで一時停止　カーソルを動かすと見回し　ホイールで機首の上げ下げ</div>
     <div class="rotate">端末を横にすると、視界が画面いっぱいになります</div>
     <div class="pchint">PC: 操縦桿 W（奥）S（手前）A（左）D（右）、斜めは Q・E・Z・C／ホイール奥・手前　方向舵 O（左）P（右）／視界の上で右クリック　スモーク スペース</div>
-    <div class="acts row3"><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
+    <div class="acts row3"><button class="btn ghost portrait" id="simBack2">選択に戻る</button><button class="btn" id="simGo">計測へ進む${ic('next','s')}</button></div>`;
   sim={h:null,keys:new Set(),ptr:null,rud:new Map(),wheelDir:0,wheelUntil:0};
   /* 操縦桿（左）: 円の中でドラッグ。上 = 奥（機首下げ）、右 = 右バンク。離すと中央に戻る */
   const stick=$('#stick'),knob=$('#knob');
@@ -2104,7 +2107,7 @@ function runSim(opt){applyScene();
     ['third','後方','i-vthird'],['front','前方','i-vfront'],['ground','地上','i-vground']];
   /* 縦画面は学習の画面なので、一人称は計器だけの見せ方に固定し、機外の視点も後方までにする */
   const portraitNow=()=>matchMedia('(orientation:portrait)').matches;
-  const viewList=()=>portraitNow()?[VIEWS[1],VIEWS[2]]:VIEWS;
+  const viewList=()=>portraitNow()?[VIEWS[1]]:VIEWS;   /* v06.01: 縦画面は常に一人称（利用者の指示 2026-09-18） */
   const vBtn=$('#simViewBtn');
   const curItem=()=>VIEWS.find(x=>x[0]===sim.viewName&&(x[0]!=='first'||x[3]===sim.fpMode))||VIEWS[1];
   const paintViewBtn=()=>{const it=curItem();
@@ -2164,6 +2167,7 @@ function runSim(opt){applyScene();
   /* 進入を飛ばす: 技をひとつだけ行うとき（展示飛行モードでないとき）だけ出す。押すと開始位置から始まる */
   $('#simSkipIn').addEventListener('click',()=>{if(sim.h&&sim.h.skipEntry())toast('開始位置へ')});
   $('#simLevel').addEventListener('click',()=>{if(sim.h)sim.h.level()});
+  $('#pLevel').addEventListener('click',()=>$('#simLevel').click());$('#pHome').addEventListener('click',()=>$('#simHome').click());
   /* 初期位置に戻す: 地上から見ているときは、視点（立ち位置と向き）を原点へ戻す。それ以外は機体を戻す */
   $('#simHome').addEventListener('click',()=>{if(!sim.h)return;
     if(sim.viewName==='ground'&&sim.h.groundReset){sim.h.groundReset();toast('視点を原点に戻しました')}else sim.h.home()});

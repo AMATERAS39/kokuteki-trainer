@@ -1442,7 +1442,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.87';
+const APP_VER='v05.88';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3201,31 +3201,21 @@ async function initPose3D(page){
     };
     try{const mod=await import('./viewer.js?v=10');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{curKey=null;tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent='頂点をタップすると、ここに姿勢と記録が出ます。';ro.classList.remove('on')}}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
     catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;continue}
-    /* レーダー（v05.87）: 球状の面。記録は 8 方位 × 上(+30°)・水平・下(−30°) の 24 点（姿勢指示器は真上・真下の 2 極も）で、
-       半径 ＝ 8 × 正答率（未出題・0% は 0 ＝ 機体の中心に収束）。面は緯度 15° × 経度 22.5° の網で、半径は記録から補間する
-       （経度は隣の方位と線形、緯度は 上・水平・下 の間で線形、±30° より外は 上/下 と極の間で線形。複合は極の記録がないので 上/下 の平均を極に使う）。
-       利用者の指摘 2026-09-18「3D モデルが球状になっておらず円柱状になっている。未出題や 0% は機体の中心で一点に収束しているはず」 */
+    /* レーダー（v05.88）: 記録の点をそのままつなぐ多面体。8 方位 × 上(+30°)・水平・下(−30°) の 24 点（姿勢指示器は真上・真下の 2 極も。
+       複合は極の記録がないので中心を蓋の頂点にする）。半径 ＝ 8 × 正答率、未出題・0% は 0 ＝ 機体の中心。
+       補間して膨らませない（利用者の指示 2026-09-18「点と点は繋ぐが、北しか出題されていない時は変に膨らむ必要はない。線が突出したみたいになるはず」）。
+       以前の円柱に見えた原因は最小半径 2.5 の帯（v05.75〜86）。 */
     const HJ=['北','北東','東','南東','南','南西','西','北西'],PITCH=[[30,'上'],[0,''],[-30,'下']],poles=m==='attitude';
     const dirV=(hd,pc)=>{const D=Math.PI/180;return [Math.sin(hd*D)*Math.cos(pc*D),Math.cos(hd*D)*Math.cos(pc*D),Math.sin(pc*D)]};
     const shapes=[];const COL={'水平':0xf2b56a,'右':0x7dbcff,'左':0x6fd6a8};const RMAX=8;
     for(const sd of ['水平','右','左']){
       const acc=dj=>{const rec=w['姿勢|'+dj+'|'+sd];return rec&&rec.n?rec.c/rec.n:0};
-      const ring=PITCH.map(([,suf])=>HJ.map(hj=>acc(hj+suf)));   // [上, 水平, 下][方位]
-      const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
-      const pole=[poles?acc('真上'):avg(ring[0]),poles?acc('真下'):avg(ring[2])];
-      /* 緯度 lat（−90〜90）・経度 lon（0〜360）の正答率 */
-      const f=(lat,lon)=>{const h=((lon%360)+360)%360/45,i=Math.floor(h)%8,t=h-Math.floor(h);const at=r=>r[i]*(1-t)+r[(i+1)%8]*t;
-        if(lat>=30){const k=(lat-30)/60;return at(ring[0])*(1-k)+pole[0]*k}
-        if(lat<=-30){const k=(-lat-30)/60;return at(ring[2])*(1-k)+pole[1]*k}
-        if(lat>=0){const k=lat/30;return at(ring[1])*(1-k)+at(ring[0])*k}
-        const k=-lat/30;return at(ring[1])*(1-k)+at(ring[2])*k};
-      const points=[],tris=[];const NLA=12,NLO=16;   // 緯度の段（15° 刻み）、経度の刻み（22.5°）
-      for(let a=0;a<=NLA;a++){const lat=-90+180*a/NLA;for(let o=0;o<NLO;o++){const lon=360*o/NLO,r=RMAX*f(lat,lon),[x,y,z]=dirV(lon,lat);points.push({x:x*r,y:y*r,z:z*r})}}
-      const idx=(a,o)=>a*NLO+(o%NLO);
-      for(let a=0;a<NLA;a++)for(let o=0;o<NLO;o++){tris.push([idx(a,o),idx(a+1,o),idx(a+1,o+1)]);tris.push([idx(a,o),idx(a+1,o+1),idx(a,o+1)])}
-      /* タップできる印: 記録のある向きの 24（＋2）点 */
+      const points=[],tris=[];const idx=(ri,hi)=>ri*8+(hi%8);
       PITCH.forEach(([pc,suf])=>HJ.forEach((hj,hi)=>{const dj=hj+suf,r=RMAX*acc(dj);const [x,y,z]=dirV(hi*45,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}));
-      if(poles)for(const [dj,pc] of [['真上',90],['真下',-90]]){const r=RMAX*acc(dj);const [x,y,z]=dirV(0,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}
+      for(let ri=0;ri<2;ri++)for(let hi=0;hi<8;hi++){tris.push([idx(ri,hi),idx(ri+1,hi),idx(ri+1,hi+1)]);tris.push([idx(ri,hi),idx(ri+1,hi+1),idx(ri,hi+1)])}
+      if(poles){for(const [dj,pc] of [['真上',90],['真下',-90]]){const r=RMAX*acc(dj);const [x,y,z]=dirV(0,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}}
+      else{points.push({x:0,y:0,z:0});points.push({x:0,y:0,z:0})}   /* 複合: 蓋の頂点は中心（印は付かない） */
+      const up=24,dn=25;for(let hi=0;hi<8;hi++){tris.push([up,idx(0,hi+1),idx(0,hi)]);tris.push([dn,idx(2,hi),idx(2,hi+1)])}
       shapes.push({id:sd,color:COL[sd],opacity:0.16,points,tris});
     }
     v.setShapes(shapes);

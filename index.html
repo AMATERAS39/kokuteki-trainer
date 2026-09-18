@@ -722,7 +722,7 @@ ul.tips li{margin:.125rem 0}
 .octo .cl{font-size:8px;font-weight:700;fill:var(--text)}.octo .cle{font-size:4.6px;letter-spacing:.12em;fill:var(--muted);font-family:var(--mono)}
 .octo g.lyr{opacity:0;transition:opacity .25s;pointer-events:none}.octo g.lyr.on{opacity:1;pointer-events:auto}.octo .area{opacity:.14;stroke:none;pointer-events:none}.octo .line{fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .octo .pt{cursor:pointer}.octo .hit{fill:transparent}.octo .dot{stroke:var(--panel);stroke-width:1.2;transition:r .15s}.octo .pt:hover .dot,.octo .pt.sel .dot{r:5;stroke:var(--text);stroke-width:1.4}
-.poles{display:flex;justify-content:center;gap:.5rem;margin-top:.2rem}.poles .pole{border:1px solid var(--line2);background:var(--panel);color:var(--muted);font:inherit;font-size:.75rem;padding:.25rem .7rem;border-radius:999px;cursor:pointer}.poles .pole b{margin-left:.35rem;color:var(--text);font-family:var(--mono)}.poles .pole.sel{border-color:var(--text);color:var(--text)}.poles .pole.na{opacity:.6}
+.octo .polec{fill:var(--panel);stroke:var(--line2);stroke-width:.9;transition:stroke .15s}.octo .pt.sel .polec{stroke:var(--text);stroke-width:1.4}.octo .pn{font-size:5.5px;font-weight:700;fill:var(--text);pointer-events:none}.octo .pv{font-size:5px;fill:var(--muted);font-family:var(--mono);pointer-events:none}.octo .pole.na .pn{fill:var(--muted)}
 .poseout{margin-top:.4rem;min-height:1.4rem;text-align:center}.poseout.on{color:var(--text);font-weight:700}
 .ptbl2{display:grid;gap:.15rem;margin-top:.25rem}.ptr{display:grid;grid-template-columns:4.2rem repeat(3,1fr);gap:.2rem;align-items:center}.pth span{font-size:.7rem;color:var(--muted);text-align:center}
 .ptr .pl{font-size:.8125rem;color:var(--muted)}.pc{font:inherit;font-family:var(--mono);font-size:.8125rem;font-weight:700;padding:.3rem 0;border-radius:.4rem;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
@@ -1442,7 +1442,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.81';
+const APP_VER='v05.82';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3096,7 +3096,7 @@ function weakHTML(m){
         <div class="viewer pose3d" data-pose="${m}"><div class="vload">3D モデルを読み込み中…</div></div>
         <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回り、数値を選ぶと機首の先へ寄ります。ダブルタップで元の位置へ。</span></div>
         ${octoHTML(m,pv)}
-        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、中心からの距離が正答率（外側ほど正解）。緑が左バンク、橙が水平、青が右バンク。未出題の方位には頂点がありません。頂点をタップすると記録が下に出て、3D が寄ります。</div>`;
+        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、中心からの距離が正答率（外側ほど正解）。緑が左バンク、橙が水平、青が右バンク。真上・真下は機首上げ・機首下げの層の中心。未出題の方位には頂点がありません。頂点をタップすると記録が下に出て、3D が寄ります。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3150,7 +3150,7 @@ function renderStatsPage(){
 }
 /* 八角形チャート（v05.81）: 機首上げ・水平・機首下げ の 3 層を上のボタンで切り替えて見る。各層は 8 方位の八角形レーダーで、
    左バンク・水平・右バンク の 3 本の多角形（中心からの距離 ＝ 正答率）。頂点をタップすると 3D がその姿勢になる。
-   未出題の方位は頂点を置かず、線もつながない。姿勢指示器は 真上・真下 をチャートの下の札で */
+   未出題の方位は頂点を置かず、線もつながない。姿勢指示器は 真上 を機首上げの層、真下 を機首下げの層の中心に置く（球を上から見た極）。値は 3 つのバンクを合わせた正答率 */
 function octoHTML(m,pv){
   const cx=125,cy=125,R=96,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
   const P=(a,r)=>{const t=a*Math.PI/180;return `${(cx+r*Math.sin(t)).toFixed(1)},${(cy-r*Math.cos(t)).toFixed(1)}`};
@@ -3167,11 +3167,11 @@ function octoHTML(m,pv){
       let ln='';pts.forEach((p,i)=>{const q=pts[(i+1)%8];if(p&&q)ln+=`M${p.xy} L${q.xy} `});if(ln)g+=`<path d="${ln.trim()}" class="line" style="stroke:${c}"/>`;
       pts.forEach(p=>{if(!p)return;const [x,y]=p.xy.split(',');g+=`<g class="pt" data-pose3d="${p.dj}|${sd}"><circle cx="${x}" cy="${y}" r="9" class="hit"/><circle cx="${x}" cy="${y}" r="3.2" class="dot" style="fill:${c}"/><title>${p.dj}・${sd==='水平'?'水平':sd+'バンク'} ${Math.round(p.ac*100)}%（${p.v.n} 問）</title></g>`});
     });
+    if(m==='attitude'&&li!==1){const dj=li===0?'真上':'真下';let n=0,c=0;for(const sd of ['水平','右','左']){const v=pv(dj,sd);if(v&&v.n){n+=v.n;c+=v.c}}const ac=n?c/n:null;
+      g+=`<g class="pt pole${ac==null?' na':''}" data-pose3d="${dj}|水平"><circle cx="${cx}" cy="${cy}" r="15" class="polec"/><text x="${cx}" y="${cy-1.5}" text-anchor="middle" class="pn">${dj}</text><text x="${cx}" y="${cy+6}" text-anchor="middle" class="pv">${ac==null?'—':Math.round(ac*100)+'%'}</text><title>${dj} ${ac==null?'未出題':Math.round(ac*100)+'%（'+n+' 問）'}</title></g>`}
     return `<g class="lyr${li===1?' on':''}" data-lyr="${li}">${g}</g>`}).join('');
   const tabs=`<div class="ltab" role="tablist">${LAYERS.map(([,nm],li)=>`<button type="button" role="tab" aria-selected="${li===1}" class="${li===1?'on':''}" data-lyr="${li}">${nm}</button>`).join('')}</div>`;
-  let poles='';
-  if(m==='attitude'){poles=`<div class="poles">${[['真上',0],['真下',2]].map(([dj,li])=>{const v=pv(dj,'水平'),ac=v&&v.n?v.c/v.n:null;return `<button type="button" class="pole${ac==null?' na':''}" data-pose3d="${dj}|水平" data-lyr="${li}">${dj}<b>${ac==null?'—':Math.round(ac*100)+'%'}</b></button>`}).join('')}</div>`}
-  return `<div class="octow posetbl">${tabs}<svg class="octo" viewBox="0 0 250 250" role="img" aria-label="方位とバンクごとの正答率">${grid}${lab}${layers}</svg>${poles}<div class="poseout sub2">頂点をタップすると、ここに姿勢と記録が出ます。</div></div>`;
+  return `<div class="octow posetbl">${tabs}<svg class="octo" viewBox="0 0 250 250" role="img" aria-label="方位とバンクごとの正答率">${grid}${lab}${layers}</svg><div class="poseout sub2">頂点をタップすると、ここに姿勢と記録が出ます。</div></div>`;
 }
 /* 姿勢のレーダーの 3D。種目（姿勢指示器・複合）ごとに 1 つ。記録の画面を離れたら捨てる */
 const poseViewers=[];

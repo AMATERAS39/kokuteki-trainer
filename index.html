@@ -343,7 +343,7 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 @media (orientation:portrait){.simbar #simSmoke,.simbar #simColor{display:none}}
 /* v06.01 縦画面は学習用の最低限: 道具の列は出さず、視界の右下に 水平・初期位置 だけ。視点は一人称固定（ボタンなし）。計器は小さめにして視界を縦に大きく取る（利用者「縦画面の画面が縦に小さい」） */
 .sim .pbar{display:none;position:absolute;right:.5rem;bottom:.5rem;z-index:6;gap:.4rem}.sim .pbar .iconbtn{background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.25);color:#fff}
-@media (orientation:portrait){.sim .simbar{display:none}.sim .pbar{display:flex}.sim .instrow{margin-top:.4rem;gap:1rem}.sim .instrow .inst{height:clamp(3.5rem,9dvh,5.5rem)}.sim .ctl{margin-top:.25rem}.sim .rotate{margin-top:.25rem}.sim .acts{margin-top:.4rem}}
+@media (orientation:portrait){.sim .simbar{display:none}.sim .pbar{display:flex}.sim .instrow{margin-top:.5rem;gap:1.25rem}.sim .ctl{margin-top:.4rem}.sim .rotate{margin-top:.25rem}.sim .acts{margin-top:.4rem}}
 /* ===== 横画面のシミュレーター: 操作に集中できるよう、視界を画面いっぱいにして操縦桿とペダルを重ねる ===== */
 @media (orientation:landscape) and (max-height:34rem),(orientation:landscape) and (pointer:coarse),(min-width:64rem) and (orientation:landscape){
   body[data-view="train"][data-phase="sim"]{height:100dvh;padding:0;overflow:hidden}
@@ -949,6 +949,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
   body[data-view="train"]:has(#quiz:not([hidden]) .fb.show){height:auto;max-height:none;min-height:100dvh;padding-bottom:calc(var(--foot-h) + 1rem)}
   /* シミュレーター */
   .sim .view{flex:1;min-height:7rem;height:auto}
+  /* v06.02 縦画面の視界は出題の絵（360×188）と同じ縦横比・同じ写り（examLens）。目的は出題画面の確認なので、それより大きくしない（利用者 2026-09-18） */
+  @media (orientation:portrait){.sim .view{flex:none;height:auto;min-height:0;aspect-ratio:360/188}}
   .sim .acts{margin-top:.5rem;gap:.375rem}
   .sim .acts .btn{height:2.75rem}
 }
@@ -1411,6 +1413,13 @@ function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'mix',init:'random',bank:'on'};
 const genQ=()=>E.generate(mode,Object.assign({},settings,GEN,{level:MS().level}));
+/* v06.02（利用者の指摘 2026-09-18「たまに描画まで時間がかかる。制限時間付きでこれは致命的」）:
+   次の問題を先に作り、その絵（姿勢指示器・複合の bi-*.webp）を答えているあいだに読み込んで復号しておく。出すときは復号済みなので待たない。
+   それでも絵がまだなら（最初の 1 問など）、絵が出てからタイマーを始める（最長 1.5 秒待つ） */
+let nextQ=null;const preImgs=[];
+const qImgs=qq=>{if(!qq||(qq.type!=='attitude'&&qq.type!=='combo'))return [];const d=qq.dir14,suf=qq.bank?`-${qq.bank>0?'r':'l'}${Math.abs(qq.bank)}`:'';return [`img/bi-${d.id}${suf}.webp`]};
+function preloadQ(qq){for(const src of qImgs(qq)){const im=new Image();im.decoding='async';im.src=src;if(im.decode)im.decode().catch(()=>{});preImgs.push(im);while(preImgs.length>4)preImgs.shift()}}
+const takeQ=()=>{const x=nextQ||genQ();nextQ=genQ();preloadQ(nextQ);return x};
 /* 設定は localStorage に残すが、ブラウザは置き場所が足りないときや、
    しばらく開かれないときに消すことがある（iOS の Safari は 7 日で消す）。
    消さないでほしいと申し込んでおく。断られても動きは変わらない */
@@ -1444,7 +1453,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.01';
+const APP_VER='v06.02';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1622,7 +1631,11 @@ function render(){
     ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${i+1}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
-  startTimer();
+  /* 絵がまだ出ていなければ、出てからタイマーを始める（v06.02） */
+  const im=figs.querySelector('.d14 img'),qq=q;
+  if(im&&!(im.complete&&im.naturalWidth>0)){const go=()=>{if(q===qq&&!answered)startTimer()};
+    Promise.race([im.decode?im.decode():new Promise(r=>{im.onload=r;im.onerror=r}),new Promise(r=>setTimeout(r,1500))]).catch(()=>{}).then(go)}
+  else startTimer();
 }
 
 /* ===== 1問のタイマー（練習では制限なし） ===== */
@@ -1727,7 +1740,7 @@ function next(){
     startMeasured();return}
   if(session&&session.ended){showSummary();return}
   if(phase!=='practice'&&!session)return;   // 計測を離れたあとに残ったタイマーから呼ばれても、出題しない
-  q=genQ();render();toTop();
+  q=takeQ();render();toTop();
 }
 
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
@@ -1823,12 +1836,12 @@ function showIntro(){
 function afterIntro(){startPractice()}
 function startPractice(){
   markPlayed();setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessEnd').hidden=true;
-  q=genQ();render();toTop();
+  nextQ=null;q=takeQ();render();toTop();   /* 設定が変わっているかもしれないので、先に作っておいた問題は捨てる */
 }
 function startMeasured(){
   setBack(null);
   markPlayed();setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
-  session={n:0,c:0,t:0,start:performance.now(),ended:false};
+  session={n:0,c:0,t:0,start:performance.now(),ended:false};nextQ=null;
   /* 出題数「制限なし」では結果画面に至る道が無いので、そのときだけ「ここで終える」を出す（総点検 2026-09-13） */
   $('#sessEnd').hidden=!(qMax()<=0);
   renderStats();next();

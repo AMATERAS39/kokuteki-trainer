@@ -128,6 +128,8 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
       mat.userData.base = mat.opacity;
       const mesh = new THREE.Mesh(g, mat); mesh.userData.shape = sh.id; markerGroup.add(mesh);
       if (sh.wire !== false) { const line = new THREE.LineSegments(new THREE.WireframeGeometry(g), new THREE.LineBasicMaterial({ color: sh.color, transparent: true, opacity: 0.3 })); line.material.userData.base = 0.3; markerGroup.add(line); }
+      /* lines: 面が作れないとき（点が 1 つ）の線（v05.90） */
+      if (sh.lines && sh.lines.length) { const lp = []; for (const [a, b] of sh.lines) { lp.push(new THREE.Vector3(sh.points[a].x, sh.points[a].y, sh.points[a].z), new THREE.Vector3(sh.points[b].x, sh.points[b].y, sh.points[b].z)); } const ls = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lp), new THREE.LineBasicMaterial({ color: sh.color, transparent: true, opacity: 0.8 })); ls.material.userData.base = 0.8; markerGroup.add(ls); }
       /* 印の球は id のある点だけ（v05.87: 面の網の点には付けない） */
       for (const p of sh.points) { if (!p.id) continue; const sp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: sh.color, roughness: 0.5, transparent: true, opacity: 0.95 })); sp.material.userData.base = 0.95; sp.position.set(p.x, p.y, p.z); sp.userData.id = p.id; sp.userData.pick = true; markerGroup.add(sp); }
     }

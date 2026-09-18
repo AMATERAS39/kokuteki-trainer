@@ -1442,7 +1442,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.89';
+const APP_VER='v05.90';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3051,7 +3051,7 @@ async function show3D(box,label){
   const host=box.querySelector('.w3dv');
   if(statsViewer&&statsViewerHost!==host){statsViewer.dispose();statsViewer=null}
   if(!statsViewer){host.innerHTML='<div class="vload">3D モデルを読み込み中…</div>';statsViewerHost=host;
-    try{const mod=await import('./viewer.js?v=11');const v=await mod.mount(host,{});if(statsViewerHost!==host){v.dispose();return}statsViewer=v;host.querySelector('.vload')?.remove()}
+    try{const mod=await import('./viewer.js?v=12');const v=await mod.mount(host,{});if(statsViewerHost!==host){v.dispose();return}statsViewer=v;host.querySelector('.vload')?.remove()}
     catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;return}}
   statsViewer.setDir(h,pch);box.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
@@ -3199,24 +3199,32 @@ async function initPose3D(page){
       v.setNoseLabel(txt);const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent=txt;ro.classList.add('on')}
       tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const btn=tbl.querySelector(`[data-pose3d="${key}"]`);if(btn)btn.classList.add('sel');
     };
-    try{const mod=await import('./viewer.js?v=11');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{curKey=null;tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent='頂点をタップすると、ここに姿勢と記録が出ます。';ro.classList.remove('on')}}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
+    try{const mod=await import('./viewer.js?v=12');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{curKey=null;tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent='頂点をタップすると、ここに姿勢と記録が出ます。';ro.classList.remove('on')}}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
     catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;continue}
-    /* レーダー（v05.88）: 記録の点をそのままつなぐ多面体。8 方位 × 上(+30°)・水平・下(−30°) の 24 点（姿勢指示器は真上・真下の 2 極も。
-       複合は極の記録がないので中心を蓋の頂点にする）。半径 ＝ 8 × 正答率、未出題・0% は 0 ＝ 機体の中心。
-       補間して膨らませない（利用者の指示 2026-09-18「点と点は繋ぐが、北しか出題されていない時は変に膨らむ必要はない。線が突出したみたいになるはず」）。
-       以前の円柱に見えた原因は最小半径 2.5 の帯（v05.75〜86）。 */
+    /* レーダー（v05.90）: 同じ色（バンク）の記録の点を全部つないだ立体 ＝ 点と機体の中心を含む凸包。
+       1 点なら中心からの線、2 点なら中心との三角形、3 点なら三角錐、増えるほど多面体に近づく
+       （利用者の指示 2026-09-18「同じ色の点と点は結び面積ができるので、3 点以上で三角錐ができるはず」）。
+       8 方位 × 上(+30°)・水平・下(−30°) の 24 点（姿勢指示器は真上・真下の 2 極も）。半径 ＝ 8 × 正答率、未出題・0% は中心（面には入れない）。 */
     const HJ=['北','北東','東','南東','南','南西','西','北西'],PITCH=[[30,'上'],[0,''],[-30,'下']],poles=m==='attitude';
     const dirV=(hd,pc)=>{const D=Math.PI/180;return [Math.sin(hd*D)*Math.cos(pc*D),Math.cos(hd*D)*Math.cos(pc*D),Math.sin(pc*D)]};
     const shapes=[];const COL={'水平':0xf2b56a,'右':0x7dbcff,'左':0x6fd6a8};const RMAX=8;
+    /* 凸包（総当たり: 3 点の面の同じ側に全点があれば面。点は 30 個までなので十分速い）。共面の点はそのまま重なった三角形で描く */
+    const hull3=(P,ids)=>{const tris=[],EPS=1e-6;const sub=(u,w)=>[u[0]-w[0],u[1]-w[1],u[2]-w[2]],cr=(u,w)=>[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]],dot=(u,w)=>u[0]*w[0]+u[1]*w[1]+u[2]*w[2];
+      for(let a=0;a<ids.length;a++)for(let b=a+1;b<ids.length;b++)for(let c=b+1;c<ids.length;c++){const A=P[ids[a]],B=P[ids[b]],C=P[ids[c]],n=cr(sub(B,A),sub(C,A));if(dot(n,n)<EPS)continue;
+        let pos=false,neg=false;for(const k of ids){if(k===ids[a]||k===ids[b]||k===ids[c])continue;const d=dot(n,sub(P[k],A));if(d>EPS)pos=true;else if(d<-EPS)neg=true;if(pos&&neg)break}
+        if(!(pos&&neg))tris.push([ids[a],ids[b],ids[c]])}
+      return tris};
     for(const sd of ['水平','右','左']){
       const acc=dj=>{const rec=w['姿勢|'+dj+'|'+sd];return rec&&rec.n?rec.c/rec.n:0};
-      const points=[],tris=[];const idx=(ri,hi)=>ri*8+(hi%8);
-      PITCH.forEach(([pc,suf])=>HJ.forEach((hj,hi)=>{const dj=hj+suf,r=RMAX*acc(dj);const [x,y,z]=dirV(hi*45,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}));
-      for(let ri=0;ri<2;ri++)for(let hi=0;hi<8;hi++){tris.push([idx(ri,hi),idx(ri+1,hi),idx(ri+1,hi+1)]);tris.push([idx(ri,hi),idx(ri+1,hi+1),idx(ri,hi+1)])}
-      if(poles){for(const [dj,pc] of [['真上',90],['真下',-90]]){const r=RMAX*acc(dj);const [x,y,z]=dirV(0,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}}
-      else{points.push({x:0,y:0,z:0});points.push({x:0,y:0,z:0})}   /* 複合: 蓋の頂点は中心（印は付かない） */
-      const up=24,dn=25;for(let hi=0;hi<8;hi++){tris.push([up,idx(0,hi+1),idx(0,hi)]);tris.push([dn,idx(2,hi),idx(2,hi+1)])}
-      shapes.push({id:sd,color:COL[sd],opacity:0.16,points,tris});
+      const points=[],pos=[];
+      const add=(dj,hd,pc)=>{const r=RMAX*acc(dj),[x,y,z]=dirV(hd,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r});pos.push([x*r,y*r,z*r])};
+      PITCH.forEach(([pc,suf])=>HJ.forEach((hj,hi)=>add(hj+suf,hi*45,pc)));
+      if(poles)for(const [dj,pc] of [['真上',90],['真下',-90]])add(dj,0,pc);
+      points.push({x:0,y:0,z:0});pos.push([0,0,0]);const o=pos.length-1;   /* 機体の中心（印は付かない） */
+      const ids=pos.map((q,i)=>i).filter(i=>i===o||pos[i][0]*pos[i][0]+pos[i][1]*pos[i][1]+pos[i][2]*pos[i][2]>1e-9);
+      const tris=hull3(pos,ids);const lines=[];
+      if(ids.length===2)lines.push([ids[0],ids[1]]);   /* 1 点だけ: 中心からの線 */
+      shapes.push({id:sd,color:COL[sd],opacity:0.16,points,tris,lines});
     }
     v.setShapes(shapes);
     tbl.querySelectorAll('[data-pose3d]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.pose3d)));
@@ -3454,7 +3462,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=11');
+    const mod=await import('./viewer.js?v=12');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');

@@ -1433,7 +1433,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.94';
+const APP_VER='v05.96';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1507,7 +1507,7 @@ function errCats(q,i){
 if(/^(127\.0\.0\.1|localhost)$/.test(location.hostname))window.__aatDbg={qCats,errCats,viewCat};
 function wlog(m,cats,ok,t){const w=weak[m]||(weak[m]={});for(const cat of cats){const c=w[cat]||(w[cat]={n:0,c:0,t:0});c.n++;if(ok)c.c++;c.t+=t}store.set('weak',weak)}
 /* v05.69 の型（切り口なし）を切り口つきに直す。v05.92: 使わなくなった 機首の向き・姿勢 の切り口は捨てる */
-(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')){delete weak[m][k];ch=true;continue}
+(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')||(m==='combo'&&(k.startsWith('方位|')||k.startsWith('印の位置|')))){delete weak[m][k];ch=true;continue}
   const mv=/^傾き\|(左|右) \d+°$/.test(k)?'傾き|'+k[3]+'バンク':k==='誤り|傾きの大きさ・有無'?'誤り|傾きの有無':null;
   if(mv){const v=weak[m][k];delete weak[m][k];const c=weak[m][mv]||(weak[m][mv]={n:0,c:0,t:0});c.n+=v.n;c.c+=v.c;c.t+=v.t;ch=true;continue}
   if(k.includes('|'))continue;const v=weak[m][k];delete weak[m][k];ch=true;
@@ -3075,7 +3075,7 @@ const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら�
   '方向舵の有無':'方向舵を踏んでいるかどうかの見分けで落としています。本番の難しさもここです。②→③ の変化を見比べます。',
   '操縦桿と方向舵の両方':'操縦桿と方向舵の両方を落としています。①→② で操縦桿、②→③ で方向舵、と分けて読みます。',
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
-const GROUPS={heading:['方位','印の位置'],attitude:['誤り','見え方','機首の上下','傾き'],combo:['誤り','組み合わせ','見え方','機首の上下','傾き'],control:['誤り','①の姿勢','操縦桿','方向舵','操作の数','操作']};
+const GROUPS={heading:['方位','印の位置'],attitude:['誤り','見え方','機首の上下','傾き'],combo:['比べ','誤り','組み合わせ','見え方','機首の上下','傾き'],control:['誤り','①の姿勢','操縦桿','方向舵','操作の数','操作']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 /* 扇: 中心 (cx,cy)、角度 i×45°（北が上、時計回り）、幅 45°、半径 ri〜ro */
@@ -3089,15 +3089,16 @@ function weakHTML(m){
   const rows=g=>(ORDER[g]?ORDER[g].slice():Object.keys(w).filter(k=>k.startsWith(g+'|')).map(k=>k.slice(g.length+1)).sort((a,b)=>acc(get(g,a))-acc(get(g,b)))).map(k=>({k,v:get(g,k),acc:acc(get(g,k))}));
   /* 先頭に一言: いちばんの苦手と得意（3 問以上） */
   const all=Object.entries(w).filter(([k,v])=>v.n>=3&&!/^(誤り|部分|組み合わせ)\|/.test(k)).map(([k,v])=>({g:k.split('|')[0],k:k.split('|')[1],acc:v.c/v.n,n:v.n})).sort((a,b)=>a.acc-b.acc);
-  let h='<div class="wtop">';
-  if(all.length&&all[0].acc<=0.7)h+=`<div class="wbadge lo pop"><span class="wk">苦手</span><span><b>${esc(all[0].k)}</b><small>（${esc(all[0].g)}）</small><br>${pct(all[0].acc)}・${all[0].n} 問</span></div>`;
+  /* 苦手は 1 つではなく、基準（70% 以下、3 問以上）を下回ったものを全部（正答率の低い順。利用者の指示 2026-09-18）。得意はいちばん高いもの 1 つ */
+  let h='<div class="wtop">';const weakL=all.filter(x=>x.acc<=0.7);
+  if(weakL.length)h+=weakL.map((x,i)=>`<div class="wbadge lo pop" style="--i:${i}"><span class="wk">苦手</span><span><b>${esc(x.k)}</b><small>（${esc(x.g)}）</small><br>${pct(x.acc)}・${x.n} 問</span></div>`).join('');
   else h+=`<div class="wbadge pop"><span class="wk">苦手</span><span><b>なし</b><br>3 問以上解いた型は、どれも 70% を超えています</span></div>`;
   const best=all.length?all[all.length-1]:null;
-  if(best&&best.acc>=0.8&&all.length>1)h+=`<div class="wbadge hi pop" style="--i:1"><span class="wk">得意</span><span><b>${esc(best.k)}</b><small>（${esc(best.g)}）</small><br>${pct(best.acc)}・${best.n} 問</span></div>`;
+  if(best&&best.acc>=0.8&&all.length>1)h+=`<div class="wbadge hi pop" style="--i:${weakL.length}"><span class="wk">得意</span><span><b>${esc(best.k)}</b><small>（${esc(best.g)}）</small><br>${pct(best.acc)}・${best.n} 問</span></div>`;
   h+='</div>';
   let gi=0;
-  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ')continue;gi++;
-    h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g==='組み合わせ'?'苦手な方位と姿勢の組み合わせ':g}</div>`;
+  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ'&&g!=='比べ')continue;gi++;
+    h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g==='組み合わせ'?'苦手な方位と姿勢の組み合わせ':g==='比べ'?'単独と複合の比べ':g}</div>`;
     if(g==='方位'||g==='印の位置'){
       const cx=70,cy=70;
       h+=`<svg class="compass" viewBox="0 0 140 140" role="img" aria-label="${g}ごとの正答率">
@@ -3111,6 +3112,20 @@ function weakHTML(m){
       h+=`<div class="sub2" style="margin-top:-.2rem">間違えた ${tot} 問の内訳</div>`;
       h+=E2.map((x,i)=>`<div class="wrow"><span class="wl">${esc(x.k)}</span><span class="wb"><i class="lo grow" style="--i:${i};width:${Math.max(2,Math.round(x.v.n/tot*100))}%"></i></span><span class="wn">${x.v.n} 問・${Math.round(x.v.n/tot*100)}%</span></div>`).join('');
       if(E2.length&&ERRHINT[E2[0].k])h+=`<div class="whint">${esc(ERRHINT[E2[0].k])}</div>`;
+    }else if(g==='比べ'){
+      /* 単独（方位モード・姿勢指示器モードの正答率）と、複合の中での 方位・姿勢 の正答率を並べ、複合になったときに何が落ちるかを一言（v05.96、利用者の指示 2026-09-18） */
+      const sh=stats.heading||{n:0,c:0},sa=stats.attitude||{n:0,c:0},ph=get('部分','方位'),pa=get('部分','姿勢');
+      const A=[['方位（単独: 方位モード）',sh.n?sh.c/sh.n:null,sh.n],['方位（複合の中）',acc(ph),ph?ph.n:0],['姿勢（単独: 姿勢指示器モード）',sa.n?sa.c/sa.n:null,sa.n],['姿勢（複合の中）',acc(pa),pa?pa.n:0]];
+      h+=A.map(([k,a,n],i)=>`<div class="wrow"><span class="wl">${k}</span><span class="wb"><i class="${accCls(a)} grow" style="--i:${i};width:${a==null?0:Math.max(2,Math.round(a*100))}%"></i></span><span class="wn">${a==null?'—':pct(a)+'・'+n+' 問'}</span></div>`).join('');
+      const hs=A[0][1],hc=A[1][1],as=A[2][1],ac=A[3][1],MIN=3;
+      let v='';
+      if(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)v='方位モード・姿勢指示器モード・複合をそれぞれ 3 問以上解くと、複合で何が落ちるかが出ます。';
+      else{const dh=hs-hc,da=as-ac,W=[];if(hs<0.7)W.push('方位は単独でも '+pct(hs)+'。まず方位モードで固めます。');if(as<0.7)W.push('姿勢は単独でも '+pct(as)+'。まず姿勢指示器モードで固めます。');
+        if(dh>=0.1&&da>=0.1)W.push('複合になると方位も姿勢も落ちています（方位 '+pct(hs)+' → '+pct(hc)+'、姿勢 '+pct(as)+' → '+pct(ac)+'）。方位 → 姿勢の順に 1 つずつ確かめる手順を固めます。');
+        else if(dh>=0.1)W.push('単独では読めている方位を、複合になると落としています（'+pct(hs)+' → '+pct(hc)+'）。姿勢に気を取られて方位の確認が抜けています。');
+        else if(da>=0.1)W.push('単独では読めている姿勢を、複合になると落としています（'+pct(as)+' → '+pct(ac)+'）。方位を読んだあと、姿勢を確かめ直します。');
+        if(!W.length)W.push('単独でも複合でも同じ精度で読めています。あとは速さです。');v=W.join(' ')}
+      h+=`<div class="whint">${esc(v)}</div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
       const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.n>=2&&v.c<v.n).map(([k,v])=>({k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);

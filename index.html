@@ -1433,7 +1433,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.92';
+const APP_VER='v05.93';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1475,7 +1475,7 @@ const DIRJA=['北','北東','東','南東','南','南西','西','北西'];
    v05.92（利用者の分析 2026-09-18）: 姿勢指示器の答えは バンク × ピッチ で方位は答えに含まれない。26 方向 × バンクの正答率は 1 回 10〜20 問では埋まらず揺れを描くだけなので、
    方向は「見え方」の 4 区分にまとめる（こちら向きの南側は左右が逆に見えて間違えやすい、など次の練習に結びつく粒度）。誤りの種類は errCats で別に数える */
 const viewCat=d=>d.heading==null?'真上・真下':[315,0,45].includes(d.heading)?'向こう向き（北側）':[135,180,225].includes(d.heading)?'こちら向き（南側）':'横向き（東・西）';
-const pitchCat=p=>p>0?'機首上げ':p<0?'機首下げ':'水平', bankCat=b=>b?`${b>0?'右':'左'} ${Math.abs(b)}°`:'水平', sideCat=b=>b>0?'右':b<0?'左':'水平';
+const pitchCat=p=>p>0?'機首上げ':p<0?'機首下げ':'水平', bankCat=b=>b>0?'右バンク':b<0?'左バンク':'水平', sideCat=b=>b>0?'右':b<0?'左':'水平';   /* v05.93: 角度（30°/60°）は分けない（利用者「バンク角度は分析に関係ない」） */
 function qCats(q){
   if(q.type==='heading')return ['方位|'+DIRJA[q.dir],'印の位置|'+DIRJA[q.mark||0]];
   if(q.type==='attitude')return ['見え方|'+viewCat(q.dir14),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];
@@ -1500,12 +1500,15 @@ function errCats(q,i){
   if(q.type==='combo'){const hErr=o.heading!==c.heading;return ['誤り|'+(hErr&&attErr?'両方':hErr?'方位だけ':'姿勢だけ')]}
   if(bankErr&&pitchErr)return ['誤り|両方'];
   if(pitchErr)return ['誤り|機首の上下'];
-  return ['誤り|'+(o.bank*c.bank<0?'傾きの左右':'傾きの大きさ・有無')];
+  return ['誤り|'+(o.bank*c.bank<0?'傾きの左右':'傾きの有無')];   /* 角度だけの違いも 有無 に含める（角度は分析の軸にしない） */
 }
 if(/^(127\.0\.0\.1|localhost)$/.test(location.hostname))window.__aatDbg={qCats,errCats,viewCat};
 function wlog(m,cats,ok,t){const w=weak[m]||(weak[m]={});for(const cat of cats){const c=w[cat]||(w[cat]={n:0,c:0,t:0});c.n++;if(ok)c.c++;c.t+=t}store.set('weak',weak)}
 /* v05.69 の型（切り口なし）を切り口つきに直す。v05.92: 使わなくなった 機首の向き・姿勢 の切り口は捨てる */
-(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')){delete weak[m][k];ch=true;continue}if(k.includes('|'))continue;const v=weak[m][k];delete weak[m][k];ch=true;
+(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')){delete weak[m][k];ch=true;continue}
+  const mv=/^傾き\|(左|右) \d+°$/.test(k)?'傾き|'+k[3]+'バンク':k==='誤り|傾きの大きさ・有無'?'誤り|傾きの有無':null;
+  if(mv){const v=weak[m][k];delete weak[m][k];const c=weak[m][mv]||(weak[m][mv]={n:0,c:0,t:0});c.n+=v.n;c.c+=v.c;c.t+=v.t;ch=true;continue}
+  if(k.includes('|'))continue;const v=weak[m][k];delete weak[m][k];ch=true;
   const nk=m==='heading'?'方位|'+k:m==='attitude'?'機首の向き|'+k.replace('機首 ',''):m==='combo'?'方位|'+k.replace('方位 ',''):/^2 操作/.test(k)?'操作の数|'+k:'操作|'+k;
   const c=weak[m][nk]||(weak[m][nk]={n:0,c:0,t:0});c.n+=v.n;c.c+=v.c;c.t+=v.t}}if(ch)store.set('weak',weak)})();
 function hlog(rec){hist=[rec,...hist].slice(0,300);store.set('hist',hist)}
@@ -3051,13 +3054,13 @@ function renderHome(){
    操縦桿: 十字（奥・手前・左・右）、方向舵: 左右のペダル
    機首の上下・傾き・操作・操作の数: 横棒（決まった順。角度は左→水平→右）
    色: 80% 以上は accent、50〜80% は琥珀、50% 未満は赤、まだ出ていないものは灰色 ===== */
-const ORDER={'方位':DIRJA,'印の位置':DIRJA,'機首の上下':['機首上げ','水平','機首下げ'],'傾き':['左 60°','左 30°','水平','右 30°','右 60°'],'操作の数':['1 操作','2 操作（順番）','2 操作（同時）'],
+const ORDER={'方位':DIRJA,'印の位置':DIRJA,'機首の上下':['機首上げ','水平','機首下げ'],'傾き':['左バンク','水平','右バンク'],'操作の数':['1 操作','2 操作（順番）','2 操作（同時）'],
   '操縦桿':['奥','左','右','手前'],'方向舵':['左','右'],'見え方':['向こう向き（北側）','こちら向き（南側）','横向き（東・西）','真上・真下'],
   '①の姿勢':['水平','傾きあり','機首の上下あり','傾き＋上下'],
-  '誤り':['傾きの左右','傾きの大きさ・有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
+  '誤り':['傾きの左右','傾きの有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
 /* 誤りの種類ごとの一言（次に何を意識するか。要所だけ） */
 const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら向き（南側）の絵は左右が逆に見えます。機首の向きを基準に、どちらの翼が下がっているかを読みます。',
-  '傾きの大きさ・有無':'傾きの角度（30°・60°）や、傾きなしとの区別で落としています。水平線の角度を見比べます。',
+  '傾きの有無':'傾いているかどうかの見分けで落としています。水平線が傾いているかを先に見ます。',
   '機首の上下':'機首の上下を逆に読んでいます。腹面が見えれば機首上げ、背面が見えれば機首下げ。',
   '両方':'傾きと機首の上下の両方を落としています。まず上下、次に傾き、と順に確かめます。',
   '方位だけ':'姿勢は読めています。方位指示器の印（N 以外のとき）から数え直す練習を。',

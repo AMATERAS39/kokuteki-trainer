@@ -110,8 +110,9 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
       const mat = new THREE.MeshStandardMaterial({ color: sh.color, transparent: true, opacity: sh.opacity == null ? 0.16 : sh.opacity, side: THREE.DoubleSide, flatShading: true, roughness: 0.7, metalness: 0, depthWrite: false });
       mat.userData.base = mat.opacity;
       const mesh = new THREE.Mesh(g, mat); mesh.userData.shape = sh.id; markerGroup.add(mesh);
-      const line = new THREE.LineSegments(new THREE.WireframeGeometry(g), new THREE.LineBasicMaterial({ color: sh.color, transparent: true, opacity: 0.3 })); line.material.userData.base = 0.3; markerGroup.add(line);
-      for (const p of sh.points) { const sp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: sh.color, roughness: 0.5, transparent: true, opacity: 0.95 })); sp.material.userData.base = 0.95; sp.position.set(p.x, p.y, p.z); sp.userData.id = p.id; sp.userData.pick = true; markerGroup.add(sp); }
+      if (sh.wire !== false) { const line = new THREE.LineSegments(new THREE.WireframeGeometry(g), new THREE.LineBasicMaterial({ color: sh.color, transparent: true, opacity: 0.3 })); line.material.userData.base = 0.3; markerGroup.add(line); }
+      /* 印の球は id のある点だけ（v05.87: 面の網の点には付けない） */
+      for (const p of sh.points) { if (!p.id) continue; const sp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: sh.color, roughness: 0.5, transparent: true, opacity: 0.95 })); sp.material.userData.base = 0.95; sp.position.set(p.x, p.y, p.z); sp.userData.id = p.id; sp.userData.pick = true; markerGroup.add(sp); }
     }
   }
   function highlight(id) { for (const c of markerGroup.children) { if (!c.userData.pick) continue; const on = c.userData.id === id; c.material.emissive = new THREE.Color(on ? 0xffffff : 0x000000); c.material.emissiveIntensity = on ? 0.6 : 0; c.scale.setScalar(on ? 1.9 : 1); } }

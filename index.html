@@ -1442,7 +1442,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.86';
+const APP_VER='v05.87';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3051,7 +3051,7 @@ async function show3D(box,label){
   const host=box.querySelector('.w3dv');
   if(statsViewer&&statsViewerHost!==host){statsViewer.dispose();statsViewer=null}
   if(!statsViewer){host.innerHTML='<div class="vload">3D モデルを読み込み中…</div>';statsViewerHost=host;
-    try{const mod=await import('./viewer.js?v=9');const v=await mod.mount(host,{});if(statsViewerHost!==host){v.dispose();return}statsViewer=v;host.querySelector('.vload')?.remove()}
+    try{const mod=await import('./viewer.js?v=10');const v=await mod.mount(host,{});if(statsViewerHost!==host){v.dispose();return}statsViewer=v;host.querySelector('.vload')?.remove()}
     catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;return}}
   statsViewer.setDir(h,pch);box.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
@@ -3094,9 +3094,9 @@ function weakHTML(m){
       const pv=(dj,sd)=>w['姿勢|'+dj+'|'+sd];
       h+=`<div class="wg2">姿勢のレーダー（3D の頂点、または下のチャートの頂点をタップ）</div>
         <div class="viewer pose3d" data-pose="${m}"><div class="vload">3D モデルを読み込み中…</div></div>
-        <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回り、頂点を選ぶと機首の先へ寄ります。選んだ頂点をもう一度タップすると元の位置へ。</span></div>
+        <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解、0% は機体の中心）。なぞると視点が回り、頂点を選ぶと機首の先へ寄ります。選んだ頂点をもう一度タップすると元の位置へ。</span></div>
         ${octoHTML(m,pv)}
-        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、中心が 0%、外側が 100%。緑が左バンク、橙が水平、青が右バンク。未出題の方位は 0%。真上・真下は機首上げ・機首下げの層の中心。頂点をタップすると記録が下に出て 3D が寄り、もう一度タップすると戻ります。</div>`;
+        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、中心が 0%、外側が 100%。緑が左バンク、橙が水平、青が右バンク。未出題の方位は 0%。機首上げの層の中心の「上」は真上、機首下げの層の中心の「下」は真下。頂点をタップすると記録が下に出て 3D が寄り、もう一度タップすると戻ります。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3153,7 +3153,7 @@ function renderStatsPage(){
    各層は 8 方位の八角形レーダー。3 本の多角形（左バンク・水平・右バンク、3D の多面体と同じ色）。頂点は中心からの距離 ＝ 正答率。
    未出題の方位も 0% として中心に頂点を置く（利用者の指摘 2026-09-18「各方位で正答率を示すので、0% や未出題の方位は 0% となるはず」）。多角形は常に 8 頂点で閉じる。
    頂点をタップすると 3D がその姿勢になり、もう一度タップで戻る。
-   姿勢指示器は 真上 を機首上げの層、真下 を機首下げの層の中心に置く（球を上から見た極）。値は 3 つのバンクを合わせた正答率 */
+   姿勢指示器は 真上 を機首上げの層、真下 を機首下げの層の中心に置く（球を上から見た極。札は「上」「下」）。値は 3 つのバンクを合わせた正答率 */
 function octoHTML(m,pv){
   const cx=92,cy=92,R=70,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
   const P=(a,r)=>{const t=a*Math.PI/180;return `${(cx+r*Math.sin(t)).toFixed(1)},${(cy-r*Math.cos(t)).toFixed(1)}`};
@@ -3170,7 +3170,7 @@ function octoHTML(m,pv){
       pts.forEach(p=>{const [x,y]=p.xy.split(',');g+=`<g class="pt" data-pose3d="${p.dj}|${sd}"><circle cx="${x}" cy="${y}" r="7" class="hit"/><circle cx="${x}" cy="${y}" r="2.8" class="dot" style="fill:${c}"/><title>${p.dj}・${sd==='水平'?'水平':sd+'バンク'} ${p.v&&p.v.n?Math.round(p.ac*100)+'%（'+p.v.n+' 問）':'未出題（0%）'}</title></g>`});
     });
     if(m==='attitude'&&li!==1){const dj=li===0?'真上':'真下';let n=0,c=0;for(const sd of ['水平','右','左']){const v=pv(dj,sd);if(v&&v.n){n+=v.n;c+=v.c}}const ac=n?c/n:null;
-      g+=`<g class="pt pole${ac==null?' na':''}" data-pose3d="${dj}|水平"><circle cx="${cx}" cy="${cy}" r="13" class="polec"/><text x="${cx}" y="${cy-1}" text-anchor="middle" class="pn">${dj}</text><text x="${cx}" y="${cy+5.5}" text-anchor="middle" class="pv">${ac==null?'—':Math.round(ac*100)+'%'}</text><title>${dj} ${ac==null?'未出題':Math.round(ac*100)+'%（'+n+' 問）'}</title></g>`}
+      g+=`<g class="pt pole${ac==null?' na':''}" data-pose3d="${dj}|水平"><circle cx="${cx}" cy="${cy}" r="13" class="polec"/><text x="${cx}" y="${cy-1}" text-anchor="middle" class="pn">${li===0?'上':'下'}</text><text x="${cx}" y="${cy+5.5}" text-anchor="middle" class="pv">${ac==null?'—':Math.round(ac*100)+'%'}</text><title>${dj} ${ac==null?'未出題':Math.round(ac*100)+'%（'+n+' 問）'}</title></g>`}
     return `<g class="lyr${li===1?' on':''}" data-lyr="${li}">${g}</g>`}).join('');
   const tabs=`<div class="ltab" role="tablist">${LAYERS.map(([,nm],li)=>`<button type="button" role="tab" aria-selected="${li===1}" class="${li===1?'on':''}" data-lyr="${li}">${nm}</button>`).join('')}</div>`;
   return `<div class="octow posetbl">${tabs}<svg class="octo" viewBox="0 0 184 184" role="img" aria-label="方位とバンクごとの正答率">${grid}${lab}${layers}</svg><div class="poseout sub2">頂点をタップすると、ここに姿勢と記録が出ます。</div></div>`;
@@ -3199,18 +3199,33 @@ async function initPose3D(page){
       v.setNoseLabel(txt);const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent=txt;ro.classList.add('on')}
       tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const btn=tbl.querySelector(`[data-pose3d="${key}"]`);if(btn)btn.classList.add('sel');
     };
-    try{const mod=await import('./viewer.js?v=9');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{curKey=null;tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent='頂点をタップすると、ここに姿勢と記録が出ます。';ro.classList.remove('on')}}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
+    try{const mod=await import('./viewer.js?v=10');v=await mod.mount(host,{bare:true,onMarker:select,onReset:()=>{curKey=null;tbl.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));const ro=host.parentElement.querySelector('.poseout');if(ro){ro.textContent='頂点をタップすると、ここに姿勢と記録が出ます。';ro.classList.remove('on')}}});host.querySelector('.vload')?.remove();poseViewers.push(v)}
     catch(e){host.innerHTML=`<div class="vload">${loadFailMsg('3D モデル')}</div>`;continue}
-    /* レーダー: 8 方位 × 上・水平・下 の 24 頂点（姿勢指示器は真上・真下の 2 極も）。半径 ＝ 2.5 + 5.5 × 正答率（未出題は 2.5）。水平・右・左の 3 枚 */
+    /* レーダー（v05.87）: 球状の面。記録は 8 方位 × 上(+30°)・水平・下(−30°) の 24 点（姿勢指示器は真上・真下の 2 極も）で、
+       半径 ＝ 8 × 正答率（未出題・0% は 0 ＝ 機体の中心に収束）。面は緯度 15° × 経度 22.5° の網で、半径は記録から補間する
+       （経度は隣の方位と線形、緯度は 上・水平・下 の間で線形、±30° より外は 上/下 と極の間で線形。複合は極の記録がないので 上/下 の平均を極に使う）。
+       利用者の指摘 2026-09-18「3D モデルが球状になっておらず円柱状になっている。未出題や 0% は機体の中心で一点に収束しているはず」 */
     const HJ=['北','北東','東','南東','南','南西','西','北西'],PITCH=[[30,'上'],[0,''],[-30,'下']],poles=m==='attitude';
     const dirV=(hd,pc)=>{const D=Math.PI/180;return [Math.sin(hd*D)*Math.cos(pc*D),Math.cos(hd*D)*Math.cos(pc*D),Math.sin(pc*D)]};
-    const shapes=[];const COL={'水平':0xf2b56a,'右':0x7dbcff,'左':0x6fd6a8};
+    const shapes=[];const COL={'水平':0xf2b56a,'右':0x7dbcff,'左':0x6fd6a8};const RMAX=8;
     for(const sd of ['水平','右','左']){
-      const points=[],tris=[];const idx=(ri,hi)=>ri*8+(hi%8);
-      PITCH.forEach(([pc,suf])=>HJ.forEach((hj,hi)=>{const dj=hj+suf,rec=w['姿勢|'+dj+'|'+sd],r=2.5+5.5*(rec?rec.c/rec.n:0);const [x,y,z]=dirV(hi*45,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}));
-      for(let ri=0;ri<2;ri++)for(let hi=0;hi<8;hi++){tris.push([idx(ri,hi),idx(ri+1,hi),idx(ri+1,hi+1)]);tris.push([idx(ri,hi),idx(ri+1,hi+1),idx(ri,hi+1)])}
-      if(poles){for(const [dj,pc] of [['真上',90],['真下',-90]]){const rec=w['姿勢|'+dj+'|'+sd],r=2.5+5.5*(rec?rec.c/rec.n:0);const [x,y,z]=dirV(0,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}
-        const up=24,dn=25;for(let hi=0;hi<8;hi++){tris.push([up,idx(0,hi+1),idx(0,hi)]);tris.push([dn,idx(2,hi),idx(2,hi+1)])}}
+      const acc=dj=>{const rec=w['姿勢|'+dj+'|'+sd];return rec&&rec.n?rec.c/rec.n:0};
+      const ring=PITCH.map(([,suf])=>HJ.map(hj=>acc(hj+suf)));   // [上, 水平, 下][方位]
+      const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+      const pole=[poles?acc('真上'):avg(ring[0]),poles?acc('真下'):avg(ring[2])];
+      /* 緯度 lat（−90〜90）・経度 lon（0〜360）の正答率 */
+      const f=(lat,lon)=>{const h=((lon%360)+360)%360/45,i=Math.floor(h)%8,t=h-Math.floor(h);const at=r=>r[i]*(1-t)+r[(i+1)%8]*t;
+        if(lat>=30){const k=(lat-30)/60;return at(ring[0])*(1-k)+pole[0]*k}
+        if(lat<=-30){const k=(-lat-30)/60;return at(ring[2])*(1-k)+pole[1]*k}
+        if(lat>=0){const k=lat/30;return at(ring[1])*(1-k)+at(ring[0])*k}
+        const k=-lat/30;return at(ring[1])*(1-k)+at(ring[2])*k};
+      const points=[],tris=[];const NLA=12,NLO=16;   // 緯度の段（15° 刻み）、経度の刻み（22.5°）
+      for(let a=0;a<=NLA;a++){const lat=-90+180*a/NLA;for(let o=0;o<NLO;o++){const lon=360*o/NLO,r=RMAX*f(lat,lon),[x,y,z]=dirV(lon,lat);points.push({x:x*r,y:y*r,z:z*r})}}
+      const idx=(a,o)=>a*NLO+(o%NLO);
+      for(let a=0;a<NLA;a++)for(let o=0;o<NLO;o++){tris.push([idx(a,o),idx(a+1,o),idx(a+1,o+1)]);tris.push([idx(a,o),idx(a+1,o+1),idx(a,o+1)])}
+      /* タップできる印: 記録のある向きの 24（＋2）点 */
+      PITCH.forEach(([pc,suf])=>HJ.forEach((hj,hi)=>{const dj=hj+suf,r=RMAX*acc(dj);const [x,y,z]=dirV(hi*45,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}));
+      if(poles)for(const [dj,pc] of [['真上',90],['真下',-90]]){const r=RMAX*acc(dj);const [x,y,z]=dirV(0,pc);points.push({id:'姿勢|'+dj+'|'+sd,x:x*r,y:y*r,z:z*r})}
       shapes.push({id:sd,color:COL[sd],opacity:0.16,points,tris});
     }
     v.setShapes(shapes);
@@ -3449,7 +3464,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=9');
+    const mod=await import('./viewer.js?v=10');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');

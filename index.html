@@ -685,7 +685,7 @@ ul.tips li{margin:.125rem 0}
 .trendrow{margin-top:.5rem}.trend{display:block;width:100%;max-width:14rem;height:2.5rem}.trend rect.hi{fill:var(--accent)}.trend rect.mid{fill:#e8b24a}.trend rect.lo{fill:#d9534f}
 .pat{margin-top:.35rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}.pat:last-of-type{border-bottom:0}.pat .frames{max-width:26rem;margin:.3rem auto 0;gap:.3rem}.pat .frame{grid-template-columns:1.25rem 1fr;gap:.3rem}.pat .frame .v{height:calc((100vh - 30rem)/3);height:calc((100dvh - 30rem)/3);min-height:3.25rem;max-height:9rem;display:flex;justify-content:center;border:0;background:transparent}.pat .frame .v svg{height:100%;width:auto;max-width:100%;border-radius:.5rem;border:1px solid var(--line)}
 .patd{margin-top:.35rem}.patd summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:.25rem;cursor:pointer;font-size:.8125rem;font-weight:700;color:var(--text);padding:.4rem .6rem;border:1px solid var(--line);border-radius:.6rem;background:var(--panel2)}.patd summary::-webkit-details-marker{display:none}.patd .patchev .ic{width:1rem;height:1rem;transition:transform .2s;color:var(--muted)}.patd[open] .patchev .ic{transform:rotate(90deg)}
-.patbody{margin:.35rem 0 .25rem}
+.patbody.fbsim{margin:.35rem 0 .25rem;border-top:0;padding-top:0}
 .histd{margin-top:.5rem}.histd summary{font-size:.8125rem;color:var(--muted);cursor:pointer}
 .homelinks{margin-top:.5rem}.homelinks .btn.sm{width:auto;font-size:.8125rem}
 .summary .mockrec{text-align:left;margin:0 auto 1rem;max-width:22rem}
@@ -1441,7 +1441,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v05.104';
+const APP_VER='v05.105';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3175,7 +3175,7 @@ function weakHTML(m){
       else h+=P.map((x,i)=>{const pf=patFrames(x.key,x.v.init);return `<div class="pat"><div class="wrow"><span class="wl">${esc(patLabel(x.key))}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>
         <div class="sub2">①は ${esc(initText3(pf.init))}${pf.x.single?'':pf.x.simul?'、2 つの操作は同時':'、2 つの操作は順番'}。</div>
         <div class="frames">${pf.f.map((fr,j)=>`<div class="frame"><div class="n">${'①②③'[j]}</div><div class="v">${ckCompact(E.svgCockpit(fr,{marks:true,ref:pf.f[0]}))}</div></div>`).join('')}</div>
-        <details class="patd" data-pat="${esc(x.key)}" data-init="${esc(JSON.stringify(x.v.init||null))}"><summary><span>動きで見る</span><span class="patchev">${ic('next')}</span></summary><div class="patbody"></div></details></div>`}).join('');
+        <details class="patd" data-pat="${esc(x.key)}" data-init="${esc(JSON.stringify(x.v.init||null))}"><summary><span>動きで見る</span><span class="patchev">${ic('next')}</span></summary><div class="patbody fbsim"></div></details></div>`}).join('');   /* v05.105: 中身は解説の「この問題の見え方」と同じ部品・同じ見た目（.fbsim） */
       h+=`<div class="sub2">①②③ は出題のときの①の姿勢で作っています。「動きで見る」を開くと同じ動きを再生します。</div><div class="acts"><button class="btn ghost sm" data-go="#train/control/gallery">苦手パターン表を開く</button></div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
@@ -3226,7 +3226,7 @@ function patFrames(key,init0){
 function buildPatBody(d){
   let init=null;try{init=JSON.parse(d.dataset.init)}catch(e){}
   const pf=patFrames(d.dataset.pat,init),body=d.querySelector('.patbody');
-  body.innerHTML='<div class="patmv"></div>';
+  body.innerHTML=`<div class="fbsimh"><span>このパターンの見え方${isFull()?'':'（体験版は一人称だけ）'}</span></div><div class="patmv"></div>`;
   const mv=makeMover({traj:()=>pf.traj,forces:seg=>forcesOf(pf.x.ops,pf.x.simul,seg),hud:true,view:'first',onView:()=>{},lockThird:!isFull()});
   body.querySelector('.patmv').appendChild(mv.el);mv.build();statMovers.push(mv);
 }

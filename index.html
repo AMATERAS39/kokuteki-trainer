@@ -3096,7 +3096,7 @@ function weakHTML(m){
         <div class="viewer pose3d" data-pose="${m}"><div class="vload">3D モデルを読み込み中…</div></div>
         <div class="poselg"><span><i style="background:#f2b56a"></i>水平</span><span><i style="background:#7dbcff"></i>右バンク</span><span><i style="background:#6fd6a8"></i>左バンク</span><span class="sub2">中心からの距離が正答率（外側ほど正解）。なぞると視点が回り、頂点を選ぶと機首の先へ寄ります。選んだ頂点をもう一度タップすると元の位置へ。</span></div>
         ${octoHTML(m,pv)}
-        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、中心が 0%、外側が 100%。緑が左バンク、橙が水平、青が右バンク。真上・真下は機首上げ・機首下げの層の中心。未出題の方位には頂点がありません。頂点をタップすると記録が下に出て 3D が寄り、もう一度タップすると戻ります。</div>`;
+        <div class="sub2">上のボタンで 機首上げ・水平・機首下げ の層を切り替えます。八角形は 8 方位、中心が 0%、外側が 100%。緑が左バンク、橙が水平、青が右バンク。未出題の方位は 0%。真上・真下は機首上げ・機首下げの層の中心。頂点をタップすると記録が下に出て 3D が寄り、もう一度タップすると戻ります。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3151,7 +3151,8 @@ function renderStatsPage(){
 /* 八角形チャート（v05.86、利用者の指示 2026-09-18「8 方位を数値でなくチャートで表す。中心を 0%、外側を 100% とし、
    8 角形チャートで示す。水平・右バンク・左バンクで色分けし、機首上げ・水平・機首下げ の三層構造のまま選択で切り替える」）
    各層は 8 方位の八角形レーダー。3 本の多角形（左バンク・水平・右バンク、3D の多面体と同じ色）。頂点は中心からの距離 ＝ 正答率。
-   未出題の方位は頂点を置かず、線もつながない。頂点をタップすると 3D がその姿勢になり、もう一度タップで戻る。
+   未出題の方位も 0% として中心に頂点を置く（利用者の指摘 2026-09-18「各方位で正答率を示すので、0% や未出題の方位は 0% となるはず」）。多角形は常に 8 頂点で閉じる。
+   頂点をタップすると 3D がその姿勢になり、もう一度タップで戻る。
    姿勢指示器は 真上 を機首上げの層、真下 を機首下げの層の中心に置く（球を上から見た極）。値は 3 つのバンクを合わせた正答率 */
 function octoHTML(m,pv){
   const cx=92,cy=92,R=70,HJ=['北','北東','東','南東','南','南西','西','北西'],EN=['N','NE','E','SE','S','SW','W','NW'];
@@ -3163,11 +3164,10 @@ function octoHTML(m,pv){
   grid+=[50,100].map(pc=>{const [x,y]=P(0,R*pc/100).split(',');return `<text x="${(+x+1.5).toFixed(1)}" y="${(+y+4).toFixed(1)}" class="gl">${pc}</text>`}).join('');
   const lab=HJ.map((hj,i)=>{const [x,y]=P(i*45,82).split(',');return `<text x="${x}" y="${(+y+2.5).toFixed(1)}" text-anchor="middle" class="cl">${hj}</text><text x="${x}" y="${(+y+8.5).toFixed(1)}" text-anchor="middle" class="cle">${EN[i]}</text>`}).join('');
   const layers=LAYERS.map(([suf],li)=>{let g='';
-    SER.forEach(([sd,c])=>{const pts=HJ.map((hj,i)=>{const dj=hj+suf,v=pv(dj,sd);if(!v||!v.n)return null;const ac=v.c/v.n;return {dj,v,ac,xy:P(i*45,R*ac)}});
-      const have=pts.filter(Boolean);
-      if(have.length>=3)g+=`<path d="M${have.map(p=>p.xy).join(' L')} Z" class="area" style="fill:${c}"/>`;
-      let ln='';pts.forEach((p,i)=>{const q=pts[(i+1)%8];if(p&&q)ln+=`M${p.xy} L${q.xy} `});if(ln)g+=`<path d="${ln.trim()}" class="line" style="stroke:${c}"/>`;
-      pts.forEach(p=>{if(!p)return;const [x,y]=p.xy.split(',');g+=`<g class="pt" data-pose3d="${p.dj}|${sd}"><circle cx="${x}" cy="${y}" r="7" class="hit"/><circle cx="${x}" cy="${y}" r="2.8" class="dot" style="fill:${c}"/><title>${p.dj}・${sd==='水平'?'水平':sd+'バンク'} ${Math.round(p.ac*100)}%（${p.v.n} 問）</title></g>`});
+    SER.forEach(([sd,c])=>{const pts=HJ.map((hj,i)=>{const dj=hj+suf,v=pv(dj,sd),ac=v&&v.n?v.c/v.n:0;return {dj,v,ac,xy:P(i*45,R*ac)}});
+      const d=`M${pts.map(p=>p.xy).join(' L')} Z`;
+      g+=`<path d="${d}" class="area" style="fill:${c}"/><path d="${d}" class="line" style="stroke:${c}"/>`;
+      pts.forEach(p=>{const [x,y]=p.xy.split(',');g+=`<g class="pt" data-pose3d="${p.dj}|${sd}"><circle cx="${x}" cy="${y}" r="7" class="hit"/><circle cx="${x}" cy="${y}" r="2.8" class="dot" style="fill:${c}"/><title>${p.dj}・${sd==='水平'?'水平':sd+'バンク'} ${p.v&&p.v.n?Math.round(p.ac*100)+'%（'+p.v.n+' 問）':'未出題（0%）'}</title></g>`});
     });
     if(m==='attitude'&&li!==1){const dj=li===0?'真上':'真下';let n=0,c=0;for(const sd of ['水平','右','左']){const v=pv(dj,sd);if(v&&v.n){n+=v.n;c+=v.c}}const ac=n?c/n:null;
       g+=`<g class="pt pole${ac==null?' na':''}" data-pose3d="${dj}|水平"><circle cx="${cx}" cy="${cy}" r="13" class="polec"/><text x="${cx}" y="${cy-1}" text-anchor="middle" class="pn">${dj}</text><text x="${cx}" y="${cy+5.5}" text-anchor="middle" class="pv">${ac==null?'—':Math.round(ac*100)+'%'}</text><title>${dj} ${ac==null?'未出題':Math.round(ac*100)+'%（'+n+' 問）'}</title></g>`}

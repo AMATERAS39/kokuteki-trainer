@@ -1474,7 +1474,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.07';
+const APP_VER='v06.08';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -2706,7 +2706,7 @@ function showGallery(){applyScene();galDispose();
     <div class="gsel"><div class="gl"></div><div class="gp" style="grid-template-columns:repeat(2,1fr)">${Object.entries(GAL_PITCH).map(([k,v])=>`<button class="ab gi${dm?' lockb':''}" data-pitch="${k}"${dm?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}
     ${row('',['stick-forward-left','stick-forward-right','stick-back-left','stick-back-right'],4,dm,true)}   <!-- 操縦桿の斜め。行の名前は付けない（操縦桿の続き。利用者 2026-09-19）。体験版は鍵（押すと説明）。出題への追加は 9/26 のあと -->
-    ${row('方向舵',['rudder-left','rudder-right'],2,dm)}
+    ${row('方向舵',['rudder-left','rudder-right'],2)}   <!-- 体験版でも単一操作なら方向舵は使える（利用者 2026-09-19）。組み合わせは galleryOne で鍵 -->
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
     <div class="gsim">
@@ -2732,7 +2732,7 @@ function showGallery(){applyScene();galDispose();
   $('#gallery').querySelectorAll('[data-seq]').forEach(b=>b.addEventListener('click',()=>{gal.seq=b.dataset.seq==='1';galDraw()}));
   /* 苦手パターン（v05.99）: 押すと ①の姿勢・操作・同時か順番か をそのパターンにする。体験版で使えない組み合わせは鍵の案内 */
   $('#gallery').querySelectorAll('[data-pat]').forEach(b=>b.addEventListener('click',()=>{const x=patParse(b.dataset.pat);
-    if(dm&&(x.bank!=='level'||x.pitch||x.ops.some(id=>E.OP_BY_ID[id].group==='rudder')||!x.single)){toast('このパターンは完全版で見られます（体験版は水平飛行から操縦桿 1 つずつ）');return}
+    if(dm&&(x.bank!=='level'||x.pitch||!x.single)){toast('このパターンは完全版で見られます（体験版は水平飛行から操作 1 つずつ）');return}   /* 体験版でも単一なら方向舵は見られる（v06.08） */
     gal.bank=x.bank;gal.pitch=x.pitch;gal.sel=x.single?[x.ops[0]]:x.ops.slice();gal.seq=!x.single&&!x.simul;galDraw();$('#gout').scrollIntoView({block:'start',behavior:'smooth'})}));
   $('#galBack').addEventListener('click',()=>{location.hash='#train/control'});
   /* 「動きで見る」: 解説の「この問題の見え方」と同じ部品（利用者の指示 2026-09-14）。飛行はいまの選択から毎回作る */

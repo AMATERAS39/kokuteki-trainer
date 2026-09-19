@@ -771,14 +771,15 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .hero h2{font-family:var(--display);font-weight:700;font-size:1.375rem;margin:0;letter-spacing:.02em}
 .hero p{margin:.5rem 0 0;font-size:.875rem;line-height:1.7;color:var(--muted)}
 .hero img{width:5.5rem;height:5.5rem;object-fit:contain;transform:rotate(-45deg);filter:drop-shadow(0 .5rem 1rem rgba(0,0,0,.5))}
-.hero2{position:relative;margin-top:.5rem;border-radius:1rem;border:1px solid var(--line);padding:1.25rem 1rem .875rem;display:flex;flex-direction:column;align-items:center;overflow:hidden;
+.hero2{--jet-min:5rem;--hero-pt:1.25rem;--hero-pb:.875rem;--word-fs:clamp(1.5rem,7.5vw,2.4rem);--word-mt:.5rem;   /* 機体の絵の下限と、枠の余白・ロゴの大きさ。低い画面では高さ別の規則で変える（v06.05） */
+  position:relative;margin-top:.5rem;border-radius:1rem;border:1px solid var(--line);padding:var(--hero-pt) 1rem var(--hero-pb);display:flex;flex-direction:column;align-items:center;overflow:hidden;
   background:radial-gradient(70% 60% at 50% 42%,var(--hero-a) 0%,var(--hero-b) 55%,var(--panel) 100%)}
 .hero2::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 2.4rem,var(--hero-grid) 2.4rem calc(2.4rem + 1px)),repeating-linear-gradient(90deg,transparent 0 2.4rem,var(--hero-grid) 2.4rem calc(2.4rem + 1px));mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%);-webkit-mask:radial-gradient(70% 70% at 50% 45%,#000 30%,transparent 100%)}
 /* 画像は機体が中央になるよう左右対称の余白付き。枠より広く表示してスモークは左端で切れる */
 .hero-jet{position:relative;width:100%;max-width:none;height:auto;margin:0;filter:drop-shadow(0 1.25rem 1.5rem var(--hero-shadow))}
 /* ロゴは機体と重ならないよう、画像の下の独立した行に右寄せで置く */
 /* 立体文字 TENRYU（暫定: CSS の押し出し文字。RIKYU の納品（透明 PNG）が届いたら <img> に差し替える） */
-.hero-word{position:relative;align-self:flex-end;margin:.5rem .5rem 0 0;font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,7.5vw,2.4rem);letter-spacing:.14em;line-height:1;color:var(--word-face);user-select:none;
+.hero-word{position:relative;align-self:flex-end;margin:var(--word-mt) .5rem 0 0;font-family:var(--display);font-weight:700;font-size:var(--word-fs);letter-spacing:.14em;line-height:1;color:var(--word-face);user-select:none;
   text-shadow:0 .03em 0 var(--word-edge),0 .06em 0 var(--word-edge),0 .09em 0 var(--word-edge2),0 .12em 0 var(--word-edge2),0 .15em 0 var(--word-edge3),0 .22em .35em var(--word-shadow);transform:perspective(18rem) rotateX(16deg) skewX(-5deg)}
 .hero-word span{color:var(--word-face)}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
@@ -793,10 +794,13 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .go{color:var(--accent)}
 .mode .tx{display:flex;flex-direction:column;gap:.125rem;min-width:0}
 .mode .avg{font-family:var(--mono);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.mode .avg-n{display:none}
+@media (max-width:23.4rem){.mode .avg-w{display:none}.mode .avg-n{display:inline}}   /* 幅 374 px 以下では 3D の説明が 2 行に折れて 1 画面に入らないので短い言い方に（v06.05） */
 .mode.locked{opacity:.7}
 .mode .lk{font-family:var(--mono);font-size:.6875rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:.375rem;padding:.125rem .4rem;white-space:nowrap}
 .demo{margin-top:.5rem;display:flex;align-items:center;gap:.625rem;background:var(--panel);border:1px dashed var(--line2);border-radius:.875rem;padding:.5rem .625rem .5rem .875rem;font-size:.75rem;color:var(--muted);line-height:1.35}
 .demo b{color:var(--accent)}
+.demo .nw{white-space:nowrap}   /* 「使えま／す」のような途中の折り返しを避け、句の切れ目で折る（v06.05） */
 .demo.review,.demo.ask{border-style:solid}.demo.askplan{flex-wrap:wrap}.demo.askplan .askbtns{flex:1 0 100%;display:flex;gap:.375rem;flex-wrap:wrap}.demo.askplan .askbtns .btn{flex:1 1 auto}.demo.review .btn.ghost,.demo.ask .btn.ghost{margin-left:.25rem}.demo.ask a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 .musbtns{display:flex;gap:.375rem;align-items:center}
 .musnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -894,9 +898,11 @@ body:not([data-view="home"]) .back{display:inline-flex}
   body[data-view="train"]:has(#figs .figs.heading){padding-bottom:calc(var(--foot-h) + var(--gap-b-heading))}   /* 方位は帯（版と著作権の行）から少し離す（v05.27 は帯に入っていた。利用者の指摘 2026-09-14） */
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
-  /* ホーム: 機体の絵だけ縮む */
-  .hero2{flex:0 1 auto;min-height:0;justify-content:center}
-  .hero-jet{flex:0 1 auto;min-height:0;object-fit:contain}
+  /* ホーム: 機体の絵だけ縮む。ただし消えはしない（v06.05）。
+     v06.04 までは下限が 0 で、iPhone SE（667）や 640 px 級の Android では絵の高さが 0 になり、空の枠だけが出ていた（利用者の指摘 2026-09-19「体験版で技術力を測られる」）。
+     縮む順: 機体の絵（下限 5rem）→ 画面が低いときは種目カードの余白と間隔（下の高さ別の規則）→ それでも入らなければ全体が縦に伸びてスクロール */
+  .hero2{flex:0 1 auto;min-height:calc(var(--jet-min) + var(--hero-pt) + var(--hero-pb) + var(--word-fs) + var(--word-mt) + 2px);justify-content:center}   /* 枠は中身（絵の下限＋余白＋ロゴ＋枠線）より低くならない。低くなると絵が枠に切られる */
+  .hero-jet{flex:0 1 auto;min-height:var(--jet-min);object-fit:contain}
   .modes{gap:.5rem;margin-top:.75rem}
   .mode{padding:.875rem 1rem}
   /* 訓練: 脇のメモ・記録は出さず、出題中は成績チップも隠す */
@@ -1019,13 +1025,27 @@ body:not([data-view="home"]) .back{display:inline-flex}
 /* ===== PC 幅: 訓練画面も 1 画面に収める =====
    画面が大きいぶん、大事なのは機体の図より選択肢なので、図を伸縮させて選択肢を大きく見せる。
    スマホの 1 画面化と同じ作り（縦の flex にして、図だけを伸縮させる） */
+/* ホームの高さ別の詰め方（縦の携帯）。機体の絵の下限 5rem を守るために、低い画面では種目カードの余白から先に詰める（v06.05）。
+   実測（体験版・幅 375）: 高さ 667 で機体 86 px、幅 360×640 で 79 px、320×568 は入りきらず 60 px ほどスクロール */
+@media (max-width:63.99rem) and (orientation:portrait) and (max-height:47.99rem){
+  .hero2{--hero-pt:.875rem;--hero-pb:.625rem;--word-fs:clamp(1.25rem,6vw,1.75rem);--word-mt:.25rem;padding-left:.75rem;padding-right:.75rem}
+  .modes{gap:.375rem;margin-top:.5rem}
+  .mode{padding:.625rem 1rem}
+  .demo{margin-top:.375rem}
+}
+@media (max-width:63.99rem) and (orientation:portrait) and (max-height:41.99rem){
+  .mode{padding:.5rem .875rem}
+  .mode .ico{width:2.25rem;height:2.25rem}
+  .hero2{--jet-min:4.5rem}
+  .demo{padding:.375rem .5rem .375rem .75rem}
+}
 @media (min-width:64rem){
   body[data-view="home"],body[data-view="train"]{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:calc(var(--foot-h) + var(--gap-b))}
   body[data-view="train"]:has(#figs .figs.heading){padding-bottom:calc(var(--foot-h) + var(--gap-b-heading))}   /* 方位は帯から少し離す */
   body[data-view="home"] .app,body[data-view="train"] .app{flex:1;min-height:0;display:flex;flex-direction:column;width:100%}
   #view-home:not([hidden]),#view-train:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
-  .hero2{flex:0 1 auto;min-height:0;justify-content:center}
-  .hero-jet{flex:0 1 auto;min-height:0;object-fit:contain}
+  .hero2{--jet-min:6rem;flex:0 1 auto;min-height:calc(var(--jet-min) + var(--hero-pt) + var(--hero-pb) + var(--word-fs) + var(--word-mt) + 2px);justify-content:center}   /* 低い窓でも機体は消さない（v06.05） */
+  .hero-jet{flex:0 1 auto;min-height:var(--jet-min);object-fit:contain}
   .layout{flex:1;min-height:0;align-items:stretch}
   body[data-view="train"] .layout > .card{min-height:0;display:flex;flex-direction:column}
   #quiz:not([hidden]),#sim:not([hidden]),#gallery:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
@@ -1453,7 +1473,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.04';
+const APP_VER='v06.05';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3081,8 +3101,8 @@ function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODES[m]}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
-    +`<button class="mode" id="homeSim"><span class="ico">${ic('vfirst')}</span><span class="tx"><span class="n">3D シミュレーター</span><span class="avg">操縦桿と方向舵で飛ばして、見え方を体で覚える</span></span><span class="go">${ic('next','s')}</span></button>`
-    +(isFull()?'':`<div class="demo"><span><b>体験版</b>: 鍵のかかった機能は完全版で使えます</span><button class="btn" data-go2="buy">くわしく</button></div>`)
+    +`<button class="mode" id="homeSim"><span class="ico">${ic('vfirst')}</span><span class="tx"><span class="n">3D シミュレーター</span><span class="avg"><span class="avg-w">操縦桿と方向舵で飛ばして、見え方を体で覚える</span><span class="avg-n">舵を切って、見え方を体で覚える</span></span></span><span class="go">${ic('next','s')}</span></button>`
+    +(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};
     pn.closest('.ask').querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>ans('yes',b.dataset.plan)));pn.addEventListener('click',()=>ans('no'))}

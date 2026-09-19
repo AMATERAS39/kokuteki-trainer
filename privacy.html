@@ -58,6 +58,11 @@ a:hover{text-decoration:underline;text-underline-offset:.15em}
 
 main{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad) clamp(2.5rem,6vw,4rem)}
 .head{padding:clamp(2rem,5vw,3rem) 0 var(--sec)}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .5rem;margin-bottom:.875rem;font-size:var(--tiny);color:var(--faint);letter-spacing:.04em}
+.crumbs a{color:var(--muted)}
+.crumbs a:hover{color:var(--text)}
+.crumbs .sep{opacity:.6}
+.crumbs [aria-current]{color:var(--soft)}
 .eyebrow{font-family:var(--mono);font-size:var(--tiny);letter-spacing:.2em;color:var(--cyan)}
 h1{font-size:clamp(1.5rem,4vw,2.25rem);font-weight:900;letter-spacing:-.01em;margin-top:.625rem}
 .meta{margin-top:.875rem;font-family:var(--mono);font-size:var(--tiny);color:var(--faint);letter-spacing:.06em}
@@ -100,6 +105,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
 <main>
 
   <div class="head">
+    <nav class="crumbs" aria-label="現在地"><a href="/guide"><span class="nw">TENRYU 公式サイト</span></a><span class="sep" aria-hidden="true">›</span><span aria-current="page"><span class="nw">プライバシーポリシー</span></span></nav>
     <p class="eyebrow">PRIVACY POLICY</p>
     <h1><span class="nw">プライバシーポリシー</span></h1>
     <p class="meta">TENRYU（<span class="nw">航空学生</span> <span class="nw">適性検査</span><span class="nw">トレーニング</span>）　制定 2026 年 9 月 2 日　改定 2026 年 9 月 16 日</p>
@@ -194,5 +200,8 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
   </div>
 </footer>
 
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"TENRYU 公式サイト","item":"https://kokuteki.amaterasu-vocab.com/guide"},{"@type":"ListItem","position":2,"name":"プライバシーポリシー","item":"https://kokuteki.amaterasu-vocab.com/privacy"}]}
+</script>
 </body>
 </html>

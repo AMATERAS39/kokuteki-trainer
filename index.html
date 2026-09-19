@@ -486,10 +486,10 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .fbsim .fbsimh{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.8125rem;font-weight:700;color:var(--muted)}
 .fbsim .fbsimh .btn{width:auto;height:2rem;font-size:.75rem;padding:0 .75rem;margin:0}
 .fbsim .gfp{margin-top:.5rem}
-.fbsim .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%;max-height:34vh;max-height:34dvh;width:auto;margin:0 auto}
+.fbsim .gfp svg{border-radius:.5rem;border:1px solid var(--line);display:block;width:100%;max-height:34vh;max-height:34svh;width:auto;margin:0 auto}
 .fbsim .gstep{margin-top:.25rem;font-size:.75rem}
 /* 解説の中の「動きで見る」の箱: 以前の svg と同じ上限（高さ 34dvh まで・幅いっぱいまで）。縦横は出題の絵と同じ 360×188 */
-.fbsim .gtp{aspect-ratio:360/188;width:min(100%,calc(34dvh * 360 / 188));height:auto;margin:0 auto;border-radius:.5rem;background:var(--bezel, #0a0d11)}
+.fbsim .gtp{aspect-ratio:360/188;width:min(100%,calc(34svh * 360 / 188));height:auto;margin:0 auto;border-radius:.5rem;background:var(--bezel, #0a0d11)}
 .fbsim .sub{font-size:.75rem;color:var(--muted);margin-top:.25rem}
 .fbsim .gsimbar{margin-top:.5rem}
 .gallery .gtp{margin-top:0}
@@ -514,14 +514,16 @@ body[data-phase="gallery"] .card{padding:.75rem 1rem}
 .gallery h4{margin:.625rem 0 0;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gallery .gdesc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gallery .frames{gap:.3rem;margin-top:.375rem;max-width:none}
+/* スクロールする画面（見え方の一覧・解説・記録分析）の絵の高さは svh で決める。dvh だと Safari の帯が畳まれるたびに値が変わり、
+   スクロール中に ①②③ と「動きで見る」が伸び縮みして見えた（体験版だけの症状。アプリ版の WebView には帯がない。利用者の指摘 2026-09-19、v06.09） */
 .gallery .frame{grid-template-columns:1.25rem 1fr;gap:.3rem}
 .gallery .frame .n{font-size:.8125rem}
-.gallery .frame .v{height:calc((100vh - 30rem)/3);height:calc((100dvh - 30rem)/3);min-height:3.25rem;max-height:11rem;display:flex;justify-content:center;border:0;background:transparent}
+.gallery .frame .v{height:calc((100vh - 30rem)/3);height:calc((100svh - 30rem)/3);min-height:3.25rem;max-height:11rem;display:flex;justify-content:center;border:0;background:transparent}
 .gallery .frame .v svg{height:100%;width:auto;max-width:100%;border-radius:.5rem;border:1px solid var(--line)}
 .gallery .glegend{text-align:center;margin-top:.25rem}
-.gallery .gfp svg{max-height:52vh;max-height:52dvh;min-height:7rem;width:auto;margin:0 auto}
+.gallery .gfp svg{max-height:52vh;max-height:52svh;min-height:7rem;width:auto;margin:0 auto}
 /* 「動きで見る」の箱は出題画像と同じ: 上の①②③と同じ切り取り（360×188）・同じ高さ（利用者の指示 2026-09-13「画面サイズも出題画像と同じものであるべき」） */
-.gallery .gtp{aspect-ratio:360/188;width:auto;max-width:100%;height:calc((100vh - 30rem)/3);height:calc((100dvh - 30rem)/3);min-height:3.25rem;max-height:11rem;margin:0 auto;border-radius:.5rem;background:var(--bezel, #0a0d11)}
+.gallery .gtp{aspect-ratio:360/188;width:auto;max-width:100%;height:calc((100vh - 30rem)/3);height:calc((100svh - 30rem)/3);min-height:3.25rem;max-height:11rem;margin:0 auto;border-radius:.5rem;background:var(--bezel, #0a0d11)}
 .gallery .gsim{margin-top:.875rem;padding-top:.625rem}
 :is(.gallery,.fbsim) .gsimbar .btn{height:2.25rem;font-size:.8125rem}
 .gallery .acts{margin-top:.5rem}
@@ -1410,6 +1412,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <script>
 (function(){
 'use strict';
+/* ブラウザ版: iOS Safari は viewport の user-scalable=no を無視するので、二本指の拡大（gesturestart）を止めてアプリ版と同じ挙動にする（v06.09）。ほかのブラウザはこの事象を出さないので影響なし */
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 const E=window.AAT,$=s=>document.querySelector(s);
 const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('aat.'+k,JSON.stringify(v))}catch(e){}}};
 /* 設定の既定値（表示のみ: 方位の表記・テーマ・背景）。version が変わったら保存済みの設定を捨てて既定値に戻す */
@@ -1474,7 +1478,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.08';
+const APP_VER='v06.09';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';

@@ -1473,7 +1473,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.06';
+const APP_VER='v06.07';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -2698,13 +2698,13 @@ function showGallery(){applyScene();galDispose();
   const dm=!isFull();
   if(dm){gal.bank='level';gal.pitch='';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false;gal.view='first'}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
-  const row=(title,ids,cols,lock)=>`<div class="gsel${lock?' off':''}"><div class="gl">${title}${lock?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}">${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
+  const row=(title,ids,cols,lock,perBtn)=>`<div class="gsel${lock&&!perBtn?' off':''}"><div class="gl">${title}${lock&&!perBtn?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab${lock&&perBtn?' lockb':''}" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}"${lock&&perBtn?' data-lock="1"':''}>${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと①②③が出ます。${isFull()?'操縦桿と方向舵は同時か順番かを選べます。':'体験版は操作 1 つずつです。'}</div>
     ${(()=>{const P=weakPatterns(6);return P.length?`<div class="wtop gwtop">${P.map((x,i)=>`<button type="button" class="wbadge lo gw" data-pat="${esc(x.key)}" title="${esc(patLabel(x.key))}　${pct(x.acc)}・${x.v.n} 問"><span class="wk">苦手${CIRC[i]||i+1}</span></button>`).join('')}</div>`:''})()}   <!-- 記録分析の苦手の状況（同じ番号）。押すと下の設定に反映（v05.108） -->
     <div class="gsel"><div class="gl">初期状態</div><div class="gp" style="grid-template-columns:repeat(3,1fr)">${Object.entries(GAL_BANK).map(([k,v])=>`<button class="ab gi${dm&&k!=='level'?' lockb':''}" data-bank="${k}"${dm&&k!=='level'?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
     <div class="gsel"><div class="gl"></div><div class="gp" style="grid-template-columns:repeat(2,1fr)">${Object.entries(GAL_PITCH).map(([k,v])=>`<button class="ab gi${dm?' lockb':''}" data-pitch="${k}"${dm?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
     ${row('操縦桿',['stick-left','stick-right','stick-forward','stick-back'],4)}
-    ${row('斜め',['stick-forward-left','stick-forward-right','stick-back-left','stick-back-right'],4)}   <!-- 操縦桿の斜め（利用者 2026-09-19: 「おまけ」を外す。出題への追加は 9/26 のあと） -->
+    ${row('',['stick-forward-left','stick-forward-right','stick-back-left','stick-back-right'],4,dm,true)}   <!-- 操縦桿の斜め。行の名前は付けない（操縦桿の続き。利用者 2026-09-19）。体験版は鍵（押すと説明）。出題への追加は 9/26 のあと -->
     ${row('方向舵',['rudder-left','rudder-right'],2,dm)}
     <div class="gsel" id="gseqRow"><div class="gl">2 つのとき</div><div class="gp"><button class="ab" data-seq="0">同時に行う</button><button class="ab" data-seq="1">操縦桿 → 方向舵</button></div></div>
     <div id="gout"></div>
@@ -2716,6 +2716,7 @@ function showGallery(){applyScene();galDispose();
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
   $('#gallery').querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{
     const id=b.dataset.op,grp=b.dataset.grp;
+    if(b.dataset.lock){toast('体験版では操縦桿の斜めは使えません。完全版で使えます');return}
     if(gal.sel.includes(id))gal.sel=gal.sel.filter(x=>x!==id);
     else if(!isFull()&&DEMO.galleryOne&&gal.sel.some(x=>E.OP_BY_ID[x].group!==grp)){
       /* 体験版は操作 1 つずつ。黙って入れ替えると壊れて見えるので、鍵だと伝えてから入れ替える */

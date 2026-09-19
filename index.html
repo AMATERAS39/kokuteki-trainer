@@ -459,6 +459,7 @@ body[data-view="train"][data-phase="sim"] .sim.hud3d .instrow{display:none}   /*
 .gallery h2{font-family:var(--display);font-weight:700;font-size:1.125rem;margin:0}
 .gallery .sub{font-size:.8125rem;color:var(--muted);margin-top:.25rem}
 .gallery .gsel{display:grid;grid-template-columns:4.5rem 1fr;gap:.5rem;align-items:center;margin-top:.5rem}
+.gsel .gl .full{display:block;white-space:nowrap;font-size:.8em;opacity:.8;letter-spacing:0}   /* 「（完全版）」は札の下の行に 1 行で（「方向舵（完全版）」が 3 行に折れていた。v06.07） */
 .gallery .gl{font-size:.8125rem;color:var(--muted)}
 :is(.gallery,.fbsim) .gp{display:grid;grid-template-columns:1fr 1fr;gap:.375rem}
 :is(.gallery,.fbsim) .gp .ab{min-height:2.75rem;font-size:.875rem;font-weight:700;padding:.25rem}
@@ -2698,7 +2699,7 @@ function showGallery(){applyScene();galDispose();
   const dm=!isFull();
   if(dm){gal.bank='level';gal.pitch='';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false;gal.view='first'}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
-  const row=(title,ids,cols,lock,perBtn)=>`<div class="gsel${lock&&!perBtn?' off':''}"><div class="gl">${title}${lock&&!perBtn?'（完全版）':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab${lock&&perBtn?' lockb':''}" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}"${lock&&perBtn?' data-lock="1"':''}>${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
+  const row=(title,ids,cols,lock,perBtn)=>`<div class="gsel${lock&&!perBtn?' off':''}"><div class="gl">${title}${lock&&!perBtn?'<span class="full">（完全版）</span>':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab${lock&&perBtn?' lockb':''}" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}"${lock&&perBtn?' data-lock="1"':''}>${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
   $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと①②③が出ます。${isFull()?'操縦桿と方向舵は同時か順番かを選べます。':'体験版は操作 1 つずつです。'}</div>
     ${(()=>{const P=weakPatterns(6);return P.length?`<div class="wtop gwtop">${P.map((x,i)=>`<button type="button" class="wbadge lo gw" data-pat="${esc(x.key)}" title="${esc(patLabel(x.key))}　${pct(x.acc)}・${x.v.n} 問"><span class="wk">苦手${CIRC[i]||i+1}</span></button>`).join('')}</div>`:''})()}   <!-- 記録分析の苦手の状況（同じ番号）。押すと下の設定に反映（v05.108） -->
     <div class="gsel"><div class="gl">初期状態</div><div class="gp" style="grid-template-columns:repeat(3,1fr)">${Object.entries(GAL_BANK).map(([k,v])=>`<button class="ab gi${dm&&k!=='level'?' lockb':''}" data-bank="${k}"${dm&&k!=='level'?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>

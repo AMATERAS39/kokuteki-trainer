@@ -114,7 +114,7 @@
 
   /* ---------- 種目 A: 空間認識（本番の名称は不明。利用者の聞き取り 2026-09-19〜21） ----------
      初期状態の機体の絵（南からの固定視点）と命令（右旋回 45° など）が出て、命令のあとの機体の見え方を 4 枚の絵から選ぶ。
-     命令は 1 問に 1 つ: 旋回（ヨー: 方位が右＝時計回りに変わる）、横転（バンク: 翼の傾きが右に変わる）、機首上げ・下げ（機首の上下が変わる）。ほかの 2 つの値は変わらない（applyCmd の注記）。
+     命令は 1 問に 1 つ: 旋回（ヨー＝方向舵、機体の上下軸まわり）、横転（バンク＝操縦桿の左右、機首の軸まわり）、機首上げ・下げ（ピッチ＝操縦桿の前後、翼の軸まわり）。回転は機体の軸で掛ける（applyCmd の注記）。
      難易度: Easy 初期状態は水平（方位だけ変わる）／Normal ＋機首の上げ下げ／Hard ＋バンク（背面も）／Max 命令と初期状態に 30°・60° の微妙な角度を追加。
      絵は 3D モデルをその場で描く（26 方向の絵では 90° や背面、微妙な角度が描けない）。姿勢は { heading, pitch, bank }（度） */
   const mRz = a => { const c = Math.cos(a * D), s = Math.sin(a * D); return [[c, -s, 0], [s, c, 0], [0, 0, 1]]; };
@@ -137,20 +137,24 @@
     let tr = 0; for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) tr += A[i][k] * B[i][k];   // trace(A·Bᵀ)
     return Math.acos(Math.max(-1, Math.min(1, (tr - 1) / 2))) / D;
   }
-  /* 命令は姿勢の 3 つの値（方位・機首の上下・翼の傾き）のどれか 1 つを動かす: 旋回 → 方位が右（時計回り）に a°、横転 → 翼の傾きが右に a°、機首上げ → 機首の上下が +a°。
-     ほかの 2 つは変わらない（機体の軸で回すと、傾いた姿勢からの旋回で機首の上下や傾きまで変わり、答えの絵が半端な角度になって読めない。
-     本番の出題も「方位・上下・傾き」を独立に動かした絵だと見て、この形にした。2026-09-21）。
-     90° を越える機首上げ・下げは、真上・真下を越えて反対向きの背面になる（行列に通して正規化） */
+  /* 命令は **機体の軸** で回す（利用者の指摘 2026-09-21「機首下げ状態から旋回したとき、方向舵を踏むだけなので、機体水平方向に動くはず」）:
+     旋回（ヨー）＝方向舵: 機体の上下軸まわり（右＝機体にとって右へ。機首が下がっていれば、下がったまま機体の水平面の中で右へ振れる）
+     横転（バンク）＝操縦桿の左右: 機首の軸まわり（右＝右の翼が下がる）
+     機首上げ・下げ（ピッチ）＝操縦桿の前後: 左右の翼を結ぶ軸まわり（上げ＝機首が機体の上へ）
+     行列は R1 = R0 · Rbody。R0 = Rz(−h)·Rx(p)·Ry(b) の列が機体の右翼・機首・上なので、右から掛ける回転が機体の軸まわりになる。
+     旋回の右は上から見て時計回り（水平のときは方位が増える向き）なので Rz(−a)。結果の方位・上下・傾きは半端な角度になることがある（解説では整数に丸める） */
   function applyCmd(att, cmd) {
-    const h = att.heading + (cmd.axis === 'yaw' ? cmd.deg : 0), p = att.pitch + (cmd.axis === 'pitch' ? cmd.deg : 0), b = att.bank + (cmd.axis === 'roll' ? cmd.deg : 0);
-    return matToAtt(attMat(h, p, b));
+    const R0 = attMat(att.heading, att.pitch, att.bank);
+    const Rb = cmd.axis === 'yaw' ? mRz(-cmd.deg) : cmd.axis === 'roll' ? mRy(cmd.deg) : mRx(cmd.deg);
+    return matToAtt(mMul(R0, Rb));
   }
   const CMD_JA = { yaw: ['右旋回', '左旋回'], roll: ['右横転', '左横転'], pitch: ['機首上げ', '機首下げ'] };
   const cmdText = c => `${CMD_JA[c.axis][c.deg >= 0 ? 0 : 1]} ${Math.abs(c.deg)}°`;
-  const attText = a => {
+  const attText = a0 => {
+    const a = { heading: Math.round(a0.heading) % 360, pitch: Math.round(a0.pitch), bank: Math.round(a0.bank) };   // 解説の文は整数の度
     const H = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
     const vert = Math.abs(a.pitch) >= 89;
-    const h = vert ? '' : (a.heading % 45 === 0 ? H[Math.round(a.heading / 45) % 8] : `方位 ${Math.round(a.heading)}°`) + '向き';
+    const h = vert ? '' : (a.heading % 45 === 0 ? H[Math.round(a.heading / 45) % 8] : `方位 ${a.heading}°`) + '向き';
     const p = a.pitch >= 89 ? '真上' : a.pitch <= -89 ? '真下' : a.pitch > 0 ? `機首上げ ${a.pitch}°` : a.pitch < 0 ? `機首下げ ${-a.pitch}°` : '';
     const b = Math.abs(a.bank) >= 179 ? '背面' : a.bank > 0 ? `右バンク ${a.bank}°` : a.bank < 0 ? `左バンク ${-a.bank}°` : '';
     const t = [h, p, b].filter(Boolean);
@@ -189,9 +193,9 @@
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
     const lines = [`初期状態は${attText(q.init)}。命令は「${q.cmdText}」。`];
     const ax = q.cmd.axis;
-    lines.push(ax === 'yaw' ? '旋回は機首の方位だけが変わります（右旋回は上から見て時計回り）。翼の傾きと機首の上下はそのまま。'
-      : ax === 'roll' ? '横転は翼の傾きだけが変わります（90° で翼が立ち、180° で背面）。機首の方位と上下はそのまま。'
-      : '機首上げ・下げは機首の上下だけが変わります（90° で真上・真下、それを越えると反対向きの背面）。方位と翼の傾きはそのまま。');
+    lines.push(ax === 'yaw' ? '旋回は方向舵を踏む動き。機体の上下軸まわりに回るので、機首は機体にとっての水平面の中で右（左）へ振れます。機首が下がっていれば下がったまま、傾いていれば傾いたまま向きが変わります。'
+      : ax === 'roll' ? '横転は操縦桿を左右に倒す動き。機首の軸まわりに回るので、機首の向きは変わらず翼が傾きます（90° で翼が立ち、180° で背面）。'
+      : '機首上げ・下げは操縦桿の前後の動き。左右の翼を結ぶ軸まわりに回るので、翼の傾きはそのままで機首が機体の上（下）へ向きます。傾いていれば、機首は斜めに動きます。');
     lines.push(`命令のあとは${attText(q.ans)}。`);
     if (!ok && i >= 0 && q.opts[i]) { const w = q.opts[i].why; if (w) lines.push(w === '向き' ? '選んだ絵は左右（上下）が逆の命令の結果です。' : w === '角度' ? '選んだ絵は角度が違う命令の結果です。' : '選んだ絵は別の軸（旋回・横転・機首）の命令の結果です。'); }
     return { ok, correct: ci, answerText: `${ci + 1}（${attText(q.ans)}）`, lines };

@@ -796,6 +796,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .tag.sub{color:var(--muted);margin:0 0 0 .45rem}
 .figs .cmd{margin-top:.5rem;text-align:center;font-weight:700;font-size:1.125rem;letter-spacing:.04em;color:var(--accent)}   /* 空間認識の命令 */
 .opts .ab .inst img.live{width:100%;height:100%;object-fit:contain;display:block}
+/* その場で描く絵の背景: 空と地面の地平線（南から水平に見た絵なので、上下の真ん中が地平線）。白地では奥行きが読みにくい（利用者の指摘 2026-09-21） */
+.d14.live,.opts.pics .ab .inst{--horizon:linear-gradient(180deg,#9dbbdc 0%,#c6d9ec 47%,#e6e2d8 53%,#bfb5a3 100%);background:var(--horizon)}
+.opts.pics .ab .inst{border-radius:.5rem;overflow:hidden}
+.d14.live img{background:transparent}
 .fbspin .spin3d{width:min(100%,24rem);margin:.5rem auto 0;border-radius:.5rem;overflow:hidden;background:var(--bezel,#0a0d11)}
 .fbspin .fbsimh .btn{width:auto;height:2rem;font-size:.75rem;padding:0 .75rem;margin:0}
 .inst2{display:flex;gap:.75rem;justify-content:center;align-items:center;width:min(100%,22rem);margin:0 auto}
@@ -1288,7 +1292,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3>空間認識の命令</h3>
-        <ul class="abList"><li><b>旋回</b>（右・左）: 機首の方位だけが変わる。右旋回は上から見て時計回り。</li><li><b>横転</b>（右・左）: 翼の傾きだけが変わる。90° で翼が立ち、180° で背面。</li><li><b>機首上げ・下げ</b>: 機首の上下だけが変わる。90° で真上・真下。</li><li>初期状態の絵と命令から、命令のあとの見え方を選ぶ。右・左・上げ・下げは機体にとっての向き。</li></ul>
+        <ul class="abList"><li><b>旋回</b>（右・左）＝方向舵: 機体の上下軸まわりに回る。機首が下がっていれば、下がったまま機体の水平面の中で振れる。</li><li><b>横転</b>（右・左）＝操縦桿の左右: 機首の軸まわりに回る。90° で翼が立ち、180° で背面。</li><li><b>機首上げ・下げ</b>＝操縦桿の前後: 翼の軸まわりに回る。傾いていれば機首は斜めに動く。</li><li>初期状態の絵と命令から、命令のあとの見え方を選ぶ。右・左・上げ・下げはすべて機体にとっての向き。</li></ul>
         <h3>見方の約束</h3>
         <div class="fig2"><div class="figbox" id="abView"></div>
           <ul><li>視点は<b>南</b>に固定。画面の奥が北、右が東、上が上。</li><li>標準状態は機首が北、機体上部が上。</li><li>斜めは水平面で 45°、上下に 30°。</li></ul></div>
@@ -1420,7 +1424,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=69"></script>
+<script src="engine.js?v=70"></script>
 <script>
 (function(){
 'use strict';
@@ -1434,7 +1438,7 @@ const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha
 /* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ。
    全体の制限時間（sLimit）は 2026-09-14 に廃止（1 問の制限時間があれば要らない。利用者の指示）。保存済みの sLimit は読まない */
 const MODE_DEFAULTS={
-  spatial:{level:'easy',qCount:20,qLimit:20,skipExplain:true},   // 本番の A は 40 問 15 分（1 問 22 秒ほど）
+  spatial:{level:'easy',qCount:20,qLimit:20,skipExplain:false},   // 本番の A は 40 問 15 分（1 問 22 秒ほど）。解説つきが既定（利用者の指示 2026-09-21）
   heading:{level:'easy',qCount:20,qLimit:5,skipExplain:true},
   attitude:{level:'easy',qCount:10,qLimit:10,skipExplain:true},
   combo:{level:'easy',qCount:20,qLimit:15,skipExplain:true},
@@ -1498,7 +1502,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.11';
+const APP_VER='v06.12';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1667,7 +1671,7 @@ function render(){
   }else if(q.type==='spatial'){
     /* 空間認識（本番の A）: 初期状態の絵と命令 → 命令のあとの絵を 4 枚から。絵は 3D をその場で描く（fillLive） */
     $('#prompt').textContent='命令のあとの機体の見え方を選ぶ';
-    const legend=E.figDir14(E.DIR14[0]).replace(/<img[^>]*>/,'<img class="live" data-live="init" alt="初期状態（南から）" style="width:100%;height:auto;display:block">');
+    const legend=E.figDir14(E.DIR14[0]).replace(/<img[^>]*>/,'<img class="live" data-live="init" alt="初期状態（南から）" style="width:100%;height:auto;display:block">').replace('class="d14"','class="d14 live"');
     figs.innerHTML=`<div class="figs"><div class="fig wide">${legend}</div><div class="cap"><b>南</b>からの固定視点 — 初期状態</div><div class="cmd">${esc(q.cmdText)}</div></div>`;
     ans.innerHTML=`<div class="opts pics">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst"><img class="live" data-live="${i}" alt=""></span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
@@ -1818,7 +1822,7 @@ function next(){
 
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
 const INTRO={
-  spatial:['南から見た機体の絵（初期状態）と、命令（右旋回 45° など）が出ます。奥が北、右が東です。','命令のあとの機体の見え方を 1〜4 の絵から選びます。','旋回は向きだけ、横転は翼の傾きだけ、機首上げ・下げは機首だけが変わります。右・左・上げ・下げは、機体にとっての向きです。','Normal から初期状態に機首の上げ下げ、Hard から翼の傾き（背面も）が混ざります。Max は 30°・60° の微妙な角度も出ます。'],
+  spatial:['南から見た機体の絵（初期状態）と、命令（右旋回 45° など）が出ます。奥が北、右が東です。','命令のあとの機体の見え方を 1〜4 の絵から選びます。','旋回は方向舵（機体の上下軸まわり）、横転は操縦桿の左右（機首の軸まわり）、機首上げ・下げは操縦桿の前後（翼の軸まわり）。どれも機体にとっての向きで回ります。','Normal から初期状態に機首の上げ下げ、Hard から翼の傾き（背面も）が混ざります。Max は 30°・60° の微妙な角度も出ます。'],
   heading:['上から見た機体と方位の印が表示されます。','機首が向いている方位を 8 方位から選びます。','印の向きは Normal 以上で毎回変わります（Easy では N が上）。Hard では印が N とは限りません。まず印から北を決めてから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
   combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
@@ -1889,7 +1893,9 @@ function showSetup(){
     <div class="acts"><button class="btn" id="setupGo">${hideIntro[mode]?'計測開始':'練習開始'}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupSim3">3D シミュレーターで操縦する</button><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
     <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（実機と同じ物理、重力あり）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;
-  $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);if(el.dataset.key==='level')showSetup()}));
+  $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
+    if(el.dataset.key==='level'&&mode==='heading'){if(v==='max'&&before.level!=='max'&&before.qLimit===5)setMS('qLimit',10);else if(v!=='max'&&before.level==='max'&&before.qLimit===10)setMS('qLimit',5)}   /* 方位の Max（同じ方角の機体を選ぶ）は既定 1 問 10 秒（利用者の指示 2026-09-21） */
+    if(el.dataset.key==='level')showSetup()}));
   if(!isFull()){const qs=$('#setup select[data-key="qCount"]');if(qs)qs.value=String(qMax())}   // 体験版は、実際に出す数（上限で切った値）を選んで見せる
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
   toggle($('#skipChk'),()=>MS().skipExplain,on=>setMS('skipExplain',on));
@@ -2981,7 +2987,7 @@ function makeSpin(qq){
   const HOLD=600,DUR=1800,c=qq.cmd;
   const ease=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
   function frame(){if(disposed||!v)return;const t=performance.now()-t0;const k=t<HOLD?0:ease(Math.min(1,(t-HOLD)/DUR));
-    v.setAttitude(qq.init.heading+(c.axis==='yaw'?c.deg*k:0),qq.init.pitch+(c.axis==='pitch'?c.deg*k:0),qq.init.bank+(c.axis==='roll'?c.deg*k:0));
+    const a=E.applyCmd(qq.init,{axis:c.axis,deg:c.deg*k});v.setAttitude(a.heading,a.pitch,a.bank);   /* 機体の軸まわりの回転の途中（applyCmd と同じ計算） */
     step.textContent=k===0?`初期状態: ${E.attText(qq.init)}`:k<1?`${qq.cmdText} …`:`命令のあと: ${E.attText(qq.ans)}`;
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
@@ -3111,7 +3117,7 @@ function renderSettingsPage(){
 }
 /* 解き方のメモ。1 行 1 事で箇条書きにする（長い文がつながっていると、解いている最中に読めない） */
 const TIPS={
-  spatial:['まず初期状態を言葉にする（北向き・右バンク 45° など）','旋回は向きだけ、横転は翼だけ、機首上げ下げは機首だけを動かす','右・左は機体にとっての向き。背面では画面上の左右が逆になる','90° は真横・真上、180° は反対（背面）'],
+  spatial:['まず初期状態を言葉にする（北向き・右バンク 45° など）','旋回・横転・機首上げ下げは、機体の上下軸・機首の軸・翼の軸まわりの回転','右・左は機体にとっての向き。背面では画面上の左右が逆になる','90° は真横・真上、180° は反対（背面）'],
   heading:['印の向きをまず見る（Hard では N とは限らない）','印から北を決め、機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Normal 以上では、機首が印の方位と同じ向きになる問題は出ない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
   combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','印の文字（N など）と、その位置から読む'],

@@ -796,6 +796,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .tag.sub{color:var(--muted);margin:0 0 0 .45rem}
 .figs .cmd{margin-top:.5rem;text-align:center;font-weight:700;font-size:1.125rem;letter-spacing:.04em;color:var(--accent)}   /* 空間認識の命令 */
 .opts .ab .inst img.live{width:100%;height:100%;object-fit:contain;display:block}
+.fbspin .spin3d{width:min(100%,24rem);margin:.5rem auto 0;border-radius:.5rem;overflow:hidden;background:var(--bezel,#0a0d11)}
+.fbspin .fbsimh .btn{width:auto;height:2rem;font-size:.75rem;padding:0 .75rem;margin:0}
 .inst2{display:flex;gap:.75rem;justify-content:center;align-items:center;width:min(100%,22rem);margin:0 auto}
 .inst2 .i2{flex:1 1 0;min-width:0}
 .fig.top.match{max-width:14rem;margin:0 auto}
@@ -2968,9 +2970,29 @@ function galDispose(){if(galMv){galMv.dispose();galMv=null}}
    視点は問題をまたいで覚える。3D は解説を出すたびに作り、次の出題で捨てる */
 let fbMv=null,fbView='first';
 function fbSimStop(){if(fbMv){fbMv.dispose();fbMv=null}}
+/* 空間認識の解説（v06.11、利用者の指示 2026-09-21「動きで見るとは別の仕組みだが、変化の過程を動的に把握するため、三人称視点での様子を映す」）:
+   3D ビューア（viewer.js、南からの三人称。指で回せる）に初期状態の機体を置き、命令で動く 1 つの値（方位・上下・傾き）だけを 1.8 秒かけて変えて、命令のあとの姿勢で止める。
+   飛行の軌道ではなく姿勢の変化だけを見せる（操縦操作の「動きで見る」とは別物）。「もう一度」で繰り返す */
+function makeSpin(qq){
+  const el=document.createElement('div');el.className='fbspin';
+  el.innerHTML=`<div class="fbsimh"><span>変化の過程（三人称）</span><button class="btn" type="button" data-play>もう一度</button></div><div class="spin3d"></div><div class="gstep sub" data-step>初期状態</div>`;
+  const box=el.querySelector('.spin3d'),step=el.querySelector('[data-step]');
+  let v=null,raf=0,disposed=false,t0=0;
+  const HOLD=600,DUR=1800,c=qq.cmd;
+  const ease=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+  function frame(){if(disposed||!v)return;const t=performance.now()-t0;const k=t<HOLD?0:ease(Math.min(1,(t-HOLD)/DUR));
+    v.setAttitude(qq.init.heading+(c.axis==='yaw'?c.deg*k:0),qq.init.pitch+(c.axis==='pitch'?c.deg*k:0),qq.init.bank+(c.axis==='roll'?c.deg*k:0));
+    step.textContent=k===0?`初期状態: ${E.attText(qq.init)}`:k<1?`${qq.cmdText} …`:`命令のあと: ${E.attText(qq.ans)}`;
+    if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
+  function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
+  el.querySelector('[data-play]').addEventListener('click',start);
+  import('./viewer.js?v=12').then(m=>m.mount(box,{})).then(h=>{if(disposed){h.dispose();return}v=h;v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
+}
 function fbSimShow(){
   const box=$('#fbSim');if(!box)return;
   fbSimStop();
+  if(q&&q.type==='spatial'){box.hidden=false;box.innerHTML='';fbMv=makeSpin(q);box.appendChild(fbMv.el);return}
   if(!(q&&q.type==='control'&&q.frames)){box.hidden=true;box.innerHTML='';return}
   if(!isFull())fbView='first';
   box.hidden=false;

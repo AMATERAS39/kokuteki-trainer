@@ -14,7 +14,10 @@
     { k: 'N', ja: '北' }, { k: 'NE', ja: '北東' }, { k: 'E', ja: '東' }, { k: 'SE', ja: '南東' },
     { k: 'S', ja: '南' }, { k: 'SW', ja: '南西' }, { k: 'W', ja: '西' }, { k: 'NW', ja: '北西' }
   ];
-  const MODES = { heading: '方位', attitude: '姿勢指示器', combo: '方位×姿勢指示器', control: '操縦操作' };
+  /* 種目の並びは本番の区分順（2026-09-19 の本番の形式。利用者の指示 2026-09-21）: A 空間認識 → B 方位×姿勢指示器 → C 操縦操作 → F 方位。
+     姿勢指示器（単独）は本番の区分にはないが、B の土台の練習として残す（ホームでは「練習用」の札） */
+  const MODES = { spatial: '空間認識', combo: '方位×姿勢指示器', control: '操縦操作', heading: '方位', attitude: '姿勢指示器' };
+  const MODE_TAG = { spatial: 'A', combo: 'B', control: 'C', heading: 'F' };   // 本番の区分。姿勢指示器には無い
   /* base: 文末形、cont: 連用形（「〜し、」でつなぐ）、view: 見え方（短く。解説・見え方の一覧・アプリ説明で使う） */
   const OPS = [
     { id: 'stick-right', ja: '操縦桿 右', base: '操縦桿を右に倒す', cont: '操縦桿を右に倒し', group: 'stick', view: '景色が左に傾く' },
@@ -71,8 +74,8 @@
   ];
 
   const DEFAULT_SETTINGS = { north: 'random', view: 'rear', ops: 'double', init: 'level', auto: false, bank: 'on', level: 'hard' };
-  const LEVELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard', max: 'Max' };   // Max は操縦操作だけ
-  const lvOf = s => s.level === 'medium' ? 'normal' : (s.level || 'hard');   // medium は旧称。max は操縦操作だけ（ほかの種目では hard として扱う）
+  const LEVELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard', max: 'Max' };   // Max: 空間認識は 30°・60° の微妙な角度、方位は「同じ方角の機体を選ぶ」形、複合は 計器 → 機体の絵、操縦操作は斜め操作
+  const lvOf = s => s.level === 'medium' ? 'normal' : (s.level || 'hard');   // medium は旧称
   /* 画面の姿勢指示器のリアルタイム更新に使う係数（svgAI と同じ値） */
   const CK = { aiK: 2.4 };   // 画面の姿勢指示器の係数（svgAI と同じ）
 
@@ -85,13 +88,115 @@
      hard: 答えは 8 方位、印は N とは限らない（8 方位のどれか。本番と同じ。利用者の指示 2026-09-14）、印の向きはランダム、機首は印の方位とは重ならない
      mark: 印の方位（DIRS の番号）、phi: 印を描く向き（画面の上から時計回り、度）、theta: 機首を描く向き。北は phi − 45·mark にある */
   function genHeading(s) {
-    if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
+    if (s.level === 'max') return genHeadingMatch(s);
     const lv = lvOf(s);
     const mark = lv === 'hard' ? rnd(8) : 0;
     const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'normal' ? pick([2, 4, 6]) : (mark + 1 + rnd(7)) % 8;
     const phi = (lv === 'easy' || s.north === 'fixed') ? 0 : rnd(8) * 45;
     return { type: 'heading', dir, mark, phi, theta: norm(phi - mark * 45 + dir * 45), level: lv };
   }
+  /* 方位の Max（本番の F 方位判読の形。利用者の聞き取り 2026-09-19〜21）: 上面図が 1 枚出て、同じ形の上面図 4 枚から「同じ方角を向いている機体」を選ぶ。
+     4 枚は印の向きも印の方位も別々なので、絵の機首の向きが同じでも方角が同じとは限らない（同じ向きに描かれた別の方角の絵を必ず 1 枚混ぜる）。
+     方角: 上面図の (theta, phi, mark) から、北は phi − 45·mark にあるので heading = (theta − phi + 45·mark)/45 を 8 で割った余り */
+  function topHeading(theta, phi, mark) { return ((Math.round((theta - phi) / 45) + mark) % 8 + 8) % 8; }
+  function genHeadingMatch(s) {
+    const mark = rnd(8), phi = rnd(8) * 45, dir = (mark + 1 + rnd(7)) % 8;                 // 出題の絵（印は N とは限らない、機首は印の方位とは重ならない）
+    const theta = norm(phi - mark * 45 + dir * 45);
+    /* 誤答の方角: 反対・鏡・45° 隣 から 3 つ */
+    const alts = shuffle([...new Set([dir + 4, dir + 1, dir + 7, dir + 2, dir + 6, dir + 3, dir + 5].map(x => x % 8))]).slice(0, 3);
+    const mk = h => { let m, ph, th; do { m = rnd(8); ph = rnd(8) * 45; th = norm(ph - m * 45 + h * 45); } while (m === h); return { theta: th, phi: ph, mark: m, heading: h }; };
+    const opts = [Object.assign(mk(dir), { ok: true }), ...alts.map(h => Object.assign(mk(h), { ok: false }))];
+    /* 罠: 誤答のうち 1 枚は、出題と同じ向きに機首を描く（印が違うので方角は違う）。正解は出題と別の向きに描く */
+    const trap = opts.find(o => !o.ok); if (trap) { const m = rnd(8), h = trap.heading; trap.mark = m; trap.phi = norm(theta - h * 45 + m * 45); trap.theta = theta; }
+    const c = opts[0]; if (c.theta === theta) { c.phi = norm(c.phi + 90); c.theta = norm(c.phi - c.mark * 45 + dir * 45); }
+    return { type: 'heading', match: true, dir, mark, phi, theta, opts: shuffle(opts), level: 'max' };
+  }
+
+  /* ---------- 種目 A: 空間認識（本番の名称は不明。利用者の聞き取り 2026-09-19〜21） ----------
+     初期状態の機体の絵（南からの固定視点）と命令（右旋回 45° など）が出て、命令のあとの機体の見え方を 4 枚の絵から選ぶ。
+     命令は 1 問に 1 つ: 旋回（ヨー: 方位が右＝時計回りに変わる）、横転（バンク: 翼の傾きが右に変わる）、機首上げ・下げ（機首の上下が変わる）。ほかの 2 つの値は変わらない（applyCmd の注記）。
+     難易度: Easy 初期状態は水平（方位だけ変わる）／Normal ＋機首の上げ下げ／Hard ＋バンク（背面も）／Max 命令と初期状態に 30°・60° の微妙な角度を追加。
+     絵は 3D モデルをその場で描く（26 方向の絵では 90° や背面、微妙な角度が描けない）。姿勢は { heading, pitch, bank }（度） */
+  const mRz = a => { const c = Math.cos(a * D), s = Math.sin(a * D); return [[c, -s, 0], [s, c, 0], [0, 0, 1]]; };
+  const mRx = a => { const c = Math.cos(a * D), s = Math.sin(a * D); return [[1, 0, 0], [0, c, -s], [0, s, c]]; };
+  const mRy = a => { const c = Math.cos(a * D), s = Math.sin(a * D); return [[c, 0, s], [0, 1, 0], [-s, 0, c]]; };
+  const mMul = (A, B) => A.map(r => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+  /* 姿勢 → 回転行列（世界: x 東・y 北・z 上。機体: 機首 +y・右翼 +x・上 +z）。3D ビューア・描画ページと同じ R = Rz(−h)·Rx(p)·Ry(b) */
+  const attMat = (h, p, b) => mMul(mMul(mRz(-h), mRx(p)), mRy(b));
+  /* 回転行列 → 姿勢。列 0 が右翼、列 1 が機首、列 2 が上。バンクは flight.js と同じ atan2(−right.z, up.z) */
+  function matToAtt(M) {
+    const nose = [M[0][1], M[1][1], M[2][1]], right = [M[0][0], M[1][0], M[2][0]], up = [M[0][2], M[1][2], M[2][2]];
+    const heading = norm(Math.atan2(nose[0], nose[1]) / D), pitch = Math.asin(Math.max(-1, Math.min(1, nose[2]))) / D;
+    const bank = Math.atan2(-right[2], up[2]) / D;
+    const r = x => Math.round(x * 100) / 100;
+    return { heading: r(heading) % 360, pitch: r(pitch), bank: r(bank) };
+  }
+  /* 2 つの姿勢の違い（回転角、度）。選択肢がほぼ同じ絵にならないように使う */
+  function attGap(a, b) {
+    const A = attMat(a.heading, a.pitch, a.bank), B = attMat(b.heading, b.pitch, b.bank);
+    let tr = 0; for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) tr += A[i][k] * B[i][k];   // trace(A·Bᵀ)
+    return Math.acos(Math.max(-1, Math.min(1, (tr - 1) / 2))) / D;
+  }
+  /* 命令は姿勢の 3 つの値（方位・機首の上下・翼の傾き）のどれか 1 つを動かす: 旋回 → 方位が右（時計回り）に a°、横転 → 翼の傾きが右に a°、機首上げ → 機首の上下が +a°。
+     ほかの 2 つは変わらない（機体の軸で回すと、傾いた姿勢からの旋回で機首の上下や傾きまで変わり、答えの絵が半端な角度になって読めない。
+     本番の出題も「方位・上下・傾き」を独立に動かした絵だと見て、この形にした。2026-09-21）。
+     90° を越える機首上げ・下げは、真上・真下を越えて反対向きの背面になる（行列に通して正規化） */
+  function applyCmd(att, cmd) {
+    const h = att.heading + (cmd.axis === 'yaw' ? cmd.deg : 0), p = att.pitch + (cmd.axis === 'pitch' ? cmd.deg : 0), b = att.bank + (cmd.axis === 'roll' ? cmd.deg : 0);
+    return matToAtt(attMat(h, p, b));
+  }
+  const CMD_JA = { yaw: ['右旋回', '左旋回'], roll: ['右横転', '左横転'], pitch: ['機首上げ', '機首下げ'] };
+  const cmdText = c => `${CMD_JA[c.axis][c.deg >= 0 ? 0 : 1]} ${Math.abs(c.deg)}°`;
+  const attText = a => {
+    const H = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
+    const vert = Math.abs(a.pitch) >= 89;
+    const h = vert ? '' : (a.heading % 45 === 0 ? H[Math.round(a.heading / 45) % 8] : `方位 ${Math.round(a.heading)}°`) + '向き';
+    const p = a.pitch >= 89 ? '真上' : a.pitch <= -89 ? '真下' : a.pitch > 0 ? `機首上げ ${a.pitch}°` : a.pitch < 0 ? `機首下げ ${-a.pitch}°` : '';
+    const b = Math.abs(a.bank) >= 179 ? '背面' : a.bank > 0 ? `右バンク ${a.bank}°` : a.bank < 0 ? `左バンク ${-a.bank}°` : '';
+    const t = [h, p, b].filter(Boolean);
+    return t.length ? t.join('・') : '水平';
+  };
+  function genSpatial(s) {
+    const lv = lvOf(s), fine = lv === 'max';                 // Max は 30°・60° を混ぜる（命令も初期状態も）
+    const A_TURN = fine ? [30, 45, 60, 90, 180] : [45, 90, 180];
+    const A_PITCH = fine ? [30, 45, 60, 90] : [45, 90];
+    const P0 = lv === 'easy' ? [0] : fine ? [0, 30, -30, 45, -45, 60, -60] : [0, 45, -45];
+    const B0 = (lv === 'easy' || lv === 'normal') ? [0] : fine ? [0, 30, -30, 45, -45, 60, -60, 90, -90, 180] : [0, 45, -45, 90, -90, 180];
+    const init = { heading: rnd(8) * 45, pitch: pick(P0), bank: pick(B0) };
+    const axis = pick(['yaw', 'yaw', 'roll', 'roll', 'pitch']);   // 旋回・横転を多めに
+    const sign = pick([1, -1]);
+    const cmd = { axis, deg: sign * pick(axis === 'pitch' ? A_PITCH : A_TURN) };
+    const ans = applyCmd(init, cmd);
+    /* 誤答: 向きが逆（右↔左・上げ↔下げ）、角度違い、軸違い（旋回↔横転、機首）。それぞれ命令として成り立つものを掛けて、絵が正解と十分違う（20° 以上）ものを 3 つ */
+    const alts = [{ why: '向き', cmd: { axis, deg: -cmd.deg } }];
+    for (const a of (axis === 'pitch' ? A_PITCH : A_TURN)) if (a !== Math.abs(cmd.deg)) alts.push({ why: '角度', cmd: { axis, deg: sign * a } });
+    for (const ax of ['yaw', 'roll', 'pitch']) if (ax !== axis) { const set = ax === 'pitch' ? A_PITCH : A_TURN; alts.push({ why: '軸', cmd: { axis: ax, deg: sign * pick(set) } }); alts.push({ why: '軸', cmd: { axis: ax, deg: -sign * pick(set) } }); }
+    const order = shuffle(alts.slice(1)); order.unshift(alts[0]);   // 向きが逆 を必ず先に
+    const chosen = [{ att: ans, ok: true, why: '' }], seenWhy = {};
+    for (const a of order) {
+      const att = applyCmd(init, a.cmd);
+      if (chosen.some(c => attGap(c.att, att) < 20)) continue;
+      if (a.why !== '向き' && seenWhy[a.why] >= 2) continue;
+      seenWhy[a.why] = (seenWhy[a.why] || 0) + 1;
+      chosen.push({ att, ok: false, why: a.why, cmd: a.cmd });
+      if (chosen.length === 4) break;
+    }
+    for (const a of order) { if (chosen.length === 4) break; const att = applyCmd(init, a.cmd); if (chosen.some(c => attGap(c.att, att) < 8)) continue; chosen.push({ att, ok: false, why: a.why, cmd: a.cmd }); }
+    const opts = shuffle(chosen).map(c => ({ heading: c.att.heading, pitch: c.att.pitch, bank: c.att.bank, ok: c.ok, why: c.why }));
+    return { type: 'spatial', init, cmd, cmdText: cmdText(cmd), ans, opts, level: lv };
+  }
+  function gradeSpatial(q, i) {
+    const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
+    const lines = [`初期状態は${attText(q.init)}。命令は「${q.cmdText}」。`];
+    const ax = q.cmd.axis;
+    lines.push(ax === 'yaw' ? '旋回は機体の上下軸まわりの回転。翼の傾きと機首の上下は変わらず、向きだけが変わります（傾いていれば、傾いたまま向きが変わる）。'
+      : ax === 'roll' ? '横転は機首の軸まわりの回転。機首の向きは変わらず、翼の傾きだけが変わります（90° で翼が立ち、180° で背面）。'
+      : '機首上げ・下げは左右の翼を結ぶ軸まわりの回転。向きと翼の傾きは変わらず、機首だけが上下します（90° で真上・真下）。');
+    lines.push(`命令のあとは${attText(q.ans)}。`);
+    if (!ok && i >= 0 && q.opts[i]) { const w = q.opts[i].why; if (w) lines.push(w === '向き' ? '選んだ絵は左右（上下）が逆の命令の結果です。' : w === '角度' ? '選んだ絵は角度が違う命令の結果です。' : '選んだ絵は別の軸（旋回・横転・機首）の命令の結果です。'); }
+    return { ok, correct: ci, answerText: `${ci + 1}（${attText(q.ans)}）`, lines };
+  }
+
   function pickDistractors(cands, isValid, n) {
     /* n が 0 のときに全部返していた（`out.length === n` を押してから見ていた）。枕が 3 つ取れた Hard・Max の問題で選択肢が 14 個になった（利用者の指摘 2026-09-13） */
     const seen = new Set(); const out = [];
@@ -142,8 +247,20 @@
     return { type: 'attitude', dir14: d, bank, pitch, opts, level: lv };
   }
   /* 複合: 26 方向のうち方位が定まる 24 方向 → 姿勢指示器＋方位指示器。誤答は「方位違い（姿勢は同じ）」と「姿勢の区分違い（方位は同じ）」を混ぜる */
+  /* 複合の Max（本番の B の形。利用者の聞き取り 2026-09-19）: 姿勢指示器＋方位指示器が出て、南から見た機体の絵を 4 枚から選ぶ（いまの複合と逆向き）。
+     方位は 16 方位（SSW のような中途半端な方角も）。絵は 3D モデルをその場で描く */
+  function genComboReverse(s) {
+    const heading = rnd(16) * 22.5, pitch = pick([0, 0, 30, -30]), bank = s.bank === 'off' ? 0 : pick([0, 0, 30, -30, 60, -60]);
+    const hAlt = [...new Set([heading + 180, 360 - heading, heading + 22.5, heading - 22.5, heading + 45, heading - 45, heading + 90, heading - 90].map(norm))].filter(h => h !== heading);
+    const h2 = pick(hAlt), [b2, p2] = pick(attCands(bank, pitch));
+    const dis = [[h2, bank, pitch], [heading, b2, p2], [h2, b2, p2]];
+    const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);
+    const mark = pick([0, 1, 2, 3, 4, 5, 6, 7].filter(i => Math.abs(i * 45 - heading) > 12 && Math.abs(i * 45 - heading) < 348));
+    const d14 = DIR14.find(x => x.heading === heading && x.pitch === pitch) || DIR14.find(x => x.heading === heading && x.pitch === 0) || DIR14[0];
+    return { type: 'combo', reverse: true, dir14: d14, dir: Math.round(heading / 45) % 8, heading, bank, pitch, mark, opts, level: 'max' };
+  }
   function genCombo(s) {
-    if (s.level === 'max') s = Object.assign({}, s, { level: 'hard' });
+    if (s.level === 'max') return genComboReverse(s);
     /* 難易度: easy は東西南北のみ・水平（上下も傾きもなし）、medium は東西南北のみ（傾きあり）、hard は 24 方向すべて（斜めの水平・東西南北の上下も） */
     const lv = lvOf(s);
     const pool = DIR14.filter(x => x.heading !== null && (lv === 'hard' || (x.pitch === 0 && x.heading % 90 === 0)));
@@ -187,10 +304,13 @@
        ①の姿勢（初期状態）: hard までは 水平・傾きだけ・機首の上下だけ のどれか（傾きと機首の上下の複合は出ない）。
        max は hard に加えて複合も出る（水平・傾き・上下・複合の全パターンが対象。複合だけではない。利用者の指示 2026-09-14。
        v05.42 までは max が必ず複合、hard までは傾きと上下を独立に引いていたので複合が 8/15 で出ていた） */
-    const lv0 = lvOf(s), lv = lv0 === 'max' ? 'hard' : lv0, max = lv0 === 'max';
+    /* 2026-09-21（本番の C の形）: 旧 Max（①の姿勢に傾きと上下の複合）を Hard に、Max は斜め操作（操縦桿の左奥・右奥・左手前・右手前）を追加 */
+    const lv0 = lvOf(s), lv = lv0 === 'max' ? 'hard' : lv0, max = lv0 === 'max' || lv0 === 'hard', diag = lv0 === 'max';
+    const DIAG = EXTRA_OPS;
     /* v05.69: hard は必ず 2 操作（1 操作は出ない）。Normal との差が「目盛りなし＋枕 1 つ」だけで小さかった（点検 2026-09-18） */
     const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && lv !== 'hard' && Math.random() < 1 / 3);
-    const first = one ? pick(OPS).id : pick(STICK).id;
+    const stickPool = diag ? STICK.concat(DIAG) : STICK, opsPool = diag ? OPS.concat(DIAG) : OPS;
+    const first = one ? pick(opsPool).id : pick(stickPool).id;
     const ops = one ? [first, first] : [first, pick(RUDDER).id];
     const rand = s.init === 'random';
     const pat = max ? pick(['level', 'bank', 'pitch', 'both']) : rand ? pick(['level', 'bank', 'pitch']) : 'level';   // ①の姿勢の型
@@ -205,8 +325,8 @@
     /* 4 択: 1 操作（6 通り）と「操縦桿 → 方向舵」（8 通り）を混ぜた中から、正解以外を誤答にする */
     const key = a => a.join('|');
     const cands = [];
-    for (const o of OPS) cands.push([o.id, o.id]);
-    if (lv !== 'easy' && s.ops !== 'single') for (const st of STICK) for (const rd of RUDDER) cands.push([st.id, rd.id]);
+    for (const o of opsPool) cands.push([o.id, o.id]);
+    if (lv !== 'easy' && s.ops !== 'single') for (const st of stickPool) for (const rd of RUDDER) cands.push([st.id, rd.id]);
     /* 誤答の選び方（利用者の指摘 v04.25）: 操縦桿を倒している向きが写真で明らかなとき、本番の難しさは
        「方向舵を踏んでいるかどうか」の見分けにある。正解と同じ操縦桿の向きで方向舵だけ違う選択肢
        （右だけ／右 + 右方向舵／右 + 左方向舵）を必ず混ぜる。Hard は 2 つ、Normal は 1 つ。
@@ -219,7 +339,7 @@
        「方向舵だけの選択肢が 1 つしか無ければ必ず誤答」（正解が方向舵のときは逆の方向舵を必ず混ぜていたため）と、
        絵を見ずに分かってしまっていた（点検 2026-09-13、20 万問）。別の向きに張るときは枕を 1 つ多くして、並びの数でも見分けられないようにする。
        正解が方向舵だけのときも、逆の方向舵を混ぜるのは確率 1/2 にする */
-    const decoy = stickOf(ops) && Math.random() < 0.5 ? pick(STICK.filter(o => o.id !== stickOf(ops))).id : null;
+    const decoy = stickOf(ops) && Math.random() < 0.5 ? pick(stickPool.filter(o => o.id !== stickOf(ops))).id : null;
     const pad = decoy || stickOf(ops);
     const rudPad = !stickOf(ops) && Math.random() < 0.5;
     const same = (pad ? cands.filter(c => stickOf(c) === pad && key(c) !== key(ops))
@@ -233,7 +353,7 @@
   }
   function generate(mode, settings) {
     const s = Object.assign({}, DEFAULT_SETTINGS, settings);
-    return mode === 'heading' ? genHeading(s) : mode === 'attitude' ? genAttitude(s) : mode === 'combo' ? genCombo(s) : genControl(s);
+    return mode === 'heading' ? genHeading(s) : mode === 'attitude' ? genAttitude(s) : mode === 'combo' ? genCombo(s) : mode === 'spatial' ? genSpatial(s) : genControl(s);
   }
 
   /* ---------- 採点と解説 ---------- */
@@ -241,6 +361,13 @@
   const pitchText = p => p > 0 ? `機首上げ${p}°` : p < 0 ? `機首下げ${-p}°` : '水平（ピッチなし）';
 
   function gradeHeading(q, dir) {
+    if (q.match) {
+      const ci = q.opts.findIndex(o => o.ok), ok = dir === ci;
+      const lines = [`出題の絵: 印 ${DIRS[q.mark].k} から北を決めると、機首は${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。`,
+        '4 枚はそれぞれ印の向きと方位が違うので、絵の機首の向きではなく、印から数えた方角で比べます。'];
+      if (!ok && dir >= 0 && q.opts[dir]) lines.push(`選んだ絵の機首は${DIRS[q.opts[dir].heading].ja}を向いています。`);
+      return { ok, correct: ci, answerText: `${ci + 1}（${DIRS[q.dir].ja}）`, lines };
+    }
     const ok = dir === q.dir, mk = q.mark || 0, k = DIRS[mk].k, rel = ((q.dir - mk) % 8 + 8) % 8;
     const lines = rel === 0 ? [`機首が ${k} の印と同じ向き → ${DIRS[q.dir].ja}。`]
       : [`${k} の印から時計回りに 45° ずつ数えます。機首は ${k} から ${rel * 45}° の方向。`];
@@ -251,12 +378,17 @@
   function gradeOpts(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
     const { pitch, bank } = q, d = q.dir14;
-    const lines = [d.read];
+    const lines = q.reverse ? [] : [d.read];   // 計器 → 絵（複合の Max）は 26 方向の読み方の文が合わないので、下の方位の文だけ
     if (bank) lines.push(`${bankText(bank)}：機首の向きに対して${bank > 0 ? '右' : '左'}の翼が下がっている（南から見た絵では、機首がこちらを向くほど左右が逆に見える）。姿勢指示器では水平線が${bank > 0 ? '右上がり' : '左上がり'}に傾く。`);
     else lines.push('翼が水平なのでバンクなし。水平線が傾いている選択肢は誤り。');
     lines.push(pitch > 0 ? '機首上げ：姿勢指示器では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
     let answerText = `${ci + 1}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;
-    if (q.type === 'combo') {
+    if (q.type === 'combo' && q.reverse) {
+      const H16 = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
+      const n16 = H16[Math.round(q.heading / 22.5) % 16];
+      lines.push(`方位指示器の上（機首）が ${n16}（${q.heading}°）。南から見た絵では、北向きは奥、東向きは右、南向きはこちら。`);
+      answerText += ` / ${n16}`;
+    } else if (q.type === 'combo') {
       const NPOS = ['真上', '右上', '右', '右下', '真下', '左下', '左', '左上'];
       const m = ((q.mark || 0) - q.dir + 8) % 8;
       lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。機首は常に上を向き、方位指示器の ${DIRS[q.mark || 0].k}（${DIRS[q.mark || 0].ja}）の印は ${NPOS[m]} に来ます。`);
@@ -525,6 +657,6 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="22" y="9" text-anchor="middle">上</text><text x="58" y="44">東</text><text x="14" y="44" text-anchor="end">北</text></g></svg></div>`;
   }
 
-  global.AAT = { DIRS, DIR14, BANKS, MODES, OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, simControl, opSegs, EXAM_DT, opsText,
+  global.AAT = { DIRS, DIR14, BANKS, MODES, MODE_TAG, OPS, EXTRA_OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, simControl, opSegs, EXAM_DT, opsText, attMat, matToAtt, applyCmd, attGap, attText, cmdText, gradeSpatial, topHeading,
     gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, svgCockpitFrame, svgRefLines, figTopDown, figAttitude, figDir14 };
 })(window);

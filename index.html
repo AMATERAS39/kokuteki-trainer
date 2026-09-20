@@ -792,6 +792,13 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .mode .n,.mode .d,.mode .r{display:block}
 .mode .n{font-size:1rem;font-weight:700}
+.mode .tag{display:inline-block;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1.3;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding:0 .35rem;margin-right:.45rem;vertical-align:.12em}   /* 本番の区分 A・B・C・F（v06.11） */
+.mode .tag.sub{color:var(--muted);margin:0 0 0 .45rem}
+.figs .cmd{margin-top:.5rem;text-align:center;font-weight:700;font-size:1.125rem;letter-spacing:.04em;color:var(--accent)}   /* 空間認識の命令 */
+.opts .ab .inst img.live{width:100%;height:100%;object-fit:contain;display:block}
+.inst2{display:flex;gap:.75rem;justify-content:center;align-items:center;width:min(100%,22rem);margin:0 auto}
+.inst2 .i2{flex:1 1 0;min-width:0}
+.fig.top.match{max-width:14rem;margin:0 auto}
 .mode .d{font-size:.8125rem;color:var(--muted);margin-top:.125rem}
 .mode .r{font-family:var(--mono);font-size:.6875rem;color:var(--faint);margin-top:.25rem}
 .mode .go{color:var(--accent)}
@@ -1151,6 +1158,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <body>
 <!-- RIKYU AI 納品アイコン（24px グリッド・線幅2・currentColor） -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-mode-spatial" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/><path class="f" d="M12 3l3 1.7-3 1.7-3-1.7z"/></symbol>
 <symbol id="i-mode-heading" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/><path class="f" d="M12 6l2.4 6H9.6z"/><path d="M12 18l-2.4-6h4.8z"/></symbol>
 <symbol id="i-mode-attitude" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M4.6 14.6l14.8-5.2"/><path d="M7 12h3M14 12h3"/><circle class="f" cx="12" cy="12" r="1.2"/></symbol>
 <symbol id="i-mode-combo" viewBox="0 0 24 24"><circle cx="7" cy="12" r="5.5"/><path d="M2.6 13.6l8.8-3.2"/><circle cx="17" cy="12" r="5.5"/><path d="M17 8v4M17 12l2.5 2.5"/><path class="f" d="M17 5.4l1 1.6h-2z"/></symbol>
@@ -1277,6 +1285,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
         </ul>
       </div>
       <div class="card">
+        <h3>空間認識の命令</h3>
+        <ul class="abList"><li><b>旋回</b>（右・左）: 機首の方位だけが変わる。右旋回は上から見て時計回り。</li><li><b>横転</b>（右・左）: 翼の傾きだけが変わる。90° で翼が立ち、180° で背面。</li><li><b>機首上げ・下げ</b>: 機首の上下だけが変わる。90° で真上・真下。</li><li>初期状態の絵と命令から、命令のあとの見え方を選ぶ。右・左・上げ・下げは機体にとっての向き。</li></ul>
         <h3>見方の約束</h3>
         <div class="fig2"><div class="figbox" id="abView"></div>
           <ul><li>視点は<b>南</b>に固定。画面の奥が北、右が東、上が上。</li><li>標準状態は機首が北、機体上部が上。</li><li>斜めは水平面で 45°、上下に 30°。</li></ul></div>
@@ -1408,7 +1418,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=68"></script>
+<script src="engine.js?v=69"></script>
 <script>
 (function(){
 'use strict';
@@ -1422,12 +1432,13 @@ const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha
 /* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ。
    全体の制限時間（sLimit）は 2026-09-14 に廃止（1 問の制限時間があれば要らない。利用者の指示）。保存済みの sLimit は読まない */
 const MODE_DEFAULTS={
+  spatial:{level:'easy',qCount:20,qLimit:20,skipExplain:true},   // 本番の A は 40 問 15 分（1 問 22 秒ほど）
   heading:{level:'easy',qCount:20,qLimit:5,skipExplain:true},
   attitude:{level:'easy',qCount:10,qLimit:10,skipExplain:true},
   combo:{level:'easy',qCount:20,qLimit:15,skipExplain:true},
   control:{level:'easy',qCount:10,qLimit:20,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
 const modeSet=store.get('modeSet',{});
-const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';if(m.level==='max'&&mode!=='control')m.level='hard';   // medium は旧称。Max は操縦操作だけ
+const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';if(m.level==='max'&&mode==='attitude')m.level='hard';   // medium は旧称。Max は操縦操作だけ
   if(DEMO_ON&&!isFull()){                                    // 体験版は Easy まで・出題数は上限まで（前に選んだ値が残っていても戻す）
     if(!DEMO.levels.includes(m.level))m.level=DEMO.levels[0];
     const cap=Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
@@ -1441,10 +1452,17 @@ const genQ=()=>E.generate(mode,Object.assign({},settings,GEN,{level:MS().level})
 /* v06.02（利用者の指摘 2026-09-18「たまに描画まで時間がかかる。制限時間付きでこれは致命的」）:
    次の問題を先に作り、その絵（姿勢指示器・複合の bi-*.webp）を答えているあいだに読み込んで復号しておく。出すときは復号済みなので待たない。
    それでも絵がまだなら（最初の 1 問など）、絵が出てからタイマーを始める（最長 1.5 秒待つ） */
+/* その場で描く絵（v06.11、空間認識と複合の Max）: attshot.js（3D モデルを小さな画布に描いて data URL）。
+   次の問題を作った時点で描いておく（prepLive）。最初の 1 問だけはモデルの読み込み待ち（種目の選択画面に入った時点で読み始める） */
+const SHOT={ready:null};
+function ensureShooter(){if(!SHOT.ready){SHOT.ready=import('./attshot.js?v=1').then(m=>{const sh=m.shooter({size:512});return sh.ready.then(()=>sh)})}return SHOT.ready}
+function liveList(qq){if(!qq)return null;if(qq.type==='spatial')return [qq.init,...qq.opts];if(qq.type==='combo'&&qq.reverse)return qq.opts;return null}
+function prepLive(qq){const L=liveList(qq);if(!L||qq.imgs)return Promise.resolve(qq);return ensureShooter().then(sh=>{qq.imgs=L.map(a=>sh.shot(a.heading,a.pitch,a.bank));return qq}).catch(e=>{console.warn('attshot',e);return qq})}
+function fillLive(qq){return prepLive(qq).then(()=>{if(q!==qq||!qq.imgs)return;const off=qq.type==='spatial'?1:0;$('#quiz').querySelectorAll('img.live').forEach(im=>{const k=im.dataset.live;const idx=k==='init'?0:(+k+off);if(qq.imgs[idx])im.src=qq.imgs[idx]})})}
 let nextQ=null;const preImgs=[];
 const qImgs=qq=>{if(!qq||(qq.type!=='attitude'&&qq.type!=='combo'))return [];const d=qq.dir14,suf=qq.bank?`-${qq.bank>0?'r':'l'}${Math.abs(qq.bank)}`:'';return [`img/bi-${d.id}${suf}.webp`]};
 function preloadQ(qq){for(const src of qImgs(qq)){const im=new Image();im.decoding='async';im.src=src;if(im.decode)im.decode().catch(()=>{});preImgs.push(im);while(preImgs.length>4)preImgs.shift()}}
-const takeQ=()=>{const x=nextQ||genQ();nextQ=genQ();preloadQ(nextQ);return x};
+const takeQ=()=>{const x=nextQ||genQ();nextQ=genQ();preloadQ(nextQ);prepLive(nextQ);return x};
 /* 設定は localStorage に残すが、ブラウザは置き場所が足りないときや、
    しばらく開かれないときに消すことがある（iOS の Safari は 7 日で消す）。
    消さないでほしいと申し込んでおく。断られても動きは変わらない */
@@ -1478,7 +1496,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.10';
+const APP_VER='v06.11';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1505,7 +1523,7 @@ async function checkKey(){
     if(h===FULL_HASH){edition='full';store.set('edition','full');store.set('key',k)}}catch(e){}
   history.replaceState(null,'',location.pathname+location.hash);
 }
-const stats=Object.assign({heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
+const stats=Object.assign({spatial:{n:0,c:0,t:0},heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
 let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
 /* 立ち上がりの一度目だけは、画面の頭へ飛ばさない。
    更新したときに、更新前に見ていた場所へ戻すため（戻すのは <head> の中の仕掛け） */
@@ -1532,6 +1550,11 @@ const attName=q=>[q.pitch>0?'機首上げ':q.pitch<0?'機首下げ':'',q.bank>0?
 const viewCat=d=>d.heading==null?'真上・真下':[315,0,45].includes(d.heading)?'向こう向き（北側）':[135,180,225].includes(d.heading)?'こちら向き（南側）':'横向き（東・西）';
 const pitchCat=p=>p>0?'機首上げ':p<0?'機首下げ':'水平', bankCat=b=>b>0?'右バンク':b<0?'左バンク':'水平', sideCat=b=>b>0?'右':b<0?'左':'水平';   /* v05.93: 角度（30°/60°）は分けない（利用者「バンク角度は分析に関係ない」） */
 function qCats(q){
+  if(q.type==='spatial'){   /* 空間認識: 命令の種類・初期状態の型・角度の型（v06.11） */
+    const ax={yaw:'旋回',roll:'横転',pitch:'機首上げ下げ'}[q.cmd.axis],ini=q.init.bank&&q.init.pitch?'傾き＋上下':q.init.bank?'傾きあり':q.init.pitch?'機首の上下あり':'水平';
+    const a=Math.abs(q.cmd.deg),fine=(a===30||a===60)?'微妙な角度（30°・60°）':a===180?'180°':'45°・90°';
+    return ['命令|'+ax,'初期状態|'+ini,'角度|'+fine]}
+  if(q.type==='heading'&&q.match)return ['形|同じ方角の機体を選ぶ'];
   if(q.type==='heading'){   /* v05.102: 利用者に見せるのは 右回り／左回り だけ。印からの角度（0〜7）はアプリが助言を決めるためだけに記録する（利用者「角度は利用者にとって不要。その判断はアプリがする上で必要なだけ」） */
     const rel=((q.dir-(q.mark||0))%8+8)%8,L=['印からの位置|'+rel];if(rel!==0&&rel!==4)L.push('回り|'+(rel<4?'右回り':'左回り'));return L}
   if(q.type==='attitude'){const d=q.dir14,dj=d.heading==null?(d.pitch>0?'真上':'真下'):DIRJA[d.heading/45],att=d.heading==null?(q.bank>0?'右バンク':q.bank<0?'左バンク':'水平'):attName(q);
@@ -1550,6 +1573,7 @@ function errCats(q,i){
   if(q.type==='heading')return [];
   if(i==null||i<0||!q.opts[i])return ['誤り|時間切れ'];
   const o=q.opts[i],c=q.opts.find(x=>x.ok);if(!o||!c||o===c)return [];
+  if(q.type==='spatial'){const w={'向き':'向きが逆','角度':'角度違い','軸':'軸違い'}[o.why]||'その他';return ['誤り|'+w]}
   if(q.type==='control'){   /* 操縦操作: 操縦桿の向き／有無、方向舵の左右／有無、両方（利用者の指示 2026-09-18「操縦操作も同じく分析して」） */
     const grp=id=>E.OP_BY_ID[id].group,stk=a=>grp(a[0])==='stick'?a[0]:null,rud=a=>grp(a[1])==='rudder'?a[1]:grp(a[0])==='rudder'?a[0]:null;
     const sc=stk(c.ops),so=stk(o.ops),rc=rud(c.ops),ro=rud(o.ops),sd=sc!==so,rd=rc!==ro;
@@ -1574,8 +1598,8 @@ function hlog(rec){hist=[rec,...hist].slice(0,300);store.set('hist',hist)}
 let phase='';                         // setup | intro | practice | session | sim | summary
 let practiceLeft=0;
 const PRACTICE_N=3;
-const DESC={heading:'上面図から8方位を答える',attitude:'南から見た姿勢を計器で選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を選ぶ'};
-const MODE_ICON={heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
+const DESC={spatial:'命令のあとの機体の見え方を選ぶ',heading:'上面図から8方位を答える',attitude:'南から見た姿勢を計器で選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を選ぶ'};
+const MODE_ICON={spatial:'mode-spatial',heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
 const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
 /* 乗り換えのアイコン: 垂直尾翼をかたどって、そこに機体の番号を書く */
 const finIcon=n=>`<svg class="ic fin" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 20.2 12.4 3.6h3.6l3.4 16.6z"/><text x="12.6" y="17.6" text-anchor="middle">${n}</text></svg>`;
@@ -1632,13 +1656,32 @@ function render(){
      中の図は作り直すが #figs は使い回すので、外さないと古い高さのまま次の問題が描かれ、
      姿勢・複合では選択肢がカードの外へ押し出され、方位では図が伸びずに下が空いた（利用者の実機 2026-09-14） */
   figs.removeAttribute('style');
-  if(q.type==='heading'){
+  if(q.type==='heading'&&q.match){
+    /* 方位の Max（本番の F の形）: 上面図 1 枚に対し、同じ形の 4 枚から同じ方角の機体を選ぶ */
+    $('#prompt').textContent='同じ方角を向いている機体を選ぶ';
+    figs.innerHTML=`<div class="figs"><div class="fig top match" style="width:min(64%,16rem);margin:0 auto">${E.figTopDown(q.theta,q.phi,q.mark)}</div><div class="cap">上面図 — 印 <b>${E.DIRS[q.mark].k}</b> の向きが${E.DIRS[q.mark].ja}。4 枚は印の向きも方位も別々</div></div>`;
+    ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst top">${E.figTopDown(o.theta,o.phi,o.mark)}</span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
+    ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
+  }else if(q.type==='spatial'){
+    /* 空間認識（本番の A）: 初期状態の絵と命令 → 命令のあとの絵を 4 枚から。絵は 3D をその場で描く（fillLive） */
+    $('#prompt').textContent='命令のあとの機体の見え方を選ぶ';
+    const legend=E.figDir14(E.DIR14[0]).replace(/<img[^>]*>/,'<img class="live" data-live="init" alt="初期状態（南から）" style="width:100%;height:auto;display:block">');
+    figs.innerHTML=`<div class="figs"><div class="fig wide">${legend}</div><div class="cap"><b>南</b>からの固定視点 — 初期状態</div><div class="cmd">${esc(q.cmdText)}</div></div>`;
+    ans.innerHTML=`<div class="opts pics">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst"><img class="live" data-live="${i}" alt=""></span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
+    ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
+  }else if(q.type==='combo'&&q.reverse){
+    /* 複合の Max（本番の B の形）: 計器 → 機体の絵。16 方位 */
+    $('#prompt').textContent='計器（姿勢指示器＋方位指示器）に合う機体の見え方を選ぶ';
+    figs.innerHTML=`<div class="figs"><div class="inst2"><div class="i2">${E.svgAI(q.bank,q.pitch)}</div><div class="i2">${E.svgHI(q.heading,q.mark)}</div></div><div class="cap">機首の方位は方位指示器の<b>上</b>。絵は<b>南</b>からの固定視点（奥が北、右が東）</div></div>`;
+    ans.innerHTML=`<div class="opts pics">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst"><img class="live" data-live="${i}" alt=""></span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
+    ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
+  }else if(q.type==='heading'){
     $('#prompt').textContent='機首が向いている方位を 8 方位から選ぶ';
     const grid=`<div class="dirlist">${DIR_ORDER.map(i=>`<button class="ab" data-dir="${i}"><span class="lab">${i+1}</span><span class="t">${dirLabel(i)}</span><span class="mk"></span></button>`).join('')}</div>`;
     figs.innerHTML=`<div class="figs heading"><div><div class="fig top">${E.figTopDown(q.theta,q.phi,q.mark)}</div><div class="cap">上面図 — 印 <b>${E.DIRS[q.mark||0].k}</b> の向きが${E.DIRS[q.mark||0].ja}</div></div>${grid}</div>`;
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
-  }else if(q.type==='attitude'||q.type==='combo'){
+  }else if(q.type==='attitude'||(q.type==='combo'&&!q.reverse)){
     const cap14='<b>南</b>からの固定視点 — 画面の奥が北、右が東';
     if(q.type==='attitude'){
       $('#prompt').textContent='この姿勢に対応する姿勢指示器を選ぶ';
@@ -1658,7 +1701,10 @@ function render(){
   }
   /* 絵がまだ出ていなければ、出てからタイマーを始める（v06.02） */
   const im=figs.querySelector('.d14 img'),qq=q;
-  if(im&&!(im.complete&&im.naturalWidth>0)){const go=()=>{if(q===qq&&!answered)startTimer()};
+  if(liveList(q)){   /* その場で描く絵（空間認識・複合の Max）: 描けて <img> に入ってから始める。最初の 1 問は 3D モデルの読み込み待ちになる */
+    fillLive(qq).then(()=>{const go=()=>{if(q===qq&&!answered)startTimer()};const i2=$('#quiz').querySelector('img.live');
+      if(i2&&!(i2.complete&&i2.naturalWidth>0))Promise.race([i2.decode?i2.decode():new Promise(r=>{i2.onload=r;i2.onerror=r}),new Promise(r=>setTimeout(r,1500))]).catch(()=>{}).then(go);else go()});
+  }else if(im&&!(im.complete&&im.naturalWidth>0)){const go=()=>{if(q===qq&&!answered)startTimer()};
     Promise.race([im.decode?im.decode():new Promise(r=>{im.onload=r;im.onerror=r}),new Promise(r=>setTimeout(r,1500))]).catch(()=>{}).then(go)}
   else startTimer();
 }
@@ -1677,8 +1723,8 @@ function startTimer(){
 function stopTimer(){clearInterval(timerId);const lim=qLimit();const s=Math.min((performance.now()-t0)/1000,lim>0?lim:1e9);$('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
 function timeoutQuestion(){
   if(answered)return;
-  const g=q.type==='heading'?E.gradeHeading(q,-1):q.type==='control'?E.gradeControl(q,-1):E.gradeOpts(q,-1);
-  if(q.type==='heading')mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,()=>false);
+  const g=q.type==='heading'?E.gradeHeading(q,-1):q.type==='control'?E.gradeControl(q,-1):q.type==='spatial'?E.gradeSpatial(q,-1):E.gradeOpts(q,-1);
+  if(q.type==='heading'&&!q.match)mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,()=>false);
   else mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,()=>false);
   finish(g,true);
 }
@@ -1747,7 +1793,7 @@ function answerHeading(i){
   finish(g,false,i);
 }
 function answerOpts(i){
-  if(answered)return;const g=q.type==='control'?E.gradeControl(q,i):E.gradeOpts(q,i);
+  if(answered)return;const g=q.type==='control'?E.gradeControl(q,i):q.type==='spatial'?E.gradeSpatial(q,i):q.type==='heading'?E.gradeHeading(q,i):E.gradeOpts(q,i);
   mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,b=>+b.dataset.i===i);
   finish(g,false,i);
 }
@@ -1770,6 +1816,7 @@ function next(){
 
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
 const INTRO={
+  spatial:['南から見た機体の絵（初期状態）と、命令（右旋回 45° など）が出ます。奥が北、右が東です。','命令のあとの機体の見え方を 1〜4 の絵から選びます。','旋回は向きだけ、横転は翼の傾きだけ、機首上げ・下げは機首だけが変わります。右・左・上げ・下げは、機体にとっての向きです。','Normal から初期状態に機首の上げ下げ、Hard から翼の傾き（背面も）が混ざります。Max は 30°・60° の微妙な角度も出ます。'],
   heading:['上から見た機体と方位の印が表示されます。','機首が向いている方位を 8 方位から選びます。','印の向きは Normal 以上で毎回変わります（Easy では N が上）。Hard では印が N とは限りません。まず印から北を決めてから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
   combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
@@ -1814,10 +1861,11 @@ function enterMode(m,sub){
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
-  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。'},
+  spatial:{easy:'初期状態は水平（方位だけ変わる）。命令は 45°・90°・180°。',normal:'初期状態に機首の上げ下げが混ざる。',hard:'初期状態に翼の傾き（90°・背面も）が混ざる。',max:'命令と初期状態に 30°・60° の微妙な角度が混ざる。'},
+  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。',max:'本番の形。上面図 1 枚に対して、同じ形の 4 枚から同じ方角を向いた機体を選ぶ。4 枚は印の向きも方位も別々。'},
   attitude:{easy:'機首は北の縦の面（北・北上・北下・真上・真下）だけ。翼の傾きは変わる。',normal:'機首は 26 方向すべて（8 方位 × 上・水平・下と真上・真下）。翼は水平のみ。',hard:'26 方向すべてに翼の傾きも加わる。'},
-  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'24 方向すべて（8 方位 × 上・水平・下）。方位指示器の印は毎回変わる。'},
-  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は必ず 2 つ（順番か同時）。視界の中央の目盛りは出ない。①は水平か、傾きだけか、機首の上下だけ。',max:'Hard に加えて、①に傾きと機首の上下が重なった姿勢も出る。'}};
+  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'24 方向すべて（8 方位 × 上・水平・下）。方位指示器の印は毎回変わる。',max:'本番の形。計器（姿勢指示器＋方位指示器）から機体の見え方を選ぶ。方位は 16 方位（南南西など）。'},
+  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は必ず 2 つ（順番か同時）。視界の中央の目盛りは出ない。①は水平・傾き・上下・その複合のどれか。',max:'Hard に加えて、操縦桿の斜め（左奥・右奥・左手前・右手前）の操作が混ざる。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
@@ -1825,8 +1873,9 @@ function showSetup(){
   const sel=(key,label,opts,lock)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>{const off=!isFull()&&lock&&lock(v);
     return `<option value="${v}"${String(ms[key])===String(v)?' selected':''}${off?' disabled':''}>${t}${off?'（完全版）':''}</option>`}).join('')}</select></label>`;
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
+  if(mode==='spatial'||mode==='combo')ensureShooter().catch(()=>{});   /* その場で描く絵の準備（最初の 1 問で待たせない） */
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
-    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],...(mode==='control'?[['max','Max']]:[])],v=>!DEMO.levels.includes(v))}
+    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],...(mode!=='attitude'?[['max','Max']]:[])],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
     ${sel('qCount','出題数',(()=>{const o=[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']];
       /* 体験版の上限（5 問など）が並びに無いと、選ばれている値の option が無く、灰色の「10 問（完全版）」が見えていた。上限の選択肢を先頭に足す */
@@ -3040,12 +3089,13 @@ function renderSettingsPage(){
 }
 /* 解き方のメモ。1 行 1 事で箇条書きにする（長い文がつながっていると、解いている最中に読めない） */
 const TIPS={
+  spatial:['まず初期状態を言葉にする（北向き・右バンク 45° など）','旋回は向きだけ、横転は翼だけ、機首上げ下げは機首だけを動かす','右・左は機体にとっての向き。背面では画面上の左右が逆になる','90° は真横・真上、180° は反対（背面）'],
   heading:['印の向きをまず見る（Hard では N とは限らない）','印から北を決め、機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Normal 以上では、機首が印の方位と同じ向きになる問題は出ない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
   combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','印の文字（N など）と、その位置から読む'],
   control:['景色が回る＝操縦桿の左右','目印が上下へ動く＝奥・手前','目印が左右へ大きく流れる＝方向舵','傾いていると方向舵でも水平線が上下する。目印の動きで読む','同時でも順番でも答えは同じ'],
 };
-const KBD={heading:'札の数字 1〜8 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
+const KBD={spatial:'1〜4 で選択、Enter で次へ',heading:'札の数字 1〜8 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 
 $('#next').addEventListener('click',next);
 $('#reset').addEventListener('click',()=>{if(!confirm(`${E.MODES[mode]} の記録を消しますか？`))return;stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
@@ -3122,7 +3172,7 @@ function reviewCardHTML(){return `<div class="demo review"><span>もしよけれ
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
-  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODES[m]}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
+  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
     +`<button class="mode" id="homeSim"><span class="ico">${ic('vfirst')}</span><span class="tx"><span class="n">3D シミュレーター</span><span class="avg"><span class="avg-w">操縦桿と方向舵で飛ばして、見え方を体で覚える</span><span class="avg-n">舵を切って、見え方を体で覚える</span></span></span><span class="go">${ic('next','s')}</span></button>`
     +(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
@@ -3149,7 +3199,7 @@ const ORDER={'回り':['右回り','左回り'],'機首の上下':['機首上げ
   '①の姿勢':['水平','傾きあり','機首の上下あり','傾き＋上下'],
   '誤り':['傾きの左右','傾きの有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
 /* 誤りの種類ごとの一言（次に何を意識するか。要所だけ） */
-const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら向き（南側）の絵は左右が逆に見えます。機首の向きを基準に、どちらの翼が下がっているかを読みます。',
+const ERRHINT={'向きが逆':'右と左（上げと下げ）を取り違えています。命令は機体にとっての向きです。背面や傾いた姿勢では画面上の向きと逆になることがあります。','角度違い':'角度の大きさを取り違えています。45° は半分、90° で真横・真上、180° で反対（背面）です。','軸違い':'旋回（向きだけ変わる）・横転（翼の傾きだけ変わる）・機首上げ下げ（機首だけ動く）を取り違えています。','傾きの左右':'左右を逆に読んでいます。こちら向き（南側）の絵は左右が逆に見えます。機首の向きを基準に、どちらの翼が下がっているかを読みます。',
   '傾きの有無':'傾いているかどうかの見分けで落としています。水平線が傾いているかを先に見ます。',
   '機首の上下':'機首の上下を逆に読んでいます。腹面が見えれば機首上げ、背面が見えれば機首下げ。',
   '両方':'傾きと機首の上下の両方を落としています。まず上下、次に傾き、と順に確かめます。',
@@ -3163,7 +3213,7 @@ const ERRHINT={'傾きの左右':'左右を逆に読んでいます。こちら�
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
 /* v05.97（利用者「機体の状態の詳細な正答率も不要。総合と複合での個別正答率が分かればよい。その上で苦手な部分の分析を記せば良い」）:
    切り口ごとの棒はやめ、総合（輪）→ 誤りの種類（1 本の積み上げ）→ 苦手の札 → 一言、に絞る。見え方・機首の上下・傾き・①の姿勢・操作の数・操作 は記録だけして札の材料にする */
-const GROUPS={heading:['回り'],attitude:['誤り','組み合わせ'],combo:['比べ','誤り','組み合わせ'],control:['傾向','誤り','パターン','操縦桿','方向舵']};
+const GROUPS={spatial:['誤り','命令','初期状態','角度'],heading:['回り'],attitude:['誤り','組み合わせ'],combo:['比べ','誤り','組み合わせ'],control:['傾向','誤り','パターン','操縦桿','方向舵']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 const tip=(k,v)=>`<title>${esc(k)} ${v&&v.n?pct(v.c/v.n)+'（'+v.n+' 問・平均 '+(v.t/v.n).toFixed(1)+' s）':'未出題'}</title>`;

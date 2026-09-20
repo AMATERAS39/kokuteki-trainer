@@ -5770,3 +5770,10 @@ v05.21 は画面に固定していた（①のバンクで回した 2 本を②�
 - ついでに、iOS Safari は viewport の `user-scalable=no` を無視して二本指の拡大ができてしまうので、`gesturestart` 系を preventDefault してアプリ版と同じ挙動にした。
 - 検証（pwtest43.py）: 390×844 で ①②③ と箱の高さ 121 px（(844−480)/3）、390×700 で 73 px。JS の誤りなし。Safari の帯の動きは Playwright では再現できないので、実機で確かめる。
 
+## 2026-09-20 シミュレーターで操縦桿が突然固まる（v06.10）
+
+- 利用者の報告「シミュレーターで突然スティックが固定されて操作できなくなる」。
+- **原因**: 操縦桿は pointerdown で `sim.ptr` に指の番号を控え、**操縦桿要素の上の pointerup / pointercancel** でだけ放していた。pointerup が操縦桿に届かない場合（ポインタの捕捉に失敗した端末で指が要素の外へ出た、要素の作り直し、アプリが裏へ回って指を離した、など）は `sim.ptr` が残り、次の pointerdown を「別の指」とみなして無視するので、倒れたまま固まる。キーボードも `sim.ptr===null` のときだけ効く作りなので一緒に効かなくなる。方向舵（`sim.rud`）も同じ形で押しっぱなしになり得た。
+- **直し方**（放す口を一つに）: `releaseStick()` にまとめ、(1) 操縦桿の pointerup / pointercancel / **lostpointercapture**、(2) **window の pointerup / pointercancel（捕捉段階、一度だけ登録）** で同じ指番号なら放す、(3) 裏へ回る `away()` でも操縦桿と方向舵を放す、(4) pointerdown は「前の指がまだ本当に捕捉されているとき」だけ無視し、捕捉が切れていれば新しい指に持ち替える（自己回復）。方向舵も window と lostpointercapture で外す。
+- 検証（pwtest44.py、合成 PointerEvent）: 右いっぱい → pointerup が body に来る → 入力 0 に戻る → 新しい指で左に倒せる → 放せる。方向舵も同様。blur で放されて一時停止。JS の誤りなし。
+

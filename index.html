@@ -1478,7 +1478,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.09';
+const APP_VER='v06.10';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -2003,14 +2003,28 @@ function runSim(opt){applyScene();
       dx=Math.cos(a)*r;dy=Math.sin(a)*r}
     sim.stickVec={x:dx,y:-dy};
     if(sim.h){if(sim.h.autoState()){sim.h.input.x=0;sim.h.input.y=0}else{sim.h.input.x=dx;sim.h.input.y=-dy}}knob.style.transform=`translate(${(dx*22).toFixed(1)}%,${(dy*22).toFixed(1)}%) rotate(${(dx*18).toFixed(1)}deg)`};
-  stick.addEventListener('pointerdown',e=>{if(sim.ptr!==null)return;sim.ptr=e.pointerId;try{stick.setPointerCapture(e.pointerId)}catch(_){}setStick(e);e.preventDefault()});
+  /* 操縦桿を放す。pointerup は操縦桿の上に来るとは限らない（捕捉に失敗した端末で指が外へ出た、要素が作り直された、
+     アプリが裏へ回った、など）。v06.09 までは操縦桿の上の pointerup だけで放していたので、来ないと sim.ptr が残り、
+     以後の pointerdown を「別の指」とみなして無視し、操縦桿が倒れたまま固まった（利用者の報告 2026-09-20）。
+     放す口を一つにまとめ、window の pointerup/pointercancel・lostpointercapture・裏へ回ったとき からも呼ぶ */
+  const releaseStick=()=>{sim.ptr=null;sim.stickVec={x:0,y:0};if(sim.h){sim.h.input.x=0;sim.h.input.y=0}knob.style.transform='';applyInput()};
+  sim.releaseStick=releaseStick;
+  stick.addEventListener('pointerdown',e=>{
+    /* 別の指がまだ本当に押しているときだけ無視する。捕捉が切れていれば前の指は失われているので、新しい指に持ち替える */
+    if(sim.ptr!==null&&stick.hasPointerCapture&&stick.hasPointerCapture(sim.ptr)&&sim.ptr!==e.pointerId)return;
+    sim.ptr=e.pointerId;try{stick.setPointerCapture(e.pointerId)}catch(_){}setStick(e);e.preventDefault()});
   stick.addEventListener('pointermove',e=>{if(e.pointerId===sim.ptr)setStick(e)});
-  ['pointerup','pointercancel'].forEach(ev=>stick.addEventListener(ev,e=>{if(e.pointerId!==sim.ptr)return;sim.ptr=null;
-    sim.stickVec={x:0,y:0};if(sim.h){sim.h.input.x=0;sim.h.input.y=0}knob.style.transform='';applyInput()}));
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>stick.addEventListener(ev,e=>{if(e.pointerId!==sim.ptr)return;releaseStick()}));
+  sim.applyInput=applyInput;
+  if(!window.__stickRel){window.__stickRel=true;   /* window の口は一度だけ（シミュレーターは何度も開き直す） */
+    ['pointerup','pointercancel'].forEach(ev=>window.addEventListener(ev,e=>{
+      if(!sim)return;
+      if(sim.ptr!==null&&e.pointerId===sim.ptr&&sim.releaseStick)sim.releaseStick();
+      if(sim.rud&&sim.rud.has(e.pointerId)){sim.rud.delete(e.pointerId);if(sim.applyInput)sim.applyInput()}},true))}
   /* 方向舵（右）: 押している間だけ。両手で同時に操作できる */
   $('#sim').querySelectorAll('[data-r]').forEach(b=>{
     b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(autoShow())return;try{b.setPointerCapture(e.pointerId)}catch(_){}sim.rud.set(e.pointerId,+b.dataset.r);applyInput()});
-    ['pointerup','pointercancel'].forEach(ev=>b.addEventListener(ev,e=>{sim.rud.delete(e.pointerId);applyInput()}));
+    ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,e=>{sim.rud.delete(e.pointerId);applyInput()}));
   });
   sim.kd=e=>{if(document.body.dataset.view!=='train'||!sim)return;const k=e.key.length===1?e.key.toLowerCase():e.key;
     if(k===' '){e.preventDefault();if(sim.toggleSmoke)sim.toggleSmoke();return}   // スペースでスモークの入り切り
@@ -2105,7 +2119,9 @@ function runSim(opt){applyScene();
   /* 画面から離れたら自動で止める（別のアプリへ移る・画面を消す・タブを閉じる直前。戻ったときは止まったまま）。
      一度だけ登録する */
   if(!window.__simAway){window.__simAway=true;
-    const away=()=>{if(!sim||!sim.h||sim.h.pausedState())return;
+    const away=()=>{if(!sim||!sim.h)return;
+      if(sim.releaseStick)sim.releaseStick();if(sim.rud){sim.rud.clear();if(sim.applyInput)sim.applyInput()}   /* 裏へ回ったら舵を放す（指を離した pointerup は届かない。v06.10） */
+      if(sim.h.pausedState())return;
       sim.h.setPaused(true);sim.userPaused=true;const m=$('#pauseMsg');if(m)m.hidden=false};
     document.addEventListener('visibilitychange',()=>{if(document.hidden)away()});
     window.addEventListener('pagehide',away);

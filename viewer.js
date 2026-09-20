@@ -26,7 +26,8 @@ export const DIRS = [
 ];
 
 /* bare: 格子と軸を出さない（記録の「姿勢のレーダー」用。方位の札は出す）。onMarker: 頂点をタップしたときに id を渡す */
-export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, bare = false, onMarker = null, onReset = null } = {}) {
+/* plain（v06.11、空間認識の解説）: 格子・東西南北の札・軸・羅針盤を出さず、視点は南から固定（回せない）。機体は常に中央 */
+export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgress, bare = false, plain = false, onMarker = null, onReset = null } = {}) {
   const W = () => container.clientWidth, H = () => Math.round(container.clientWidth * 3 / 4);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -47,9 +48,10 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   cam.position.copy(HOME); cam.lookAt(0, 0, 0);
   const controls = new OrbitControls(cam, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 9; controls.maxDistance = 80; controls.enablePan = false;
+  if (plain) { controls.enabled = false; controls.enableDamping = false; }
 
   /* 地面の格子（z = −6 の水平面）と方位の矢印 */
-  const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; if (!bare) scene.add(grid);
+  const grid = new THREE.GridHelper(40, 20, 0x66788a, 0x3a4656); grid.rotation.x = Math.PI / 2; grid.position.z = -6; if (!bare && !plain) scene.add(grid);
   /* 方位の札（北・東・南・西）。板ではなく常に正面を向くスプライトなので、視点を回しても読める */
   function dirLabel(text, color) {
     const c = document.createElement('canvas'); c.width = 256; c.height = 128;   /* 2 文字（北東 など）も入る幅 */
@@ -70,7 +72,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   for (const [t, x, y, col, base] of LAB) {
     const sp = dirLabel(t, col); sp.position.set(x, y, bare ? 0 : -5.6); sp.userData.base = base; marks.add(sp);
   }
-  scene.add(marks);
+  if (!plain) scene.add(marks);
   const rose = new THREE.Group();
   if (bare) {
     const RR = 9.6, ring = [];
@@ -88,7 +90,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -6), 12, 0xff6b6b, 1.6, 0.9));
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -6), 12, 0x3ed48a, 1.6, 0.9));
   axes.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -6), 10, 0x5ab0ff, 1.6, 0.9));
-  if (!bare) scene.add(axes);
+  if (!bare && !plain) scene.add(axes);
 
   const pivot = new THREE.Group(); scene.add(pivot);
   const loader = new GLTFLoader();

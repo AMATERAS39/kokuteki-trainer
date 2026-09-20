@@ -2975,7 +2975,7 @@ function fbSimStop(){if(fbMv){fbMv.dispose();fbMv=null}}
    飛行の軌道ではなく姿勢の変化だけを見せる（操縦操作の「動きで見る」とは別物）。「もう一度」で繰り返す */
 function makeSpin(qq){
   const el=document.createElement('div');el.className='fbspin';
-  el.innerHTML=`<div class="fbsimh"><span>変化の過程（三人称）</span><button class="btn" type="button" data-play>もう一度</button></div><div class="spin3d"></div><div class="gstep sub" data-step>初期状態</div>`;
+  el.innerHTML=`<div class="fbsimh"><span>変化の過程（南から見た三人称）</span><button class="btn" type="button" data-play>もう一度</button></div><div class="spin3d"></div><div class="gstep sub" data-step>初期状態</div>`;
   const box=el.querySelector('.spin3d'),step=el.querySelector('[data-step]');
   let v=null,raf=0,disposed=false,t0=0;
   const HOLD=600,DUR=1800,c=qq.cmd;
@@ -2986,7 +2986,7 @@ function makeSpin(qq){
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
   el.querySelector('[data-play]').addEventListener('click',start);
-  import('./viewer.js?v=12').then(m=>m.mount(box,{})).then(h=>{if(disposed){h.dispose();return}v=h;v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  import('./viewer.js?v=13').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
   return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
 }
 function fbSimShow(){
@@ -3626,7 +3626,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=12');
+    const mod=await import('./viewer.js?v=13');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');

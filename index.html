@@ -1508,7 +1508,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.13';
+const APP_VER='v06.14';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1973,7 +1973,7 @@ let sim=null;
 /* シミュレーターは開始前に設定画面（編隊・地上物）を出す */
 function startSim(){
   applyScene();stopSim();setPhase('setup','シミュレーター');showPane('setup');
-  import('./sim3d.js?v=167').then(mod=>{
+  import('./sim3d.js?v=168').then(mod=>{
     const form=store.get('simForm','solo'),props=store.get('simProps',true);
     const sel=(id,label,opts,cur,lock)=>`<label class="setting"><span>${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${v}"${String(cur)===String(v)?' selected':''}${lock&&lock(v)?' disabled':''}>${t}</option>`).join('')}</select></label>`;
     $('#setup').innerHTML=`<h2>3D シミュレーター</h2>
@@ -2410,7 +2410,7 @@ function runSim(opt){applyScene();
     const now=performance.now();if(now-lastTxt>100){lastTxt=now;$('#rAlt').textContent=Math.round(s.z);$('#rHdg').textContent=String(Math.round(s.h)%360).padStart(3,'0');$('#rBank').textContent=f(s.b);$('#rPitch').textContent=f(s.p);$('#wallMsg').hidden=!s.wall}
   };
   const mySim=sim;
-  import('./sim3d.js?v=167').then(mod=>{if(sim!==mySim)return;
+  import('./sim3d.js?v=168').then(mod=>{if(sim!==mySim)return;
       /* 一人称の計器は、3D が教える「計器盤の上端」の位置に置く（描いたその場で受け取る） */
       const onPanel=sp=>{const el=$('#sim');if(!el)return;
         if(!sp){el.classList.remove('haspanel');return}
@@ -2874,6 +2874,13 @@ function forcesOf(ops,simul,moveSeg){
   const segs=E.opSegs(ops,simul),f={};
   for(const id of segs[moveSeg].ops)Object.assign(f,FORCE_OF[id]);
   return f}
+/* 矢印の長さを、その区間で実際に回った角度（①→② や ②→③ の姿勢の差）にする（v06.14）。向きは舵の向き（forcesOf）、大きさは飛行の結果 */
+function scaleForces(f,tr,seg){
+  if(!f||!tr||!tr.frames||!tr.frames[seg]||!tr.frames[seg+1])return f;
+  const a=tr.frames[seg],b=tr.frames[seg+1],wrap=x=>((x+540)%360)-180;
+  const d={roll:Math.abs(wrap(b.bank-a.bank)),pitch:Math.abs(b.pitch-a.pitch),yaw:Math.abs(wrap(b.yaw-a.yaw))},o={};
+  for(const k of ['roll','pitch','yaw']){const v=+f[k]||0;if(v)o[k]=Math.sign(v)*Math.max(8,d[k]||0)}
+  return o}
 
 /* ===== 動きで見る（部品）=====
    見え方の一覧の「動きで見る」と、解説の「この問題の見え方」で同じもの（利用者の指示 2026-09-14: 視点の切替や再生⇄一時停止が使いやすいため）。
@@ -2923,7 +2930,7 @@ function makeMover(opt){
     const host=$$('.gviewer');if(!host||m.loading)return;
     m.loading=true;
     /* シミュレーター本体（sim3d.js）を mount し、flight.js で飛ばした機体の様子（setPose）を入れる。画面からの操作は通さない */
-    import('./sim3d.js?v=167').then(mod=>{
+    import('./sim3d.js?v=168').then(mod=>{
         /* 試験の絵と同じ景色の世界（scenery:'exam'）。一人称は機内を出さず「見える景色のみ」（試験と同じ） */
         const h=mod.mount(host,{view:m.view,scenery:'exam',examH:188});   /* 出題画像と同じ切り取り（ckCompact の 360×188） */
         h.setCockpit(false);h.setProps(true);
@@ -2948,7 +2955,7 @@ function makeMover(opt){
       if(ft>0&&m.viewer.tf<ft-0.2){for(let f=m.viewer.tf;f<ft;f+=1/30)h.setPose(AAT_FLIGHT.at(traj,f))}
       m.viewer.tf=ft;
       /* 矢印は、動いている区間なら一時停止中も出したまま（その瞬間を固めて見せる。利用者の指示 2026-09-14）。①（t=0）は待ちの区間なので無し */
-      h.setForces(opt.forces?opt.forces(moveSeg):null);h.setPose(st)}
+      h.setForces(scaleForces(opt.forces?opt.forces(moveSeg):null,traj,moveSeg));h.setPose(st)}
     /* 一人称: ①の正面の破線（出題の絵と同じ写像で、いまの姿勢から描く） */
     const gr=$$('.gref');
     if(gr)gr.innerHTML=E.svgRefLines(st,AAT_FLIGHT.at(traj,0));
@@ -3003,7 +3010,7 @@ function makeSpin(qq){
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
   el.querySelector('[data-play]').addEventListener('click',start);
-  import('./viewer.js?v=14').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1);v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  import('./viewer.js?v=15').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
   return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
 }
 function fbSimShow(){
@@ -3642,7 +3649,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=14');
+    const mod=await import('./viewer.js?v=15');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');

@@ -438,25 +438,35 @@ export function mount(container, opt = {}) {
      ロール（機首の軸まわり、橙）・ピッチ（翼の軸まわり、緑）・ヨー（上下軸まわり、青）。逆向きは弧を鏡に映す。
      機体の入れ物 plane の子なので、機体といっしょに動く。setForces({ roll, pitch, yaw }) で ±1／0 */
   const forceArrows = new THREE.Group(); forceArrows.visible = false; plane.add(forceArrows);
-  const arrows = {};
-  { const mk = (color, pts, mirror) => {
-      const g = new THREE.Group();
-      const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
-      const mat = new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.DoubleSide });
-      g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.18, 8, false), mat));
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.6, 12), mat);
-      const end = curve.getPoint(1), tan = curve.getTangent(1);
-      cone.position.copy(end).addScaledVector(tan, 0.7);
-      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
-      g.add(cone);
-      const pos = g, neg = g.clone(); neg.scale[mirror] = -1;   // 逆向きは鏡（回転では向きの意味が変わらない）
-      pos.visible = neg.visible = false; forceArrows.add(pos, neg);
-      return { pos, neg }; };
-    const arc = (f, a0, a1, n) => { const out = []; for (let i = 0; i <= n; i++) out.push(f((a0 + (a1 - a0) * i / n) * D)); return out; };
-    arrows.roll = mk(0xff8a3d, arc(a => [6.5 * Math.cos(a), -1.5, 6.5 * Math.sin(a)], 150, 15, 16), 'x');        // 右ロール: 上を越えて右翼が下がる向き
-    arrows.pitch = mk(0x7cf59a, arc(a => [0, 9 * Math.cos(a), 9 * Math.sin(a)], -35, 40, 16), 'z');            // 機首上げ: 機首の先で上へ
-    arrows.yaw = mk(0x4fc3f7, arc(a => [9 * Math.sin(a), 9 * Math.cos(a), 0], -35, 35, 16), 'x');                // 右ヨー: 機首の先で右へ
-  }
+  /* 弧の長さは、その区間で実際に回る角度に合わせる（v06.14、利用者の指示 2026-09-22「そんなに曲がらない。角度に応じて長さを変えて。動きで見るも同じ」）。
+     setForces({ roll, pitch, yaw }) の値は ±度（大きさが回る角度）。±1 だけなら従来の長さ。角度ごとの弧は作って控える（5° 刻み） */
+  const arrows = {}, arrowCache = { roll: {}, pitch: {}, yaw: {} };
+  const ARC = {   /* 中心の角度・従来の幅・座標の式・鏡の軸 */
+    roll: { color: 0xff8a3d, c: 82.5, w: 135, dir: -1, f: a => [6.5 * Math.cos(a), -1.5, 6.5 * Math.sin(a)], mirror: 'x' },   // 右ロール: 上を越えて右翼が下がる向き（角度は減る向きに進む）
+    pitch: { color: 0x7cf59a, c: 2.5, w: 75, dir: 1, f: a => [0, 9 * Math.cos(a), 9 * Math.sin(a)], mirror: 'z' },              // 機首上げ: 機首の先で上へ
+    yaw: { color: 0x4fc3f7, c: 0, w: 70, dir: 1, f: a => [9 * Math.sin(a), 9 * Math.cos(a), 0], mirror: 'x' }                    // 右ヨー: 機首の先で右へ
+  };
+  const mkArrow = (color, pts, mirror) => {
+    const g = new THREE.Group();
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
+    const mat = new THREE.MeshBasicMaterial({ color, fog: false, side: THREE.DoubleSide });
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.18, 8, false), mat));
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.6, 12), mat);
+    const end = curve.getPoint(1), tan = curve.getTangent(1);
+    cone.position.copy(end).addScaledVector(tan, 0.7);
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+    g.add(cone);
+    const pos = g, neg = g.clone(); neg.scale[mirror] = -1;   // 逆向きは鏡（回転では向きの意味が変わらない）
+    pos.visible = neg.visible = false; forceArrows.add(pos, neg);
+    return { pos, neg }; };
+  const arrowFor = (k, span) => {
+    const key = Math.round(Math.max(8, Math.min(180, span)) / 5) * 5;
+    if (arrowCache[k][key]) return arrowCache[k][key];
+    const A = ARC[k], a0 = A.c - A.dir * key / 2, a1 = A.c + A.dir * key / 2, pts = [];
+    for (let i = 0; i <= 16; i++) pts.push(A.f((a0 + (a1 - a0) * i / 16) * D));
+    return (arrowCache[k][key] = mkArrow(A.color, pts, A.mirror));
+  };
+  for (const k of ['roll', 'pitch', 'yaw']) arrows[k] = arrowFor(k, ARC[k].w);
   /* 操縦席の部品。座標はモデル座標 ×k（k = 13/全長）で書き、読み込み後に GLB と同じ平行移動（eyeOff）を掛ける。
      目安（この座標系）: 風防の上端 z≈0.43、前席の背もたれ上端 z≈0.32、前席 y≈2.4〜3.5、風防の前端 y≈3.55、床 z≈-0.97。
      モデルには座席と風防しかないので、計器盤・グレアシールド・操縦桿・方向舵ペダルを自作する。目は前席の後ろ寄り・背もたれの少し上 */
@@ -4528,7 +4538,11 @@ export function mount(container, opt = {}) {
     /* 舵で加わっている回転の向き（動きで見るの三人称）。{ roll, pitch, yaw } それぞれ +1／−1／0。省略で消す */
     setForces(f) {
       f = f || {}; let any = false;
-      for (const k of ['roll', 'pitch', 'yaw']) { const v = +f[k] || 0; arrows[k].pos.visible = v > 0; arrows[k].neg.visible = v < 0; any = any || v !== 0; }
+      for (const k of ['roll', 'pitch', 'yaw']) {
+        const v = +f[k] || 0;
+        for (const key of Object.keys(arrowCache[k])) { arrowCache[k][key].pos.visible = arrowCache[k][key].neg.visible = false; }
+        if (v) { const ar = arrowFor(k, Math.abs(v) > 1 ? Math.abs(v) : ARC[k].w); ar.pos.visible = v > 0; ar.neg.visible = v < 0; any = true; }
+      }
       forceArrows.visible = any && curView !== 'first';
     },
     setPose(a) {

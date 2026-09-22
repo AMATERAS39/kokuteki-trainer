@@ -117,22 +117,25 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   /* 空間認識の解説の矢印（v06.13）: 回す軸のまわりに弧の矢印を機体に付けて描く。axis: 'yaw'（機体の上下軸）/'roll'（機首の軸）/'pitch'（翼の軸）、sign: 回る向き（+1 が右・上げ）。
      機体の軸で回るので、矢印は pivot の子にして機体と一緒に回す。何も言わずに「機体を中心に球で動く」ことに気づけるようにする（利用者の意図。説明の文には書かない） */
   let spinArrow = null;
-  function setSpinArrow(axis, sign = 1) {
+  function setSpinArrow(axis, sign = 1, deg = 270) {
     if (spinArrow) { pivot.remove(spinArrow); spinArrow = null; }
-    if (!axis) return;
-    const R = 7.2, col = 0xffb020, g = new THREE.Group();
-    /* 弧: 軸のまわり 270°。向きは sign で反転 */
-    const pts = []; const N = 48;
-    for (let i = 0; i <= N; i++) { const a = (i / N) * Math.PI * 1.5 * sign; pts.push(new THREE.Vector3(Math.cos(a) * R, Math.sin(a) * R, 0)); }
+    if (!axis) return null;
+    /* 弧は「機体のある点が、その命令で実際に動く道」として作る（v06.14）。
+       engine.js の applyCmd と同じ行列（旋回 Rz(−a)、横転 Ry(a)、機首 Rx(a)。a は右・上げが正）を角度 0→270° で掛けて点を並べるので、
+       回る向きが命令と食い違わない（v06.13 は xy 平面の弧を回して当てはめていて、三つとも逆向きだった。利用者の指摘 2026-09-22） */
+    const R = 7.2, col = 0xffb020, g = new THREE.Group(), N = 48, pts = [];
+    const p0 = axis === 'yaw' ? new THREE.Vector3(R, 0, 0) : new THREE.Vector3(0, 0, R);
+    const rot = a => axis === 'yaw' ? new THREE.Matrix4().makeRotationZ(-a) : axis === 'roll' ? new THREE.Matrix4().makeRotationY(a) : new THREE.Matrix4().makeRotationX(a);
+    /* 弧の長さは命令の角度そのもの（45° なら 45°、180° なら半周。利用者の指示 2026-09-22「そんなに曲がらない。角度に応じて長さを変えて」） */
+    const span = Math.max(15, Math.min(180, Math.abs(deg))) * Math.PI / 180;
+    for (let i = 0; i <= N; i++) { const a = (i / N) * span * sign; pts.push(p0.clone().applyMatrix4(rot(a))); }
     const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.14, 8, false), new THREE.MeshBasicMaterial({ color: col }));
     g.add(tube);
     const last = pts[N], prev = pts[N - 2], dir = last.clone().sub(prev).normalize();
     const head = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 12), new THREE.MeshBasicMaterial({ color: col }));
     head.position.copy(last); head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); g.add(head);
-    /* 弧は xy 平面（z 軸まわり）に作ったので、軸に合わせて回す。yaw: 機体の上下軸 = z（そのまま）、roll: 機首の軸 = y、pitch: 翼の軸 = x */
-    if (axis === 'roll') g.rotation.x = Math.PI / 2;          // z → y
-    else if (axis === 'pitch') g.rotation.y = -Math.PI / 2;   // z → x
     spinArrow = g; pivot.add(g);
+    return pts.map(p => [p.x, p.y, p.z]);
   }
   /* 姿勢をそのまま入れる（動かして見せるとき。毎コマ呼ぶ） */
   function setAttitude(h, p, b) { animating = false; pivot.quaternion.copy(targetQuat(h, p, b)); }

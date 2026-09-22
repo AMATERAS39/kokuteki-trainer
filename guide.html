@@ -149,6 +149,7 @@ main{overflow-x:clip}
 .btn.sec:hover{border-color:rgba(90,209,230,.6);background:rgba(90,209,230,.08);transform:translateY(-.19rem);color:var(--text)}
 .btn:active{transform:translateY(.06rem) scale(.98)}
 .ctanote{margin-top:1rem;font-size:var(--small);color:var(--muted);max-width:44ch;animation:rise .9s .52s both}
+.hnote{margin-top:.75rem;padding:.625rem .875rem;border-left:3px solid var(--amber);font-size:var(--small);color:var(--muted);max-width:44ch;line-height:1.7;animation:rise .9s .56s both}
 .ctanote b{color:var(--amber);font-family:var(--mono);font-weight:600}
 .facts .calrow{margin-top:.45rem;font-family:var(--disp);font-size:.75rem;font-weight:500}   /* 日程の下の行。文言と置き場所は利用者の指示（2026-09-19）: 日程の下に「カレンダーに登録する」 */
 .callink{color:var(--muted);text-decoration:underline;text-underline-offset:.18em;text-decoration-color:var(--line2)}
@@ -484,6 +485,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
         <a class="btn sec" id="ctaAndroid" href="/android">Android（<span class="nw">完全版</span>）</a>
       </div>
       <p class="ctanote"><span class="nw">体験版</span>は無料・<span class="nw">登録なし</span>で、4 種目とも試せます。<span class="nw">完全版</span>は<span class="nw">買い切り</span> <b id="heroPrice">3,000 円</b>（<span class="nw">時期</span>で変わります）、<span class="nw">広告なし</span>。</p>
+      <p class="hnote">出題は、<span class="nw">昨年度</span>に<span class="nw">受験</span>した人の<span class="nw">記憶による</span><span class="nw">再現です</span>。今年度（9 月 19 日・26 日）の<span class="nw">試験</span>の内容は、まだ<span class="nw">反映していません</span>。<span class="nw">本番</span>と同じ形式とは<span class="nw">限りません</span>。</p>
       <dl class="facts">
         <div><dt><span class="nw">一次試験</span></dt><dd>09/19 · 09/26</dd><dd class="calrow"><a class="callink" href="/exam#calendar" title="一次から最終発表までの日程をカレンダーに登録する">カレンダーに<span class="nw">登録する</span></a></dd></div>
         <div><dt id="daysLbl">第 1 日まで</dt><dd><span class="big" id="days">--</span> <span class="unit" id="daysUnit">日</span></dd></div>
@@ -622,7 +624,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
     <p class="sub">試験が終わると通常<span class="nw">価格</span>に戻ります。来年度の日程は未定で、決まりしだいこの<span class="nw">ページ</span>で案内します。</p>
     <dl class="terms">
       <div class="term"><dt>何が手に入るか</dt><dd><span class="nw">操縦操作</span>（C）に要る、機体の動きを<span class="nw">立体</span>で把握する力。3D <span class="nw">シミュレーター</span>と「<span class="nw">動きで見る</span>」で身につけます。紙の<span class="nw">問題集</span>にはできない練習です。</dd></div>
-      <div class="term"><dt><span class="nw">本番</span>と同じ形式・時間で反復</dt><dd>4 種目を<span class="nw">本番</span>に近い<span class="nw">制限時間</span>で、毎問の解説つきで繰り返せます。</dd></div>
+      <div class="term"><dt><span class="nw">本番</span>に近い<span class="nw">制限時間</span>で反復</dt><dd>4 種目を<span class="nw">本番</span>を意識した<span class="nw">制限時間</span>で、毎問の解説つきで繰り返せます。<span class="nw">本番</span>の形式と同じとは限りません。</dd></div>
       <div class="term"><dt>ほかに同じものがない</dt><dd>市販の<span class="nw">問題集</span>は確認できませんでした（2026 年 9 月 15 日現在）。App Store で「<span class="nw">姿勢指示器</span>」と検索して出るのは、この<span class="nw">アプリ</span>だけです（2026 年 9 月 14 日確認）。</dd></div>
       <div class="term"><dt>買う前に試せます</dt><dd><span class="nw">体験版</span>は無料・<span class="nw">登録なし</span>。4 種目とも解け、3D <span class="nw">シミュレーター</span>も操縦できます。</dd></div>
       <div class="term"><dt>あえて高くしている理由</dt><dd>本気で<span class="nw">受験</span>する人のための<span class="nw">価格</span>です。<span class="nw">航空学生</span>の応募者は年 1,600 人ほど（令和 7 年度）で、市場がとても小さいため、少数の人に見合った<span class="nw">価格</span>にしています。同じ練習をする人が少ないほど、買った人には有利にはたらきます。過去問が公開されていないなかで、差をつける機会を用意した、というのがこの<span class="nw">アプリ</span>の位置づけです。</dd></div>
@@ -683,7 +685,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <div class="qa"><div class="q"><span>Q</span><h3>この<span class="nw">アプリ</span>だけで対策になりますか。</h3></div><div class="a"><span>A</span><p><span class="nw">適性検査</span>のうち、計器の読み取りと<span class="nw">操縦操作</span>の練習に使えます。試験にはほかの科目もあるので、<span class="nw">募集要項</span>を確認してください。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3><span class="nw">体験版</span>と<span class="nw">完全版</span>の違いは何ですか。</h3></div><div class="a"><span>A</span><p><span class="nw">体験版</span>でも 4 種目とも試せて、3D <span class="nw">シミュレーター</span>を自分で操縦できます。<span class="nw">展示飛行</span><span class="nw">モード</span>も短め（約 4 分）なら見られます。<span class="nw">難易度</span>が Easy だけ、<span class="nw">出題数</span>が<span class="nw">デフォルト</span>の半分までに限られ、編隊と<span class="nw">スモーク</span>、<span class="nw">タイヤ</span>と<span class="nw">ライト</span>、写真の保存、背景の切り替え、技の単発選択の全演目、<span class="nw">展示飛行</span>の長さ、演目の曲、<span class="nw">見え方</span>の組み合わせ、「動きで見る」の<span class="nw">三人称</span>、<span class="nw">アプリ</span>内のお問い合わせ（<span class="nw">メール</span>で送る）は<span class="nw">完全版</span>です。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>Android では使えますか。</h3></div><div class="a"><span>A</span><p>使えます。Android 版は Google Play の<strong><span class="nw">テスト版</span></strong>として販売しています。中身と<span class="nw">価格</span>は App Store 版と同じです。<span class="nw">テスト</span>版なので Play <span class="nw">ストア</span>の検索には出ません。<a href="/android"><span class="nw">購入方法</span></a>の手順（Google <span class="nw">グループ</span>に参加 → <span class="nw">テスト</span>版に参加 → Google Play で購入）で入手してください。<span class="nw">ブラウザ</span>版は最近の<span class="nw">ブラウザ</span>（Safari・Chrome など）で動きます。</p></div></div>
-      <div class="qa"><div class="q"><span>Q</span><h3>出題は<span class="nw">本番</span>と同じですか。</h3></div><div class="a"><span>A</span><p>実際に<span class="nw">受験</span>した人の記憶をもとにした再現です。方位判読・姿勢判読・操縦操作の市販の<span class="nw">問題集</span>は確認できませんでした（2026 年 9 月 15 日現在）。形式と時間の感覚を合わせていますが、<span class="nw">本番</span>の問題そのものではありません。</p></div></div>
+      <div class="qa"><div class="q"><span>Q</span><h3>出題は<span class="nw">本番</span>と同じですか。</h3></div><div class="a"><span>A</span><p>実際に<span class="nw">受験</span>した人の記憶をもとにした再現です。方位判読・姿勢判読・操縦操作の市販の<span class="nw">問題集</span>は確認できませんでした（2026 年 9 月 15 日現在）。<span class="nw">本番</span>の問題そのものではありません。出題は、<span class="nw">昨年度</span>に<span class="nw">受験</span>した人の記憶をもとにした練習用の再現です。今年度（9 月 19 日・26 日）の<span class="nw">一次試験</span>の内容は、まだ反映していません。<span class="nw">本番</span>の種目や形式と同じとは限りません。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3>課金は<span class="nw">買い切り</span>ですか。</h3></div><div class="a"><span>A</span><p><span class="nw">買い切り</span>です。<span class="nw">月額の課金</span>も、<span class="nw">アプリ</span>の中での追加の課金もありません。<span class="nw">価格</span>は<span class="nw">時期</span>で変わります。通常<span class="nw">価格</span>は 2,000 円、応募開始から 2,500 円、1 次試験の 1 週間前から試験が終わるまでは 3,000 円です（試験が終わると通常<span class="nw">価格</span>に戻ります）。購入後に<span class="nw">追加の支払い</span>はありません。</p></div></div>
       <div class="qa"><div class="q"><span>Q</span><h3><span class="nw">価格</span>は高くないですか。</h3></div><div class="a"><span>A</span><p>安くはありません。<span class="nw">買い切り</span>で、月額課金も追加課金も広告もありません。手に入るのは、<span class="nw">本番</span>に近い<span class="nw">制限時間</span>での反復と、<span class="nw">操縦操作</span>（C）に要る機体の<span class="nw">立体</span>的な動きを 3D で確かめる練習です。同じ練習ができる市販の<span class="nw">問題集</span>は確認できていません（2026 年 9 月 15 日現在）。高めなのは、<span class="nw">航空学生</span>の応募者が年 1,600 人ほどと市場が小さく、少数の人に見合った<span class="nw">価格</span>にしているためです。同じ練習をする人が少ないほど、買った人には有利にはたらきます。本気で<span class="nw">受験</span>する人、ごく少数のための道具です。<span class="nw">体験版</span>で確かめてから買えます。早めに買えば通常<span class="nw">価格</span>です。</p></div></div>
     </div>
@@ -717,7 +719,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <a href="https://note.com/amateras87/n/n304f337b3d21">開発の記事</a>
       <a href="/privacy"><span class="nw">プライバシーポリシー</span></a>
     </div>
-    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-17</div>
+    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-22</div>
   </div>
 </footer>
 
@@ -748,7 +750,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
 {"@type":"Question","name":"このアプリだけで対策になりますか。","acceptedAnswer":{"@type":"Answer","text":"適性検査のうち、計器の読み取りと操縦操作の練習に使えます。試験にはほかの科目もあるので、募集要項を確認してください。"}},
 {"@type":"Question","name":"体験版と完全版の違いは何ですか。","acceptedAnswer":{"@type":"Answer","text":"体験版でも 4 種目とも試せて、3D シミュレーターを自分で操縦できます。展示飛行モードも短め（約 4 分）なら見られます。難易度が Easy だけ、出題数がデフォルトの半分までに限られ、編隊とスモーク、タイヤとライト、写真の保存、背景の切り替え、技の単発選択の全演目、展示飛行の長さ、演目の曲、見え方の組み合わせ、「動きで見る」の三人称、アプリ内のお問い合わせ（メールで送る）は完全版です。"}},
 {"@type":"Question","name":"Android では使えますか。","acceptedAnswer":{"@type":"Answer","text":"使えます。Android 版は Google Play のテスト版として販売しています。中身と価格は App Store 版と同じです。テスト版なので Play ストアの検索には出ません。購入方法は https://kokuteki.amaterasu-vocab.com/android にあります（Google グループに参加 → テスト版に参加 → Google Play で購入）。ブラウザ版は最近のブラウザ（Safari・Chrome など）で動きます。"}},
-{"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"実際に受験した人の記憶をもとにした再現です。方位判読・姿勢判読・操縦操作の市販の問題集は確認できませんでした（2026 年 9 月 15 日現在）。形式と時間の感覚を合わせていますが、本番の問題そのものではありません。"}},
+{"@type":"Question","name":"出題は本番と同じですか。","acceptedAnswer":{"@type":"Answer","text":"実際に受験した人の記憶をもとにした再現です。方位判読・姿勢判読・操縦操作の市販の問題集は確認できませんでした（2026 年 9 月 15 日現在）。本番の問題そのものではありません。出題は、昨年度に受験した人の記憶をもとにした練習用の再現です。今年度（9 月 19 日・26 日）の一次試験の内容は、まだ反映していません。本番の種目や形式と同じとは限りません。"}},
 {"@type":"Question","name":"課金は買い切りですか。","acceptedAnswer":{"@type":"Answer","text":"買い切りです。月額の課金も、アプリの中での追加の課金もありません。価格は時期で変わります。通常価格は 2,000 円、応募開始から 2,500 円、1 次試験の 1 週間前から試験が終わるまでは 3,000 円です（試験が終わると通常価格に戻ります）。購入後に追加の支払いはありません。"}},
 {"@type":"Question","name":"価格は高くないですか。","acceptedAnswer":{"@type":"Answer","text":"安くはありません。買い切りで、月額課金も追加課金も広告もありません。手に入るのは、本番を意識した制限時間での反復と、操縦操作（C）に要る機体の立体的な動きを 3D で確かめる練習です。同じ練習ができる市販の問題集は確認できていません（2026 年 9 月 15 日現在）。高めなのは、航空学生の応募者が年 1,600 人ほどと市場が小さく、少数の人に見合った価格にしているためです。同じ練習をする人が少ないほど、買った人には有利にはたらきます。本気で受験する人、ごく少数のための道具です。体験版で確かめてから買えます。早めに買えば通常価格です。"}}]}
 </script>

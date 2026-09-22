@@ -794,13 +794,14 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .n{font-size:1rem;font-weight:700}
 .mode .tag{display:inline-block;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1.3;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding:0 .35rem;margin-right:.45rem;vertical-align:.12em}   /* 本番の区分 A・B・C・F（v06.11） */
 .mode .tag.sub{color:var(--muted);margin:0 0 0 .45rem}
+.summary .sub.pace,.stmode .sub.pace{margin:.5rem 0 0;font-size:.8125rem;color:var(--muted);line-height:1.6}
 .figs .cmd{margin-top:.5rem;text-align:center;font-weight:700;font-size:1.125rem;letter-spacing:.04em;color:var(--accent)}   /* 空間認識の命令 */
 .opts .ab .inst img.live{width:100%;height:100%;object-fit:contain;display:block}
 /* その場で描く絵の背景: 空と地面の地平線（南から水平に見た絵なので、上下の真ん中が地平線）。白地では奥行きが読みにくい（利用者の指摘 2026-09-21） */
-.d14.live,.opts.pics .ab .inst{--horizon:linear-gradient(180deg,#9dbbdc 0%,#c6d9ec 47%,#e6e2d8 53%,#bfb5a3 100%);background:var(--horizon)}
+.d14.live,.opts.pics .ab .inst,.fbspin .spin3d{--horizon:linear-gradient(180deg,#9dbbdc 0%,#c6d9ec 47%,#e6e2d8 53%,#bfb5a3 100%);background:var(--horizon)}
 .opts.pics .ab .inst{border-radius:.5rem;overflow:hidden}
 .d14.live img{background:transparent}
-.fbspin .spin3d{width:min(100%,24rem);margin:.5rem auto 0;border-radius:.5rem;overflow:hidden;background:var(--bezel,#0a0d11)}
+.fbspin .spin3d{width:min(100%,24rem);margin:.5rem auto 0;border-radius:.5rem;overflow:hidden}   /* 背景は出題の絵と同じ地平線（下の --horizon） */
 .fbspin .fbsimh .btn{width:auto;height:2rem;font-size:.75rem;padding:0 .75rem;margin:0}
 .inst2{display:flex;gap:.75rem;justify-content:center;align-items:center;width:min(100%,22rem);margin:0 auto}
 .inst2 .i2{flex:1 1 0;min-width:0}
@@ -1262,6 +1263,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
             <button data-go="inbox" id="inboxItem" hidden>受信箱</button>
             <button data-go="settings">設定</button>
             <button data-go="stats">記録分析</button>
+            <button data-go="train/control/sim">3D シミュレーター</button>
             <button data-go="about">アプリの説明</button>
             <button data-url="https://kokuteki.amaterasu-vocab.com/guide">専用サイト<svg class="ic ext"><use href="#i-ext"/></svg></button>
             <button data-go="buy">全機能版について</button>
@@ -1424,7 +1426,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=70"></script>
+<script src="engine.js?v=71"></script>
 <script>
 (function(){
 'use strict';
@@ -1468,7 +1470,11 @@ function fillLive(qq){return prepLive(qq).then(()=>{if(q!==qq||!qq.imgs)return;c
 let nextQ=null;const preImgs=[];
 const qImgs=qq=>{if(!qq||(qq.type!=='attitude'&&qq.type!=='combo'))return [];const d=qq.dir14,suf=qq.bank?`-${qq.bank>0?'r':'l'}${Math.abs(qq.bank)}`:'';return [`img/bi-${d.id}${suf}.webp`]};
 function preloadQ(qq){for(const src of qImgs(qq)){const im=new Image();im.decoding='async';im.src=src;if(im.decode)im.decode().catch(()=>{});preImgs.push(im);while(preImgs.length>4)preImgs.shift()}}
-const takeQ=()=>{const x=nextQ||genQ();nextQ=genQ();preloadQ(nextQ);prepLive(nextQ);return x};
+const takeQ=()=>{
+  if(phase==='practice'&&PRACTICE[mode]){   /* 計画のある練習: 何問目かで種目と難易度を決める（先読みはしない） */
+    const plan=PRACTICE[mode],i=Math.max(0,Math.min(plan.length-1,plan.length-practiceLeft)),[m,lv]=plan[i];
+    const x=E.generate(m,Object.assign({},settings,GEN,{level:lv}));nextQ=null;preloadQ(x);prepLive(x);return x}
+  const x=nextQ||genQ();nextQ=genQ();preloadQ(nextQ);prepLive(nextQ);return x};
 /* 設定は localStorage に残すが、ブラウザは置き場所が足りないときや、
    しばらく開かれないときに消すことがある（iOS の Safari は 7 日で消す）。
    消さないでほしいと申し込んでおく。断られても動きは変わらない */
@@ -1502,7 +1508,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.12';
+const APP_VER='v06.13';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1603,6 +1609,9 @@ function hlog(rec){hist=[rec,...hist].slice(0,300);store.set('hist',hist)}
 
 let phase='';                         // setup | intro | practice | session | sim | summary
 let practiceLeft=0;
+/* 練習の計画（v06.13）: 計器判読は 姿勢判読（姿勢指示器の単独、翼の傾きあり）3 問 → 計器判読 Easy 3 問。ほかの種目はその種目 3 問（難易度は計測条件のまま） */
+const PRACTICE={combo:[['attitude','hard'],['attitude','hard'],['attitude','hard'],['combo','easy'],['combo','easy'],['combo','easy']]};
+const practiceN=()=>(PRACTICE[mode]||[]).length||3;
 const PRACTICE_N=3;
 const DESC={spatial:'命令のあとの機体の見え方を選ぶ',heading:'上面図から8方位を答える',attitude:'南から見た姿勢を計器で選ぶ',combo:'方位と姿勢を同時に読む',control:'3枚の視界から操作を選ぶ'};
 const MODE_ICON={spatial:'mode-spatial',heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
@@ -1652,7 +1661,7 @@ function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#pha
 function render(){
   qcount++;answered=false;applyScene();
   const inPractice=phase==='practice';
-  $('#qno').textContent=(inPractice?`練習 ${PRACTICE_N-practiceLeft+1} / ${PRACTICE_N}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount));
+  $('#qno').textContent=(inPractice?`練習 ${practiceN()-practiceLeft+1} / ${practiceN()}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount));
   $('#qcard').classList.remove('answered');
   $('#quiz').classList.toggle('control',q.type==='control');   /* PC では視界を大きく見せるための印 */
   $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
@@ -1825,7 +1834,7 @@ const INTRO={
   spatial:['南から見た機体の絵（初期状態）と、命令（右旋回 45° など）が出ます。奥が北、右が東です。','命令のあとの機体の見え方を 1〜4 の絵から選びます。','旋回は方向舵（機体の上下軸まわり）、横転は操縦桿の左右（機首の軸まわり）、機首上げ・下げは操縦桿の前後（翼の軸まわり）。どれも機体にとっての向きで回ります。','Normal から初期状態に機首の上げ下げ、Hard から翼の傾き（背面も）が混ざります。Max は 30°・60° の微妙な角度も出ます。'],
   heading:['上から見た機体と方位の印が表示されます。','機首が向いている方位を 8 方位から選びます。','印の向きは Normal 以上で毎回変わります（Easy では N が上）。Hard では印が N とは限りません。まず印から北を決めてから機首を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
-  combo:['南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
+  combo:['練習は、姿勢判読（南から見た機体の姿勢 → 姿勢指示器）3 問のあと、計器判読 3 問です。','南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
   control:['外の様子が①→②→③の 3 枚で出ます。','各区間で行った操作を 1〜4 から選びます。','景色が回る＝操縦桿の左右。目印が上下へ動く＝奥・手前。目印が左右へ大きく流れる＝方向舵。','絵は実機と同じ物理で飛ばした景色です。傾いていると目印は少しずつ横へ流れます。','2 つの操作は同時でも順番でも答えは同じです。']
 };
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
@@ -1867,11 +1876,11 @@ function enterMode(m,sub){
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
-  spatial:{easy:'初期状態は水平（方位だけ変わる）。命令は 45°・90°・180°。',normal:'初期状態に機首の上げ下げが混ざる。',hard:'初期状態に翼の傾き（90°・背面も）が混ざる。',max:'命令と初期状態に 30°・60° の微妙な角度が混ざる。'},
-  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。',max:'本番の形。上面図 1 枚に対して、同じ形の 4 枚から同じ方角を向いた機体を選ぶ。4 枚は印の向きも方位も別々。'},
+  spatial:{easy:'初期状態は水平（方位だけ変わる）。命令は 45°・90°・180°。',normal:'初期状態に機首の上げ下げが混ざる。',hard:'初期状態に翼の傾き（90°・背面も）が混ざる。',max:'本番形式。命令と初期状態に 30°・60° の微妙な角度が混ざる。'},
+  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。',max:'本番形式。上面図 1 枚に対して、同じ形の 4 枚から同じ方角を向いた機体を選ぶ。4 枚は印の向きも方位も別々。'},
   attitude:{easy:'機首は北の縦の面（北・北上・北下・真上・真下）だけ。翼の傾きは変わる。',normal:'機首は 26 方向すべて（8 方位 × 上・水平・下と真上・真下）。翼は水平のみ。',hard:'26 方向すべてに翼の傾きも加わる。'},
-  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'24 方向すべて（8 方位 × 上・水平・下）。方位指示器の印は毎回変わる。',max:'本番の形。計器（姿勢指示器＋方位指示器）から機体の見え方を選ぶ。方位は 16 方位（南南西など）。'},
-  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は必ず 2 つ（順番か同時）。視界の中央の目盛りは出ない。①は水平・傾き・上下・その複合のどれか。',max:'Hard に加えて、操縦桿の斜め（左奥・右奥・左手前・右手前）の操作が混ざる。'}};
+  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'24 方向すべて（8 方位 × 上・水平・下）。方位指示器の印は毎回変わる。',max:'本番形式。計器（姿勢指示器＋方位指示器）から機体の見え方を選ぶ。方位は 16 方位（南南西など）。'},
+  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は必ず 2 つ（順番か同時）。視界の中央の目盛りは出ない。①は水平・傾き・上下・その複合のどれか。',max:'本番形式。Hard に加えて、操縦桿の斜め（左奥・右奥・左手前・右手前）の操作が混ざる。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
@@ -1881,29 +1890,28 @@ function showSetup(){
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
   if(mode==='spatial'||mode==='combo')ensureShooter().catch(()=>{});   /* その場で描く絵の準備（最初の 1 問で待たせない） */
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
-    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],...(mode!=='attitude'?[['max','Max']]:[])],v=>!DEMO.levels.includes(v))}
+    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],['max','Max（本番形式）']],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
     ${sel('qCount','出題数',(()=>{const o=[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']];
       /* 体験版の上限（5 問など）が並びに無いと、選ばれている値の option が無く、灰色の「10 問（完全版）」が見えていた。上限の選択肢を先頭に足す */
       if(!isFull()&&!o.some(([v])=>v===qCap()))o.unshift([qCap(),`${qCap()} 問`]);return o})(),v=>+v===0||+v>qCap())}
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
-    ${sw('skipChk',ms.skipExplain,'解説スキップ（正誤だけ見せて次へ）')}
-    ${sw('introChk',!hideIntro[mode],'開始前に説明と練習 3 問')}
+    ${sw('skipChk',!ms.skipExplain,'解説（正誤のあとに解説を出す。切ると正誤だけ見せて次へ）')}
+    ${sw('introChk',!hideIntro[mode],`開始前に説明と練習 ${practiceN()} 問`)}
     <div class="acts"><button class="btn" id="setupGo">${hideIntro[mode]?'計測開始':'練習開始'}${ic('next','s')}</button></div>
-    ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupSim3">3D シミュレーターで操縦する</button><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
+    ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
     <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（実機と同じ物理、重力あり）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
-    if(el.dataset.key==='level'&&mode==='heading'){if(v==='max'&&before.level!=='max'&&before.qLimit===5)setMS('qLimit',10);else if(v!=='max'&&before.level==='max'&&before.qLimit===10)setMS('qLimit',5)}   /* 方位の Max（同じ方角の機体を選ぶ）は既定 1 問 10 秒（利用者の指示 2026-09-21） */
+    if(el.dataset.key==='level'&&mode==='heading'){if(v==='max'&&before.level!=='max'&&before.qLimit===5)setMS('qLimit',20);else if(v!=='max'&&before.level==='max'&&before.qLimit===20)setMS('qLimit',5)}   /* 方位判読の Max（同じ方角の機体を選ぶ）は既定 1 問 20 秒（利用者の指示 2026-09-22） */
     if(el.dataset.key==='level')showSetup()}));
   if(!isFull()){const qs=$('#setup select[data-key="qCount"]');if(qs)qs.value=String(qMax())}   // 体験版は、実際に出す数（上限で切った値）を選んで見せる
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
-  toggle($('#skipChk'),()=>MS().skipExplain,on=>setMS('skipExplain',on));
-  toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);
+  toggle($('#skipChk'),()=>!MS().skipExplain,on=>setMS('skipExplain',!on));   /* 表示は「解説」（オンで解説あり）。保存は従来どおり skipExplain */
+  toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);if(on&&MS().skipExplain){setMS('skipExplain',false);showSetup()}   /* 練習をオンにしたら解説あり（利用者の指示 2026-09-22） */
     $('#setupGo').innerHTML=(hideIntro[mode]?'計測開始':'練習開始')+ic('next','s')});
   $('#setupGo').addEventListener('click',()=>{if(!hideIntro[mode])showIntro();else startMeasured()});
   /* 操縦操作だけ、「始める」の下にシミュレーターと見え方の一覧を置いてある */
-  if($('#setupSim3'))$('#setupSim3').addEventListener('click',()=>{location.hash='#train/control/sim'});
   if($('#setupGal'))$('#setupGal').addEventListener('click',()=>{location.hash='#train/control/gallery'});
   toTop();
 }
@@ -1911,13 +1919,13 @@ function showIntro(){
   setPhase('intro','説明');showPane('intro');
   const ms=MS(),lim=[`難易度 ${E.LEVELS[ms.level]||''}`];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(qMax()>0)lim.push(`${qMax()} 問`);
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${ms.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
-    <div class="acts"><button class="btn" id="introGo">練習開始（3 問）${ic('next','s')}</button></div>`;
+    <div class="acts"><button class="btn" id="introGo">練習開始（${practiceN()} 問）${ic('next','s')}</button></div>`;
   $('#introGo').addEventListener('click',afterIntro);
   toTop();
 }
 function afterIntro(){startPractice()}
 function startPractice(){
-  markPlayed();setPhase('practice','練習');showPane('quiz');practiceLeft=PRACTICE_N;qcount=0;session=null;$('#sessEnd').hidden=true;
+  markPlayed();setPhase('practice','練習');showPane('quiz');practiceLeft=practiceN();qcount=0;session=null;$('#sessEnd').hidden=true;
   nextQ=null;q=takeQ();render();toTop();   /* 設定が変わっているかもしれないので、先に作っておいた問題は捨てる */
 }
 function startMeasured(){
@@ -1929,12 +1937,15 @@ function startMeasured(){
   renderStats();next();
 }
 function leaveSession(){clearInterval(timerId);session=null;stopSim();if(phase==='session'||phase==='practice')setPhase('')}   // 離れたら段階も消す（残っていると、隠れた画面の判定に使われる）
+/* 本番のペース（v06.13）: この平均解答時間で本番の問数（A・B・F 40 問 15 分、C 30 問 20 分）を解いたときの余り時間。Max（本番形式）の結果と記録分析に出す */
+function paceText(m,avgSec){const P=E.EXAM_PACE[m];if(!P||!avgSec)return '';const total=avgSec*P.n,rem=P.min*60-total;const mmss=x=>`${Math.floor(x/60)} 分 ${Math.round(x%60)} 秒`;
+  return `本番のペース: この速さなら ${P.n} 問を ${mmss(total)} で解き、${P.min} 分のうち ${rem>=0?`<b>${mmss(rem)}</b> 余ります`:`<b>${mmss(-rem)}</b> 足りません`}。`}
 function showSummary(){
   clearInterval(timerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
   const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
   if(s.n>0)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit()});
-  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${MS().level==='max'&&s.n?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
     <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());
@@ -2992,7 +3003,7 @@ function makeSpin(qq){
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
   el.querySelector('[data-play]').addEventListener('click',start);
-  import('./viewer.js?v=13').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  import('./viewer.js?v=14').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1);v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
   return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
 }
 function fbSimShow(){
@@ -3108,7 +3119,7 @@ function renderSettingsPage(){
       <div class="sethelp">種目ごとの出題数・正答率・平均解答時間。この端末の中だけに保存されます。</div></div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">${NATIVE?'新しい版は App Store / Google Play が配ります。アプリの中では新しい版の確認をしません。':'ヘッダーの更新ボタンで最新版を確認できます（赤い点は新しい版の印）。'}</div></div>
-    <div class="sethelp">出題数・制限時間・解説スキップは、種目を選んだあとの「計測条件」で決めます。</div>`;
+    <div class="sethelp">出題数・制限時間・解説の有無は、種目を選んだあとの「計測条件」で決めます。</div>`;
   wireShowSet($('#settingsPage'));
   /* 記録の削除は種目ごとではなく 1 つのボタンで全種目（利用者の指示 2026-09-15） */
   const rstAll=$('#rstAll');if(rstAll)rstAll.addEventListener('click',()=>{if(!confirm('すべての種目の記録を消しますか？'))return;Object.keys(E.MODES).forEach(m=>{stats[m]={n:0,c:0,t:0}});store.set('stats',stats);hist=[];weak={};store.set('hist',hist);store.set('weak',weak);renderSettingsPage()});
@@ -3201,7 +3212,6 @@ function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
   $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
-    +`<button class="mode" id="homeSim"><span class="ico">${ic('vfirst')}</span><span class="tx"><span class="n">3D シミュレーター</span><span class="avg"><span class="avg-w">操縦桿と方向舵で飛ばして、見え方を体で覚える</span><span class="avg-n">舵を切って、見え方を体で覚える</span></span></span><span class="go">${ic('next','s')}</span></button>`
     +(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};
@@ -3214,7 +3224,6 @@ function renderHome(){
     $('#reviewNo').addEventListener('click',()=>rv.closest('.review').remove())}
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));
   $('#modeCards').querySelectorAll('[data-go2]').forEach(b=>b.addEventListener('click',()=>{location.hash='#'+b.dataset.go2}));
-  $('#homeSim').addEventListener('click',()=>{location.hash='#train/control/sim'});
 }
 /* ===== 苦手の分析（v05.71）: 出題の形に合わせた絵で出す。開いたときに伸びる・回る演出つき（「視覚効果を減らす」なら止める）。
    方位・印の位置: 方位盤（8 方向の扇。色が正答率、中の数字が %）
@@ -3241,7 +3250,7 @@ const ERRHINT={'向きが逆':'右と左（上げと下げ）を取り違えて�
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
 /* v05.97（利用者「機体の状態の詳細な正答率も不要。総合と複合での個別正答率が分かればよい。その上で苦手な部分の分析を記せば良い」）:
    切り口ごとの棒はやめ、総合（輪）→ 誤りの種類（1 本の積み上げ）→ 苦手の札 → 一言、に絞る。見え方・機首の上下・傾き・①の姿勢・操作の数・操作 は記録だけして札の材料にする */
-const GROUPS={spatial:['誤り','命令','初期状態','角度'],heading:['回り'],attitude:['誤り','組み合わせ'],combo:['比べ','誤り','組み合わせ'],control:['傾向','誤り','パターン','操縦桿','方向舵']};
+const GROUPS={spatial:['誤り','命令','初期状態','角度'],heading:['回り'],attitude:['誤り','組み合わせ'],combo:['誤り','組み合わせ'],control:['傾向','誤り','パターン','操縦桿','方向舵']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 const tip=(k,v)=>`<title>${esc(k)} ${v&&v.n?pct(v.c/v.n)+'（'+v.n+' 問・平均 '+(v.t/v.n).toFixed(1)+' s）':'未出題'}</title>`;
@@ -3387,6 +3396,7 @@ function renderStatsPage(){
     const st=stats[m]||{n:0,c:0,t:0},HL=hist.filter(x=>x.m===m),L=HL.slice(0,12).reverse();
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
       <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div><b>${st.n}</b> 問</div><div><b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> 秒 / 問</div><div><b>${HL.length}</b> 回の計測</div></div></div>
+      ${st.n?`<div class="sub pace">${paceText(m,st.t/st.n)}（全難易度の平均から）</div>`:''}
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
       ${weakHTML(m)}
       ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}
@@ -3632,7 +3642,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=13');
+    const mod=await import('./viewer.js?v=14');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');

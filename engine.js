@@ -15,9 +15,10 @@
     { k: 'S', ja: '南' }, { k: 'SW', ja: '南西' }, { k: 'W', ja: '西' }, { k: 'NW', ja: '北西' }
   ];
   /* 種目の並びは本番の区分順（2026-09-19 の本番の形式。利用者の指示 2026-09-21）: A 空間認識 → B 方位×姿勢指示器 → C 操縦操作 → F 方位。
-     姿勢指示器（単独）は本番の区分にはないが、B の土台の練習として残す（ホームでは「練習用」の札） */
-  const MODES = { spatial: '空間認識', combo: '方位×姿勢指示器', control: '操縦操作', heading: '方位', attitude: '姿勢指示器' };
-  const MODE_TAG = { spatial: 'A', combo: 'B', control: 'C', heading: 'F' };   // 本番の区分。姿勢指示器には無い
+     姿勢指示器（単独）は本番の区分にはないので種目からは外し、B の練習（姿勢判読 3 問 → 計器判読 3 問）で扱う */
+  const MODES = { spatial: '空間認識', combo: '計器判読', control: '操縦操作', heading: '方位判読' };   // 姿勢指示器（単独）は種目から外し、計器判読の練習の前半に（2026-09-22）。generate('attitude') は練習用に残す
+  const MODE_TAG = { spatial: 'A', combo: 'B', control: 'C', heading: 'F' };   // 本番の区分
+  const EXAM_PACE = { spatial: { n: 40, min: 15 }, combo: { n: 40, min: 15 }, control: { n: 30, min: 20 }, heading: { n: 40, min: 15 } };   // 本番の問数と時間（2026-09-19 の聞き取り）
   /* base: 文末形、cont: 連用形（「〜し、」でつなぐ）、view: 見え方（短く。解説・見え方の一覧・アプリ説明で使う） */
   const OPS = [
     { id: 'stick-right', ja: '操縦桿 右', base: '操縦桿を右に倒す', cont: '操縦桿を右に倒し', group: 'stick', view: '景色が左に傾く' },
@@ -661,6 +662,6 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="22" y="9" text-anchor="middle">上</text><text x="58" y="44">東</text><text x="14" y="44" text-anchor="end">北</text></g></svg></div>`;
   }
 
-  global.AAT = { DIRS, DIR14, BANKS, MODES, MODE_TAG, OPS, EXTRA_OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, simControl, opSegs, EXAM_DT, opsText, attMat, matToAtt, applyCmd, attGap, attText, cmdText, gradeSpatial, topHeading,
+  global.AAT = { DIRS, DIR14, BANKS, MODES, MODE_TAG, EXAM_PACE, OPS, EXTRA_OPS, OP_BY_ID, HI_LABELS, LEVELS, DEFAULT_SETTINGS, CK, generate, simControl, opSegs, EXAM_DT, opsText, attMat, matToAtt, applyCmd, attGap, attText, cmdText, gradeSpatial, topHeading,
     gradeHeading, gradeOpts, gradeControl, bankText, pitchText, svgTopDown, svg3D, svgAI, svgHI, svgCockpit, svgCockpitFrame, svgRefLines, figTopDown, figAttitude, figDir14 };
 })(window);

@@ -114,6 +114,26 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
     if (!animate) { pivot.quaternion.copy(qTo); return; }
     t0 = performance.now(); animating = true;
   }
+  /* 空間認識の解説の矢印（v06.13）: 回す軸のまわりに弧の矢印を機体に付けて描く。axis: 'yaw'（機体の上下軸）/'roll'（機首の軸）/'pitch'（翼の軸）、sign: 回る向き（+1 が右・上げ）。
+     機体の軸で回るので、矢印は pivot の子にして機体と一緒に回す。何も言わずに「機体を中心に球で動く」ことに気づけるようにする（利用者の意図。説明の文には書かない） */
+  let spinArrow = null;
+  function setSpinArrow(axis, sign = 1) {
+    if (spinArrow) { pivot.remove(spinArrow); spinArrow = null; }
+    if (!axis) return;
+    const R = 7.2, col = 0xffb020, g = new THREE.Group();
+    /* 弧: 軸のまわり 270°。向きは sign で反転 */
+    const pts = []; const N = 48;
+    for (let i = 0; i <= N; i++) { const a = (i / N) * Math.PI * 1.5 * sign; pts.push(new THREE.Vector3(Math.cos(a) * R, Math.sin(a) * R, 0)); }
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.14, 8, false), new THREE.MeshBasicMaterial({ color: col }));
+    g.add(tube);
+    const last = pts[N], prev = pts[N - 2], dir = last.clone().sub(prev).normalize();
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 12), new THREE.MeshBasicMaterial({ color: col }));
+    head.position.copy(last); head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); g.add(head);
+    /* 弧は xy 平面（z 軸まわり）に作ったので、軸に合わせて回す。yaw: 機体の上下軸 = z（そのまま）、roll: 機首の軸 = y、pitch: 翼の軸 = x */
+    if (axis === 'roll') g.rotation.x = Math.PI / 2;          // z → y
+    else if (axis === 'pitch') g.rotation.y = -Math.PI / 2;   // z → x
+    spinArrow = g; pivot.add(g);
+  }
   /* 姿勢をそのまま入れる（動かして見せるとき。毎コマ呼ぶ） */
   function setAttitude(h, p, b) { animating = false; pivot.quaternion.copy(targetQuat(h, p, b)); }
   /* 向きと傾きへ、短いアニメーションで */
@@ -190,7 +210,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   window.addEventListener('resize', onResize);
 
   return {
-    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, focusNose, resetView, fadeTo, resetCamera,
+    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, focusNose, resetView, fadeTo, resetCamera, setSpinArrow,
     pause() { running = false; cancelAnimationFrame(raf); },
     resume() { if (!running) { running = true; raf = requestAnimationFrame(frame); } },
     dispose() { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); controls.dispose(); renderer.dispose(); renderer.domElement.remove(); }

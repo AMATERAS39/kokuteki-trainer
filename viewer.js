@@ -123,18 +123,20 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
     /* 弧は「機体のある点が、その命令で実際に動く道」として作る（v06.14）。
        engine.js の applyCmd と同じ行列（旋回 Rz(−a)、横転 Ry(a)、機首 Rx(a)。a は右・上げが正）を角度 0→270° で掛けて点を並べるので、
        回る向きが命令と食い違わない（v06.13 は xy 平面の弧を回して当てはめていて、三つとも逆向きだった。利用者の指摘 2026-09-22） */
-    /* 色は操縦操作の「動きで見る」の力の矢印と同じ（sim3d.js の ARC: 旋回＝ヨー 水色・横転＝ロール 橙・機首＝ピッチ 緑。利用者の指示 2026-09-22「A の解説は、動きで見ると同じ色を使う」） */
+    /* 色と置き場所は操縦操作の「動きで見る」の力の矢印と同じ（sim3d.js の ARC。利用者の指示 2026-09-22「動きで見ると同じように矢印を表示する。機体後方に矢印を表示しない。横転のみ機体上部で、残りは機首前方」）:
+       旋回＝ヨー 水色・横転＝ロール 橙・機首＝ピッチ 緑。横転の弧は機体の上を越える弧（半径は機首までの長さ、少し後ろ寄り）、旋回と機首上げ下げの弧は機首の前（機首までの 1.4 倍の先）。
+       弧は中心（真上／機首の正面）をはさんで −span/2 〜 +span/2。動きで見るの弧が中心をはさんで対称なのと同じで、後ろへは伸びない */
     const SPIN_COL = { yaw: 0x4fc3f7, roll: 0xff8a3d, pitch: 0x7cf59a };
-    const R = 7.2, col = SPIN_COL[axis] || 0xffb020, g = new THREE.Group(), N = 48, pts = [];
-    const p0 = axis === 'yaw' ? new THREE.Vector3(R, 0, 0) : new THREE.Vector3(0, 0, R);
+    const L = NOSE_Y || 6.5, col = SPIN_COL[axis] || 0xffb020, g = new THREE.Group(), N = 48, pts = [];
+    const p0 = axis === 'roll' ? new THREE.Vector3(0, -0.23 * L, L) : new THREE.Vector3(0, 1.38 * L, 0);
     const rot = a => axis === 'yaw' ? new THREE.Matrix4().makeRotationZ(-a) : axis === 'roll' ? new THREE.Matrix4().makeRotationY(a) : new THREE.Matrix4().makeRotationX(a);
     /* 弧の長さは命令の角度そのもの（45° なら 45°、180° なら半周。利用者の指示 2026-09-22「そんなに曲がらない。角度に応じて長さを変えて」） */
     const span = Math.max(15, Math.min(180, Math.abs(deg))) * Math.PI / 180;
-    for (let i = 0; i <= N; i++) { const a = (i / N) * span * sign; pts.push(p0.clone().applyMatrix4(rot(a))); }
-    const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.14, 8, false), new THREE.MeshBasicMaterial({ color: col }));
+    for (let i = 0; i <= N; i++) { const a = (i / N - 0.5) * span * sign; pts.push(p0.clone().applyMatrix4(rot(a))); }
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.18 * L / 6.5, 8, false), new THREE.MeshBasicMaterial({ color: col }));
     g.add(tube);
     const last = pts[N], prev = pts[N - 2], dir = last.clone().sub(prev).normalize();
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 12), new THREE.MeshBasicMaterial({ color: col }));
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.6 * L / 6.5, 1.6 * L / 6.5, 12), new THREE.MeshBasicMaterial({ color: col }));
     head.position.copy(last); head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); g.add(head);
     spinArrow = g; pivot.add(g);
     return pts.map(p => [p.x, p.y, p.z]);

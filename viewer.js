@@ -44,7 +44,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
 
   const cam = new THREE.PerspectiveCamera(30, W() / H(), 0.1, 500);
   cam.up.set(0, 0, 1);
-  const HOME = bare ? new THREE.Vector3(0, -32, 16) : new THREE.Vector3(0, -24, 0);   /* bare（レーダー）は多面体の全体と羅針盤が見えるよう、離れた少し高い位置から（v05.89） */
+  const HOME = bare ? new THREE.Vector3(0, -32, 16) : plain ? new THREE.Vector3(0, -23.6, 4.2) : new THREE.Vector3(0, -24, 0);   /* plain: 南から、少しだけ上（仰角 10°）。真横だと機体の上下軸まわりの弧が線に見えて回る向きが分からない */   /* bare（レーダー）は多面体の全体と羅針盤が見えるよう、離れた少し高い位置から（v05.89） */
   cam.position.copy(HOME); cam.lookAt(0, 0, 0);
   const controls = new OrbitControls(cam, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 9; controls.maxDistance = 80; controls.enablePan = false;

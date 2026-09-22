@@ -25,8 +25,8 @@
     { id: 'stick-left', ja: '操縦桿 左', base: '操縦桿を左に倒す', cont: '操縦桿を左に倒し', group: 'stick', view: '景色が右に傾く' },
     { id: 'stick-forward', ja: '操縦桿 奥', base: '操縦桿を奥に倒す', cont: '操縦桿を奥に倒し', group: 'stick', view: '水平線が上がる' },
     { id: 'stick-back', ja: '操縦桿 手前', base: '操縦桿を手前に引く', cont: '操縦桿を手前に引き', group: 'stick', view: '水平線が下がる' },
-    { id: 'rudder-right', ja: 'ヨー 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', view: '目印が左へ流れる' },
-    { id: 'rudder-left', ja: 'ヨー 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', view: '目印が右へ流れる' }
+    { id: 'rudder-right', ja: '方向舵 右', base: '右方向舵を踏む', cont: '右方向舵を踏み', group: 'rudder', view: '目印が左へ流れる' },
+    { id: 'rudder-left', ja: '方向舵 左', base: '左方向舵を踏む', cont: '左方向舵を踏み', group: 'rudder', view: '目印が右へ流れる' }
   ];
   /* 見え方の一覧だけの「おまけ」: 操縦桿の斜め（ロールと機首の上げ下げの同時）。出題（OPS）には入れない（利用者の指示 2026-09-16。断定はできないが、ほぼ試験には出ないと思われる） */
   const EXTRA_OPS = [
@@ -310,7 +310,14 @@
     return simul ? [{ dur: EXAM_DT, ops }, { dur: EXAM_DT, ops }] : [{ dur: EXAM_DT, ops: [ops[0]] }, { dur: EXAM_DT, ops: [ops[1]] }];
   }
   /* 飛ばした結果（samples: 1/120 秒ごとの姿勢と位置、frames: ①②③） */
-  function simControl(init, ops, simul) { return F().run(init, opSegs(ops, simul), { v: F().EXAM.V, inputs: F().EXAM.INPUT }); }
+  /* 操作の大きさ（v06.18、利用者の指示 2026-09-22「C は Hard 以上は大きさも変えて。同じ機首上げでも上がり具合が違うように見えるものもあった」）:
+     mag は { 操作 id: 倍率 } で、その操作の舵の入力（flight.js の EXAM.INPUT）を倍率で掛ける。無ければ従来どおり 1 倍。答え（操作の名前）は変わらず、見え方の量だけが変わる */
+  const MAG = [0.6, 0.8, 1, 1.25, 1.5];
+  function scaledInputs(mag) {
+    const IN = F().EXAM.INPUT; if (!mag) return IN;
+    const out = {}; for (const id of Object.keys(IN)) { const k = mag[id] || 1, o = {}; for (const c of Object.keys(IN[id])) o[c] = IN[id][c] * k; out[id] = o; } return out;
+  }
+  function simControl(init, ops, simul, mag) { return F().run(init, opSegs(ops, simul), { v: F().EXAM.V, inputs: scaledInputs(mag) }); }
   function genControl(s) {
     /* 出題は 1 操作（同じ操作を続ける）と 2 操作の混在。2 操作は「操縦桿 → 方向舵」の順に限る（利用者の指定）。
        同じ操作の繰り返しや左右の切り返し（左に倒して右に倒す等）は 2 操作としては出さない */
@@ -336,7 +343,8 @@
     /* 2 操作は「順番」（①→②で操縦桿、②→③で方向舵）と「同時」（①→②でも②→③でも両方が進む）を半々で出す。
        答えの文はどちらも同じ。試験の写真がどちらの形かは文言から分からないので、両方に慣れる */
     const simul = !single && Math.random() < 0.5;
-    const frames = simControl(init, ops, simul).frames.map(f => ({ bank: f.bank, pitch: f.pitch, yaw: f.yaw, dx: f.dx, dy: f.dy, dz: f.dz }));
+    const mag = max ? Object.fromEntries([...new Set(ops)].map(id => [id, pick(MAG)])) : null;   // Hard 以上は操作ごとに大きさが変わる（0.6〜1.5 倍）
+    const frames = simControl(init, ops, simul, mag).frames.map(f => ({ bank: f.bank, pitch: f.pitch, yaw: f.yaw, dx: f.dx, dy: f.dy, dz: f.dz }));
     /* 4 択: 1 操作（6 通り）と「操縦桿 → 方向舵」（8 通り）を混ぜた中から、正解以外を誤答にする */
     const key = a => a.join('|');
     const cands = [];
@@ -364,7 +372,7 @@
     const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c)), 3 - disSame.length);
     const dis = disSame.concat(disRest);
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
-    return { type: 'control', ops, frames, init, single, simul, opts, level: lv0, hud: lv !== 'hard' };
+    return { type: 'control', ops, mag, frames, init, single, simul, opts, level: lv0, hud: lv !== 'hard' };
   }
   function generate(mode, settings) {
     const s = Object.assign({}, DEFAULT_SETTINGS, settings);

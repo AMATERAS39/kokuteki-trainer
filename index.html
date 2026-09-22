@@ -1426,7 +1426,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=74"></script>
+<script src="engine.js?v=75"></script>
 <script>
 (function(){
 'use strict';
@@ -1879,8 +1879,8 @@ const LEVEL_HELP={   /* 難易度の説明。1 行で、初見の人が分かる
   spatial:{easy:'水平の機体に、旋回・横転・機首上げ下げの命令が 1 つ。',normal:'機体が最初から機首を上げ下げしている。',hard:'最初から翼も傾いている（背面もある）。',max:'本番形式。30°・60° の細かい角度も出る。'},
   heading:{easy:'東西南北だけ。N は上。',normal:'東西南北だけ。N の向きが変わる。',hard:'8 方位。印は N 以外もある。',max:'本番形式。同じ方角を向いた機体を 4 枚から選ぶ。'},
   attitude:{easy:'機首は北・真上・真下だけ。',normal:'機首は全方向。翼は水平。',hard:'機首は全方向。翼も傾く。'},
-  combo:{easy:'東西南北だけ。水平飛行。',normal:'東西南北だけ。翼が傾く。',hard:'8 方位と上下。羅針儀の印が変わる。',max:'本番形式。水平儀と羅針儀から機体の絵を選ぶ。16 方位。'},
-  control:{easy:'操作は 1 つ。',normal:'操作は 1 つか 2 つ。',hard:'中央の目盛りなし。①の機体も傾いている。',max:'本番形式。操縦桿の斜めも出る。'}};
+  combo:{easy:'東西南北だけ。印は N。水平飛行。',normal:'東西南北だけ。印は N。翼が傾く。',hard:'8 方位と上下。印は N 以外もある。',max:'本番形式。水平儀と羅針儀から機体の絵を選ぶ。16 方位。'},
+  control:{easy:'操作は 1 つ。',normal:'操作は 1 つか 2 つ。',hard:'中央の目盛りなし。①の機体も傾いている。操作の大きさが変わる。',max:'本番形式。操縦桿の斜めも出る。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
@@ -3022,7 +3022,7 @@ function fbSimShow(){
   box.hidden=false;
   box.innerHTML=`<div class="fbsimh"><span>この問題の見え方${isFull()?'':'（体験版は一人称だけ）'}</span></div>`;
   const qq=q;
-  fbMv=makeMover({traj:()=>{if(!qq.traj)qq.traj=E.simControl(qq.init,qq.ops,qq.simul);return qq.traj},   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
+  fbMv=makeMover({traj:()=>{if(!qq.traj)qq.traj=E.simControl(qq.init,qq.ops,qq.simul,qq.mag);return qq.traj},   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
     forces:seg=>forcesOf(qq.ops,qq.simul,seg),hud:true,view:fbView,onView:v=>{fbView=v},lockThird:!isFull()});   /* 中央の十字（HUD）は必ず出す。見え方の一覧の「動きで見る」と同じ。Hard でも出す。出題の絵 ①②③ は変えない（利用者の指示 2026-09-15） */
   box.appendChild(fbMv.el);
   fbMv.build();fbMv.play();   /* 解説が出たら動かし始める（以前と同じ） */

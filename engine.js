@@ -177,16 +177,26 @@
     for (const a of (axis === 'pitch' ? A_PITCH : A_TURN)) if (a !== Math.abs(cmd.deg)) alts.push({ why: '角度', cmd: { axis, deg: sign * a } });
     for (const ax of ['yaw', 'roll', 'pitch']) if (ax !== axis) { const set = ax === 'pitch' ? A_PITCH : A_TURN; alts.push({ why: '軸', cmd: { axis: ax, deg: sign * pick(set) } }); alts.push({ why: '軸', cmd: { axis: ax, deg: -sign * pick(set) } }); }
     const order = shuffle(alts.slice(1)); order.unshift(alts[0]);   // 向きが逆 を必ず先に
+    /* 選択肢どうしは「絵で見分けられる」差を要る（利用者の指示 2026-09-22「左バンクで SSW と SW や S みたいな組み合わせはわかりづら過ぎる」）:
+       回転角の差が 40° 以上で、かつ 方位 45° 以上・機首の上下 30° 以上・翼の傾き 45° 以上 のどれかが違う（真上・真下に近いときは方位の差は数えない）。
+       足りなければ少し緩めて（25°／30°・20°・30°）足す */
+    const dAng = (a, b) => { const d = Math.abs(((a - b) % 360 + 540) % 360 - 180); return d; };
+    const clear = (a, b, lv2) => {
+      const vert = Math.abs(a.pitch) >= 80 || Math.abs(b.pitch) >= 80;
+      const dh = vert ? 0 : dAng(a.heading, b.heading), dp = Math.abs(a.pitch - b.pitch), db = dAng(a.bank, b.bank);
+      return lv2 ? (attGap(a, b) >= 25 && (dh >= 30 || dp >= 20 || db >= 30)) : (attGap(a, b) >= 40 && (dh >= 45 || dp >= 30 || db >= 45));
+    };
     const chosen = [{ att: ans, ok: true, why: '' }], seenWhy = {};
     for (const a of order) {
       const att = applyCmd(init, a.cmd);
-      if (chosen.some(c => attGap(c.att, att) < 20)) continue;
+      if (!chosen.every(c => clear(c.att, att, false))) continue;
       if (a.why !== '向き' && seenWhy[a.why] >= 2) continue;
       seenWhy[a.why] = (seenWhy[a.why] || 0) + 1;
       chosen.push({ att, ok: false, why: a.why, cmd: a.cmd });
       if (chosen.length === 4) break;
     }
-    for (const a of order) { if (chosen.length === 4) break; const att = applyCmd(init, a.cmd); if (chosen.some(c => attGap(c.att, att) < 8)) continue; chosen.push({ att, ok: false, why: a.why, cmd: a.cmd }); }
+    for (const a of order) { if (chosen.length === 4) break; const att = applyCmd(init, a.cmd); if (!chosen.every(c => clear(c.att, att, true))) continue; chosen.push({ att, ok: false, why: a.why, cmd: a.cmd }); }
+    for (const a of order) { if (chosen.length === 4) break; const att = applyCmd(init, a.cmd); if (chosen.some(c => attGap(c.att, att) < 15)) continue; chosen.push({ att, ok: false, why: a.why, cmd: a.cmd }); }
     const opts = shuffle(chosen).map(c => ({ heading: c.att.heading, pitch: c.att.pitch, bank: c.att.bank, ok: c.ok, why: c.why }));
     return { type: 'spatial', init, cmd, cmdText: cmdText(cmd), ans, opts, level: lv };
   }

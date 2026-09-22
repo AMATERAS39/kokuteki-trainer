@@ -1906,7 +1906,7 @@ function showSetup(){
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
     ${(()=>{const P=E.EXAM_PACE[mode];if(!P)return '';const on=isExamSet();   /* 試験モード（v06.21）: 本番と同じ条件をまとめて入れる。体験版は鍵 */
       return `<div class="acts"><button class="btn ghost exam${on?' on':''}" id="examMode" type="button"${isFull()?'':' disabled'} aria-pressed="${on}">${on?ic('check','s'):''}試験モード${isFull()?'':'（完全版）'}</button></div>
-      <div class="sethelp">${on?`設定中: ${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし。下の項目を変えると外れます。`:`本番と同じ条件（${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし）を一度に入れます。`}</div>`})()}
+      <div class="sethelp">${on?`設定中: ${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし。もう一度押すと元の設定に戻ります。`:`本番と同じ条件（${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし）を一度に入れます。`}</div>`})()}
     ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],['max','Max']],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
     ${sel('qCount','出題数',(()=>{const P=E.EXAM_PACE[mode];const o=[10,20,30,40,50].map(n=>[n,`${n} 問${P&&P.n===n?'（本番と同じ）':''}`]).concat([[0,'制限なし']]);   /* 40 問は本番の問数（A・B・F。C は 30 問。利用者の指示 2026-09-22「実際の試験にも対応できるように、40 問も設定できるようにする」） */
@@ -1928,7 +1928,13 @@ function showSetup(){
   toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);if(on&&MS().skipExplain){setMS('skipExplain',false);showSetup()}   /* 練習をオンにしたら解説あり（利用者の指示 2026-09-22） */
     $('#setupGo').innerHTML=goLabel()+ic('next','s')});
   $('#setupGo').addEventListener('click',()=>{if(!hideIntro[mode])showIntro();else startMeasured()});
-  if($('#examMode'))$('#examMode').addEventListener('click',()=>{const P=E.EXAM_PACE[mode];setMS('level','max');setMS('qCount',P.n);setMS('qLimit',0);setMS('skipExplain',true);hideIntro[mode]=true;store.set('hideIntro',hideIntro);showSetup()});
+  if($('#examMode'))$('#examMode').addEventListener('click',()=>{
+    /* もう一度押すと解除して、押す前の設定に戻す（利用者の指示 2026-09-22）。押す前の設定は examPrev に種目ごとに覚える。無ければ既定に戻す */
+    const prev=store.get('examPrev',{});
+    if(isExamSet()){const p=prev[mode];if(p&&p.set)modeSet[mode]=p.set;else delete modeSet[mode];store.set('modeSet',modeSet);
+      if(p&&p.hide)hideIntro[mode]=true;else delete hideIntro[mode];store.set('hideIntro',hideIntro);delete prev[mode];store.set('examPrev',prev);showSetup();return}
+    prev[mode]={set:modeSet[mode]?Object.assign({},modeSet[mode]):null,hide:!!hideIntro[mode]};store.set('examPrev',prev);
+    const P=E.EXAM_PACE[mode];setMS('level','max');setMS('qCount',P.n);setMS('qLimit',0);setMS('skipExplain',true);hideIntro[mode]=true;store.set('hideIntro',hideIntro);showSetup()});
   /* 操縦操作だけ、「始める」の下にシミュレーターと見え方の一覧を置いてある */
   if($('#setupGal'))$('#setupGal').addEventListener('click',()=>{location.hash='#train/control/gallery'});
   toTop();

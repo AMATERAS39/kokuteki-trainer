@@ -1906,7 +1906,7 @@ function showSetup(){
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
     ${(()=>{const P=E.EXAM_PACE[mode];if(!P)return '';const on=isExamSet();   /* 試験モード（v06.21）: 本番と同じ条件をまとめて入れる。体験版は鍵 */
       return `<div class="acts"><button class="btn ghost exam${on?' on':''}" id="examMode" type="button"${isFull()?'':' disabled'} aria-pressed="${on}">${on?ic('check','s'):''}試験モード${isFull()?'':'（完全版）'}</button></div>
-      <div class="sethelp">${on?`設定中: ${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし。もう一度押すと元の設定に戻ります。`:`本番と同じ条件（${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし）を一度に入れます。`}</div>`})()}
+      <div class="sethelp">本番と同じ: ${P.n} 問 ${P.min} 分・Max・解説なし・練習なし。${on?'もう一度押すと戻ります。':''}</div>`})()}
     ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],['max','Max']],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
     ${sel('qCount','出題数',(()=>{const P=E.EXAM_PACE[mode];const o=[10,20,30,40,50].map(n=>[n,`${n} 問${P&&P.n===n?'（本番と同じ）':''}`]).concat([[0,'制限なし']]);   /* 40 問は本番の問数（A・B・F。C は 30 問。利用者の指示 2026-09-22「実際の試験にも対応できるように、40 問も設定できるようにする」） */
@@ -1914,8 +1914,8 @@ function showSetup(){
       if(!isFull()&&!o.some(([v])=>v===qCap()))o.unshift([qCap(),`${qCap()} 問`]);return o})(),v=>+v===0||+v>qCap())}
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
-    ${sw('skipChk',!ms.skipExplain,'解説（正誤のあとに解説を出す。切ると正誤だけ見せて次へ）')}
-    ${sw('introChk',!hideIntro[mode],`開始前に説明と練習 ${practiceN()} 問`)}
+    ${sw('skipChk',!ms.skipExplain,'解説')}
+    ${sw('introChk',!hideIntro[mode],'説明・練習')}
     <div class="acts"><button class="btn" id="setupGo">${goLabel()}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
     <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（実機と同じ物理、重力あり）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;

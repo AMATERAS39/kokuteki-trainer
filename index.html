@@ -856,6 +856,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .coderow input{flex:1;min-width:0;font:inherit;padding:.5rem .75rem;border-radius:.625rem;border:1px solid var(--line2);background:var(--panel2);color:var(--text)}
 .homeactions{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}
 .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.ghost.exam{border-style:dashed}.btn.ghost.exam.on{border-style:solid;border-width:2px;background:rgba(200,120,30,.1)}.btn.ghost.exam:disabled{opacity:.5}   /* 試験モード: 計測開始（塗り）と見分ける枠線だけのボタン。設定中は印つき（v06.21） */
 .about{display:flex;flex-direction:column;gap:.75rem;margin-top:.75rem}
 .about .card h3{margin-bottom:.5rem}
 .about .card h3+h3,.about p+h3,.about dl+h3,.about .viewer+h3{margin-top:1rem}
@@ -1456,6 +1457,7 @@ const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if
   m.total=+m.total||0;
   return m};
 function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}
+const goLabel=()=>isExamSet()?'試験開始':hideIntro[mode]?'計測開始':'練習開始';   /* 始めるボタンの文言（試験モードのときは「試験開始」。利用者の指示 2026-09-22） */
 const isExamSet=()=>{const P=E.EXAM_PACE[mode],m=MS();return !!P&&m.level==='max'&&m.qCount===P.n&&(m.total||0)===P.min*60&&!m.qLimit&&!!m.skipExplain&&!!hideIntro[mode]};   /* 試験モードの条件がそろっているか */   // 変更したキーだけ保存（既定値の変更を反映させるため）
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'mix',init:'random',bank:'on'};
@@ -1903,8 +1905,8 @@ function showSetup(){
   if(mode==='spatial'||mode==='combo')ensureShooter().catch(()=>{});   /* その場で描く絵の準備（最初の 1 問で待たせない） */
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
     ${(()=>{const P=E.EXAM_PACE[mode];if(!P)return '';const on=isExamSet();   /* 試験モード（v06.21）: 本番と同じ条件をまとめて入れる。体験版は鍵 */
-      return `<div class="acts"><button class="btn${on?'':' ghost'}" id="examMode" type="button"${isFull()?'':' disabled'}>${on?'試験モードの設定です':'試験モード'}${isFull()?'':'（完全版）'}</button></div>
-      <div class="sethelp">${on?`本番と同じ条件: ${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし。下の項目を変えると解除されます。`:`本番と同じ条件（${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし）を一度に入れます。`}</div>`})()}
+      return `<div class="acts"><button class="btn ghost exam${on?' on':''}" id="examMode" type="button"${isFull()?'':' disabled'} aria-pressed="${on}">${on?ic('check','s'):''}試験モード${isFull()?'':'（完全版）'}</button></div>
+      <div class="sethelp">${on?`設定中: ${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし。下の項目を変えると外れます。`:`本番と同じ条件（${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし）を一度に入れます。`}</div>`})()}
     ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],['max','Max']],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
     ${sel('qCount','出題数',(()=>{const P=E.EXAM_PACE[mode];const o=[10,20,30,40,50].map(n=>[n,`${n} 問${P&&P.n===n?'（本番と同じ）':''}`]).concat([[0,'制限なし']]);   /* 40 問は本番の問数（A・B・F。C は 30 問。利用者の指示 2026-09-22「実際の試験にも対応できるように、40 問も設定できるようにする」） */
@@ -1915,7 +1917,7 @@ function showSetup(){
     ${sel('total','全体の制限時間',(()=>{const P=E.EXAM_PACE[mode];return [[0,'なし'],[300,'5 分'],[600,'10 分'],[900,'15 分'],[1200,'20 分']].map(([v,t])=>[v,t+(P&&P.min*60===v?'（本番と同じ）':'')])})(),v=>+v>0)}
     ${sw('skipChk',!ms.skipExplain,'解説（正誤のあとに解説を出す。切ると正誤だけ見せて次へ）')}
     ${sw('introChk',!hideIntro[mode],`開始前に説明と練習 ${practiceN()} 問`)}
-    <div class="acts"><button class="btn" id="setupGo">${hideIntro[mode]?'計測開始':'練習開始'}${ic('next','s')}</button></div>
+    <div class="acts"><button class="btn" id="setupGo">${goLabel()}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
     <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（実機と同じ物理、重力あり）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
@@ -1925,7 +1927,7 @@ function showSetup(){
   const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
   toggle($('#skipChk'),()=>!MS().skipExplain,on=>setMS('skipExplain',!on));   /* 表示は「解説」（オンで解説あり）。保存は従来どおり skipExplain */
   toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);if(on&&MS().skipExplain){setMS('skipExplain',false);showSetup()}   /* 練習をオンにしたら解説あり（利用者の指示 2026-09-22） */
-    $('#setupGo').innerHTML=(hideIntro[mode]?'計測開始':'練習開始')+ic('next','s')});
+    $('#setupGo').innerHTML=goLabel()+ic('next','s')});
   $('#setupGo').addEventListener('click',()=>{if(!hideIntro[mode])showIntro();else startMeasured()});
   if($('#examMode'))$('#examMode').addEventListener('click',()=>{const P=E.EXAM_PACE[mode];setMS('level','max');setMS('qCount',P.n);setMS('total',P.min*60);setMS('qLimit',0);setMS('skipExplain',true);hideIntro[mode]=true;store.set('hideIntro',hideIntro);showSetup()});
   /* 操縦操作だけ、「始める」の下にシミュレーターと見え方の一覧を置いてある */

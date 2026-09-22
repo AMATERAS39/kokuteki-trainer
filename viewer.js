@@ -123,7 +123,9 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
     /* 弧は「機体のある点が、その命令で実際に動く道」として作る（v06.14）。
        engine.js の applyCmd と同じ行列（旋回 Rz(−a)、横転 Ry(a)、機首 Rx(a)。a は右・上げが正）を角度 0→270° で掛けて点を並べるので、
        回る向きが命令と食い違わない（v06.13 は xy 平面の弧を回して当てはめていて、三つとも逆向きだった。利用者の指摘 2026-09-22） */
-    const R = 7.2, col = 0xffb020, g = new THREE.Group(), N = 48, pts = [];
+    /* 色は操縦操作の「動きで見る」の力の矢印と同じ（sim3d.js の ARC: 旋回＝ヨー 水色・横転＝ロール 橙・機首＝ピッチ 緑。利用者の指示 2026-09-22「A の解説は、動きで見ると同じ色を使う」） */
+    const SPIN_COL = { yaw: 0x4fc3f7, roll: 0xff8a3d, pitch: 0x7cf59a };
+    const R = 7.2, col = SPIN_COL[axis] || 0xffb020, g = new THREE.Group(), N = 48, pts = [];
     const p0 = axis === 'yaw' ? new THREE.Vector3(R, 0, 0) : new THREE.Vector3(0, 0, R);
     const rot = a => axis === 'yaw' ? new THREE.Matrix4().makeRotationZ(-a) : axis === 'roll' ? new THREE.Matrix4().makeRotationY(a) : new THREE.Matrix4().makeRotationX(a);
     /* 弧の長さは命令の角度そのもの（45° なら 45°、180° なら半周。利用者の指示 2026-09-22「そんなに曲がらない。角度に応じて長さを変えて」） */

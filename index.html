@@ -1438,7 +1438,8 @@ const store={get(k,d){try{const v=localStorage.getItem('aat.'+k);return v==null?
 const SETTINGS_VERSION=3;
 const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha',scene:'auto',simDesc:'off',net:'wifi',showLen:463,showProg:'auto',version:SETTINGS_VERSION});
 /* 計測の条件は種目ごと（出題開始前の画面で変更し、種目ごとに保存）。qCount/qLimit の 0 は制限なし。skipExplain は計測中に解説を出さず自動で次へ。
-   全体の制限時間（sLimit）は 2026-09-14 に廃止（1 問の制限時間があれば要らない。利用者の指示）。保存済みの sLimit は読まない */
+   全体の制限時間（sLimit）は 2026-09-14 に廃止していたが、v06.21 で「試験モード」として復活（利用者の指示 2026-09-22「試験モードというボタンを配置し、全体の制限時間 15 分 40 問、解説なし、練習なしのような設定ができるように」）。
+   キーは total（秒、0 = なし）。試験モードのボタンは 難易度 Max・出題数と全体の時間を本番（EXAM_PACE）・1 問の制限なし・解説なし・練習なし にまとめて入れる */
 const MODE_DEFAULTS={
   spatial:{level:'easy',qCount:20,qLimit:20,skipExplain:false},   // 本番の A は 40 問 15 分（1 問 22 秒ほど）。解説つきが既定（利用者の指示 2026-09-21）
   heading:{level:'easy',qCount:20,qLimit:5,skipExplain:true},
@@ -1452,8 +1453,10 @@ const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if
     const cap=Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
     if(m.qCount===0||m.qCount>cap)m.qCount=cap;
   }
+  m.total=+m.total||0;
   return m};
-function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}   // 変更したキーだけ保存（既定値の変更を反映させるため）
+function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}
+const isExamSet=()=>{const P=E.EXAM_PACE[mode],m=MS();return !!P&&m.level==='max'&&m.qCount===P.n&&(m.total||0)===P.min*60&&!m.qLimit&&!!m.skipExplain&&!!hideIntro[mode]};   /* 試験モードの条件がそろっているか */   // 変更したキーだけ保存（既定値の変更を反映させるため）
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'mix',init:'random',bank:'on'};
 const genQ=()=>E.generate(mode,Object.assign({},settings,GEN,{level:MS().level}));
@@ -1508,7 +1511,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.20';
+const APP_VER='v06.21';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1726,16 +1729,25 @@ function render(){
 
 /* ===== 1問のタイマー（練習では制限なし） ===== */
 const qLimit=()=>phase==='practice'?0:MS().qLimit;
+/* 全体の制限時間（試験モード）: 計測中だけ。残り秒（0 で打ち切り）。無ければ null */
+const totalLeft=()=>(phase==='session'&&session&&!session.ended&&MS().total>0)?Math.max(0,MS().total-(performance.now()-session.start)/1000):null;
+const mmss=x=>`${Math.floor(x/60)}:${String(Math.floor(x%60)).padStart(2,'0')}`;
+function showTotal(r){$('#tval').textContent=mmss(r);$('#tunit').textContent='';$('#timer').classList.toggle('warn',r<=30);$('#timer').classList.remove('stopped')}
+function examTimeUp(){if(!session||session.ended)return;clearInterval(timerId);session.ended=true;session.timeUp=true;answered=true;showSummary()}   /* 途中の 1 問は記録しない */
 function startTimer(){
   t0=performance.now();clearInterval(timerId);
   const tick=()=>{
-    const el=(performance.now()-t0)/1000,lim=qLimit();
+    const el=(performance.now()-t0)/1000,lim=qLimit(),tot=totalLeft();
+    if(tot!==null){showTotal(tot);if(tot<=0){examTimeUp();return}if(lim>0&&el>=lim){timeoutQuestion();return}return}   /* 試験モードは残り時間を出す（1 問の制限は裏で効く） */
+    $('#tunit').textContent='s';
     if(lim>0){const rem=Math.max(0,lim-el);$('#tval').textContent=rem.toFixed(1);$('#timer').classList.toggle('warn',rem<=3);if(rem<=0){timeoutQuestion();return}}
     else $('#tval').textContent=el.toFixed(1);
   };
   tick();timerId=setInterval(tick,100);
 }
-function stopTimer(){clearInterval(timerId);const lim=qLimit();const s=Math.min((performance.now()-t0)/1000,lim>0?lim:1e9);$('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
+function stopTimer(){clearInterval(timerId);const lim=qLimit();const s=Math.min((performance.now()-t0)/1000,lim>0?lim:1e9);
+  if(totalLeft()!==null){timerId=setInterval(()=>{const r=totalLeft();if(r===null){clearInterval(timerId);return}showTotal(r);if(r<=0)examTimeUp()},250);return s}   /* 試験モードは答えたあとも残り時間が減り続ける */
+  $('#tval').textContent=s.toFixed(1);$('#timer').classList.add('stopped');return s}
 function timeoutQuestion(){
   if(answered)return;
   const g=q.type==='heading'?E.gradeHeading(q,-1):q.type==='control'?E.gradeControl(q,-1):q.type==='spatial'?E.gradeSpatial(q,-1):E.gradeOpts(q,-1);
@@ -1890,6 +1902,9 @@ function showSetup(){
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
   if(mode==='spatial'||mode==='combo')ensureShooter().catch(()=>{});   /* その場で描く絵の準備（最初の 1 問で待たせない） */
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
+    ${(()=>{const P=E.EXAM_PACE[mode];if(!P)return '';const on=isExamSet();   /* 試験モード（v06.21）: 本番と同じ条件をまとめて入れる。体験版は鍵 */
+      return `<div class="acts"><button class="btn${on?'':' ghost'}" id="examMode" type="button"${isFull()?'':' disabled'}>${on?'試験モードの設定です':'試験モード'}${isFull()?'':'（完全版）'}</button></div>
+      <div class="sethelp">${on?`本番と同じ条件: ${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし。下の項目を変えると解除されます。`:`本番と同じ条件（${P.n} 問を ${P.min} 分で、難易度 Max、解説なし、練習なし）を一度に入れます。`}</div>`})()}
     ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],['max','Max']],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
     ${sel('qCount','出題数',(()=>{const P=E.EXAM_PACE[mode];const o=[10,20,30,40,50].map(n=>[n,`${n} 問${P&&P.n===n?'（本番と同じ）':''}`]).concat([[0,'制限なし']]);   /* 40 問は本番の問数（A・B・F。C は 30 問。利用者の指示 2026-09-22「実際の試験にも対応できるように、40 問も設定できるようにする」） */
@@ -1897,6 +1912,7 @@ function showSetup(){
       if(!isFull()&&!o.some(([v])=>v===qCap()))o.unshift([qCap(),`${qCap()} 問`]);return o})(),v=>+v===0||+v>qCap())}
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
+    ${sel('total','全体の制限時間',(()=>{const P=E.EXAM_PACE[mode];return [[0,'なし'],[300,'5 分'],[600,'10 分'],[900,'15 分'],[1200,'20 分']].map(([v,t])=>[v,t+(P&&P.min*60===v?'（本番と同じ）':'')])})(),v=>+v>0)}
     ${sw('skipChk',!ms.skipExplain,'解説（正誤のあとに解説を出す。切ると正誤だけ見せて次へ）')}
     ${sw('introChk',!hideIntro[mode],`開始前に説明と練習 ${practiceN()} 問`)}
     <div class="acts"><button class="btn" id="setupGo">${hideIntro[mode]?'計測開始':'練習開始'}${ic('next','s')}</button></div>
@@ -1911,13 +1927,14 @@ function showSetup(){
   toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);if(on&&MS().skipExplain){setMS('skipExplain',false);showSetup()}   /* 練習をオンにしたら解説あり（利用者の指示 2026-09-22） */
     $('#setupGo').innerHTML=(hideIntro[mode]?'計測開始':'練習開始')+ic('next','s')});
   $('#setupGo').addEventListener('click',()=>{if(!hideIntro[mode])showIntro();else startMeasured()});
+  if($('#examMode'))$('#examMode').addEventListener('click',()=>{const P=E.EXAM_PACE[mode];setMS('level','max');setMS('qCount',P.n);setMS('total',P.min*60);setMS('qLimit',0);setMS('skipExplain',true);hideIntro[mode]=true;store.set('hideIntro',hideIntro);showSetup()});
   /* 操縦操作だけ、「始める」の下にシミュレーターと見え方の一覧を置いてある */
   if($('#setupGal'))$('#setupGal').addEventListener('click',()=>{location.hash='#train/control/gallery'});
   toTop();
 }
 function showIntro(){
   setPhase('intro','説明');showPane('intro');
-  const ms=MS(),lim=[`難易度 ${E.LEVELS[ms.level]||''}`];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(qMax()>0)lim.push(`${qMax()} 問`);
+  const ms=MS(),lim=[`難易度 ${E.LEVELS[ms.level]||''}`];if(ms.qLimit>0)lim.push(`1 問 ${ms.qLimit} 秒`);if(qMax()>0)lim.push(`${qMax()} 問`);if(ms.total>0)lim.push(`全体 ${Math.round(ms.total/60)} 分`);
   $('#intro').innerHTML=`<h2>${E.MODES[mode]}</h2><ul>${INTRO[mode].map(t=>`<li>${t}</li>`).join('')}${lim.length?`<li>計測: ${lim.join('・')}。${ms.skipExplain?'解説は表示せず次々に出題します。':''}</li>`:''}</ul>
     <div class="acts"><button class="btn" id="introGo">練習開始（${practiceN()} 問）${ic('next','s')}</button></div>`;
   $('#introGo').addEventListener('click',afterIntro);
@@ -1945,7 +1962,8 @@ function showSummary(){
   const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
   if(s.n>0)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit()});
-  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${MS().level==='max'&&s.n?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
+  const tot=MS().total,used=s.start?Math.min(tot||1e9,(performance.now()-s.start)/1000):0,totText=tot%60?mmss(tot):`${Math.round(tot/60)} 分`;
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${s.timeUp?`${totText}の時間切れ（${s.n} 問）`:qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${tot>0?`<div class="sub">全体の制限時間 ${totText}のうち ${mmss(used)} を使いました。</div>`:''}${MS().level==='max'&&s.n?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
     <div class="grid"><div class="cell"><div class="v">${s.n}</div><div class="l">出題</div></div><div class="cell"><div class="v">${s.c}</div><div class="l">正解</div></div><div class="cell"><div class="v">${acc}</div><div class="l">正答率</div></div><div class="cell"><div class="v">${avg}</div><div class="l">平均解答時間</div></div></div>
     <div class="acts"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="toHome">ホームへ</button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());

@@ -1286,7 +1286,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="card">
         <h3>アプリの説明</h3>
         <ul>
-          <li>航空学生の適性検査（方位・姿勢指示器・操縦操作）を反復練習するアプリ。</li>
+          <li>航空学生の適性検査（空間認識・計器判読・操縦操作・方位判読）を反復練習するアプリ。</li>
           <li id="edLine"></li>
           <li id="netLine">解答時間と正答率は端末内に記録。ホーム画面に追加するとアプリとして起動し、オフラインでも動く。</li>
           <li>機体の 3D モデル: 航空自衛隊アクロバットチーム T-4ブルーインパルス（3Dえいじくん 様）。<a class="credit-link" href="https://eiji-mappa.booth.pm/items/3328542" target="_blank" rel="noopener">BOOTH で販売中</a>。</li>
@@ -1300,14 +1300,14 @@ body:not([data-view="home"]) .back{display:inline-flex}
           <ul><li>視点は<b>南</b>に固定。画面の奥が北、右が東、上が上。</li><li>標準状態は機首が北、機体上部が上。</li><li>斜めは水平面で 45°、上下に 30°。</li></ul></div>
       </div>
       <div class="card">
-        <h3>姿勢指示器の読み方</h3>
+        <h3>水平儀（姿勢指示器）の読み方</h3>
         <div class="exrow" id="abAtt"></div>
         <ul><li>機体側が固定で、水平線側が動く。</li><li>機首上げ: 水平線が下がり空が広がる。機首下げ: 地面が広がる。</li><li>右バンク: 機首の向きに対して右翼が下がる。水平線は右上がり。機首がこちらを向くと左右が逆に見える。</li></ul>
       </div>
       <div class="card">
-        <h3>方位指示器</h3>
+        <h3>羅針儀（方位指示器）</h3>
         <div class="fig2"><div class="figbox sm" id="abHI"></div>
-          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印を付ける方位は Hard では毎回変わる（N とは限らない）。Easy と Normal では N。印の文字が示す向きと、印の位置から機首の方位を読む。</li><li>N が左に見えれば機首は東、真下なら南。方位×姿勢指示器では、姿勢指示器との組で答える。</li></ul></div>
+          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印を付ける方位は Hard では毎回変わる（N とは限らない）。Easy と Normal では N。印の文字が示す向きと、印の位置から機首の方位を読む。</li><li>N が左に見えれば機首は東、真下なら南。計器判読では、水平儀との組で答える。</li></ul></div>
       </div>
       <div class="card">
         <h3>方位（上面図）</h3>
@@ -1426,7 +1426,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=73"></script>
+<script src="engine.js?v=74"></script>
 <script>
 (function(){
 'use strict';
@@ -1508,7 +1508,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.17';
+const APP_VER='v06.18';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1686,8 +1686,8 @@ function render(){
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else if(q.type==='combo'&&q.reverse){
     /* 複合の Max（本番の B の形）: 計器 → 機体の絵。16 方位 */
-    $('#prompt').textContent='計器（姿勢指示器＋方位指示器）に合う機体の見え方を選ぶ';
-    figs.innerHTML=`<div class="figs"><div class="inst2"><div class="i2">${E.svgAI(q.bank,q.pitch)}</div><div class="i2">${E.svgHI(q.heading,q.mark)}</div></div><div class="cap">機首の方位は方位指示器の<b>上</b>。絵は<b>南</b>からの固定視点（奥が北、右が東）</div></div>`;
+    $('#prompt').textContent='計器（水平儀＋羅針儀）に合う機体の見え方を選ぶ';
+    figs.innerHTML=`<div class="figs"><div class="inst2"><div class="i2">${E.svgAI(q.bank,q.pitch)}</div><div class="i2">${E.svgHI(q.heading,q.mark)}</div></div><div class="cap">機首の方位は羅針儀の<b>上</b>。絵は<b>南</b>からの固定視点（奥が北、右が東）</div></div>`;
     ans.innerHTML=`<div class="opts pics">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst"><img class="live" data-live="${i}" alt=""></span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else if(q.type==='heading'){
@@ -1703,7 +1703,7 @@ function render(){
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
       ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst">${E.svgAI(o.bank,o.pitch)}</span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     }else{
-      $('#prompt').textContent='向きと姿勢の両方に一致する計器（姿勢指示器＋方位指示器）を選ぶ';
+      $('#prompt').textContent='向きと姿勢の両方に一致する計器（水平儀＋羅針儀）を選ぶ';
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
       ans.innerHTML=`<div class="opts">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="pair">${E.svgAI(o.bank,o.pitch)}${E.svgHI(o.heading,q.mark)}</span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     }
@@ -1833,8 +1833,8 @@ function next(){
 const INTRO={
   spatial:['南から見た機体の絵（初期状態）と、命令（右旋回 45° など）が出ます。奥が北、右が東です。','命令のあとの機体の見え方を 1〜4 の絵から選びます。','旋回は方向舵（機体の上下軸まわり）、横転は操縦桿の左右（機首の軸まわり）、機首上げ・下げは操縦桿の前後（翼の軸まわり）。どれも機体にとっての向きで回ります。','Normal から初期状態に機首の上げ下げ、Hard から翼の傾き（背面も）が混ざります。Max は 30°・60° の微妙な角度も出ます。'],
   heading:['上から見た機体と方位の印が表示されます。','機首が向いている方位を 8 方位から選びます。','印の向きは Normal 以上で毎回変わります（Easy では N が上）。Hard では印が N とは限りません。まず印から北を決めてから機首を読みます。'],
-  attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う姿勢指示器を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
-  combo:['練習は、姿勢判読（南から見た機体の姿勢 → 姿勢指示器）3 問のあと、計器判読 3 問です。','南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「姿勢指示器＋方位指示器」の組を 1〜4 から選びます。','方位指示器は現在の方位が上に来ます。'],
+  attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う水平儀（姿勢指示器）を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
+  combo:['練習は、姿勢判読（南から見た機体の姿勢 → 水平儀）3 問のあと、計器判読 3 問です。水平儀は姿勢指示器、羅針儀は方位指示器のことです。','南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「水平儀＋羅針儀」の組を 1〜4 から選びます。','羅針儀は現在の方位が上に来ます。'],
   control:['外の様子が①→②→③の 3 枚で出ます。','各区間で行った操作を 1〜4 から選びます。','景色が回る＝操縦桿の左右。目印が上下へ動く＝奥・手前。目印が左右へ大きく流れる＝方向舵。','絵は実機と同じ物理で飛ばした景色です。傾いていると目印は少しずつ横へ流れます。','2 つの操作は同時でも順番でも答えは同じです。']
 };
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
@@ -1875,12 +1875,12 @@ function enterMode(m,sub){
   showSetup();
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
-const LEVEL_HELP={
-  spatial:{easy:'初期状態は水平（方位だけ変わる）。命令は 45°・90°・180°。',normal:'初期状態に機首の上げ下げが混ざる。',hard:'初期状態に翼の傾き（90°・背面も）が混ざる。',max:'本番形式。命令と初期状態に 30°・60° の微妙な角度が混ざる。'},
-  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東西南北の 4 方位だけ。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。',max:'本番形式。上面図 1 枚に対して、同じ形の 4 枚から同じ方角を向いた機体を選ぶ。4 枚は印の向きも方位も別々。'},
-  attitude:{easy:'機首は北の縦の面（北・北上・北下・真上・真下）だけ。翼の傾きは変わる。',normal:'機首は 26 方向すべて（8 方位 × 上・水平・下と真上・真下）。翼は水平のみ。',hard:'26 方向すべてに翼の傾きも加わる。'},
-  combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'24 方向すべて（8 方位 × 上・水平・下）。方位指示器の印は毎回変わる。',max:'本番形式。計器（姿勢指示器＋方位指示器）から機体の見え方を選ぶ。方位は 16 方位（南南西など）。'},
-  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ（2 つは順番か同時）。視界の中央の目盛りは出ない。①は水平・傾き・上下・その複合のどれか。',max:'本番形式。Hard に加えて、操縦桿の斜め（左奥・右奥・左手前・右手前）の操作が混ざる。'}};
+const LEVEL_HELP={   /* 難易度の説明。1 行で、初見の人が分かる言葉だけ（利用者の指示 2026-09-22）。Max は「本番形式」とここで言う（選択肢の名は Max だけ） */
+  spatial:{easy:'水平の機体に、旋回・横転・機首上げ下げの命令が 1 つ。',normal:'機体が最初から機首を上げ下げしている。',hard:'最初から翼も傾いている（背面もある）。',max:'本番形式。30°・60° の細かい角度も出る。'},
+  heading:{easy:'東西南北だけ。N は上。',normal:'東西南北だけ。N の向きが変わる。',hard:'8 方位。印は N 以外もある。',max:'本番形式。同じ方角を向いた機体を 4 枚から選ぶ。'},
+  attitude:{easy:'機首は北・真上・真下だけ。',normal:'機首は全方向。翼は水平。',hard:'機首は全方向。翼も傾く。'},
+  combo:{easy:'東西南北だけ。水平飛行。',normal:'東西南北だけ。翼が傾く。',hard:'8 方位と上下。羅針儀の印が変わる。',max:'本番形式。水平儀と羅針儀から機体の絵を選ぶ。16 方位。'},
+  control:{easy:'操作は 1 つ。',normal:'操作は 1 つか 2 つ。',hard:'中央の目盛りなし。①の機体も傾いている。',max:'本番形式。操縦桿の斜めも出る。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
@@ -1996,7 +1996,7 @@ function runSim(opt){applyScene();
   const view=['third','front','ground'].includes(store.get('simView'))?store.get('simView'):'first';   // 一人称 / 三人称（後方・前方）/ 地上
   const inst=`<div class="inst ai">${E.svgAI(0,0)}</div><div class="inst hi">${E.svgHI(0)}</div>`;
   $('#sim').innerHTML=`<div class="view${view==='first'?' fp':''}" id="simView">
-      <div class="hud"><div class="ro"><span>高度</span><b id="rAlt">80</b><span>m</span></div><div class="ro"><span>方位</span><b id="rHdg">000</b></div><div class="ro"><span>バンク</span><b id="rBank">0°</b></div><div class="ro"><span>ピッチ</span><b id="rPitch">0°</b></div></div>
+      <div class="hud"><div class="ro"><span>高度</span><b id="rAlt">80</b><span>m</span></div><div class="ro"><span>方位</span><b id="rHdg">000</b></div><div class="ro"><span>バンク</span><b id="rBank">0°</b></div><div class="ro"><span>機首</span><b id="rPitch">0°</b></div></div>
       ${hudSvg()}
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="showname" id="showName" hidden></div>
@@ -2916,7 +2916,7 @@ function makeMover(opt){
     if(t>0){m.paused=true;m.t=t}
     if(m.viewer){m.viewer.dispose();m.viewer=null}
     box.innerHTML=`<div class="viewer gtp gviewer"><div class="vload">シミュレーターを読み込み中…</div>${m.view==='first'?`<div class="gframe gref"></div><div class="gframe">${ckCompact(E.svgCockpitFrame(opt.hud!==false))}</div>`:''}</div>
-      <div class="sub">${m.view==='first'?'出題の絵と同じ見え方です。破線は①の正面（景色に固定）。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝ロール、緑＝ピッチ、青＝ヨー。'}</div>`;
+      <div class="sub">${m.view==='first'?'出題の絵と同じ見え方です。破線は①の正面（景色に固定）。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝横転、緑＝機首上げ下げ、青＝旋回。'}</div>`;
     /* なぞって視点を回す（シミュレーターの三人称と同じ addLook）。一人称は出題の絵と同じ固定の視線で、なぞっても動かさない（利用者の指示 2026-09-16） */
     { const gv=$$('.gviewer'); let px=0,py=0,on=false;
       gv.addEventListener('pointerdown',e=>{if(m.view!=='third')return;on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
@@ -2959,7 +2959,7 @@ function makeMover(opt){
     /* 一人称: ①の正面の破線（出題の絵と同じ写像で、いまの姿勢から描く） */
     const gr=$$('.gref');
     if(gr)gr.innerHTML=E.svgRefLines(st,AAT_FLIGHT.at(traj,0));
-    $$('.gstep').textContent=(m.play||m.paused)?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　ピッチ ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m　進んだ距離 ${Math.round(Math.hypot(st.dx,st.dy))} m${m.paused?'　一時停止中':''}`
+    $$('.gstep').textContent=(m.play||m.paused)?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　機首 ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m　進んだ距離 ${Math.round(Math.hypot(st.dx,st.dy))} m${m.paused?'　一時停止中':''}`
       :'再生を押すと、①→②→③の見え方が動きで分かります';
   }
   function play(){
@@ -3136,9 +3136,9 @@ function renderSettingsPage(){
 /* 解き方のメモ。1 行 1 事で箇条書きにする（長い文がつながっていると、解いている最中に読めない） */
 const TIPS={
   spatial:['まず初期状態を言葉にする（北向き・右バンク 45° など）','旋回・横転・機首上げ下げは、機体の上下軸・機首の軸・翼の軸まわりの回転','右・左は機体にとっての向き。背面では画面上の左右が逆になる','90° は真横・真上、180° は反対（背面）'],
-  heading:['印の向きをまず見る（Hard では N とは限らない）','印から北を決め、機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Normal 以上では、機首が印の方位と同じ向きになる問題は出ない'],
+  heading:['印の向きをまず見る（Hard では N とは限らない）','印から北を決め、機首が時計回りに何度回ったかを 45° 刻みで読む','45°＝北東、90°＝東、180°＝南','Hard では、機首が印の方位と同じ向きになる問題は出ない'],
   attitude:['視点は常に南。奥が北、手前が南、右が東、左が西','機首上げ → 水平線が下がり、空が広がる','機首下げ → 地面が広がる','右翼が下がれば右バンク（水平線は右上がり）','機首がこちらを向くと左右が逆に見える','真上・真下は腹面／背面が見える'],
-  combo:['先に方位（奥・手前・右・左）を決める','次に上向きか下向きかでピッチを決める','方位指示器は、いまの方位が上に来る','印の文字（N など）と、その位置から読む'],
+  combo:['先に方位（奥・手前・右・左）を決める','次に機首の上げ下げを決める','羅針儀は、いまの方位が上に来る','印の文字（N など）と、その位置から読む'],
   control:['景色が回る＝操縦桿の左右','目印が上下へ動く＝奥・手前','目印が左右へ大きく流れる＝方向舵','傾いていると方向舵でも水平線が上下する。目印の動きで読む','同時でも順番でも答えは同じ'],
 };
 const KBD={spatial:'1〜4 で選択、Enter で次へ',heading:'札の数字 1〜8 で方位、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
@@ -3247,8 +3247,8 @@ const ERRHINT={'向きが逆':'右と左（上げと下げ）を取り違えて�
   '傾きの有無':'傾いているかどうかの見分けで落としています。水平線が傾いているかを先に見ます。',
   '機首の上下':'機首の上下を逆に読んでいます。腹面が見えれば機首上げ、背面が見えれば機首下げ。',
   '両方':'傾きと機首の上下の両方を落としています。まず上下、次に傾き、と順に確かめます。',
-  '方位だけ':'姿勢は読めています。方位指示器の印（N 以外のとき）から数え直す練習を。',
-  '姿勢だけ':'方位は読めています。姿勢指示器の傾きと上下を見直します。',
+  '方位だけ':'姿勢は読めています。羅針儀の印（N 以外のとき）から数え直す練習を。',
+  '姿勢だけ':'方位は読めています。水平儀の傾きと上下を見直します。',
   '操縦桿の向き':'操縦桿の向きを取り違えています。①→② の変化だけを見て、まず操縦桿の向きを決めます。',
   '操縦桿の有無':'操縦桿を倒しているか、方向舵だけかの見分けで落としています。',
   '方向舵の左右':'方向舵の左右を逆に読んでいます。②→③ で機首が先に振れる向きを見ます。',
@@ -3307,15 +3307,15 @@ function weakHTML(m){
         <div class="stlg">${E2.map((x,i)=>`<span><i style="background:${SC[i%SC.length]}"></i>${esc(x.k)} <b>${Math.round(x.v.n/tot*100)}%</b><small>（${x.v.n} 問）</small></span>`).join('')}</div>`;
       if(E2.length&&ERRHINT[E2[0].k])h+=`<div class="whint">${esc(ERRHINT[E2[0].k])}</div>`;
     }else if(g==='比べ'){
-      /* 単独（方位モード・姿勢指示器モードの正答率）と、複合の中での 方位・姿勢 の正答率を並べ、複合になったときに何が落ちるかを一言（v05.96、利用者の指示 2026-09-18） */
+      /* 単独（方位モード・水平儀の練習の正答率）と、複合の中での 方位・姿勢 の正答率を並べ、複合になったときに何が落ちるかを一言（v05.96、利用者の指示 2026-09-18） */
       const sh=stats.heading||{n:0,c:0},sa=stats.attitude||{n:0,c:0},ph=get('部分','方位'),pa=get('部分','姿勢');
-      const A=[['方位（単独: 方位モード）',sh.n?sh.c/sh.n:null,sh.n],['方位（複合の中）',acc(ph),ph?ph.n:0],['姿勢（単独: 姿勢指示器モード）',sa.n?sa.c/sa.n:null,sa.n],['姿勢（複合の中）',acc(pa),pa?pa.n:0]];
+      const A=[['方位（単独: 方位モード）',sh.n?sh.c/sh.n:null,sh.n],['方位（複合の中）',acc(ph),ph?ph.n:0],['姿勢（単独: 水平儀の練習）',sa.n?sa.c/sa.n:null,sa.n],['姿勢（複合の中）',acc(pa),pa?pa.n:0]];
       /* v05.97: 棒は出さない（総合と輪で足りる）。一言だけ */
       const hs=A[0][1],hc=A[1][1],as=A[2][1],ac=A[3][1],MIN=3;
       let v='';
-      if(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)v='方位モード・姿勢指示器モード・複合をそれぞれ 3 問以上解くと、複合で何が落ちるかが出ます。';
-      else v='単独では 方位 '+pct(hs)+'（方位モード '+sh.n+' 問）・姿勢 '+pct(as)+'（姿勢指示器モード '+sa.n+' 問）。複合の中では 方位 '+pct(hc)+'・姿勢 '+pct(ac)+'。';
-      if(!(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)){v+=' ';const dh=hs-hc,da=as-ac,W=[];if(hs<0.7)W.push('方位は単独でも '+pct(hs)+'。まず方位モードで固めます。');if(as<0.7)W.push('姿勢は単独でも '+pct(as)+'。まず姿勢指示器モードで固めます。');
+      if(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)v='方位モード・水平儀の練習・複合をそれぞれ 3 問以上解くと、複合で何が落ちるかが出ます。';
+      else v='単独では 方位 '+pct(hs)+'（方位モード '+sh.n+' 問）・姿勢 '+pct(as)+'（水平儀の練習 '+sa.n+' 問）。複合の中では 方位 '+pct(hc)+'・姿勢 '+pct(ac)+'。';
+      if(!(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)){v+=' ';const dh=hs-hc,da=as-ac,W=[];if(hs<0.7)W.push('方位は単独でも '+pct(hs)+'。まず方位モードで固めます。');if(as<0.7)W.push('姿勢は単独でも '+pct(as)+'。まず水平儀の練習で固めます。');
         if(dh>=0.1&&da>=0.1)W.push('複合になると方位も姿勢も落ちています（方位 '+pct(hs)+' → '+pct(hc)+'、姿勢 '+pct(as)+' → '+pct(ac)+'）。方位 → 姿勢の順に 1 つずつ確かめる手順を固めます。');
         else if(dh>=0.1)W.push('単独では読めている方位を、複合になると落としています（'+pct(hs)+' → '+pct(hc)+'）。姿勢に気を取られて方位の確認が抜けています。');
         else if(da>=0.1)W.push('単独では読めている姿勢を、複合になると落としています（'+pct(as)+' → '+pct(ac)+'）。方位を読んだあと、姿勢を確かめ直します。');

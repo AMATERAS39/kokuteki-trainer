@@ -394,9 +394,9 @@
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
     const { pitch, bank } = q, d = q.dir14;
     const lines = q.reverse ? [] : [d.read];   // 計器 → 絵（複合の Max）は 26 方向の読み方の文が合わないので、下の方位の文だけ
-    if (bank) lines.push(`${bankText(bank)}：機首の向きに対して${bank > 0 ? '右' : '左'}の翼が下がっている（南から見た絵では、機首がこちらを向くほど左右が逆に見える）。姿勢指示器では水平線が${bank > 0 ? '右上がり' : '左上がり'}に傾く。`);
+    if (bank) lines.push(`${bankText(bank)}：機首の向きに対して${bank > 0 ? '右' : '左'}の翼が下がっている（南から見た絵では、機首がこちらを向くほど左右が逆に見える）。水平儀では水平線が${bank > 0 ? '右上がり' : '左上がり'}に傾く。`);
     else lines.push('翼が水平なのでバンクなし。水平線が傾いている選択肢は誤り。');
-    lines.push(pitch > 0 ? '機首上げ：姿勢指示器では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
+    lines.push(pitch > 0 ? '機首上げ：水平儀では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
     let answerText = `${ci + 1}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;
     if (q.type === 'combo' && q.reverse) {
       const H16 = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
@@ -406,7 +406,7 @@
     } else if (q.type === 'combo') {
       const NPOS = ['真上', '右上', '右', '右下', '真下', '左下', '左', '左上'];
       const m = ((q.mark || 0) - q.dir + 8) % 8;
-      lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。機首は常に上を向き、方位指示器の ${DIRS[q.mark || 0].k}（${DIRS[q.mark || 0].ja}）の印は ${NPOS[m]} に来ます。`);
+      lines.push(`方位：${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。機首は常に上を向き、羅針儀の ${DIRS[q.mark || 0].k}（${DIRS[q.mark || 0].ja}）の印は ${NPOS[m]} に来ます。`);
       answerText += ` / ${DIRS[q.dir].ja}`;
     }
     return { ok, correct: ci, answerText: answerText + '）', lines };

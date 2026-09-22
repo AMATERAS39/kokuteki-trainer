@@ -85,14 +85,14 @@
      N マークは 8 方位（45° 刻み、上を含む）のいずれかにランダムに置く。 */
   /* 方位の難易度
      easy: 答えは東西南北のみ、N マークは上に固定（機首と同じ向きになってもよい）
-     normal: 答えは東西南北のみ、N マークはランダム（機首とは重ならない）
+     normal: 答えは東西南北のみ、N マークの向きはランダム（v06.17 から北も出る）
      hard: 答えは 8 方位、印は N とは限らない（8 方位のどれか。本番と同じ。利用者の指示 2026-09-14）、印の向きはランダム、機首は印の方位とは重ならない
      mark: 印の方位（DIRS の番号）、phi: 印を描く向き（画面の上から時計回り、度）、theta: 機首を描く向き。北は phi − 45·mark にある */
   function genHeading(s) {
     if (s.level === 'max') return genHeadingMatch(s);
     const lv = lvOf(s);
     const mark = lv === 'hard' ? rnd(8) : 0;
-    const dir = lv === 'easy' ? pick([0, 2, 4, 6]) : lv === 'normal' ? pick([2, 4, 6]) : (mark + 1 + rnd(7)) % 8;
+    const dir = (lv === 'easy' || lv === 'normal') ? pick([0, 2, 4, 6]) : (mark + 1 + rnd(7)) % 8;   // v06.17: Normal も北を含む 4 方位（利用者の指示 2026-09-22。以前は機首が N 印と重なる北を外していた）
     const phi = (lv === 'easy' || s.north === 'fixed') ? 0 : rnd(8) * 45;
     return { type: 'heading', dir, mark, phi, theta: norm(phi - mark * 45 + dir * 45), level: lv };
   }
@@ -322,8 +322,8 @@
     /* 2026-09-21（本番の C の形）: 旧 Max（①の姿勢に傾きと上下の複合）を Hard に、Max は斜め操作（操縦桿の左奥・右奥・左手前・右手前）を追加 */
     const lv0 = lvOf(s), lv = lv0 === 'max' ? 'hard' : lv0, max = lv0 === 'max' || lv0 === 'hard', diag = lv0 === 'max';
     const DIAG = EXTRA_OPS;
-    /* v05.69: hard は必ず 2 操作（1 操作は出ない）。Normal との差が「目盛りなし＋枕 1 つ」だけで小さかった（点検 2026-09-18） */
-    const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && lv !== 'hard' && Math.random() < 1 / 3);
+    /* v05.69〜v06.16 は hard を必ず 2 操作にしていた。v06.17: Hard も 1 操作が 1/3 で混ざる（利用者の指示 2026-09-22「C Hard は、必ずしも複合でなくともよい」。本番も 1 操作の問題がある） */
+    const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && Math.random() < 1 / 3);
     const stickPool = diag ? STICK.concat(DIAG) : STICK, opsPool = diag ? OPS.concat(DIAG) : OPS;
     const first = one ? pick(opsPool).id : pick(stickPool).id;
     const ops = one ? [first, first] : [first, pick(RUDDER).id];

@@ -1426,7 +1426,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=72"></script>
+<script src="engine.js?v=73"></script>
 <script>
 (function(){
 'use strict';
@@ -1508,7 +1508,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.16';
+const APP_VER='v06.17';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1877,10 +1877,10 @@ function enterMode(m,sub){
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
 const LEVEL_HELP={
   spatial:{easy:'初期状態は水平（方位だけ変わる）。命令は 45°・90°・180°。',normal:'初期状態に機首の上げ下げが混ざる。',hard:'初期状態に翼の傾き（90°・背面も）が混ざる。',max:'本番形式。命令と初期状態に 30°・60° の微妙な角度が混ざる。'},
-  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東・南・西の 3 方位（機首が N と同じ向きになる問題は出ない）。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。',max:'本番形式。上面図 1 枚に対して、同じ形の 4 枚から同じ方角を向いた機体を選ぶ。4 枚は印の向きも方位も別々。'},
+  heading:{easy:'東西南北の 4 方位だけ。N マークは常に上。',normal:'東西南北の 4 方位だけ。N マークの向きは毎回変わる。',hard:'印は N とは限らない（8 方位のどれか）。機首は印の方位以外の 7 方位。印の向きは毎回変わる。',max:'本番形式。上面図 1 枚に対して、同じ形の 4 枚から同じ方角を向いた機体を選ぶ。4 枚は印の向きも方位も別々。'},
   attitude:{easy:'機首は北の縦の面（北・北上・北下・真上・真下）だけ。翼の傾きは変わる。',normal:'機首は 26 方向すべて（8 方位 × 上・水平・下と真上・真下）。翼は水平のみ。',hard:'26 方向すべてに翼の傾きも加わる。'},
   combo:{easy:'東西南北の 4 方位だけ。水平飛行のみ。方位指示器の印は N。',normal:'東西南北の 4 方位だけ。翼の傾きも加わる。方位指示器の印は N。',hard:'24 方向すべて（8 方位 × 上・水平・下）。方位指示器の印は毎回変わる。',max:'本番形式。計器（姿勢指示器＋方位指示器）から機体の見え方を選ぶ。方位は 16 方位（南南西など）。'},
-  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は必ず 2 つ（順番か同時）。視界の中央の目盛りは出ない。①は水平・傾き・上下・その複合のどれか。',max:'本番形式。Hard に加えて、操縦桿の斜め（左奥・右奥・左手前・右手前）の操作が混ざる。'}};
+  control:{easy:'操作は 1 つだけ。',normal:'操作は 1 つか 2 つ（操縦桿 → 方向舵）。',hard:'操作は 1 つか 2 つ（2 つは順番か同時）。視界の中央の目盛りは出ない。①は水平・傾き・上下・その複合のどれか。',max:'本番形式。Hard に加えて、操縦桿の斜め（左奥・右奥・左手前・右手前）の操作が混ざる。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
@@ -1890,7 +1890,7 @@ function showSetup(){
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
   if(mode==='spatial'||mode==='combo')ensureShooter().catch(()=>{});   /* その場で描く絵の準備（最初の 1 問で待たせない） */
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
-    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],['max','Max（本番形式）']],v=>!DEMO.levels.includes(v))}
+    ${sel('level','難易度',[['easy','Easy'],['normal','Normal'],['hard','Hard'],['max','Max']],v=>!DEMO.levels.includes(v))}
     <div class="sethelp">${LEVEL_HELP[mode][ms.level]}${isFull()?'':'　体験版で選べるのは Easy までです。'}</div>
     ${sel('qCount','出題数',(()=>{const o=[[10,'10 問'],[20,'20 問'],[30,'30 問'],[50,'50 問'],[0,'制限なし']];
       /* 体験版の上限（5 問など）が並びに無いと、選ばれている値の option が無く、灰色の「10 問（完全版）」が見えていた。上限の選択肢を先頭に足す */

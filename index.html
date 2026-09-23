@@ -904,29 +904,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .vload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.8125rem;color:#172130;background:#cdd3da}
 .legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:.5rem}
 /* 3D ビューアの計器: いま選んでいる向きの姿勢指示器と方位指示器 */
-.vinst{display:flex;gap:1rem;align-items:flex-start;justify-content:center;margin-top:.75rem}
-.vinst .i{display:flex;flex-direction:column;align-items:center;gap:.375rem;width:clamp(5rem,26vw,8rem)}
-.vinst .i svg{width:100%;height:auto}
 .vinst .l{font-size:.75rem;color:var(--muted)}
 .vinst .i.dim{opacity:.4}
-.vinst-note{font-size:.75rem;color:var(--faint);text-align:center;margin-top:.375rem}
 .legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:.2rem;vertical-align:-.1rem;margin-right:.25rem}
-.vctl{display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;margin-top:.75rem}
-.vpad{position:relative;width:8.5rem;height:8.5rem;border-radius:1rem;background:var(--panel2);border:1px solid var(--line2);touch-action:none;cursor:grab}
-.vpad::before,.vpad::after{content:"";position:absolute;background:var(--line2);opacity:.6}
-.vpad::before{left:50%;top:10%;bottom:10%;width:1px}.vpad::after{top:50%;left:10%;right:10%;height:1px}
-.vpad .vk{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:2.25rem;height:2.25rem;border-radius:50%;background:var(--accent);opacity:.9}
-.vlab{display:block;text-align:center;font-size:.6875rem;color:var(--muted)}
-.vpad .vlab{position:absolute;left:0;right:0;bottom:.375rem}
-.vrud{display:grid;grid-template-columns:auto auto;gap:.375rem .5rem;align-items:center}
-.vrud .ab{min-height:2.75rem;padding:0 1rem;font-weight:700}
-.vrud .ab.on{border-color:var(--accent);color:var(--accent)}
-.vrud .vlab{grid-column:1 / -1;order:-1}
-.dirdial{position:relative;width:min(100%,21rem);aspect-ratio:1;margin:0 auto}
-.dirdial .g{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:1px dashed var(--line2);border-radius:50%;opacity:.5}
-.dirdial .g1{width:92%;height:92%}.dirdial .g2{width:64%;height:64%}.dirdial .g3{width:38%;height:38%}
-.dirdial .ab{position:absolute;transform:translate(-50%,-50%);min-height:0;padding:.3rem .5rem;font-size:.75rem;font-weight:700;border-radius:999px;white-space:nowrap}
-.dirdial .ab.mid{font-size:.6875rem}
 .dirleg{text-align:center;margin-top:.5rem}
 .vactions{display:flex;gap:.5rem;margin-top:.75rem}
 .vactions .btn{height:2.75rem;font-size:.8125rem}
@@ -1366,17 +1346,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <div class="prow" id="abPractice"></div>
       </div>
       <div class="card wide">
-        <h3>機体を動かす</h3>
-        <ul>
-          <li>ドラッグで視点を回転、ホイール／ピンチで拡大。</li>
-          <li>下の操縦桿と方向舵で機体を動かせます（ゆっくり動きます）。</li>
-          <li>操縦桿の左右で横転、前後で機首の上げ下げ、方向舵で旋回。計器も一緒に動きます。</li>
-        </ul>
+        <h3>機体を見る</h3>
+        <div class="sub2">なぞると視点が回ります。ホイールやつまむ操作で近づけます。</div>
         <div class="viewer" id="viewer"><div class="vload" id="vload">3D モデルを読み込み中…</div></div>
-        <div class="legend"><span><i style="background:#ff6b6b"></i>東（x）</span><span><i style="background:#3ed48a"></i>北（y）</span><span><i style="background:#5ab0ff"></i>上（z）</span><span>格子＝水平面</span><span>水平面の「北・東・南・西」の字が方位</span></div>
-        <div class="vinst" id="vInst"></div>
-        <div class="vctl" id="vCtl"></div>
-        <div class="vactions"><button class="btn ghost" id="camReset">視点を南に戻す</button></div>
+        <div class="vactions"><button class="btn ghost" id="camReset">視点を戻す</button></div>
       </div>
       <div class="card">
         <h3>3D シミュレーターで操縦する</h3>
@@ -1554,7 +1527,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.34';
+const APP_VER='v06.35';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3078,7 +3051,7 @@ function makeSpin(qq){
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
   el.querySelector('[data-play]').addEventListener('click',start);
-  import('./viewer.js?v=19').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  import('./viewer.js?v=20').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
   return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
 }
 function fbSimShow(){
@@ -3707,61 +3680,15 @@ menuList.querySelectorAll('[data-url]').forEach(b=>b.addEventListener('click',()
 document.addEventListener('click',e=>{if(!menuList.hidden&&!e.target.closest('.menu'))closeMenu()});
 let viewer=null,viewerLoading=false;
 /* 3D ビューアの計器: 選んでいる向き（方位 h・ピッチ p、バンクなし）の見え方。真上・真下は方位が定まらないので方位指示器を薄くする */
-function renderVInst(h,p,b){
-  const vertical=Math.abs(p)>=89.5;
-  $('#vInst').innerHTML=`<div class="i"><div class="l">水平儀</div>${E.svgAI(b||0,p)}</div>`
-    +`<div class="i${vertical?' dim':''}"><div class="l">羅針儀</div>${E.svgHI(h)}</div>`;
-  const note=$('#vInstNote');if(note)note.remove();
-  if(vertical)$('#vInst').insertAdjacentHTML('afterend','<div class="vinst-note" id="vInstNote">真上・真下は機首が水平でないため、方位は定まりません。</div>');
-}
+
 async function initAbout(){
   if(viewer){viewer.resume();return}
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=19');
-    viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
+    const mod=await import('./viewer.js?v=20');
+    viewer=await mod.mount(host,{free:true,onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
-    /* 操縦桿と方向舵で機体を動かす（利用者の指示 2026-09-23）。出題と同じ機体の軸まわりの回転で、ゆっくり（横転 40°/s・機首 25°/s・旋回 25°/s）。
-       計器（姿勢指示器・方位指示器）も一緒に動く */
-    {const ctl=$('#vCtl');
-     ctl.innerHTML=`<div class="vpad" id="vPad" aria-label="操縦桿"><i class="vk"></i><span class="vlab">操縦桿</span></div>
-       <div class="vrud"><button class="ab" data-r="-1" aria-label="左方向舵">左</button><span class="vlab">方向舵</span><button class="ab" data-r="1" aria-label="右方向舵">右</button></div>
-       <button class="btn ghost sm" id="vLevel">水平に戻す</button>`;
-     let att={heading:0,pitch:0,bank:0},sx=0,sy=0,rud=0,last=0,raf=0;
-     const pad=$('#vPad'),knob=pad.querySelector('.vk');
-     const paint=()=>{knob.style.left=`${50+sx*32}%`;knob.style.top=`${50+sy*32}%`};
-     const R=(viewer&&viewer.noseLen?viewer.noseLen():6.5)*1.4;   /* 輪の大きさ（機首までの長さの 1.4 倍） */
-     let climb=0;   /* 上下の位置（機首の上げ下げで上がり下がりする） */
-     const place=()=>{if(!viewer||!viewer.setOrbit)return;
-       /* 機体は原点を中心にした水平の円の上に置く。向き（方位）で円の上の位置が決まるので、旋回すると円をなぞって動く。
-          上下は機首の上げ下げでたまる。横転では動かない（利用者の指示 2026-09-23） */
-       const h=att.heading*Math.PI/180;
-       viewer.setOrbit(-R*Math.cos(h), R*Math.sin(h), climb)};
-     const tick=t=>{const dt=Math.min(.05,(t-last)/1000||0);last=t;
-       if(sx)att=E.applyCmd(att,{axis:'roll',deg:sx*35*dt});
-       if(sy)att=E.applyCmd(att,{axis:'pitch',deg:sy*22*dt});   /* 手前に引くと機首上げ */
-       if(rud)att=E.applyCmd(att,{axis:'yaw',deg:rud*22*dt});
-       climb=Math.max(-R,Math.min(R,climb+Math.sin(att.pitch*Math.PI/180)*R*0.35*dt));
-       place();
-       if(viewer)viewer.setAttitude(att.heading,att.pitch,att.bank);
-       renderVInst(att.heading,att.pitch,att.bank);
-       raf=requestAnimationFrame(tick)};
-     const start=()=>{if(!raf){last=performance.now();raf=requestAnimationFrame(tick)}};
-     const stop=()=>{if(raf&&!sx&&!sy&&!rud){cancelAnimationFrame(raf);raf=0}};
-     const move=e=>{const r=pad.getBoundingClientRect();
-       sx=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/(r.width/2)));
-       sy=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/(r.height/2)));paint();start()};
-     pad.addEventListener('pointerdown',e=>{pad.setPointerCapture(e.pointerId);move(e)});
-     pad.addEventListener('pointermove',e=>{if(pad.hasPointerCapture(e.pointerId))move(e)});
-     const release=()=>{sx=sy=0;paint();stop()};
-     pad.addEventListener('pointerup',release);pad.addEventListener('pointercancel',release);pad.addEventListener('lostpointercapture',release);
-     ctl.querySelectorAll('[data-r]').forEach(b=>{const on=e=>{b.setPointerCapture(e.pointerId);rud=+b.dataset.r;b.classList.add('on');start()};
-       const off=()=>{rud=0;b.classList.remove('on');stop()};
-       b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off)});
-     $('#vLevel').addEventListener('click',()=>{att={heading:0,pitch:0,bank:0};climb=0;if(viewer){viewer.setDirBank(0,0,0);place()}renderVInst(0,0,0)});
-     window.addEventListener('pointerup',()=>{if(sx||sy)release()});}
-    renderVInst(0,0);
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent=loadFailMsg('3D モデル');viewerLoading=false}
 }

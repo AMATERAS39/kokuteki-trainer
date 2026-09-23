@@ -803,13 +803,13 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode:active{transform:scale(.99)}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .mode .n,.mode .d,.mode .r{display:block}
-.mode .n{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.mode .n{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:.5rem;min-width:0}
 .mode .mring{width:3rem;display:grid;place-items:center}
 .mode .mring .ring{width:3rem;height:3rem}   /* 輪の大きさは種目名と記録の 2 行ぶん（v06.31） */
 .mode .mring .ring .rv b{font-size:.75rem}
 .mode .mring .ring .bg{stroke:var(--line2)}
-.mode .tag{display:inline-block;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1.3;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding:0 .35rem;margin-right:.45rem;vertical-align:.12em}   /* 本番の区分 A・B・C・F（v06.11） */
-.mode .tag.sub{color:var(--muted);margin:0 0 0 .45rem}
+.mode .tag{display:grid;place-items:center;width:1.375rem;height:1.375rem;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1;color:var(--accent);border:1px solid currentColor;border-radius:.375rem}   /* 本番の区分 A・B・C・F。大きさをそろえ、名前との間は行の gap だけ（v06.33） */
+.mode .tag.sub{width:auto;padding:0 .35rem;color:var(--muted)}
 .summary .sub.pace,.stmode .sub.pace{margin:.5rem 0 0;font-size:.8125rem;color:var(--muted);line-height:1.6}
 .figs .cmd{margin-top:.5rem;text-align:center;font-weight:700;font-size:1.125rem;letter-spacing:.04em;color:var(--accent)}   /* 空間認識の命令 */
 .opts .ab .inst img.live{width:100%;height:100%;object-fit:contain;display:block}
@@ -826,7 +826,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .r{font-family:var(--mono);font-size:.6875rem;color:var(--faint);margin-top:.25rem}
 .mode .go{color:var(--accent)}
 .mode .tx{display:flex;flex-direction:column;gap:.125rem;min-width:0}
-.mode .avg{font-family:var(--mono);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.mode .avg{font-family:var(--mono);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:1.875rem}   /* バッジの幅ぶん右へ寄せ、種目名と頭をそろえる */
 .mode .avg-n{display:none}
 @media (max-width:23.4rem){.mode .avg-w{display:none}.mode .avg-n{display:inline}}   /* 幅 374 px 以下では 3D の説明が 2 行に折れて 1 画面に入らないので短い言い方に（v06.05） */
 .mode.locked{opacity:.7}
@@ -1553,7 +1553,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.32';
+const APP_VER='v06.33';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3077,7 +3077,7 @@ function makeSpin(qq){
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
   el.querySelector('[data-play]').addEventListener('click',start);
-  import('./viewer.js?v=18').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  import('./viewer.js?v=19').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
   return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
 }
 function fbSimShow(){
@@ -3718,7 +3718,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=18');
+    const mod=await import('./viewer.js?v=19');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     /* 操縦桿と方向舵で機体を動かす（利用者の指示 2026-09-23）。出題と同じ機体の軸まわりの回転で、ゆっくり（横転 40°/s・機首 25°/s・旋回 25°/s）。
@@ -3730,15 +3730,19 @@ async function initAbout(){
      let att={heading:0,pitch:0,bank:0},sx=0,sy=0,rud=0,last=0,raf=0;
      const pad=$('#vPad'),knob=pad.querySelector('.vk');
      const paint=()=>{knob.style.left=`${50+sx*32}%`;knob.style.top=`${50+sy*32}%`};
-     const R=(viewer&&viewer.noseLen?viewer.noseLen():6.5)*1.6;   /* 回る輪の大きさ（機首までの長さの 1.6 倍） */
-     const orbit=()=>{if(!viewer||!viewer.setOrbit)return;
-       if(rud)viewer.setOrbit(-Math.sign(rud)*R,0,0);        /* 旋回: 中心は翼の先の側 → 水平の円をなぞる */
-       else if(sy)viewer.setOrbit(0,0,-Math.sign(sy)*R);     /* 機首の上げ下げ: 中心は上か下 → 縦の輪をなぞる */
-       else viewer.setOrbit(0,0,0)};                          /* 横転は機体の軸のまま */
-     const tick=t=>{const dt=Math.min(.05,(t-last)/1000||0);last=t;orbit();
-       if(sx)att=E.applyCmd(att,{axis:'roll',deg:sx*40*dt});
-       if(sy)att=E.applyCmd(att,{axis:'pitch',deg:-sy*25*dt});
-       if(rud)att=E.applyCmd(att,{axis:'yaw',deg:rud*25*dt});
+     const R=(viewer&&viewer.noseLen?viewer.noseLen():6.5)*1.4;   /* 輪の大きさ（機首までの長さの 1.4 倍） */
+     let climb=0;   /* 上下の位置（機首の上げ下げで上がり下がりする） */
+     const place=()=>{if(!viewer||!viewer.setOrbit)return;
+       /* 機体は原点を中心にした水平の円の上に置く。向き（方位）で円の上の位置が決まるので、旋回すると円をなぞって動く。
+          上下は機首の上げ下げでたまる。横転では動かない（利用者の指示 2026-09-23） */
+       const h=att.heading*Math.PI/180;
+       viewer.setOrbit(-R*Math.cos(h), R*Math.sin(h), climb)};
+     const tick=t=>{const dt=Math.min(.05,(t-last)/1000||0);last=t;
+       if(sx)att=E.applyCmd(att,{axis:'roll',deg:sx*35*dt});
+       if(sy)att=E.applyCmd(att,{axis:'pitch',deg:sy*22*dt});   /* 手前に引くと機首上げ */
+       if(rud)att=E.applyCmd(att,{axis:'yaw',deg:rud*22*dt});
+       climb=Math.max(-R,Math.min(R,climb+Math.sin(att.pitch*Math.PI/180)*R*0.35*dt));
+       place();
        if(viewer)viewer.setAttitude(att.heading,att.pitch,att.bank);
        renderVInst(att.heading,att.pitch,att.bank);
        raf=requestAnimationFrame(tick)};
@@ -3754,7 +3758,7 @@ async function initAbout(){
      ctl.querySelectorAll('[data-r]').forEach(b=>{const on=e=>{b.setPointerCapture(e.pointerId);rud=+b.dataset.r;b.classList.add('on');start()};
        const off=()=>{rud=0;b.classList.remove('on');stop()};
        b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off)});
-     $('#vLevel').addEventListener('click',()=>{att={heading:0,pitch:0,bank:0};if(viewer){viewer.setOrbit(0,0,0);viewer.setDirBank(0,0,0)}renderVInst(0,0,0)});
+     $('#vLevel').addEventListener('click',()=>{att={heading:0,pitch:0,bank:0};climb=0;if(viewer){viewer.setDirBank(0,0,0);place()}renderVInst(0,0,0)});
      window.addEventListener('pointerup',()=>{if(sx||sy)release()});}
     renderVInst(0,0);
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());

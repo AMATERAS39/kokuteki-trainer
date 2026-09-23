@@ -100,8 +100,8 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   gltf.scene.traverse(o => { if (o.isMesh) { if (underGear(o)) o.visible = false;
     const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
   pivot.add(gltf.scene);
-  /* 回転の中心を機体の外へ置ける（アプリ説明の「機体を動かす」。方向舵で水平の円をなぞる、機首の上げ下げで縦の輪をなぞるのを見せるため。利用者の指示 2026-09-23）。
-     機体の中の位置をずらすと、pivot の回転でその分だけ機体が中心のまわりを回る */
+  /* 機体の居場所（世界の座標）。アプリ説明の「機体を動かす」で、旋回すると水平の円をなぞって動くように使う。
+     姿勢（pivot の回転）とは別に動かすので、機体の向きは乱れない（v06.33） */
   const orbit = new THREE.Vector3(); let orbitTo = new THREE.Vector3();
   function setOrbit(x, y, z) { orbitTo.set(x || 0, y || 0, z || 0); }
   /* 機首の先（機体の座標で +y の端）。札とカメラの寄りに使う */
@@ -210,7 +210,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   let running = true, raf = 0;
   function frame(now) {
     if (!running) return;
-    if (!orbit.equals(orbitTo)) { orbit.lerp(orbitTo, 0.08); if (orbit.distanceTo(orbitTo) < 0.01) orbit.copy(orbitTo); gltf.scene.position.copy(orbit); }
+    if (!orbit.equals(orbitTo)) { orbit.lerp(orbitTo, 0.18); if (orbit.distanceTo(orbitTo) < 0.01) orbit.copy(orbitTo); pivot.position.copy(orbit); }
     if (animating) { const k = Math.min(1, (now - t0) / 450), e = k < .5 ? 2 * k * k : -1 + (4 - 2 * k) * k; pivot.quaternion.slerpQuaternions(qFrom, qTo, e); if (k >= 1) animating = false; }
     if (chartK !== chartTarget) { chartK += Math.sign(chartTarget - chartK) * Math.min(Math.abs(chartTarget - chartK), 0.06); for (const c of markerGroup.children) { c.material.opacity = (c.material.userData.base == null ? 1 : c.material.userData.base) * chartK; c.visible = chartK > 0.02; } if (bare) { marks.visible = chartK > 0.02; rose.visible = marks.visible; } }   /* 寄っているあいだは方位の札と羅針盤も消す */
     if (fly) { const k = Math.min(1, (now - fly.t0) / fly.dur), e = 1 - Math.pow(1 - k, 3); cam.position.lerpVectors(fly.from, fly.to, e); controls.target.lerpVectors(fly.look0, fly.look1, e); if (k >= 1) fly = null; }

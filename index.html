@@ -1331,7 +1331,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="card">
         <h3>羅針儀（方位指示器）</h3>
         <div class="fig2"><div class="figbox sm" id="abHI"></div>
-          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印を付ける方位は Hard では毎回変わる（N とは限らない）。Easy と Normal では N。印の文字が示す向きと、印の位置から機首の方位を読む。</li><li>N が左に見えれば機首は東、真下なら南。計器判読では、水平儀との組で答える。</li></ul></div>
+          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印の文字と位置から機首の方位を読む。Hard では印が N とは限らない。</li><li>N が左なら機首は東、真下なら南。</li></ul></div>
       </div>
       <div class="card">
         <h3>方位（上面図）</h3>
@@ -1357,11 +1357,11 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3>3D シミュレーターで操縦する</h3>
-        <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方を確かめます。機体は実機と同じ物理で動きます（重力あり。縦画面で地面に触れると開始位置に戻ります）。</div>
+        <div class="sub2">操縦桿と方向舵で飛ばし、見え方を確かめます。実機と同じ物理で、重力もあります。</div>
         <ul>
           <li>端末を横にすると視界が画面いっぱいになり、編隊・スモーク・演目のボタンが出ます。</li>
-          <li>展示飛行モード（自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。構成は「おまかせ」に任せるか、序盤・中盤・終盤・フィナーレの枠に自分で課目を置けます。課目と課目のあいだは、機体が流れたところで次の開始位置へ移ります。</li>
-          <li>音のボタンで、機体の通過音が鳴ります。近づくと高く、遠ざかると低く聞こえます。</li>
+          <li>展示飛行モード（自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。構成はおまかせか、枠ごとに自分で選べます。</li>
+          <li>音のボタンで通過音が鳴ります。</li>
           <li>設定の「演目の曲」で、<b>端末に入っているお手持ちの曲</b>を選べます。曲の頭を調べて、音が大きく立ち上がるところを見つけ、地上から演目を始めるとそこでちょうど離陸します。曲はこの端末の中だけで再生され、どこにも送りません（アプリは音楽を持っていません）。配信サービスの曲はファイルではないので使えません。スマートフォンでは「ファイル」アプリから、保存した曲のファイル（.mp3 など）を選びます。</li>
         </ul>
         <div class="prow"><button class="btn ghost" id="abSim">シミュレーターを開く</button><button class="btn ghost" id="abGallery">全操作パターンの見え方</button></div>
@@ -1409,6 +1409,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="qhead">
         <div class="qno"><b id="qno">1</b></div>
         <div class="timer" id="timer"><svg class="ic xs"><use href="#i-timer"/></svg><span id="tval">0.0</span><small id="tunit">s</small></div>
+        <button class="btn sm ghost" id="examPrev" hidden title="前の問題へ"><svg class="ic s"><use href="#i-back"/></svg><span class="sr">前の問題</span></button>
+        <button class="btn sm ghost" id="examGrade" hidden>採点</button>
         <button class="btn sm ghost" id="sessEnd" hidden>ここで終える</button>
       </div>
       <p class="prompt" id="prompt"></p>
@@ -1531,7 +1533,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.36';
+const APP_VER='v06.37';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1560,6 +1562,9 @@ async function checkKey(){
 }
 const stats=Object.assign({spatial:{n:0,c:0,t:0},heading:{n:0,c:0,t:0},attitude:{n:0,c:0,t:0},combo:{n:0,c:0,t:0},control:{n:0,c:0,t:0}},store.get('stats',{}));
 let mode='heading',q=null,qcount=0,t0=0,timerId=null,answered=false,streak=0;
+/* 試験モード（v06.37）: 出した問題と選んだ答えを覚えておき、制限時間のあいだは前に戻って選び直せる。採点は最後にまとめて */
+let examQs=[],examIdx=-1;
+const examOn=()=>!!(session&&session.total>0&&phase==='session');
 /* 立ち上がりの一度目だけは、画面の頭へ飛ばさない。
    更新したときに、更新前に見ていた場所へ戻すため（戻すのは <head> の中の仕掛け） */
 let booting=true;
@@ -1753,7 +1758,7 @@ const qLimit=()=>phase==='practice'?0:MS().qLimit;
 const totalLeft=()=>(phase==='session'&&session&&!session.ended&&session.total>0)?Math.max(0,session.total-(performance.now()-session.start)/1000):null;
 const mmss=x=>`${Math.floor(x/60)}:${String(Math.floor(x%60)).padStart(2,'0')}`;
 function showTotal(r){$('#tval').textContent=mmss(r);$('#tunit').textContent='';$('#timer').classList.toggle('warn',r<=30);$('#timer').classList.remove('stopped')}
-function examTimeUp(){if(!session||session.ended)return;clearInterval(timerId);session.ended=true;session.timeUp=true;answered=true;showSummary()}   /* 途中の 1 問は記録しない */
+function examTimeUp(){if(!session||session.ended)return;session.timeUp=true;answered=true;if(examQs.length)return examFinish();clearInterval(timerId);session.ended=true;showSummary()}
 function startTimer(){
   t0=performance.now();clearInterval(timerId);
   const tick=()=>{
@@ -1835,11 +1840,13 @@ function revealFeedback(){
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
   if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').innerHTML=ic('check')}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').innerHTML=ic('cross')}else b.classList.add('dim')})}
 function answerHeading(i){
+  if(examOn())return examPick(i);
   if(answered)return;const g=E.gradeHeading(q,i);
   mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,b=>+b.dataset.dir===i);
   finish(g,false,i);
 }
 function answerOpts(i){
+  if(examOn())return examPick(i);
   if(answered)return;const g=q.type==='control'?E.gradeControl(q,i):q.type==='spatial'?E.gradeSpatial(q,i):q.type==='heading'?E.gradeHeading(q,i):E.gradeOpts(q,i);
   mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,b=>+b.dataset.i===i);
   finish(g,false,i);
@@ -1852,12 +1859,52 @@ $('#fbSkipRow').addEventListener('click',e=>{
   store.set('hideIntro',hideIntro);
   const chk=$('#fbSkipChk');chk.classList.toggle('on',on);chk.setAttribute('aria-checked',on);
 });
+/* ===== 試験モード（v06.37、利用者の指示 2026-09-23）: 制限時間のあいだは前の問題に戻って選び直せる。
+   正誤はその場で出さず、採点を押すか時間が切れたときにまとめて数える。配点は分からないので正答率で示す ===== */
+function showExamQ(){
+  const it=examQs[examIdx];q=it.q;render();
+  $('#qno').textContent=`${examIdx+1}${qMax()>0?' / '+qMax():''}`;
+  $('#examPrev').hidden=examIdx<=0;
+  if(it.picked!=null)markExamPick(it.picked);
+  toTop();
+}
+function markExamPick(i){
+  const sel=q.type==='heading'&&!q.match?$('#figs').querySelectorAll('[data-dir]'):$('#answers').querySelectorAll('[data-i]');
+  sel.forEach(b=>{const v=+(b.dataset.i!=null?b.dataset.i:b.dataset.dir);b.classList.toggle('sel',v===i)});
+}
+function examPick(i){
+  const it=examQs[examIdx];if(!it)return;
+  it.picked=i;markExamPick(i);
+  setTimeout(()=>{if(examOn()&&examQs[examIdx]===it)next()},260);   /* 選んだら次へ。戻れば選び直せる */
+}
+function examFinish(){
+  if(!session||session.ended)return;
+  clearInterval(timerId);session.ended=true;
+  const el=(performance.now()-session.start)/1000;
+  let n=0,c=0;
+  for(const it of examQs){
+    if(it.picked==null)continue;
+    const qq=it.q,i=it.picked;
+    const g=qq.type==='control'?E.gradeControl(qq,i):qq.type==='spatial'?E.gradeSpatial(qq,i):qq.type==='heading'?E.gradeHeading(qq,i):E.gradeOpts(qq,i);
+    n++;if(g.ok)c++;
+    const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=el/Math.max(1,examQs.length);
+    wlog(mode,qCats(qq),g.ok,el/Math.max(1,examQs.length));
+    if(!g.ok)wlog(mode,errCats(qq,i),false,el/Math.max(1,examQs.length));
+  }
+  store.set('stats',stats);renderStats();
+  /* 母数は出した問題すべて（答えなかった問題は誤りとして数える。本番と同じ考え方） */
+  session.n=examQs.length;session.c=c;session.t=el;
+  showSummary();
+}
 function next(){
   if(phase==='practice'&&practiceLeft===0){
     if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}   // 説明から入った練習は計測に進まない
     startMeasured();return}
   if(session&&session.ended){showSummary();return}
   if(phase!=='practice'&&!session)return;   // 計測を離れたあとに残ったタイマーから呼ばれても、出題しない
+  if(examOn()){
+    if(examIdx+1>=examQs.length){if(qMax()>0&&examQs.length>=qMax()){examFinish();return}examQs.push({q:takeQ(),picked:null})}
+    examIdx++;showExamQ();return}
   q=takeQ();render();toTop();
 }
 
@@ -1975,7 +2022,8 @@ function startPractice(){
 function startMeasured(){
   setBack(null);
   markPlayed();setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
-  session={n:0,c:0,t:0,start:performance.now(),ended:false,total:isExamSet()?E.EXAM_PACE[mode].min*60:0};nextQ=null;   /* 試験モードだけ全体の制限時間（本番の時間） */
+  session={n:0,c:0,t:0,start:performance.now(),ended:false,total:isExamSet()?E.EXAM_PACE[mode].min*60:0};nextQ=null;examQs=[];examIdx=-1;
+  $('#examGrade').hidden=!(session.total>0);$('#examPrev').hidden=true;   /* 試験モードだけ全体の制限時間（本番の時間） */
   /* 出題数「制限なし」では結果画面に至る道が無いので、そのときだけ「ここで終える」を出す（総点検 2026-09-13） */
   $('#sessEnd').hidden=!(qMax()<=0);
   renderStats();next();
@@ -3190,6 +3238,8 @@ const KBD={spatial:'1〜4 で選択、Enter で次へ',heading:'札の数字 1�
 
 $('#next').addEventListener('click',next);
 $('#reset').addEventListener('click',()=>{if(!confirm(`${E.MODES[mode]} の記録を消しますか？`))return;stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
+$('#examPrev').addEventListener('click',()=>{if(!examOn()||examIdx<=0)return;examIdx--;showExamQ()});
+$('#examGrade').addEventListener('click',()=>{if(!examOn())return;if(!confirm('ここまでの解答を採点しますか？'))return;examFinish()});
 $('#sessEnd').addEventListener('click',()=>{if(!session||session.ended||!confirm('ここで計測を終えて結果を見ますか？'))return;session.ended=true;showSummary()});
 document.addEventListener('keydown',e=>{
   if(document.body.dataset.view!=='train'||$('#quiz').hidden)return;
@@ -3693,11 +3743,10 @@ async function initAbout(){
     const mod=await import('./viewer.js?v=21');
     viewer=await mod.mount(host,{free:true,onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
-    {/* タイヤとライトの入り切り（体験版は鍵。シミュレーターと同じ扱い） */
-     const tog=(id,fn,msg)=>{const b=$('#'+id);if(!b)return;if(!isFull()){b.classList.add('lockb');b.addEventListener('click',()=>toast(msg));return}
-       let on=false;b.addEventListener('click',()=>{on=!on;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on));fn(on)})};
-     tog('vGear',v=>viewer.setGear(v),'タイヤの出し入れは完全版で使えます');
-     tog('vLight',v=>viewer.setLights(v),'ライトは完全版で使えます');}
+    {/* タイヤとライトの入り切り（アプリ説明は鍵なし。利用者の指示 2026-09-23） */
+     const tog=(id,fn)=>{const b=$('#'+id);if(!b)return;let on=false;
+       b.addEventListener('click',()=>{on=!on;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on));fn(on)})};
+     tog('vGear',v=>viewer.setGear(v));tog('vLight',v=>viewer.setLights(v));}
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent=loadFailMsg('3D モデル');viewerLoading=false}
 }

@@ -1365,8 +1365,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <div class="sub2">操縦桿と方向舵を自分で動かし、外の見え方を確かめます。機体は実機と同じ物理で動きます（重力あり。縦画面で地面に触れると開始位置に戻ります）。</div>
         <ul>
           <li>端末を横にすると視界が画面いっぱいになり、編隊・スモーク・演目のボタンが出ます。</li>
+          <li>展示飛行モード（自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。構成は「おまかせ」に任せるか、序盤・中盤・終盤・フィナーレの枠に自分で課目を置けます。課目と課目のあいだは、機体が流れたところで次の開始位置へ移ります。</li>
           <li>音のボタンで、機体の通過音が鳴ります。近づくと高く、遠ざかると低く聞こえます。</li>
-          <li>設定の「演目の曲」で、<b>端末に入っているお手持ちの曲</b>を選べます。曲の頭を調べて、音が大きく立ち上がるところを見つけ、地上から演目を始めるとそこでちょうど離陸します。曲はこの端末の中だけで再生され、どこにも送りません（アプリは音楽を持っていません）。</li>
+          <li>設定の「演目の曲」で、<b>端末に入っているお手持ちの曲</b>を選べます。曲の頭を調べて、音が大きく立ち上がるところを見つけ、地上から演目を始めるとそこでちょうど離陸します。曲はこの端末の中だけで再生され、どこにも送りません（アプリは音楽を持っていません）。配信サービスの曲はファイルではないので使えません。スマートフォンでは「ファイル」アプリから、保存した曲のファイル（.mp3 など）を選びます。</li>
         </ul>
         <div class="prow"><button class="btn ghost" id="abSim">シミュレーターを開く</button><button class="btn ghost" id="abGallery">全操作パターンの見え方</button></div>
       </div>
@@ -1535,7 +1536,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.29';
+const APP_VER='v06.30';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3093,7 +3094,7 @@ function showSetHTML(){
       ${sel('showLen','全体の長さ',[[238,'短め（曲 1 周・約 4 分）'],[463,'標準（曲 2 周・約 7 分 43 秒）'],[688,'長め（曲 3 周・約 11 分 30 秒）']],v=>+v!==238)}
       ${sel('showProg','構成',[['auto','おまかせ（長さに合わせて組む）'],['custom','自分で選ぶ']])}
       <div id="progSlots" hidden></div>
-      <div class="sethelp">展示飛行モード（シミュレーターで自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。体験版でも見られます（長さは「短め」だけ）。「おまかせ」は、長さに合わせて 序盤 → 中盤 → 終盤 → フィナーレ を毎回組み直します。「自分で選ぶ」は、並べた課目をその順に行います（開始位置はそのとき機体がいる方角から最も近い正面を選ぶので、回り込みが短くなります）。課目と課目のあいだは、見えない距離まで離れたところで次の開始位置へ位置を移します（そのときは地上の視点に戻します）。</div>
+      <div class="sethelp">離陸から着陸までをひと続きで行います。体験版は「短め」だけです。構成は「おまかせ」か「自分で選ぶ」から。</div>
     </div>
     <div class="setgroup"><h4>演目の曲${isFull()?'':'（完全版）'}</h4>
       ${isFull()?`<div id="musList" class="muslist"></div>
@@ -3101,12 +3102,12 @@ function showSetHTML(){
       <input type="file" id="musFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.aiff,.ogg" multiple hidden>
 `
       :`<div class="sethelp">お手持ちの曲を展示飛行モードに合わせて流す機能は、完全版で使えます。</div>`}
-      <div class="sethelp">お手持ちの曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上入れると、順に流して最後まで行ったら最初へ戻ります（1 曲だけなら、その曲を繰り返します）。曲の頭を調べて、音が大きく立ち上がるところでちょうど離陸します。曲はこの端末の中だけに残り、どこにも送りません（アプリは音楽を持っていません）。定額聴き放題の曲はファイルにできないため使えません。スマートフォンでは「ファイル」アプリから、買った曲のファイル（.mp3 など）を選んでください。</div>
+      <div class="sethelp">端末に入っている曲を選ぶと、地上から演目を始めたときに流れます。2 曲以上なら順に流します。</div>
     </div>
     <div class="setgroup"><h4>音</h4>
       <label class="setting"><span>飛行音の大きさ</span><span class="musbtns"><input type="range" id="setVolAir" min="0" max="100" step="5"><b id="setVolAirN" class="voln">90</b></span></label>
       <label class="setting"><span>曲の大きさ</span><span class="musbtns"><input type="range" id="setVolMus" min="0" max="100" step="5"><b id="setVolMusN" class="voln">55</b></span></label>
-      <div class="sethelp">全体の大きさは端末の音量ボタンで決めます。ここでは飛行音と曲のつり合いを決めます。シミュレーターの音アイコンは、飛行音と曲の入り切りだけです。</div>
+      <div class="sethelp">ここで決めるのは飛行音と曲のつり合いです。全体の大きさは端末の音量ボタンで。</div>
     </div>
 </div>`;
 }

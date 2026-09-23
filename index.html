@@ -675,6 +675,8 @@ ul.tips li{margin:.125rem 0}
 .setting{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-top:.375rem;font-size:.8125rem;min-height:2.75rem}
 .setting>span,.chkrow{display:flex;align-items:center;gap:.5rem}
 .mstat{display:inline-flex;align-items:center;gap:.25rem;margin-right:.625rem;white-space:nowrap}
+.rstat{display:flex;flex-wrap:wrap;gap:0 .25rem;justify-content:flex-end}
+.rstat .mstat{margin-right:0}
 .mstat.dim{opacity:.55}
 .setting>span .ic,.chkrow .ic.xs{color:var(--muted);flex:0 0 auto}
 .setting:first-of-type{margin-top:.625rem}
@@ -706,7 +708,9 @@ ul.tips li{margin:.125rem 0}
 /* 記録のページ（v05.71）: 出題の形に合わせた絵と、開いたときの演出 */
 .stmode{margin-top:.25rem}
 .sthead{display:flex;align-items:center;gap:1rem;margin-top:.5rem}
-.stnum{display:grid;gap:.15rem;font-size:.8125rem;color:var(--muted)}.stnum b{font-family:var(--mono);font-size:1rem;color:var(--text)}
+.stnum{display:grid;gap:.15rem;font-size:.8125rem;color:var(--muted)}
+.stnum>div{display:flex;align-items:center;gap:.375rem}
+.stnum .ic{color:var(--muted)}.stnum b{font-family:var(--mono);font-size:1rem;color:var(--text)}
 .ring{display:inline-grid;place-items:center;width:4.25rem;height:4.25rem;position:relative}
 .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
 .ring .bg{fill:none;stroke:var(--panel2);stroke-width:5}.ring .fg{fill:none;stroke-width:5;stroke-linecap:round;animation:ringin 1.1s cubic-bezier(.2,.7,.2,1) both}
@@ -1530,7 +1534,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.27';
+const APP_VER='v06.28';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3074,7 +3078,7 @@ function fbSimShow(){
 
 /* ===== 記録・設定 ===== */
 function renderStats(){
-  $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span>${s.n}問 / ${s.n?Math.round(s.c/s.n*100)+'%':'—'} / ${s.n?(s.t/s.n).toFixed(1):'—'} s</span>`}).join('');
+  $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span class="rstat">${s.n?`<span class="mstat">${ic('cards','xs')}${s.n}</span><span class="mstat">${ic('check','xs')}${Math.round(s.c/s.n*100)}%</span><span class="mstat">${ic('timer1','xs')}${(s.t/s.n).toFixed(1)} s</span>`:'<span class="mstat dim">—</span>'}</span>`}).join('');
 }
 /* 展示飛行モード・演目の曲・音の設定。メニューの設定と、シミュレーターの設定画面の両方に出す
    （利用者の指示 2026-09-11）。同じ id が 2 か所に出ないよう、出すときに反対側の写しを消す */
@@ -3448,7 +3452,7 @@ function renderStatsPage(){
   for(const m of Object.keys(E.MODES)){
     const st=stats[m]||{n:0,c:0,t:0},HL=hist.filter(x=>x.m===m),L=HL.slice(0,12).reverse();
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
-      <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div><b>${st.n}</b> 問</div><div><b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> 秒 / 問</div><div><b>${HL.length}</b> 回の計測</div></div></div>
+      <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div title="解いた数">${ic('cards','xs')}<b>${st.n}</b></div><div title="1 問あたりの平均解答時間">${ic('timer1','xs')}<b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> s</div><div title="計測した回数">${ic('flag','xs')}<b>${HL.length}</b></div></div></div>
       ${st.n?`<div class="sub pace">${paceText(m,st.t/st.n)}（全難易度の平均から）</div>`:''}
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
       ${weakHTML(m)}

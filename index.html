@@ -1320,7 +1320,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3><span class="atag">A</span>空間認識</h3>
-        <div class="sub2">初期状態から命令に従ったあとの様子を選びます。自分がコックピットに乗ったつもりで選んでください。</div>
+        <div class="sub2">初期状態の絵と命令を見て、命令に従ったあとの様子を 4 枚の絵から選びます。自分がコックピットに乗ったつもりで選んでください。</div>
         <ul class="abList"><li><b>旋回</b>は方向舵です。機首が両翼と平行に左右へ動きます。</li><li><b>横転</b>は操縦桿の左右です。機首の軸まわりに回ります。90° で真横、180° で背面になります。</li><li><b>機首の上げ下げ</b>は操縦桿の前後です。翼の軸まわりに回ります。傾いていれば、機首は斜めに動きます。</li></ul>
         <h4>見方の約束</h4>
         <div class="fig2"><div class="figbox" id="abView"></div>
@@ -1328,6 +1328,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3><span class="atag">B</span>計器判読</h3>
+        <div class="sub2">Hard までは、機体の絵に合う計器（水平儀と羅針儀）を選びます。Max は逆に、計器に合う機体の絵を選びます。絵の見方は A と同じです。</div>
         <h4>水平儀（姿勢指示器）</h4>
         <div class="exrow" id="abAtt"></div>
         <ul><li>機体の側が固定で、水平線の側が動きます。</li><li>機首を上げると水平線が下がり、空が広がります。下げると地面が広がります。</li><li>右バンクでは、機首の向きに対して右の翼が下がり、水平線は右上がりになります。機首がこちらを向くと、左右が逆に見えます。</li></ul>
@@ -1337,12 +1338,15 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3><span class="atag">C</span>操縦操作</h3>
-        <div class="sub2">水平飛行から 2 秒その操作をした視界です。○ が目印、破線が元の水平線です。</div>
+        <div class="sub2">①→②→③ は、コックピットから見た景色の移り変わりです。この変化から、行われた操作を選びます。</div>
+        <h4>操作ごとの見え方</h4>
+        <div class="sub2">水平飛行からその操作をしたときの視界です。○ が目印、破線が元の水平線です。</div>
         <div class="oprow" id="abOps"></div>
         <ul><li>傾いていると、目印が少しずつ横へ流れます。</li><li>機首を下げると、地面の畑・湖・道・集落で動きが読めます。</li><li>2 つの操作は、同時でも順番でも答えは同じです。</li></ul>
       </div>
       <div class="card">
         <h3><span class="atag">F</span>方位判読</h3>
+        <div class="sub2">Hard までは、上面図の機体が向いている方位を 8 方位から選びます。Max は、上面図と同じ方角を向いた機体を、印の向きがそれぞれ違う 4 枚の上面図から選びます。</div>
         <div class="fig2"><div class="figbox sm" id="abTop"></div>
           <ul><li>印から北を決め、時計回りに 45° ずつ数えます。</li></ul></div>
       </div>

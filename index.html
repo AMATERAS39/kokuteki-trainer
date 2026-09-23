@@ -670,6 +670,8 @@ ul.tips li{margin:.125rem 0}
 
 /* 設定・メモ・記録 */
 .setting{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-top:.375rem;font-size:.8125rem;min-height:2.75rem}
+.setting>span,.chkrow{display:flex;align-items:center;gap:.5rem}
+.setting>span .ic,.chkrow .ic.xs{color:var(--muted);flex:0 0 auto}
 .setting:first-of-type{margin-top:.625rem}
 .setting>span{color:var(--muted)}
 .setting select{font:inherit;font-size:.8125rem;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:.5rem;padding:.375rem .75rem;min-height:2.75rem}
@@ -1242,6 +1244,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="m12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81zM12 3L2 12h3v8h6v-6h2v6h6v-8h3"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+<symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20v-4"/><path d="M10 20v-8"/><path d="M16 20v-12"/><path d="M22 20V4"/></symbol>
+<symbol id="i-talk" viewBox="0 0 24 24"><path d="M20 4H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v4l5-4h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h11l-2 3.5L16 11H5z"/></symbol>
 <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></symbol>
 <symbol id="i-cross" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/></symbol>
@@ -1515,7 +1520,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.23';
+const APP_VER='v06.24';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1901,9 +1906,11 @@ function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
   /* 体験版で選べないものは、消さずに灰色で見せる（何が完全版で増えるのかが分かるように） */
-  const sel=(key,label,opts,lock)=>`<label class="setting"><span>${label}</span><select data-key="${key}">${opts.map(([v,t])=>{const off=!isFull()&&lock&&lock(v);
+  const SET_IC={level:'bars',qCount:'cards',qLimit:'timer'};   /* 設定の行の記号（札は残す。初めて見る画面なので絵だけにはしない。利用者の指示 2026-09-23） */
+  const sel=(key,label,opts,lock)=>`<label class="setting"><span>${SET_IC[key]?ic(SET_IC[key],'xs'):''}${label}</span><select data-key="${key}">${opts.map(([v,t])=>{const off=!isFull()&&lock&&lock(v);
     return `<option value="${v}"${String(ms[key])===String(v)?' selected':''}${off?' disabled':''}>${t}${off?'（完全版）':''}</option>`}).join('')}</select></label>`;
-  const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${label}</label>`;
+  const SW_IC={skipChk:'talk',introChk:'flag'};
+  const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${SW_IC[id]?ic(SW_IC[id],'xs'):''}${label}</label>`;
   if(mode==='spatial'||mode==='combo')ensureShooter().catch(()=>{});   /* その場で描く絵の準備（最初の 1 問で待たせない） */
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
     ${(()=>{const P=E.EXAM_PACE[mode];if(!P)return '';const on=isExamSet();   /* 試験モード（v06.21）: 本番と同じ条件をまとめて入れる。体験版は鍵 */
@@ -1915,7 +1922,7 @@ function showSetup(){
       /* 体験版の上限（5 問など）が並びに無いと、選ばれている値の option が無く、灰色の「10 問（完全版）」が見えていた。上限の選択肢を先頭に足す */
       if(!isFull()&&!o.some(([v])=>v===qCap()))o.unshift([qCap(),`${qCap()} 問`]);return o})(),v=>+v===0||+v>qCap())}
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
-    ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
+    ${sel('qLimit','1 問',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
     ${sw('skipChk',!ms.skipExplain,'解説')}
     ${sw('introChk',!hideIntro[mode],'説明・練習')}
     <div class="acts"><button class="btn" id="setupGo">${goLabel()}${ic('next','s')}</button></div>
@@ -1974,7 +1981,7 @@ function showSummary(){
   const tot=s.total||0,used=s.start?Math.min(tot||1e9,(performance.now()-s.start)/1000):0,totText=tot%60?mmss(tot):`${Math.round(tot/60)} 分`;
   sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${s.timeUp?`${totText}の時間切れ（${s.n} 問）`:qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${tot>0?`<div class="sub">全体の制限時間 ${totText}のうち ${mmss(used)} を使いました。</div>`:''}${MS().level==='max'&&s.n?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
     <div class="grid"><div class="cell" title="出題"><div class="v">${s.n}</div><div class="l">${ic('cards','xs')}<span class="sr">出題</span></div></div><div class="cell" title="正解"><div class="v">${s.c}</div><div class="l">${ic('check','xs')}<span class="sr">正解</span></div></div><div class="cell" title="正答率"><div class="v">${acc}</div><div class="l"><span class="sr">正答率</span></div></div><div class="cell" title="平均解答時間"><div class="v">${avg}</div><div class="l">${ic('timer','xs')}<span class="sr">平均解答時間</span></div></div></div>
-    <div class="acts"><button class="btn" id="again" title="もう一度">${ic('reset','s')}<span class="sr">もう一度</span></button><button class="btn ghost" id="toHome" title="ホームへ">${ic('home','s')}<span class="sr">ホームへ</span></button></div>`;
+    <div class="acts"><button class="btn" id="again" title="もう一度">${ic('play','s')}<span class="sr">もう一度</span></button><button class="btn ghost" id="toHome" title="ホームへ">${ic('home','s')}<span class="sr">ホームへ</span></button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());
   $('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});
   sendRec();

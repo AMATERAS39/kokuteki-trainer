@@ -1513,7 +1513,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.21';
+const APP_VER='v06.22';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3243,8 +3243,9 @@ function reviewCardHTML(){return `<div class="demo review"><span>もしよけれ
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
-  $('#modeCards').innerHTML=Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
-    +(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)
+  /* 体験版では「完全版で使えます」を先頭に出す（利用者の指示 2026-09-23） */
+  $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
+    
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};
     pn.closest('.ask').querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>ans('yes',b.dataset.plan)));pn.addEventListener('click',()=>ans('no'))}
@@ -3828,12 +3829,13 @@ $('#updBtn').addEventListener('click',async()=>{
 });
 const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 let deferredPrompt=null;const dismissed=store.get('installDismissed',false);
+const installOK=()=>isFull();   /* 「ホーム画面に追加」の案内は完全版（鍵を入れたブラウザ）だけ。体験版では出さない（利用者の指示 2026-09-23） */
 /* アプリ版（Capacitor）では出さない。WKWebView は standalone にならないので、購入者に「ホーム画面に追加」の案内が出ていた（総点検 2026-09-13） */
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(!standalone&&!dismissed&&!NATIVE){$('#installText').textContent='アプリとしてインストールできます。';$('#installOs').textContent='Android';$('#installClose').style.display='none';$('#install').classList.add('show')}});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(!standalone&&!dismissed&&!NATIVE&&installOK()){$('#installText').textContent='アプリとしてインストールできます。';$('#installOs').textContent='Android';$('#installClose').style.display='none';$('#install').classList.add('show')}});
 $('#installBtn').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('#install').classList.remove('show')});
 $('#installClose').addEventListener('click',()=>{$('#install').classList.remove('show');store.set('installDismissed',true)});
 const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
-if(isIOS&&!standalone&&!dismissed&&!NATIVE){$('#installText').textContent='Safari の共有メニューから「ホーム画面に追加」でアプリとして使えます。';$('#installOs').textContent='iOS';$('#installBtn').style.display='none';$('#install').classList.add('show')}
+if(isIOS&&!standalone&&!dismissed&&!NATIVE&&installOK()){$('#installText').textContent='Safari の共有メニューから「ホーム画面に追加」でアプリとして使えます。';$('#installOs').textContent='iOS';$('#installBtn').style.display='none';$('#install').classList.add('show')}
 })();
 </script>
 </body>

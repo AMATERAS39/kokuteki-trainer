@@ -1345,7 +1345,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       </div>
       <div class="card">
         <h3>練習する</h3>
-        <div class="sub2">どの種目も、制限時間なし・解説つきの練習 3 問があります。この画面から入った練習は、終わるとこの説明に戻ります。種目の画面から入ると計測に進みます（設定で練習を飛ばすこともできます）。</div>
+        <div class="sub2">どの種目も、制限時間なしで解説つきの練習が 3 問あります。設定で飛ばせます。</div>
         <div class="prow" id="abPractice"></div>
       </div>
       <div class="card wide">
@@ -1535,7 +1535,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.28';
+const APP_VER='v06.29';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1942,7 +1942,7 @@ function showSetup(){
     ${sw('introChk',!hideIntro[mode],'説明・練習')}
     <div class="acts"><button class="btn" id="setupGo">${goLabel()}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupGal">全操作パターンの見え方を見る</button></div>
-    <div class="sethelp">シミュレーターは操縦桿と方向舵を自分で動かして見え方を確かめます（実機と同じ物理、重力あり）。見え方の一覧は操作ごとの①②③です。どちらも出題ではありません。</div>`}`;
+    <div class="sethelp">どちらも出題ではありません。シミュレーターは自分で飛ばして確かめる画面、一覧は操作ごとの①②③です。</div>`}`;
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
     if(el.dataset.key==='level'&&mode==='heading'){if(v==='max'&&before.level!=='max'&&before.qLimit===5)setMS('qLimit',20);else if(v!=='max'&&before.level==='max'&&before.qLimit===20)setMS('qLimit',5)}   /* 方位判読の Max（同じ方角の機体を選ぶ）は既定 1 問 20 秒（利用者の指示 2026-09-22） */
     if(el.dataset.key==='level')showSetup()}));
@@ -3172,10 +3172,10 @@ function renderSettingsPage(){
     <div class="setgroup"><h4>記録</h4>
       ${Object.keys(E.MODES).map(m=>{const s=stats[m]||{n:0,c:0,t:0};return `<div class="setting"><span>${E.MODES[m]}</span><span>${s.n?`${s.n} 問・正答率 ${Math.round(s.c/s.n*100)}%・平均 ${(s.t/s.n).toFixed(1)} 秒`:'記録なし'}</span></div>`}).join('')}
       ${Object.keys(E.MODES).some(m=>stats[m]&&stats[m].n>0)?'<div class="setting"><span class="musbtns"><button class="btn sm ghost" id="rstAll">記録を削除</button></span></div>':''}
-      <div class="sethelp">種目ごとの出題数・正答率・平均解答時間。この端末の中だけに保存されます。</div></div>
+      <div class="sethelp">この端末の中だけに保存されます。</div></div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
       <div class="sethelp">${NATIVE?'新しい版は App Store / Google Play が配ります。アプリの中では新しい版の確認をしません。':'ヘッダーの更新ボタンで最新版を確認できます（赤い点は新しい版の印）。'}</div></div>
-    <div class="sethelp">出題数・制限時間・解説の有無は、種目を選んだあとの「計測条件」で決めます。</div>`;
+    `;
   wireShowSet($('#settingsPage'));
   /* 記録の削除は種目ごとではなく 1 つのボタンで全種目（利用者の指示 2026-09-15） */
   const rstAll=$('#rstAll');if(rstAll)rstAll.addEventListener('click',()=>{if(!confirm('すべての種目の記録を消しますか？'))return;Object.keys(E.MODES).forEach(m=>{stats[m]={n:0,c:0,t:0}});store.set('stats',stats);hist=[];weak={};store.set('hist',hist);store.set('weak',weak);renderSettingsPage()});

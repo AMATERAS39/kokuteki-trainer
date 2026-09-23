@@ -884,6 +884,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .about .card+.card{margin-top:.75rem}
 .about h3{margin-bottom:.375rem}
 .about .sub2{font-size:.75rem;color:var(--muted);margin:.25rem 0 .5rem}
+.about h4{margin:1rem 0 .25rem;font-size:.75rem;font-weight:700}   /* 種目のカードの中の小見出し（B の水平儀・羅針儀など） */
+.atag{display:grid;place-items:center;width:1.375rem;height:1.375rem;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding-bottom:.14em}   /* ホームの種目バッジと同じ形。アプリ説明は A・B・C・F の順（利用者の指示 2026-09-23） */
 .fig2{display:grid;grid-template-columns:40% 1fr;gap:.75rem;align-items:center;margin-top:.5rem}
 .fig2 ul{margin:0}
 .figbox{width:100%}
@@ -1310,43 +1312,43 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="card">
         <h3>アプリの説明</h3>
         <ul>
-          <li>航空学生の適性検査（空間認識・計器判読・操縦操作・方位判読）を反復練習するアプリ。</li>
+          <li>航空学生の適性検査（空間認識・計器判読・操縦操作・方位判読）を反復練習するアプリです。</li>
           <li id="edLine"></li>
-          <li id="netLine">解答時間と正答率は端末内に記録。ホーム画面に追加するとアプリとして起動し、オフラインでも動く。</li>
-          <li>機体の 3D モデル: 航空自衛隊アクロバットチーム T-4ブルーインパルス（3Dえいじくん 様）。<a class="credit-link" href="https://eiji-mappa.booth.pm/items/3328542" target="_blank" rel="noopener">BOOTH で販売中</a>。</li>
+          <li id="netLine">解答時間と正答率は端末の中に記録します。ホーム画面に追加すると、アプリとして開き、通信がなくても動きます。</li>
+          <li>機体の 3D モデルは「航空自衛隊アクロバットチーム T-4ブルーインパルス」（3Dえいじくん 様）です。BOOTH で販売されています。</li>
         </ul>
       </div>
       <div class="card">
-        <h3>空間認識の命令</h3>
-        <ul class="abList"><li><b>旋回</b>（右・左）＝方向舵: 機体の上下軸まわりに回る。機首が下がっていれば、下がったまま機体の水平面の中で振れる。</li><li><b>横転</b>（右・左）＝操縦桿の左右: 機首の軸まわりに回る。90° で翼が立ち、180° で背面。</li><li><b>機首上げ・下げ</b>＝操縦桿の前後: 翼の軸まわりに回る。傾いていれば機首は斜めに動く。</li><li>初期状態の絵と命令から、命令のあとの見え方を選ぶ。右・左・上げ・下げはすべて機体にとっての向き。</li></ul>
-        <h3>見方の約束</h3>
+        <h3><span class="atag">A</span>空間認識</h3>
+        <div class="sub2">初期状態から命令に従ったあとの様子を選びます。自分がコックピットに乗ったつもりで選んでください。</div>
+        <ul class="abList"><li><b>旋回</b>は方向舵です。機首が両翼と平行に左右へ動きます。</li><li><b>横転</b>は操縦桿の左右です。機首の軸まわりに回ります。90° で真横、180° で背面になります。</li><li><b>機首の上げ下げ</b>は操縦桿の前後です。翼の軸まわりに回ります。傾いていれば、機首は斜めに動きます。</li></ul>
+        <h4>見方の約束</h4>
         <div class="fig2"><div class="figbox" id="abView"></div>
-          <ul><li>視点は<b>南</b>に固定。画面の奥が北、右が東、上が上。</li><li>標準状態は機首が北、機体上部が上。</li><li>斜めは水平面で 45°、上下に 30°。</li></ul></div>
+          <ul><li>視点は南に固定です。画面の奥が北、右が東、上が上です。</li><li>標準の状態は、機首が北、機体の上が上です。</li></ul></div>
       </div>
       <div class="card">
-        <h3>水平儀（姿勢指示器）の読み方</h3>
+        <h3><span class="atag">B</span>計器判読</h3>
+        <h4>水平儀（姿勢指示器）</h4>
         <div class="exrow" id="abAtt"></div>
-        <ul><li>機体側が固定で、水平線側が動く。</li><li>機首上げ: 水平線が下がり空が広がる。機首下げ: 地面が広がる。</li><li>右バンク: 機首の向きに対して右翼が下がる。水平線は右上がり。機首がこちらを向くと左右が逆に見える。</li></ul>
-      </div>
-      <div class="card">
-        <h3>羅針儀（方位指示器）</h3>
+        <ul><li>機体の側が固定で、水平線の側が動きます。</li><li>機首を上げると水平線が下がり、空が広がります。下げると地面が広がります。</li><li>右バンクでは、機首の向きに対して右の翼が下がり、水平線は右上がりになります。機首がこちらを向くと、左右が逆に見えます。</li></ul>
+        <h4>羅針儀（方位指示器）</h4>
         <div class="fig2"><div class="figbox sm" id="abHI"></div>
-          <ul><li>機首は常に上。印は 1 つだけで、上面図の N マークと同じ読み方。</li><li>印の文字と位置から機首の方位を読む。Hard では印が N とは限らない。</li><li>N が左なら機首は東、真下なら南。</li></ul></div>
+          <ul><li>機首は常に上で、印は 1 つだけです。</li><li>印の文字と位置から、機首の方位を読みます。</li><li>N が左なら機首は東、真下なら南です。</li></ul></div>
       </div>
       <div class="card">
-        <h3>方位（上面図）</h3>
-        <div class="fig2"><div class="figbox sm" id="abTop"></div>
-          <ul><li>印から北を決め、時計回りに 45° ずつ数える。Hard では印が N とは限らない。</li><li>印の向きは Normal 以上で毎回変わる（Easy は N が上）。</li></ul></div>
-      </div>
-      <div class="card">
-        <h3>操縦操作と見え方</h3>
-        <div class="sub2">水平飛行から 2 秒その操作をした視界。○ が目印、破線が元の水平線。</div>
+        <h3><span class="atag">C</span>操縦操作</h3>
+        <div class="sub2">水平飛行から 2 秒その操作をした視界です。○ が目印、破線が元の水平線です。</div>
         <div class="oprow" id="abOps"></div>
-        <ul><li>絵は実機と同じ物理で飛ばした景色（速さ 200 m/s、写真の間隔 2 秒）。</li><li>傾いていると、目印が少しずつ横へ流れる。</li><li>機首を下げると地面の畑・湖・道・集落で動きを読む。</li><li>2 つの操作は同時でも順番でも答えは同じ。</li><li>①の姿勢は、Hard までは水平か、傾きだけか、機首の上下だけ。Max では傾きと上下が重なった姿勢も出る。</li></ul>
+        <ul><li>傾いていると、目印が少しずつ横へ流れます。</li><li>機首を下げると、地面の畑・湖・道・集落で動きが読めます。</li><li>2 つの操作は、同時でも順番でも答えは同じです。</li></ul>
+      </div>
+      <div class="card">
+        <h3><span class="atag">F</span>方位判読</h3>
+        <div class="fig2"><div class="figbox sm" id="abTop"></div>
+          <ul><li>印から北を決め、時計回りに 45° ずつ数えます。</li></ul></div>
       </div>
       <div class="card">
         <h3>練習する</h3>
-        <div class="sub2">どの種目も、制限時間なしで解説つきの練習が 3 問あります。設定で飛ばせます。</div>
+        <div class="sub2">どの種目も、計測の前に、制限時間なしで解説つきの練習があります。設定の「説明・練習」を外すと、練習なしで始まります。</div>
         <div class="prow" id="abPractice"></div>
       </div>
       <div class="card wide">
@@ -1533,7 +1535,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.37';
+const APP_VER='v06.38';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1959,7 +1961,7 @@ const LEVEL_HELP={   /* 難易度の説明。1 行で、初見の人が分かる
   heading:{easy:'東西南北だけ。N は上。',normal:'東西南北だけ。N の向きが変わる。',hard:'8 方位。印は N 以外もある。',max:'本番形式。同じ方角を向いた機体を 4 枚から選ぶ。'},
   attitude:{easy:'機首は北・真上・真下だけ。',normal:'機首は全方向。翼は水平。',hard:'機首は全方向。翼も傾く。'},
   combo:{easy:'東西南北だけ。印は N。水平飛行。',normal:'東西南北だけ。印は N。翼が傾く。',hard:'8 方位と上下。印は N 以外もある。',max:'本番形式。水平儀と羅針儀から機体の絵を選ぶ。16 方位。'},
-  control:{easy:'操作は 1 つ。',normal:'操作は 1 つか 2 つ。',hard:'中央の目盛りなし。①の機体も傾いている。操作の大きさが変わる。',max:'本番形式。操縦桿の斜めも出る。'}};
+  control:{easy:'操作は 1 つ。',normal:'操作は 1 つか 2 つ。',hard:'中央の目盛りなし。初期状態も傾いている。操作の大きさが変わる。',max:'本番形式。操縦桿の斜めも出る。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
@@ -3103,7 +3105,7 @@ function makeSpin(qq){
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
   el.querySelector('[data-play]').addEventListener('click',start);
-  import('./viewer.js?v=21').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  import('./viewer.js?v=22').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
   return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
 }
 function fbSimShow(){
@@ -3740,7 +3742,7 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=21');
+    const mod=await import('./viewer.js?v=22');
     viewer=await mod.mount(host,{free:true,onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
     {/* タイヤとライトの入り切り（アプリ説明は鍵なし。利用者の指示 2026-09-23） */
@@ -3778,7 +3780,7 @@ function route(){
   else if(v==='stats')renderStatsPage();
   else{renderAbout();
     /* アプリ版: ホーム画面に追加は要らず、通信もしない（お知らせと 3D は同梱。新しい版はストアが配る）。通信するのはご要望・お問い合わせを送るときだけ（利用者の指示 2026-09-15） */
-    if(NATIVE)$('#netLine').textContent='解答時間と正答率は端末内に記録。通信なしで動く（通信するのはご要望・お問い合わせを送るときだけ。新しい版は App Store / Google Play が配る）。';
+    if(NATIVE)$('#netLine').textContent='解答時間と正答率は端末の中に記録します。通信がなくても動きます。';
     $('#edLine').textContent=isFull()?'この端末では全機能版が有効です。':'この Web 版は体験版です。鍵のかかった機能は完全版（アプリ）で使えます。くわしくは専用サイトをご覧ください。';initAbout();
     if(scrollTarget){const el=$(scrollTarget);scrollTarget=null;if(el)requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
   menuList.querySelector('[data-go="buy"]').hidden=isFull();

@@ -106,29 +106,40 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   const gearMeshes = [];
   gltf.scene.traverse(o => { if (o.isMesh && underGear(o)) gearMeshes.push(o); });
   function setGear(on) { for (const m of gearMeshes) m.visible = !!on; }
-  /* ライト: 左翼端に赤、右翼端に緑、機首の下に白（着陸灯）。光る玉で表す */
+  /* ライト: 左翼端に赤、右翼端に緑、尾部に白（航法灯）。翼端と尾の位置は、機体の頂点から実際に測って置く（v06.38） */
   let lightGroup = null;
+  function lampSpots() {
+    let lx = 1e9, rx = -1e9, ty = 1e9, L = null, R = null, T = null;
+    const v = new THREE.Vector3();
+    gltf.scene.traverse(o => {
+      if (!o.isMesh || !o.geometry || underGear(o)) return;
+      const pos = o.geometry.attributes.position; o.updateWorldMatrix(true, false);
+      for (let k = 0; k < pos.count; k += 3) {
+        v.fromBufferAttribute(pos, k).applyMatrix4(o.matrixWorld);
+        if (v.x < lx) { lx = v.x; L = v.clone(); }
+        if (v.x > rx) { rx = v.x; R = v.clone(); }
+        if (v.y < ty) { ty = v.y; T = v.clone(); }
+      }
+    });
+    return { L, R, T };
+  }
   function setLights(on) {
     if (on && !lightGroup) {
-      const bb = new THREE.Box3().setFromObject(gltf.scene), sx = bb.max.x, sy = bb.max.y, sz = bb.min.z;
-      const lamp = (x, y, z, col, r) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), new THREE.MeshBasicMaterial({ color: col }));
-        m.position.set(x, y, z); const halo = new THREE.Mesh(new THREE.SphereGeometry(r * 2.4, 12, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.22, depthWrite: false }));
-        halo.position.copy(m.position); lightGroup.add(m, halo); };
+      const { L, R, T } = lampSpots();
+      const span = (R && L) ? R.x - L.x : 20, r = span * 0.012;
       lightGroup = new THREE.Group();
-      lamp(-sx * 0.97, 0, 0.1, 0xff3b30, sx * 0.022);      // 左翼端 赤
-      lamp(sx * 0.97, 0, 0.1, 0x34c759, sx * 0.022);       // 右翼端 緑
-      lamp(0, sy * 0.45, sz * 0.75, 0xfff3d0, sx * 0.018); // 機首の下 白
+      const lamp = (p, col) => { if (!p) return;
+        const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), new THREE.MeshBasicMaterial({ color: col }));
+        m.position.copy(p);
+        const halo = new THREE.Mesh(new THREE.SphereGeometry(r * 2.6, 12, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.2, depthWrite: false }));
+        halo.position.copy(p); lightGroup.add(m, halo); };
+      lamp(L, 0xff3b30);   // 左翼端 赤
+      lamp(R, 0x34c759);   // 右翼端 緑
+      lamp(T, 0xfff6e0);   // 尾部 白
       pivot.add(lightGroup);
     }
     if (lightGroup) lightGroup.visible = !!on;
   }
-  /* 機体の居場所（世界の座標）。アプリ説明の「機体を動かす」で、旋回すると水平の円をなぞって動くように使う。
-     姿勢（pivot の回転）とは別に動かすので、機体の向きは乱れない（v06.33） */
-  const orbit = new THREE.Vector3(); let orbitTo = new THREE.Vector3();
-  function setOrbit(x, y, z) { orbitTo.set(x || 0, y || 0, z || 0); }
-  /* 機首の先（機体の座標で +y の端）。札とカメラの寄りに使う */
-  const NOSE_Y = new THREE.Box3().setFromObject(gltf.scene).max.y;
-
   /* 向きの切り替え（短いアニメーション付き）。バンク b は機首の軸まわり: R = Rz(−h)·Rx(p)·Ry(b) */
   let qFrom = new THREE.Quaternion(), qTo = new THREE.Quaternion(), t0 = 0, animating = false;
   function targetQuat(h, p, b = 0) {
@@ -232,7 +243,6 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   let running = true, raf = 0;
   function frame(now) {
     if (!running) return;
-    if (!orbit.equals(orbitTo)) { orbit.lerp(orbitTo, 0.18); if (orbit.distanceTo(orbitTo) < 0.01) orbit.copy(orbitTo); pivot.position.copy(orbit); }
     if (animating) { const k = Math.min(1, (now - t0) / 450), e = k < .5 ? 2 * k * k : -1 + (4 - 2 * k) * k; pivot.quaternion.slerpQuaternions(qFrom, qTo, e); if (k >= 1) animating = false; }
     if (chartK !== chartTarget) { chartK += Math.sign(chartTarget - chartK) * Math.min(Math.abs(chartTarget - chartK), 0.06); for (const c of markerGroup.children) { c.material.opacity = (c.material.userData.base == null ? 1 : c.material.userData.base) * chartK; c.visible = chartK > 0.02; } if (bare) { marks.visible = chartK > 0.02; rose.visible = marks.visible; } }   /* 寄っているあいだは方位の札と羅針盤も消す */
     if (fly) { const k = Math.min(1, (now - fly.t0) / fly.dur), e = 1 - Math.pow(1 - k, 3); cam.position.lerpVectors(fly.from, fly.to, e); controls.target.lerpVectors(fly.look0, fly.look1, e); if (k >= 1) fly = null; }
@@ -244,7 +254,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   window.addEventListener('resize', onResize);
 
   return {
-    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, focusNose, resetView, fadeTo, resetCamera, setSpinArrow, setOrbit, setGear, setLights, noseLen: () => NOSE_Y,
+    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, focusNose, resetView, fadeTo, resetCamera, setSpinArrow, setGear, setLights, noseLen: () => NOSE_Y,
     pause() { running = false; cancelAnimationFrame(raf); },
     resume() { if (!running) { running = true; raf = requestAnimationFrame(frame); } },
     dispose() { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); controls.dispose(); renderer.dispose(); renderer.domElement.remove(); }

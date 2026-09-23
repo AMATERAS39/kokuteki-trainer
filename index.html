@@ -798,7 +798,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   text-shadow:0 .03em 0 var(--word-edge),0 .06em 0 var(--word-edge),0 .09em 0 var(--word-edge2),0 .12em 0 var(--word-edge2),0 .15em 0 var(--word-edge3),0 .22em .35em var(--word-shadow);transform:perspective(18rem) rotateX(16deg) skewX(-5deg)}
 .hero-word span{color:var(--word-face)}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
-.mode{display:grid;grid-template-columns:2.75rem 1fr auto auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
+.mode{display:grid;grid-template-columns:2.75rem 1fr auto auto auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
 @media (hover:hover){.mode:hover{border-color:var(--muted)}}
 .mode:active{transform:scale(.99)}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
@@ -825,8 +825,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .d{font-size:.8125rem;color:var(--muted);margin-top:.125rem}
 .mode .r{font-family:var(--mono);font-size:.6875rem;color:var(--faint);margin-top:.25rem}
 .mode .go{color:var(--accent)}
-.mode .tx{display:flex;flex-direction:column;gap:.125rem;min-width:0}
-.mode .avg{font-family:var(--mono);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:1.875rem}   /* バッジの幅ぶん右へ寄せ、種目名と頭をそろえる */
+.mode .tx{display:flex;align-items:center;min-width:0}   /* バッジと種目名は縦の中央（v06.34） */
+.mstats{display:flex;flex-direction:column;gap:.125rem;font-family:var(--mono);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.mstats .mstat{margin-right:0;justify-content:flex-start}
 .mode .avg-n{display:none}
 @media (max-width:23.4rem){.mode .avg-w{display:none}.mode .avg-n{display:inline}}   /* 幅 374 px 以下では 3D の説明が 2 行に折れて 1 画面に入らないので短い言い方に（v06.05） */
 .mode.locked{opacity:.7}
@@ -1553,7 +1554,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.33';
+const APP_VER='v06.34';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3285,9 +3286,9 @@ function reviewCardHTML(){return `<div class="demo review"><span>もしよけれ
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   /* ホームの記録は記号で（時計に 1＝1 問あたりの平均、チェック＝正答率、重ねた札＝解いた数。利用者の指示 2026-09-23） */
-  const avgText=m=>{const s=stats[m];return s.n?`<span class="mstat">${ic('timer1','xs')}${(s.t/s.n).toFixed(1)} s</span><span class="mstat">${ic('cards','xs')}${s.n}</span>`:'<span class="mstat dim">—</span>'};
+  const avgText=m=>{const s=stats[m];return s.n?`<span class="mstat">${ic('timer1','xs')}${(s.t/s.n).toFixed(1)} s</span><span class="mstat">${ic('cards','xs')}${s.n}</span>`:'<span class="mstat dim">—</span>'};   /* 縦に 2 行（.mstats が縦積み） */
   /* 体験版では「完全版で使えます」を先頭に出す（利用者の指示 2026-09-23） */
-  $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span><span class="avg">${avgText(m)}</span></span>${(()=>{const t=stats[m];return t&&t.n?`<span class="mring" title="正答率">${ringHTML(t.c/t.n,'')}</span>`:'<span class="mring"></span>'})()}<span class="go">${ic('next','s')}</span></button>`).join('')
+  $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span></span><span class="mstats">${avgText(m)}</span>${(()=>{const t=stats[m];return t&&t.n?`<span class="mring" title="正答率">${ringHTML(t.c/t.n,'')}</span>`:'<span class="mring"></span>'})()}<span class="go">${ic('next','s')}</span></button>`).join('')
     
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};

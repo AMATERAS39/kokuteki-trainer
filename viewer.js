@@ -102,6 +102,26 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   gltf.scene.traverse(o => { if (o.isMesh) { if (underGear(o)) o.visible = false;
     const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { m.metalness = 0; m.roughness = 0.85; m.side = THREE.DoubleSide; }); } });
   pivot.add(gltf.scene);
+  /* タイヤ（脚）の出し入れ。飛んでいる姿が既定なので、最初は隠したまま（v06.36） */
+  const gearMeshes = [];
+  gltf.scene.traverse(o => { if (o.isMesh && underGear(o)) gearMeshes.push(o); });
+  function setGear(on) { for (const m of gearMeshes) m.visible = !!on; }
+  /* ライト: 左翼端に赤、右翼端に緑、機首の下に白（着陸灯）。光る玉で表す */
+  let lightGroup = null;
+  function setLights(on) {
+    if (on && !lightGroup) {
+      const bb = new THREE.Box3().setFromObject(gltf.scene), sx = bb.max.x, sy = bb.max.y, sz = bb.min.z;
+      const lamp = (x, y, z, col, r) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), new THREE.MeshBasicMaterial({ color: col }));
+        m.position.set(x, y, z); const halo = new THREE.Mesh(new THREE.SphereGeometry(r * 2.4, 12, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.22, depthWrite: false }));
+        halo.position.copy(m.position); lightGroup.add(m, halo); };
+      lightGroup = new THREE.Group();
+      lamp(-sx * 0.97, 0, 0.1, 0xff3b30, sx * 0.022);      // 左翼端 赤
+      lamp(sx * 0.97, 0, 0.1, 0x34c759, sx * 0.022);       // 右翼端 緑
+      lamp(0, sy * 0.45, sz * 0.75, 0xfff3d0, sx * 0.018); // 機首の下 白
+      pivot.add(lightGroup);
+    }
+    if (lightGroup) lightGroup.visible = !!on;
+  }
   /* 機体の居場所（世界の座標）。アプリ説明の「機体を動かす」で、旋回すると水平の円をなぞって動くように使う。
      姿勢（pivot の回転）とは別に動かすので、機体の向きは乱れない（v06.33） */
   const orbit = new THREE.Vector3(); let orbitTo = new THREE.Vector3();
@@ -224,7 +244,7 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
   window.addEventListener('resize', onResize);
 
   return {
-    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, focusNose, resetView, fadeTo, resetCamera, setSpinArrow, setOrbit, noseLen: () => NOSE_Y,
+    setDir, setAttitude, setDirBank, setShapes, highlight, setNoseLabel, focusNose, resetView, fadeTo, resetCamera, setSpinArrow, setOrbit, setGear, setLights, noseLen: () => NOSE_Y,
     pause() { running = false; cancelAnimationFrame(raf); },
     resume() { if (!running) { running = true; raf = requestAnimationFrame(frame); } },
     dispose() { running = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); controls.dispose(); renderer.dispose(); renderer.domElement.remove(); }

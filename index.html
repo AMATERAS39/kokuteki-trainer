@@ -808,7 +808,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .mring .ring{width:3rem;height:3rem}   /* 輪の大きさは種目名と記録の 2 行ぶん（v06.31） */
 .mode .mring .ring .rv b{font-size:.75rem}
 .mode .mring .ring .bg{stroke:var(--line2)}
-.mode .tag{display:grid;place-items:center;width:1.375rem;height:1.375rem;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1;color:var(--accent);border:1px solid currentColor;border-radius:.375rem}   /* 本番の区分 A・B・C・F。大きさをそろえ、名前との間は行の gap だけ（v06.33） */
+.mode .tag{display:grid;place-items:center;width:1.375rem;height:1.375rem;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding-bottom:.14em}   /* 文字が枠の中心に来るよう、下に少しだけ余白（字の下の余白ぶん） */   /* 本番の区分 A・B・C・F。大きさをそろえ、名前との間は行の gap だけ（v06.33） */
 .mode .tag.sub{width:auto;padding:0 .35rem;color:var(--muted)}
 .summary .sub.pace,.stmode .sub.pace{margin:.5rem 0 0;font-size:.8125rem;color:var(--muted);line-height:1.6}
 .figs .cmd{margin-top:.5rem;text-align:center;font-weight:700;font-size:1.125rem;letter-spacing:.04em;color:var(--accent)}   /* 空間認識の命令 */
@@ -908,6 +908,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .vinst .i.dim{opacity:.4}
 .legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:.2rem;vertical-align:-.1rem;margin-right:.25rem}
 .dirleg{text-align:center;margin-top:.5rem}
+.vrow{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
+.vrow .btn{width:auto;flex:1 1 6rem;min-width:6rem}
+.vrow .btn.on{border-color:var(--accent);color:var(--accent);background:rgba(200,120,30,.08)}
+.vrow .btn.lockb{opacity:.55}
 .vactions{display:flex;gap:.5rem;margin-top:.75rem}
 .vactions .btn{height:2.75rem;font-size:.8125rem}
 .credit{font-size:.8125rem;color:var(--muted);line-height:1.7}
@@ -1349,7 +1353,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
         <h3>機体を見る</h3>
         <div class="sub2">なぞると視点が回ります。ホイールやつまむ操作で近づけます。</div>
         <div class="viewer" id="viewer"><div class="vload" id="vload">3D モデルを読み込み中…</div></div>
-        <div class="vactions"><button class="btn ghost" id="camReset">視点を戻す</button></div>
+        <div class="vactions vrow"><button class="btn ghost sm" id="vGear">タイヤ</button><button class="btn ghost sm" id="vLight">ライト</button><button class="btn ghost sm" id="camReset">視点を戻す</button></div>
       </div>
       <div class="card">
         <h3>3D シミュレーターで操縦する</h3>
@@ -1527,7 +1531,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.35';
+const APP_VER='v06.36';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3051,7 +3055,7 @@ function makeSpin(qq){
     if(t<HOLD+DUR+100)raf=requestAnimationFrame(frame)}
   function start(){cancelAnimationFrame(raf);t0=performance.now();raf=requestAnimationFrame(frame)}
   el.querySelector('[data-play]').addEventListener('click',start);
-  import('./viewer.js?v=20').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
+  import('./viewer.js?v=21').then(m=>m.mount(box,{plain:true})).then(h=>{if(disposed){h.dispose();return}v=h;v.setSpinArrow(c.axis,Math.sign(c.deg)||1,Math.abs(c.deg));v.setAttitude(qq.init.heading,qq.init.pitch,qq.init.bank);start()}).catch(e=>{step.textContent='3D を表示できませんでした';console.warn('spin',e)});
   return {el,build(){},play(){},dispose(){disposed=true;cancelAnimationFrame(raf);if(v){v.dispose();v=null}}};
 }
 function fbSimShow(){
@@ -3686,9 +3690,14 @@ async function initAbout(){
   if(viewerLoading)return;viewerLoading=true;
   const host=$('#viewer'),load=$('#vload');
   try{
-    const mod=await import('./viewer.js?v=20');
+    const mod=await import('./viewer.js?v=21');
     viewer=await mod.mount(host,{free:true,onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
+    {/* タイヤとライトの入り切り（体験版は鍵。シミュレーターと同じ扱い） */
+     const tog=(id,fn,msg)=>{const b=$('#'+id);if(!b)return;if(!isFull()){b.classList.add('lockb');b.addEventListener('click',()=>toast(msg));return}
+       let on=false;b.addEventListener('click',()=>{on=!on;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on));fn(on)})};
+     tog('vGear',v=>viewer.setGear(v),'タイヤの出し入れは完全版で使えます');
+     tog('vLight',v=>viewer.setLights(v),'ライトは完全版で使えます');}
     $('#camReset').addEventListener('click',()=>viewer.resetCamera());
   }catch(e){load.textContent=loadFailMsg('3D モデル');viewerLoading=false}
 }

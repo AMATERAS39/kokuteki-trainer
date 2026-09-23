@@ -674,6 +674,8 @@ ul.tips li{margin:.125rem 0}
 /* 設定・メモ・記録 */
 .setting{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-top:.375rem;font-size:.8125rem;min-height:2.75rem}
 .setting>span,.chkrow{display:flex;align-items:center;gap:.5rem}
+.mstat{display:inline-flex;align-items:center;gap:.25rem;margin-right:.625rem;white-space:nowrap}
+.mstat.dim{opacity:.55}
 .setting>span .ic,.chkrow .ic.xs{color:var(--muted);flex:0 0 auto}
 .setting:first-of-type{margin-top:.625rem}
 .setting>span{color:var(--muted)}
@@ -797,7 +799,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode:active{transform:scale(.99)}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .mode .n,.mode .d,.mode .r{display:block}
-.mode .n{font-size:1rem;font-weight:700}
+.mode .n{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.mode .mring .ring{width:2.25rem;height:2.25rem}
+.mode .mring .ring .rv b{font-size:.625rem}
+.mode .mring .ring .bg{stroke:var(--line2)}   /* 種目名の横の正答率の輪（v06.27） */
 .mode .tag{display:inline-block;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1.3;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding:0 .35rem;margin-right:.45rem;vertical-align:.12em}   /* 本番の区分 A・B・C・F（v06.11） */
 .mode .tag.sub{color:var(--muted);margin:0 0 0 .45rem}
 .summary .sub.pace,.stmode .sub.pace{margin:.5rem 0 0;font-size:.8125rem;color:var(--muted);line-height:1.6}
@@ -1525,7 +1530,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.26';
+const APP_VER='v06.27';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -2827,7 +2832,7 @@ function showGallery(){applyScene();galDispose();
   if(dm){gal.bank='level';gal.pitch='';gal.sel=gal.sel.filter(x=>E.OP_BY_ID[x].group==='stick');gal.seq=false;gal.view='first'}
   /* 操縦桿は一度に 1 方向しか倒せないので 4 つを 1 行（排他）。方向舵は左右 1 行（排他）。両方選ぶと同時操作 */
   const row=(title,ids,cols,lock,perBtn)=>`<div class="gsel${lock&&!perBtn?' off':''}"><div class="gl">${title}${lock&&!perBtn?'<span class="full">（完全版）</span>':''}</div><div class="gp" style="grid-template-columns:repeat(${cols},1fr)">${ids.map(a=>`<button class="ab${lock&&perBtn?' lockb':''}" data-op="${a}" data-grp="${E.OP_BY_ID[a].group}"${lock&&perBtn?' data-lock="1"':''}>${E.OP_BY_ID[a].ja.split(' ')[1]}</button>`).join('')}</div></div>`;
-  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと①②③が出ます。${isFull()?'操縦桿と方向舵は同時か順番かを選べます。':'体験版は操作 1 つずつです。'}</div>
+  $('#gallery').innerHTML=`<h2>操作ごとの見え方</h2><div class="sub">操作を選ぶと①②③が出ます。${isFull()?'':'（体験版は 1 つずつ）'}</div>
     ${(()=>{const P=weakPatterns(6);return P.length?`<div class="wtop gwtop">${P.map((x,i)=>`<button type="button" class="wbadge lo gw" data-pat="${esc(x.key)}" title="${esc(patLabel(x.key))}　${pct(x.acc)}・${x.v.n} 問"><span class="wk">苦手${CIRC[i]||i+1}</span></button>`).join('')}</div>`:''})()}   <!-- 記録分析の苦手の状況（同じ番号）。押すと下の設定に反映（v05.108） -->
     <div class="gsel"><div class="gl">初期状態</div><div class="gp" style="grid-template-columns:repeat(3,1fr)">${Object.entries(GAL_BANK).map(([k,v])=>`<button class="ab gi${dm&&k!=='level'?' lockb':''}" data-bank="${k}"${dm&&k!=='level'?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
     <div class="gsel"><div class="gl"></div><div class="gp" style="grid-template-columns:repeat(2,1fr)">${Object.entries(GAL_PITCH).map(([k,v])=>`<button class="ab gi${dm?' lockb':''}" data-pitch="${k}"${dm?' data-lock="1"':''} aria-label="${v.ja}" title="${v.ja}">${ic('init-'+k)}</button>`).join('')}</div></div>
@@ -2838,7 +2843,7 @@ function showGallery(){applyScene();galDispose();
     <div id="gout"></div>
     <div class="gsim">
       <h4 class="gsimh">動きで見る</h4>
-      <div class="sub">同じ動きを再生します（操作はできません）。${dm?'体験版は一人称だけです。':''}</div>
+      <div class="sub">${dm?'体験版は一人称だけです。':''}</div>
       <div id="gmover"></div>
     </div>
     <div class="acts"><button class="btn ghost" id="galBack">選択に戻る</button></div>`;
@@ -2938,7 +2943,7 @@ function makeMover(opt){
       <div class="gp" style="grid-template-columns:1fr 1fr"><button class="ab" data-gv="first">一人称</button><button class="ab${opt.lockThird?' lockb':''}" data-gv="third"${opt.lockThird?' title="完全版"':''}>三人称</button></div>
       <div class="gp" style="grid-template-columns:1fr"><button class="btn gctl gplay" aria-label="再生" title="再生">${ic('play')}</button></div></div>
     <div class="gmove"></div>
-    <div class="sub gstep">再生を押すと、①→②→③の見え方が動きで分かります</div>`;
+    <div class="sub gstep">①→②→③の動き</div>`;
   const $$=sel=>el.querySelector(sel);
   el.querySelectorAll('[data-gv]').forEach(b=>b.addEventListener('click',()=>{
     if(opt.lockThird&&b.dataset.gv==='third'){toast('体験版では一人称だけです。三人称は完全版で使えます');return}
@@ -2955,7 +2960,7 @@ function makeMover(opt){
     if(t>0){m.paused=true;m.t=t}
     if(m.viewer){m.viewer.dispose();m.viewer=null}
     box.innerHTML=`<div class="viewer gtp gviewer"><div class="vload">シミュレーターを読み込み中…</div>${m.view==='first'?`<div class="gframe gref"></div><div class="gframe">${ckCompact(E.svgCockpitFrame(opt.hud!==false))}</div>`:''}</div>
-      <div class="sub">${m.view==='first'?'出題の絵と同じ見え方です。破線は①の正面（景色に固定）。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝横転、緑＝機首上げ下げ、青＝旋回。'}</div>`;
+      <div class="sub">${m.view==='first'?'破線は①の正面（景色に固定）。':'外（南）から見ます。なぞると回せます。ゆっくり（2 倍）。矢印は舵の向き: 橙＝横転、緑＝機首上げ下げ、青＝旋回。'}</div>`;
     /* なぞって視点を回す（シミュレーターの三人称と同じ addLook）。一人称は出題の絵と同じ固定の視線で、なぞっても動かさない（利用者の指示 2026-09-16） */
     { const gv=$$('.gviewer'); let px=0,py=0,on=false;
       gv.addEventListener('pointerdown',e=>{if(m.view!=='third')return;on=true;px=e.clientX;py=e.clientY;try{gv.setPointerCapture(e.pointerId)}catch(x){}});
@@ -2999,7 +3004,7 @@ function makeMover(opt){
     const gr=$$('.gref');
     if(gr)gr.innerHTML=E.svgRefLines(st,AAT_FLIGHT.at(traj,0));
     $$('.gstep').textContent=(m.play||m.paused)?`${'①②③'[near]}のあたり　バンク ${Math.round(st.bank)}°　機首 ${Math.round(st.pitch)}°　方位 ${Math.round(st.yaw)}°　高度 ${st.dz>=0?'+':''}${Math.round(st.dz)} m　進んだ距離 ${Math.round(Math.hypot(st.dx,st.dy))} m${m.paused?'　一時停止中':''}`
-      :'再生を押すと、①→②→③の見え方が動きで分かります';
+      :'①→②→③の動き';
   }
   function play(){
     if(m.play)return;
@@ -3256,9 +3261,10 @@ function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれ
 function reviewCardHTML(){return `<div class="demo review"><span>もしよければ、${NATIVE?'App Store':'Google Play'} でレビューをお願いします。</span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
-  const avgText=m=>{const s=stats[m];return s.n?`平均 ${(s.t/s.n).toFixed(1)} 秒・正答率 ${Math.round(s.c/s.n*100)}%（${s.n} 問）`:'まだ記録なし'};
+  /* ホームの記録は記号で（時計に 1＝1 問あたりの平均、チェック＝正答率、重ねた札＝解いた数。利用者の指示 2026-09-23） */
+  const avgText=m=>{const s=stats[m];return s.n?`<span class="mstat">${ic('timer1','xs')}${(s.t/s.n).toFixed(1)} s</span><span class="mstat">${ic('cards','xs')}${s.n}</span>`:'<span class="mstat dim">—</span>'};
   /* 体験版では「完全版で使えます」を先頭に出す（利用者の指示 2026-09-23） */
-  $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
+  $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}${(()=>{const t=stats[m];return t&&t.n?`<span class="mring" title="正答率">${ringHTML(t.c/t.n,'')}</span>`:''})()}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
     
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};

@@ -228,8 +228,7 @@ main{overflow-x:clip}
 .tile b.cy{font-family:var(--disp);font-weight:900;color:var(--cyan)}
 /* 直下の span だけ。折り返し防止の .nw（入れ子の span）に色や display が及ばないように（利用者の指摘 2026-09-17: Q&A の色分けが不自然、札の「計器判読」が 2 行に割れる） */
 .tile > span{display:block;font-size:var(--small);color:var(--muted);margin-top:.25rem}
-.tile .avg{display:none;font-style:normal;font-family:var(--mono);font-size:var(--tiny);color:var(--cyan);margin-top:.375rem}
-.tile .avg.on{display:block}
+.tile .pace{display:block;font-style:normal;font-family:var(--mono);font-size:var(--tiny);color:var(--cyan);margin-top:.375rem}   /* 本番の問題数と制限時間（作者の平均回答時間の表示は 2026-09-23 に廃止） */
 .tnote{grid-column:1/-1;font-size:var(--tiny);color:var(--faint);line-height:1.7}
 .two{display:grid;grid-template-columns:1fr;gap:clamp(1.25rem,4vw,2.75rem);align-items:start;margin-top:1.375rem}
 @media (min-width:48rem){.two{grid-template-columns:1.15fr .85fr}}
@@ -502,12 +501,12 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <p class="lead"><span class="nw">適性検査</span>は覚えた量を測る試験ではありません。<span class="nw">本番</span>は 40 問 15 分（<span class="nw">操縦操作</span>は 30 問 20 分）。1 問に使えるのは 20 秒あまりで、絵を見て迷わずに答えを選べるかどうかだけが問われます。</p>
       <p class="lead">筆記試験のほうは<span class="nw">基礎学力</span>を測るもので、問題は比較的やさしく、時間も余ります（20 問に 40 分など）。必要なのは<span class="nw">瞬発力</span>ではなく<span class="nw">集中力</span>です。多くの<span class="nw">受験</span>者が高得点になるので、差がつくのは<span class="nw">適性検査</span>です。</p>
       <div class="tiles">
-        <p class="tlab" id="tlab">1 問の持ち時間（<span class="nw">アプリ</span>の<span class="nw">デフォルト</span>）</p>
-        <div class="tile" data-m="spatial"><b>20 秒</b><span>A <span class="nw">空間認識</span></span><i class="avg"></i></div>
-        <div class="tile" data-m="combo"><b>15 秒</b><span>B <span class="nw">計器判読</span></span><i class="avg"></i></div>
-        <div class="tile" data-m="control"><b>20 秒</b><span>C <span class="nw">操縦操作</span></span><i class="avg"></i></div>
-        <div class="tile" data-m="heading"><b>5 秒</b><span>F <span class="nw">方位判読</span></span><i class="avg"></i></div>
-        <p class="tnote" id="tnote" hidden>小さい数字は、作者の端末で計った平均回答時間です（参考）。慣れると持ち時間の半分以下で読めます。</p>
+        <p class="tlab" id="tlab"><span class="nw">目標解答時間</span>（1 周見直す時間を残す）</p>
+        <div class="tile"><b>11 秒</b><span>A <span class="nw">空間認識</span></span><i class="pace">本番 40 問 15 分</i></div>
+        <div class="tile"><b>11 秒</b><span>B <span class="nw">計器判読</span></span><i class="pace">本番 40 問 15 分</i></div>
+        <div class="tile"><b>20 秒</b><span>C <span class="nw">操縦操作</span></span><i class="pace">本番 30 問 20 分</i></div>
+        <div class="tile"><b>11 秒</b><span>F <span class="nw">方位判読</span></span><i class="pace">本番 40 問 15 分</i></div>
+        <p class="tnote">本番の問題数と<span class="nw">制限時間</span>から、全問を解いたあと 1 周見直せるように、1 問あたりの時間を半分にした目安です。</p>
       </div>
     </div>
     <h2 class="h2mid">数字が語る、狭き門</h2>
@@ -899,33 +898,6 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
 })();
 </script>
 
-<script>
-/* 平均回答時間。/api/avg に置いてある記録を読んで、札の数字を入れ替える（開くたびに読み直す）。
-   まだ何も置かれていないとき（あるいは読めないとき）は、デフォルトの持ち時間のまま出す */
-(function(){
-  var KEY='aat.avgtiles';
-  var got=function(v){ return !!(v&&v.n>0&&v.t>0) };
-  var fill=function(d){
-    if(!d||!d.stats)return false;
-    var tiles=[].slice.call(document.querySelectorAll('.tile[data-m]'));
-    var any=tiles.some(function(t){ return got(d.stats[t.dataset.m]) });
-    if(!any)return false;                       /* 1 つも記録がなければ、デフォルトの持ち時間のまま */
-    /* 持ち時間（大きい数字）はそのまま残す。初めて見る人に要るのはこちら。
-       平均は小さい 2 行目に「平均 6.3 秒」として添え、出所を下の注に書く（v05.36） */
-    tiles.forEach(function(t){
-      var v=d.stats[t.dataset.m], a=t.querySelector('.avg');
-      if(!a)return;
-      if(got(v)){ a.textContent='平均 '+(v.t/v.n).toFixed(1)+' 秒'; a.classList.add('on') }
-    });
-    var l=document.getElementById('tnote'); if(l)l.hidden=false;
-    return true;
-  };
-  try{ fill(JSON.parse(localStorage.getItem(KEY))) }catch(e){}
-  fetch('/api/avg',{cache:'no-store'}).then(function(r){ return r.ok?r.json():null }).then(function(d){
-    if(fill(d)){ try{ localStorage.setItem(KEY,JSON.stringify(d)) }catch(e){} }
-  }).catch(function(){});
-})();
-</script>
 <script>
 (function(){
   /* 価格の時期区分（2026-09-17 改め）: 応募開始〜1 次試験 1 日目の 1 週間前 2,500 円、1 週間前〜2 日目 3,000 円、それ以外は通常価格 2,000 円（利用者の指示 2026-09-17「2000, 2500, 3000」。1,000 円から 3 倍は印象が悪い）。

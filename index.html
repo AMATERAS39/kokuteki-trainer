@@ -798,15 +798,16 @@ body:not([data-view="home"]) .back{display:inline-flex}
   text-shadow:0 .03em 0 var(--word-edge),0 .06em 0 var(--word-edge),0 .09em 0 var(--word-edge2),0 .12em 0 var(--word-edge2),0 .15em 0 var(--word-edge3),0 .22em .35em var(--word-shadow);transform:perspective(18rem) rotateX(16deg) skewX(-5deg)}
 .hero-word span{color:var(--word-face)}
 .modes{display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem}
-.mode{display:grid;grid-template-columns:2.75rem 1fr auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
+.mode{display:grid;grid-template-columns:2.75rem 1fr auto auto;gap:.875rem;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1.125rem 1rem;transition:border-color .12s,transform .12s}
 @media (hover:hover){.mode:hover{border-color:var(--muted)}}
 .mode:active{transform:scale(.99)}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .mode .n,.mode .d,.mode .r{display:block}
 .mode .n{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
-.mode .mring .ring{width:2.25rem;height:2.25rem}
-.mode .mring .ring .rv b{font-size:.625rem}
-.mode .mring .ring .bg{stroke:var(--line2)}   /* 種目名の横の正答率の輪（v06.27） */
+.mode .mring{width:3rem;display:grid;place-items:center}
+.mode .mring .ring{width:3rem;height:3rem}   /* 輪の大きさは種目名と記録の 2 行ぶん（v06.31） */
+.mode .mring .ring .rv b{font-size:.75rem}
+.mode .mring .ring .bg{stroke:var(--line2)}
 .mode .tag{display:inline-block;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1.3;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding:0 .35rem;margin-right:.45rem;vertical-align:.12em}   /* 本番の区分 A・B・C・F（v06.11） */
 .mode .tag.sub{color:var(--muted);margin:0 0 0 .45rem}
 .summary .sub.pace,.stmode .sub.pace{margin:.5rem 0 0;font-size:.8125rem;color:var(--muted);line-height:1.6}
@@ -909,8 +910,13 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .vinst .i.dim{opacity:.4}
 .vinst-note{font-size:.75rem;color:var(--faint);text-align:center;margin-top:.375rem}
 .legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:.2rem;vertical-align:-.1rem;margin-right:.25rem}
-.dirbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:.375rem;margin-top:.75rem}
-.dirbtns .ab{min-height:2.75rem;font-size:.8125rem;font-weight:700}
+.dirbtns{margin-top:.75rem}
+.dirdial{position:relative;width:min(100%,21rem);aspect-ratio:1;margin:0 auto}
+.dirdial .g{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:1px dashed var(--line2);border-radius:50%;opacity:.5}
+.dirdial .g1{width:92%;height:92%}.dirdial .g2{width:64%;height:64%}.dirdial .g3{width:38%;height:38%}
+.dirdial .ab{position:absolute;transform:translate(-50%,-50%);min-height:0;padding:.3rem .5rem;font-size:.75rem;font-weight:700;border-radius:999px;white-space:nowrap}
+.dirdial .ab.mid{font-size:.6875rem}
+.dirleg{text-align:center;margin-top:.5rem}
 .vactions{display:flex;gap:.5rem;margin-top:.75rem}
 .vactions .btn{height:2.75rem;font-size:.8125rem}
 .credit{font-size:.8125rem;color:var(--muted);line-height:1.7}
@@ -1053,7 +1059,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .homeactions .btn{width:auto;padding:0 2rem}
   .about{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}
   .about .card.wide{grid-column:1/-1}
-  .dirbtns{grid-template-columns:repeat(7,1fr)}
+  .dirdial{width:min(100%,24rem)}
 }
 /* ===== PC 幅: 訓練画面も 1 画面に収める =====
    画面が大きいぶん、大事なのは機体の図より選択肢なので、図を伸縮させて選択肢を大きく見せる。
@@ -1536,7 +1542,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.30';
+const APP_VER='v06.31';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3270,7 +3276,7 @@ function renderHome(){
   /* ホームの記録は記号で（時計に 1＝1 問あたりの平均、チェック＝正答率、重ねた札＝解いた数。利用者の指示 2026-09-23） */
   const avgText=m=>{const s=stats[m];return s.n?`<span class="mstat">${ic('timer1','xs')}${(s.t/s.n).toFixed(1)} s</span><span class="mstat">${ic('cards','xs')}${s.n}</span>`:'<span class="mstat dim">—</span>'};
   /* 体験版では「完全版で使えます」を先頭に出す（利用者の指示 2026-09-23） */
-  $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}${(()=>{const t=stats[m];return t&&t.n?`<span class="mring" title="正答率">${ringHTML(t.c/t.n,'')}</span>`:''})()}</span><span class="avg">${avgText(m)}</span></span><span class="go">${ic('next','s')}</span></button>`).join('')
+  $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span><span class="avg">${avgText(m)}</span></span>${(()=>{const t=stats[m];return t&&t.n?`<span class="mring" title="正答率">${ringHTML(t.c/t.n,'')}</span>`:'<span class="mring"></span>'})()}<span class="go">${ic('next','s')}</span></button>`).join('')
     
     +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};
@@ -3704,7 +3710,12 @@ async function initAbout(){
     const mod=await import('./viewer.js?v=17');
     viewer=await mod.mount(host,{onProgress:p=>{load.textContent=`3D モデルを読み込み中… ${Math.round(p*100)}%`}});
     load.remove();
-    $('#dirBtns').innerHTML=mod.DIRS.map(d=>`<button class="ab" data-h="${d.h}" data-p="${d.p}">${d.ja}</button>`).join('');
+    /* 26 方向を三重の円に（外＝機首上げ・中＝水平・内＝機首下げ、真上と真下は中心）。方位は位置で分かるので札は方位だけ（利用者の指示 2026-09-23） */
+    {const R={30:46,0:32,'-30':19};const pos=(h,p)=>{const a=(h-90)*Math.PI/180,r=R[String(p)];return `left:${50+r*Math.cos(a)}%;top:${50+r*Math.sin(a)}%`};
+     const short=d=>d.ja.replace(/上$|下$/,'')||d.ja;
+     const ring=mod.DIRS.filter(d=>Math.abs(d.p)!==90).map(d=>`<button class="ab" style="${pos(d.h,d.p)}" data-h="${d.h}" data-p="${d.p}" title="${d.ja}">${short(d)}</button>`).join('');
+     const mid=mod.DIRS.filter(d=>Math.abs(d.p)===90).map((d,i)=>`<button class="ab mid" style="left:50%;top:${i?57:43}%" data-h="${d.h}" data-p="${d.p}" title="${d.ja}">${d.ja}</button>`).join('');
+     $('#dirBtns').innerHTML=`<div class="dirdial"><i class="g g1"></i><i class="g g2"></i><i class="g g3"></i>${ring}${mid}</div><div class="sub2 dirleg">外＝機首上げ・中＝水平・内＝機首下げ</div>`;}
     $('#dirBtns').querySelectorAll('.ab').forEach(b=>b.addEventListener('click',()=>{$('#dirBtns').querySelectorAll('.ab').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
       viewer.setDir(+b.dataset.h,+b.dataset.p);renderVInst(+b.dataset.h,+b.dataset.p)}));
     $('#dirBtns').querySelector('.ab').classList.add('sel');

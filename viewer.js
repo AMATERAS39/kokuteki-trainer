@@ -140,6 +140,9 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
     }
     if (lightGroup) lightGroup.visible = !!on;
   }
+  /* 機首の先（機体の座標で +y の端）。回転の矢印・札・カメラの寄りに使う（v06.38 で誤って消し、空間認識の解説の 3D が止まった） */
+  const NOSE_Y = new THREE.Box3().setFromObject(gltf.scene).max.y;
+
   /* 向きの切り替え（短いアニメーション付き）。バンク b は機首の軸まわり: R = Rz(−h)·Rx(p)·Ry(b) */
   let qFrom = new THREE.Quaternion(), qTo = new THREE.Quaternion(), t0 = 0, animating = false;
   function targetQuat(h, p, b = 0) {

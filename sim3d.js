@@ -1989,7 +1989,7 @@ export function mount(container, opt = {}) {
           /* 最終進入: 線に乗ったまま、接地点までの距離で高さを決めて 3 度で降りる。
              滑走路の手前で着陸体制（タイヤ・ライト）に入り、速度を落とす */
           const far = Math.max(0, (tdY - st.y) * sgn);
-          if (far < 1800 && !gearOn) { gearOn = true; lightsOn = true; applyGear(); st.cue = '着陸体制'; landCfg = true; smokeOn = false; }
+          if (far < 1800 && !gearOn) { gearOn = true; lightsOn = true; applyGear(); st.cue = '着陸態勢'; landCfg = true; smokeOn = false; }
           spdWant = far < 2400 ? 0.72 : 1;
           let wz = far > 80 ? Math.min(3 + far * LAND_SLOPE, 400) : -25;
           const inStrip = Math.abs(st.y) < STRIP_END - 30;
@@ -2150,7 +2150,7 @@ export function mount(container, opt = {}) {
             approach(RWY.x, Math.min(RWY.y - 200, st.y + 450), GATE.z);
             const par = Math.abs(st.x - RWY.x) < 80 && Math.abs(wrap180(RWY.h - st.h)) < 12 && st.y < RWY.y - 250;
             /* 滑走路の延長線にまっすぐ乗った（滑走路が正面に見えている）ところで着陸体制: タイヤを下ろし、ライトを点ける */
-            if (par && m.set && m.set.gear && !gearOn) { gearOn = true; lightsOn = true; applyGear(); st.cue = '着陸体制'; landCfg = true; smokeOn = false; }
+            if (par && m.set && m.set.gear && !gearOn) { gearOn = true; lightsOn = true; applyGear(); st.cue = '着陸態勢'; landCfg = true; smokeOn = false; }
             if (par || phaseT > 70) endEntry();
           } else {
           const near = Math.hypot(st.x - aimX, st.y - aimY) < 280 && (m.at !== undefined || Math.abs(st.z - GATE.z) < 80);

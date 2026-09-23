@@ -48,10 +48,10 @@
   const DIR14 = [
     { id: 'north', ja: '北', heading: 0, pitch: 0, read: '機首が画面の奥を向いている → 北。' },
     { id: 'south', ja: '南', heading: 180, pitch: 0, read: '機首がこちら（手前）を向いている → 南。' },
-    { id: 'east', ja: '東', heading: 90, pitch: 0, read: '機首が画面の右を向いている → 東。側面が見えるので機首は水平（ピッチなし）。' },
-    { id: 'west', ja: '西', heading: 270, pitch: 0, read: '機首が画面の左を向いている → 西。側面が見えるので機首は水平（ピッチなし）。' },
-    { id: 'up', ja: '上', heading: null, pitch: 90, read: '機首が真上。腹面（下側）が見えている → 垂直上昇。姿勢指示器はほぼ全面が空。' },
-    { id: 'down', ja: '下', heading: null, pitch: -90, read: '機首が真下。背面（上側）が見えている → 垂直降下。姿勢指示器はほぼ全面が地面。' },
+    { id: 'east', ja: '東', heading: 90, pitch: 0, read: '機首が画面の右を向いている → 東。側面が見えるので機首は水平。' },
+    { id: 'west', ja: '西', heading: 270, pitch: 0, read: '機首が画面の左を向いている → 西。側面が見えるので機首は水平。' },
+    { id: 'up', ja: '上', heading: null, pitch: 90, read: '機首が真上。腹面（下側）が見えている → 垂直上昇。水平儀はほぼ全面が空。' },
+    { id: 'down', ja: '下', heading: null, pitch: -90, read: '機首が真下。背面（上側）が見えている → 垂直降下。水平儀はほぼ全面が地面。' },
     { id: 'ne_up', ja: '北東上', heading: 45, pitch: 30, read: '機首が奥・右・上 → 北東へ上昇。' },
     { id: 'nw_up', ja: '北西上', heading: 315, pitch: 30, read: '機首が奥・左・上 → 北西へ上昇。' },
     { id: 'se_up', ja: '南東上', heading: 135, pitch: 30, read: '機首が手前・右・上 → 南東へ上昇。' },
@@ -204,11 +204,11 @@
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
     const lines = [`初期状態は${attText(q.init)}。命令は「${q.cmdText}」。`];
     const ax = q.cmd.axis;
-    lines.push(ax === 'yaw' ? '旋回は方向舵を踏む動き。機体の上下軸まわりに回るので、機首は機体にとっての水平面の中で右（左）へ振れます。機首が下がっていれば下がったまま、傾いていれば傾いたまま向きが変わります。'
-      : ax === 'roll' ? '横転は操縦桿を左右に倒す動き。機首の軸まわりに回るので、機首の向きは変わらず翼が傾きます（90° で翼が立ち、180° で背面）。'
-      : '機首上げ・下げは操縦桿の前後の動き。左右の翼を結ぶ軸まわりに回るので、翼の傾きはそのままで機首が機体の上（下）へ向きます。傾いていれば、機首は斜めに動きます。');
+    lines.push(ax === 'yaw' ? '旋回は方向舵です。機首が両翼と平行に左右へ動きます。'
+      : ax === 'roll' ? '横転は操縦桿の左右です。機首の軸まわりに回り、翼が傾きます。'
+      : '機首の上げ下げは操縦桿の前後です。翼の軸まわりに回り、傾いていれば機首は斜めに動きます。');
     lines.push(`命令のあとは${attText(q.ans)}。`);
-    if (!ok && i >= 0 && q.opts[i]) { const w = q.opts[i].why; if (w) lines.push(w === '向き' ? '選んだ絵は左右（上下）が逆の命令の結果です。' : w === '角度' ? '選んだ絵は角度が違う命令の結果です。' : '選んだ絵は別の軸（旋回・横転・機首）の命令の結果です。'); }
+    if (!ok && i >= 0 && q.opts[i]) { const w = q.opts[i].why; if (w) lines.push(w === '向き' ? '選んだ絵は左右（上下）が逆の命令の結果です。' : w === '角度' ? '選んだ絵は角度が違う命令の結果です。' : '選んだ絵は別の軸（旋回・横転・機首上げ下げ）の命令の結果です。'); }
     return { ok, correct: ci, answerText: `${ci + 1}（${attText(q.ans)}）`, lines };
   }
 
@@ -380,14 +380,14 @@
   }
 
   /* ---------- 採点と解説 ---------- */
-  const bankText = b => b > 0 ? `右バンク${b}°` : b < 0 ? `左バンク${-b}°` : '水平（バンクなし）';
-  const pitchText = p => p > 0 ? `機首上げ${p}°` : p < 0 ? `機首下げ${-p}°` : '水平（ピッチなし）';
+  const bankText = b => b > 0 ? `右バンク ${b}°` : b < 0 ? `左バンク ${-b}°` : '水平（バンクなし）';
+  const pitchText = p => p > 0 ? `機首上げ ${p}°` : p < 0 ? `機首下げ ${-p}°` : '水平（機首の上下なし）';
 
   function gradeHeading(q, dir) {
     if (q.match) {
       const ci = q.opts.findIndex(o => o.ok), ok = dir === ci;
       const lines = [`出題の絵: 印 ${DIRS[q.mark].k} から北を決めると、機首は${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。`,
-        '4 枚はそれぞれ印の向きと方位が違うので、絵の機首の向きではなく、印から数えた方角で比べます。'];
+        '4 枚は印の向きがまちまちなので、絵の機首の向きではなく、印から数えた方角で比べます。'];
       if (!ok && dir >= 0 && q.opts[dir]) lines.push(`選んだ絵の機首は${DIRS[q.opts[dir].heading].ja}を向いています。`);
       return { ok, correct: ci, answerText: `${ci + 1}（${DIRS[q.dir].ja}）`, lines };
     }
@@ -395,21 +395,21 @@
     const lines = rel === 0 ? [`機首が ${k} の印と同じ向き → ${DIRS[q.dir].ja}。`]
       : [`${k} の印から時計回りに 45° ずつ数えます。機首は ${k} から ${rel * 45}° の方向。`];
     if (mk) lines.push(`印が N ではないので、まず ${k}（${DIRS[mk].ja}）の位置から北を決めます。`);
-    else if (q.phi) lines.push('北が上ではないので、画面の上下ではなく N マークを基準に読み替えます。');
+    else if (q.phi) lines.push('北が上ではないので、画面の上下ではなく N の印を基準に読み替えます。');
     return { ok, correct: q.dir, answerText: `${DIRS[q.dir].ja}（${DIRS[q.dir].k}）`, lines };
   }
   function gradeOpts(q, i) {
     const ci = q.opts.findIndex(o => o.ok), ok = i === ci;
     const { pitch, bank } = q, d = q.dir14;
     const lines = q.reverse ? [] : [d.read];   // 計器 → 絵（複合の Max）は 26 方向の読み方の文が合わないので、下の方位の文だけ
-    if (bank) lines.push(`${bankText(bank)}：機首の向きに対して${bank > 0 ? '右' : '左'}の翼が下がっている（南から見た絵では、機首がこちらを向くほど左右が逆に見える）。水平儀では水平線が${bank > 0 ? '右上がり' : '左上がり'}に傾く。`);
-    else lines.push('翼が水平なのでバンクなし。水平線が傾いている選択肢は誤り。');
-    lines.push(pitch > 0 ? '機首上げ：水平儀では水平線が中心より下がり、空（青）の面積が増える。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）の面積が増える。' : '水平飛行：水平線が中心を通る。');
-    let answerText = `${ci + 1}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;
+    if (bank) lines.push(`${bankText(bank)}：機首の向きに対して${bank > 0 ? '右' : '左'}の翼が下がっています（南から見た絵では、機首がこちらを向くほど左右が逆に見えます）。水平儀では水平線が${bank > 0 ? '右上がり' : '左上がり'}に傾きます。`);
+    else lines.push('翼が水平なのでバンクはありません。水平線が傾いている選択肢は誤りです。');
+    lines.push(pitch > 0 ? '機首上げ：水平儀では水平線が中心より下がり、空（青）が増えます。' : pitch < 0 ? '機首下げ：水平線が中心より上がり、地面（茶）が増えます。' : '水平飛行：水平線が中心を通ります。');
+    let answerText = q.reverse ? `${ci + 1}（${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}` : `${ci + 1}（機首 ${d.ja}：${bank ? bankText(bank) + '、' : ''}${pitchText(pitch)}`;   // Max（16 方位）は 26 方向の名前が合わないので、方位は後ろの 16 方位の名前だけ
     if (q.type === 'combo' && q.reverse) {
       const H16 = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
       const n16 = H16[Math.round(q.heading / 22.5) % 16];
-      lines.push(`方位指示器の上（機首）が ${n16}（${q.heading}°）。南から見た絵では、北向きは奥、東向きは右、南向きはこちら。`);
+      lines.push(`羅針儀の上（機首）が ${n16}（${q.heading}°）です。南から見た絵では、北向きは奥、東向きは右、南向きはこちらです。`);
       answerText += ` / ${n16}`;
     } else if (q.type === 'combo') {
       const NPOS = ['真上', '右上', '右', '右下', '真下', '左下', '左', '左上'];
@@ -499,7 +499,7 @@
       return { pts, depth, fill: shade(p.c, 0.5 + 0.5 * dot), stroke: shade(p.c, 0.35) };
     }).sort((a, b) => b.depth - a.depth);
     const body = polys.map(p => `<polygon points="${p.pts}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="0.8" stroke-linejoin="round"/>`).join('');
-    return `<svg viewBox="0 0 360 250" width="100%" style="aspect-ratio:360/250;display:block" role="img" aria-label="第三者視点">
+    return `<svg viewBox="0 0 360 250" width="100%" style="aspect-ratio:360/250;display:block" role="img" aria-label="南から見た機体">
 <rect width="360" height="98" fill="var(--sky)"/><rect y="98" width="360" height="152" fill="var(--earth)"/>
 <line x1="0" x2="360" y1="98" y2="98" stroke="#fff" stroke-width="1.5" opacity=".9"/>
 ${[112, 132, 158, 192, 232].map((y, i) => `<line x1="0" x2="360" y1="${y}" y2="${y}" stroke="#000" opacity="${.06 + i * .02}"/>`).join('')}
@@ -515,7 +515,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     }).join('');
     const scale = [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60].map(a =>
       `<line x1="0" y1="-90" x2="0" y2="${Math.abs(a) % 30 == 0 ? -78 : -83}" stroke="#fff" stroke-width="${a == 0 ? 3 : 2}" transform="rotate(${a})"/>`).join('');
-    return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="姿勢指示器">
+    return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="水平儀">
 <defs><clipPath id="${id}"><circle r="90"/></clipPath></defs><circle r="97" fill="var(--bezel, #0a0d11)"/>
 <g clip-path="url(#${id})"><g class="ai-h" transform="rotate(${-bank}) translate(0 ${(pitch * k).toFixed(1)})">
 <rect x="-400" y="-500" width="800" height="500" fill="var(--sky)"/><rect x="-400" y="0" width="800" height="500" fill="var(--earth)"/>
@@ -537,7 +537,7 @@ ${body}<rect x="0.5" y="0.5" width="359" height="249" fill="none" stroke="var(--
     }
     const mk = DIRS[((mark % 8) + 8) % 8].k;
     card += `<g transform="rotate(${mark * 45})"><polygon points="0,-86 -7,-68 7,-68" fill="var(--accent)"/><text y="-44" text-anchor="middle" font-size="${mk.length > 1 ? 17 : 22}" font-weight="700" font-family="var(--display)" fill="var(--accent)">${mk}</text></g>`;
-    return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="方位指示器">
+    return `<svg viewBox="-100 -100 200 200" width="100%" style="aspect-ratio:1;display:block" role="img" aria-label="羅針儀">
 <circle r="97" fill="var(--bezel, #0a0d11)"/><circle r="90" fill="var(--card, #1a2027)"/><circle r="90" fill="none" stroke="var(--line2)" stroke-width="1"/><g class="hi-c" transform="rotate(${-heading})">${card}</g>
 <path class="hi-a" d="M0,-30 L4,-16 L4,-2 L22,8 L22,13 L4,7 L4,16 L11,21 L11,25 L0,22 L-11,25 L-11,21 L-4,16 L-4,7 L-22,13 L-22,8 L-4,-2 L-4,-16 Z" fill="var(--accent)" opacity=".9"/><g class="hi-g"><path d="M0,-6 L20,-34 A34,34 0 0 0 -20,-34 Z" fill="var(--accent)" opacity=".45"/><circle r="7" fill="var(--accent)"/></g>
 <polygon points="0,-96 -7,-84 7,-84" fill="var(--accent)"/><circle r="92" fill="none" stroke="var(--bezel, #0a0d11)" stroke-width="6"/><circle r="96" fill="none" stroke="var(--line2)" stroke-width="2"/></svg>`;
@@ -675,7 +675,7 @@ ${[112, 128, 150, 178].map((y, i) => `<line x1="0" x2="200" y1="${y}" y2="${y}" 
   /* bank: 0 なら bi-<id>.webp、右バンク 30 なら bi-<id>-r30.webp、左バンク 60 なら bi-<id>-l60.webp */
   function figDir14(d, bank = 0) {
     const suffix = bank ? `-${bank > 0 ? 'r' : 'l'}${Math.abs(bank)}` : '';
-    return `<div class="d14"><img src="img/bi-${d.id}${suffix}.webp" alt="第三者視点（南から）" style="width:100%;height:auto;display:block">
+    return `<div class="d14"><img src="img/bi-${d.id}${suffix}.webp" alt="南から見た機体" style="width:100%;height:auto;display:block">
 <svg class="d14legend" viewBox="0 0 76 54" aria-hidden="true"><g stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 35V12M17 17l5-5 5 5"/><path d="M27 40h27M49 35l5 5-5 5"/><circle cx="22" cy="40" r="5"/><path d="M18.5 36.5l7 7M25.5 36.5l-7 7"/></g>
 <g font-family="var(--mono)" font-size="10" font-weight="700" fill="currentColor"><text x="22" y="9" text-anchor="middle">上</text><text x="58" y="44">東</text><text x="14" y="44" text-anchor="end">北</text></g></svg></div>`;
   }

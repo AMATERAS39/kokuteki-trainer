@@ -1260,7 +1260,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-timer1" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M10 3h4"/><path d="M10.6 10.6 12.4 9.4v7.2"/><path d="M10.6 16.6h3.6"/></symbol>
 <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20v-4"/><path d="M10 20v-8"/><path d="M16 20v-12"/><path d="M22 20V4"/></symbol>
 <symbol id="i-talk" viewBox="0 0 24 24"><path d="M20 4H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v4l5-4h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></symbol>
-<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h11l-2 3.5L16 11H5z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13C8.5 17.5 10.5 18 12 19.5c1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2z"/><path d="M12 6.5v13"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
 <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></symbol>
 <symbol id="i-cross" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/></symbol>
@@ -1923,7 +1924,7 @@ function showSetup(){
   const SET_IC={level:'bars',qCount:'cards',qLimit:'timer1'};   /* 設定の行の記号（札は残す。初めて見る画面なので絵だけにはしない。利用者の指示 2026-09-23） */
   const sel=(key,label,opts,lock)=>`<label class="setting"><span>${SET_IC[key]?ic(SET_IC[key],'xs'):''}${label}</span><select data-key="${key}">${opts.map(([v,t])=>{const off=!isFull()&&lock&&lock(v);
     return `<option value="${v}"${String(ms[key])===String(v)?' selected':''}${off?' disabled':''}>${t}${off?'（完全版）':''}</option>`}).join('')}</select></label>`;
-  const SW_IC={skipChk:'talk',introChk:'flag'};
+  const SW_IC={skipChk:'talk',introChk:'book'};
   const sw=(id,on,label)=>`<label class="chkrow"><button class="chk${on?' on':''}" id="${id}" role="switch" aria-checked="${on}">${ic('check')}</button>${SW_IC[id]?ic(SW_IC[id],'xs'):''}${label}</label>`;
   if(mode==='spatial'||mode==='combo')ensureShooter().catch(()=>{});   /* その場で描く絵の準備（最初の 1 問で待たせない） */
   $('#setup').innerHTML=`<h2>${E.MODES[mode]}</h2>
@@ -3452,7 +3453,7 @@ function renderStatsPage(){
   for(const m of Object.keys(E.MODES)){
     const st=stats[m]||{n:0,c:0,t:0},HL=hist.filter(x=>x.m===m),L=HL.slice(0,12).reverse();
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
-      <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div title="解いた数">${ic('cards','xs')}<b>${st.n}</b></div><div title="1 問あたりの平均解答時間">${ic('timer1','xs')}<b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> s</div><div title="計測した回数">${ic('flag','xs')}<b>${HL.length}</b></div></div></div>
+      <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div title="解いた数">${ic('cards','xs')}<b>${st.n}</b></div><div title="1 問あたりの平均解答時間">${ic('timer1','xs')}<b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> s</div><div title="計測した回数">${ic('list','xs')}<b>${HL.length}</b></div></div></div>
       ${st.n?`<div class="sub pace">${paceText(m,st.t/st.n)}（全難易度の平均から）</div>`:''}
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
       ${weakHTML(m)}

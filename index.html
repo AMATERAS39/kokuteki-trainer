@@ -174,6 +174,9 @@ svg text{user-select:none}
 .summary .sub{font-size:.8125rem;color:var(--muted);margin-top:.25rem}
 .summary .grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:1rem 0}
 .summary .cell{background:var(--panel2);border:1px solid var(--line);border-radius:.75rem;padding:.75rem .5rem}
+.summary .cell.ringcell{display:grid;place-items:center;padding:.375rem}   /* 正答率は記録分析と同じ輪で見せる（v06.25） */
+.summary .cell.ringcell .ring .bg{stroke:var(--line2)}   /* 札の地色と同じだと輪の下地が消える */
+.summary .cell.ringcell .ring{width:3.75rem;height:3.75rem}
 .summary .cell .v{font-family:var(--mono);font-size:1.375rem;font-weight:700;font-variant-numeric:tabular-nums}
 .summary .cell .l{font-size:.6875rem;color:var(--muted)}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}   /* 画面には出さず、読み上げと検索には残す名前（v06.23） */
@@ -1244,7 +1247,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-back" viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" d="M5 12h15m-10 5.657L4.343 12L10 6.343"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="m12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81zM12 3L2 12h3v8h6v-6h2v6h6v-8h3"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
-<symbol id="i-uturn" viewBox="0 0 24 24"><path d="M16 5H10a4.5 4.5 0 0 0 0 9h9"/><path d="M15.5 10.5 19 14l-3.5 3.5"/></symbol>
+<symbol id="i-replay" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M6 2v5h5"/></symbol>
 <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20v-4"/><path d="M10 20v-8"/><path d="M16 20v-12"/><path d="M22 20V4"/></symbol>
 <symbol id="i-talk" viewBox="0 0 24 24"><path d="M20 4H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v4l5-4h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></symbol>
 <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h11l-2 3.5L16 11H5z"/></symbol>
@@ -1521,7 +1524,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.24';
+const APP_VER='v06.25';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1976,13 +1979,13 @@ function paceText(m,avgSec){const P=E.EXAM_PACE[m];if(!P||!avgSec)return '';cons
   return `本番のペース: この速さなら ${P.n} 問を ${mmss(total)} で解き、${P.min} 分のうち ${rem>=0?`<b>${mmss(rem)}</b> 余ります`:`<b>${mmss(-rem)}</b> 足りません`}。`}
 function showSummary(){
   clearInterval(timerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
-  const acc=s.n?Math.round(s.c/s.n*100)+'%':'—',avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
+  const avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
   if(s.n>0)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit()});
   const tot=s.total||0,used=s.start?Math.min(tot||1e9,(performance.now()-s.start)/1000):0,totText=tot%60?mmss(tot):`${Math.round(tot/60)} 分`;
   sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${s.timeUp?`${totText}の時間切れ（${s.n} 問）`:qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${tot>0?`<div class="sub">全体の制限時間 ${totText}のうち ${mmss(used)} を使いました。</div>`:''}${MS().level==='max'&&s.n?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
-    <div class="grid"><div class="cell" title="出題"><div class="v">${s.n}</div><div class="l">${ic('cards','xs')}<span class="sr">出題</span></div></div><div class="cell" title="正解"><div class="v">${s.c}</div><div class="l">${ic('check','xs')}<span class="sr">正解</span></div></div><div class="cell" title="正答率"><div class="v">${acc}</div><div class="l"><span class="sr">正答率</span></div></div><div class="cell" title="平均解答時間"><div class="v">${avg}</div><div class="l">${ic('timer','xs')}<span class="sr">平均解答時間</span></div></div></div>
-    <div class="acts"><button class="btn" id="again" title="もう一度">${ic('uturn','s')}<span class="sr">もう一度</span></button><button class="btn ghost" id="toHome" title="ホームへ">${ic('home','s')}<span class="sr">ホームへ</span></button></div>`;
+    <div class="grid"><div class="cell" title="出題"><div class="v">${s.n}</div><div class="l">${ic('cards','xs')}<span class="sr">出題</span></div></div><div class="cell" title="正解"><div class="v">${s.c}</div><div class="l">${ic('check','xs')}<span class="sr">正解</span></div></div><div class="cell ringcell" title="正答率">${ringHTML(s.n?s.c/s.n:null,'')}<span class="sr">正答率</span></div><div class="cell" title="平均解答時間"><div class="v">${avg}</div><div class="l">${ic('timer','xs')}<span class="sr">平均解答時間</span></div></div></div>
+    <div class="acts"><button class="btn" id="again" title="もう一度">${ic('replay','s')}<span class="sr">もう一度</span></button><button class="btn ghost" id="toHome" title="ホームへ">${ic('home','s')}<span class="sr">ホームへ</span></button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());
   $('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});
   sendRec();

@@ -266,7 +266,10 @@
      方位は 16 方位（SSW のような中途半端な方角も）。絵は 3D モデルをその場で描く */
   function genComboReverse(s) {
     const heading = rnd(16) * 22.5, pitch = pick([0, 0, 30, -30]), bank = s.bank === 'off' ? 0 : pick([0, 0, 30, -30, 60, -60]);
-    const hAlt = [...new Set([heading + 180, 360 - heading, heading + 22.5, heading - 22.5, heading + 45, heading - 45, heading + 90, heading - 90].map(norm))].filter(h => h !== heading);
+    /* 誤答の方位は正解から 45° 以上離す（利用者の指示 2026-09-24「同じ向きのバンク・同じ方角・同じ機首上げで、違うのは微妙な角度だけ、は運で問題として不成立」）。
+       以前は ±22.5° も候補にあり、姿勢が正解と同じで方位だけ 22.5° 違う選択肢が出た。姿勢の誤答（attCands）は区分違いだけなので、方位が同じでも見分けられる */
+    const adiff = (a, b) => { const d = Math.abs(norm(a) - norm(b)) % 360; return Math.min(d, 360 - d); };
+    const hAlt = [...new Set([heading + 180, 360 - heading, heading + 45, heading - 45, heading + 90, heading - 90, heading + 135, heading - 135].map(norm))].filter(h => adiff(h, heading) >= 45);
     const h2 = pick(hAlt), [b2, p2] = pick(attCands(bank, pitch));
     const dis = [[h2, bank, pitch], [heading, b2, p2], [h2, b2, p2]];
     const opts = shuffle([{ heading, bank, pitch, ok: true }, ...dis.map(([h, b, p]) => ({ heading: h, bank: b, pitch: p, ok: false }))]);

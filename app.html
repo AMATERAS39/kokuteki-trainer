@@ -1551,10 +1551,16 @@ const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if
     const cap=Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
     if(m.qCount===0||m.qCount>cap)m.qCount=cap;
   }
+  if(isExamSet()){const P=E.EXAM_PACE[mode];m.level='max';m.qCount=P.n;m.qLimit=0;m.skipExplain=true}   /* 試験モードは保存した設定の上に重ねるだけ */
   return m};
 function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}
-const goLabel=()=>isExamSet()?'試験開始':hideIntro[mode]?'計測開始':'練習開始';   /* 始めるボタンの文言（試験モードのときは「試験開始」。利用者の指示 2026-09-22） */
-const isExamSet=()=>{const P=E.EXAM_PACE[mode],m=MS();return !!P&&m.level==='max'&&m.qCount===P.n&&!m.qLimit&&!!m.skipExplain&&!!hideIntro[mode]};   /* 試験モードの条件がそろっているか */   // 変更したキーだけ保存（既定値の変更を反映させるため）
+/* 試験モード（v06.47、利用者の指示 2026-09-24「試験モードの設定は保存せず、毎度手動設定」）: 保存した設定は書き換えず、オンのあいだだけ本番の条件
+   （Max・本番の問数・1 問の制限なし・解説なし・説明と練習なし）を重ねる。種目の画面に入るたびにオフから始まる（enterMode）。
+   オンのまま条件を 1 つでも変えたらオフに戻り、変えた値だけが保存される */
+let examFlag=null;   // オンのときは種目名
+const introHidden=()=>isExamSet()||!!hideIntro[mode];
+const goLabel=()=>isExamSet()?'試験開始':introHidden()?'計測開始':'練習開始';   /* 始めるボタンの文言（試験モードのときは「試験開始」。利用者の指示 2026-09-22） */
+const isExamSet=()=>examFlag===mode&&!!E.EXAM_PACE[mode]&&isFull();   /* 試験モードがオンか */
 /* 出題条件は固定（設定から外した）: N マークはランダム、操縦操作は 2 操作で①の初期姿勢はランダム、姿勢のバンクあり。計測中は解説を出さず自動で次へ */
 const GEN={north:'random',ops:'mix',init:'random',bank:'on'};
 const genQ=()=>E.generate(mode,Object.assign({},settings,GEN,{level:MS().level}));
@@ -1609,7 +1615,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.46';
+const APP_VER='v06.47';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -2090,7 +2096,7 @@ function markNav(){
 }
 function enterMode(m,sub){
   setBack(sub==='practice'||sub==='sim'?pendingBack:null);pendingBack=null;
-  mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);
+  mode=m;store.set('mode',m);qcount=0;streak=0;session=null;clearInterval(timerId);examFlag=null;   /* 試験モードは毎回オフから */
   $('#modeName').textContent=E.MODES[m];$('#tabdesc').textContent=DESC[m];$('#modeIcon').innerHTML=`<use href="#i-${MODE_ICON[m]}"/>`;
   $('#tips').innerHTML=TIPS[m].map(t=>`<li>${t}</li>`).join('');$('#kbdText').textContent=KBD[m];renderStats();
   if(m==='control'&&sub==='sim'){startSim();return}
@@ -2127,26 +2133,23 @@ function showSetup(){
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
     ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
     ${sw('skipChk',!ms.skipExplain,'解説')}
-    ${sw('introChk',!hideIntro[mode],'説明・練習')}
+    ${sw('introChk',!introHidden(),'説明・練習')}
     <div class="acts"><button class="btn" id="setupGo">${goLabel()}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupGal">操作ごとの見え方</button></div>
     <div class="sethelp">出題ではありません。操作ごとの①②③を見比べる画面です。</div>`}`;
-  $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
+  /* 試験モードのまま条件を 1 つでも変えたら、試験モードはオフ（利用者の指示 2026-09-24）。変えた値だけが保存に残る */
+  const examOff=was=>{if(!was)return false;examFlag=null;showSetup();return true};
+  $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS(),was=isExamSet();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
     if(el.dataset.key==='level'&&mode==='heading'){if(v==='max'&&before.level!=='max'&&before.qLimit===5)setMS('qLimit',20);else if(v!=='max'&&before.level==='max'&&before.qLimit===20)setMS('qLimit',5)}   /* 方位判読の Max（同じ方角の機体を選ぶ）は既定 1 問 20 秒（利用者の指示 2026-09-22） */
+    if(examOff(was))return;
     if(el.dataset.key==='level')showSetup()}));
   if(!isFull()){const qs=$('#setup select[data-key="qCount"]');if(qs)qs.value=String(qMax())}   // 体験版は、実際に出す数（上限で切った値）を選んで見せる
-  const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const on=!get();set(on);btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
+  const toggle=(btn,get,set)=>btn.addEventListener('click',e=>{e.preventDefault();const was=isExamSet(),on=!get();set(on);if(examOff(was))return;btn.classList.toggle('on',on);btn.setAttribute('aria-checked',on)});
   toggle($('#skipChk'),()=>!MS().skipExplain,on=>setMS('skipExplain',!on));   /* 表示は「解説」（オンで解説あり）。保存は従来どおり skipExplain */
-  toggle($('#introChk'),()=>!hideIntro[mode],on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);if(on&&MS().skipExplain){setMS('skipExplain',false);showSetup()}   /* 練習をオンにしたら解説あり（利用者の指示 2026-09-22） */
+  toggle($('#introChk'),()=>!introHidden(),on=>{if(on)delete hideIntro[mode];else hideIntro[mode]=true;store.set('hideIntro',hideIntro);if(on&&MS().skipExplain){setMS('skipExplain',false);showSetup()}   /* 練習をオンにしたら解説あり（利用者の指示 2026-09-22） */
     $('#setupGo').innerHTML=goLabel()+ic('next','s')});
-  $('#setupGo').addEventListener('click',()=>{if(!hideIntro[mode])showIntro();else startMeasured()});
-  if($('#examMode'))$('#examMode').addEventListener('click',()=>{
-    /* もう一度押すと解除して、押す前の設定に戻す（利用者の指示 2026-09-22）。押す前の設定は examPrev に種目ごとに覚える。無ければ既定に戻す */
-    const prev=store.get('examPrev',{});
-    if(isExamSet()){const p=prev[mode];if(p&&p.set)modeSet[mode]=p.set;else delete modeSet[mode];store.set('modeSet',modeSet);
-      if(p&&p.hide)hideIntro[mode]=true;else delete hideIntro[mode];store.set('hideIntro',hideIntro);delete prev[mode];store.set('examPrev',prev);showSetup();return}
-    prev[mode]={set:modeSet[mode]?Object.assign({},modeSet[mode]):null,hide:!!hideIntro[mode]};store.set('examPrev',prev);
-    const P=E.EXAM_PACE[mode];setMS('level','max');setMS('qCount',P.n);setMS('qLimit',0);setMS('skipExplain',true);hideIntro[mode]=true;store.set('hideIntro',hideIntro);showSetup()});
+  $('#setupGo').addEventListener('click',()=>{if(!introHidden())showIntro();else startMeasured()});
+  if($('#examMode'))$('#examMode').addEventListener('click',()=>{examFlag=isExamSet()?null:mode;showSetup()});   /* 押すたびに入り切り。保存はしない */
   /* 操縦操作だけ、「始める」の下にシミュレーターと見え方の一覧を置いてある */
   if($('#setupGal'))$('#setupGal').addEventListener('click',()=>{location.hash='#train/control/gallery'});
   toTop();

@@ -1550,7 +1550,8 @@ export function mount(container, opt = {}) {
       mo.copy(h.position).sub(plane.position).applyQuaternion(qInv.copy(att).invert());
       /* 放射で遠くへ離れた機は、そこから隊形へ寄せると何十秒もかかり、途中で 1 番機の瞬間移動に引きずられる。
          見えない距離まで離れているので、いったん隠して「無限遠を飛んでいる」扱いにし、次の課目の進入で合流させる（v04.36） */
-      if (mo.length() > 500) { h.visible = false; u.shown = false; u.rejoin = true; u.hold = 90; u.cur.set(0, -120, 0); }   // hold: 次の瞬間移動まで隠したまま（秒）
+      /* 見えているときは、その場で消さずに放射の向きのまま飛び去らせ、視界から出てから隠す（departStart。利用者の指摘 2026-09-24） */
+      if (mo.length() > 500) { if (h.visible && inCamView(h.position)) departStart(h, u, true); else departHide(h, u, i, true); }
       else u.cur.copy(mo);
       u.from = null; } });
     bloomS = null;
@@ -1762,6 +1763,10 @@ export function mount(container, opt = {}) {
     /* 追従機は 1 番機の道を LAND_LAG 秒ずつ遅れてたどり、同じ位置に接地する（2 機ずつの着陸はやめた） */
     landClock = -1;
     startPath(LAND_LAG);
+    /* 降りる滑走路を決め直す（2・4・6 番機は滑走路 2、3・5 番機は滑走路 1。同じ滑走路は 2 機おき = 36 秒おき）。
+       以前は前のタッチ・アンド・ゴー（spreadOnLine）で決めた値が残り、タッチ・アンド・ゴーのない並びでは全機が滑走路 1 に、
+       ある並びでもその時の割り当てのまま降りていた（利用者の指摘 2026-09-24） */
+    mates.forEach((h, i) => { h.userData.rwx = ((i + 1) % 2) ? RWY2 : 0; });
     mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; });
     /* 地上の視線は、視点が機内へ切り替わるまで先頭の着陸機（1 番機）だけを追う（利用者の指示 2026-09-24「視点が変わるまで先頭着陸機に注目」）。
        以前は全機の平均を見ていたので、18 秒ずつ遅れて道をたどる僚機（最後尾は 5 km 後ろ）に引かれ、
@@ -1868,7 +1873,7 @@ export function mount(container, opt = {}) {
     }
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
+    e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; figClock = -1; smokeAll = false;
     spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; halfT = -1; oproX = false; oproUp = false; oproZ = -1; oproBack = false; noTurn = false; smokeNone = false; rollBoost = 1;
     bankLim = 52;                            // 舵取りのバンクの上限は、課目ごとに決め直す
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
@@ -2378,17 +2383,30 @@ export function mount(container, opt = {}) {
         break;
       }
       case 'cupid': case 'star': {               // 描き物: 2 番機以降が図を描き、1 番機は図のそばを回る
-        if (!fig) {
+        const ff = FIGS[m.fig];
+        if (figClock < 0) {
           if (!matesReady() && manT < 60) { orbitEye(GATE.z); st.cue = '隊形を組みます'; break; }   // 集まるまで観覧位置のまわりを回って待つ
-          beginFigure(m.fig);
+          /* 図の真ん中へ向かって上がり、図の面の手前 FIG_NEAR m まで来てから描き始める。
+             以前は進入の終わり（観覧位置から 1.8 km・高さ 200 m）で描き始め、僚機は 8 秒のあいだに 1.3 km 先・360 m 上の図の始点へ
+             寄せていたので、1 コマに 12〜15 m（240〜300 m/s。速さの上限 150 m/s の 2 倍）で動いていた（利用者の指摘 2026-09-24）。
+             図のそばから寄せれば、寄せる距離は図の大きさほどで済む */
+          const e7 = eyeDir(), cx = e7.ex + e7.dx * ff.d, cy = e7.ey + e7.dy * ff.d;
+          const along7 = (st.x - e7.ex) * e7.dx + (st.y - e7.ey) * e7.dy;
+          /* 近づくあいだは煙を出さない（絵の中へ線を引き込まない。以前も図の始めまで 1 番機・僚機とも出していなかった） */
+          if (along7 > ff.d + FIG_NEAR && manT < 60) { smokeNone = true; steerTo(cx, cy, ff.z); break; }
+          beginFigure(m.fig); figClock = 0; smokeNone = false;
         }
-        fig.t += dt;
+        figClock += dt;
+        /* 図を描き終えたら（ff.end）、僚機は図の道から隊形へ戻る（endFigure）。煙は課目の終わりまで切っておく（戻る途中の線が絵に重なる）。
+           以前は図の道の延長を課目の終わりまで飛ばし（上限 1.25 で止める）、スタークロスでは下向きの線の機が地面の下（高さ −6 m）まで
+           進んで、そこで 4.5 秒止まっていた（実測） */
+        if (fig) { fig.t = figClock; if (fig.t >= ff.dur * ff.end) { endFigure(); smokeNone = true; } }
         /* 1 番機は図の下のあたりを ゆっくり回る。目で追う視点は 1 番機を追うので、図も画面に入る */
         const fa = Math.atan2(st.y - figO.y, st.x - figO.x) + 0.5;
         steerTo(figO.x + Math.cos(fa) * 160, figO.y + Math.sin(fa) * 160, Math.max(160, figO.z - 230));
         /* 描き終えて 3 秒は絵を見せ、そのあと視線を機体へ（ゆっくり首を回す）。回し終えるまで課目を続ける */
-        if (fig.t >= fig.dur + 3 && figAim) { figAim = null; slowAim = 6; }
-        if (fig.t >= fig.dur + 9) nextManeuver();
+        if (figClock >= ff.dur + 3 && figAim) { figAim = null; slowAim = 6; }
+        if (figClock >= ff.dur + 9) nextManeuver();
         break;
       }
       case 'tree': {                             // クリスマスツリー・ローパス: 減速・脚出し・ライト・濃い煙で頭上を低く抜ける
@@ -3114,7 +3132,11 @@ export function mount(container, opt = {}) {
   /* 図を描く課目は、描き終わるまで最初の線が消えないようにする（秒）。
      粒の入れ物は 1 機あたり 1400 個・毎秒 25 個なので、56 秒までなら足りる */
   const FIG_LIFE = { cupid: 46, star: 30, eight: 75 };   // レター・エイトは 8 の字が全部残るまで煙を消さない
-  const FIGS = { cupid: { dur: 36, n: 3, s: 15, d: 545, z: 600 }, star: { dur: 18, n: 5, s: 15, d: 445, z: 560 } };   // v04.19: d を 15% 近くに
+  /* end: 図の道を飛ぶのをやめて隊形へ戻る時点（dur に対する割合）。キューピッドは矢が抜けきる 1.25（課目の終わりと同じ）、
+     スタークロスは星を描き終えた 1.0（その先の延長は下向きの線が地面へ向かう） */
+  const FIGS = { cupid: { dur: 36, n: 3, s: 15, d: 545, z: 600, end: 1.25 }, star: { dur: 18, n: 5, s: 15, d: 445, z: 560, end: 1 } };   // v04.19: d を 15% 近くに
+  const FIG_NEAR = 200;                            // 図の面のこれだけ手前で描き始める（m）
+  let figClock = -1;                               // 描き物を始めてからの時間（秒）。-1 はまだ始めていない
   const HEART_END = 0.64;                          // ハートを描く 2 機は、ここまでで道すじを飛び終える
   const STAR_IN = 0.47, STAR_OUT = 0.89, STAR_R = 16;   // スタークロス: 線を引く区間（この間に頂点から頂点へ飛ぶ）と、星の大きさ（単位）
   let fig = null;                                  // {id, t, dur, n, s}
@@ -3668,12 +3690,12 @@ export function mount(container, opt = {}) {
   /* その点が、いまのカメラの視界に入っているか（見えているか）。
      展示飛行モードで、後から上がる 5・6 番機を「見えていないあいだに」出すのに使う（利用者の指示 7） */
   const vSee = new THREE.Vector3(), vFwd2 = new THREE.Vector3();
-  function inCamView(p) {
+  function inCamView(p, m = 1.15) {                         // m: 画面の端からの余裕（1 = 画面の端）
     vSee.copy(p).sub(cam.position);
     vFwd2.set(0, 0, -1).applyQuaternion(cam.quaternion);
     if (vSee.dot(vFwd2) <= 0) return false;                 // カメラの後ろ
     vSee.copy(p).project(cam);
-    return Math.abs(vSee.x) < 1.15 && Math.abs(vSee.y) < 1.15;
+    return Math.abs(vSee.x) < m && Math.abs(vSee.y) < m;
   }
   const QUEUE_WAIT_MAX = 25;                                // 見られ続けているときの上限（秒）。演目が止まらないように（2 機ずつの離陸だけ）
   /* 展示飛行のダイヤモンド・テイクオフで取り付けに待つ 5・6 番機は、滑走させずに「見えていないあいだに上がった」扱いにする
@@ -3819,6 +3841,30 @@ export function mount(container, opt = {}) {
       u.from = null;                                  // 飛び立つときに道を引き直す
     }
   }
+  /* ===== 飛び去る機 =====
+     隊形に席がなくなった機・散開で遠くへ開いた機のうち、視界の中にいるものは、その場で消さない。
+     機首の向きのまま（下向きなら水平に直して）1 番機と同じ速さでまっすぐ飛び、視界から出たか、
+     DEP_FAR より遠くなって豆粒になったところで隠す。演目が止まらないよう DEP_MAX 秒で必ず隠す */
+  const DEP_FAR = 6000, DEP_MAX = 120;
+  function departStart(h, u, bloom) {
+    const v = new THREE.Vector3(0, 1, 0).applyQuaternion(h.quaternion);
+    if (v.z < 0) { v.z = 0; if (v.lengthSq() < 1e-4) v.set(Math.sin(st.h * D), Math.cos(st.h * D), 0); v.normalize(); }
+    u.dep = { v: v.multiplyScalar(SPEED * Math.max(0.6, spdK)), t: 0, bloom };
+    h.visible = true; u.shown = true;
+  }
+  function departStep(h, u, i, dt) {
+    u.dep.t += dt;
+    h.position.addScaledVector(u.dep.v, dt);
+    /* 視界の判定は余裕を広く取る（画面の端から 30%）。ふつうの余裕（15%）ちょうどで消すと、端をかすめて出入りする機が
+       見えている範囲の際で消えたことになる */
+    if (!inCamView(h.position, 1.3) || h.position.distanceTo(cam.position) > DEP_FAR || u.dep.t > DEP_MAX) departHide(h, u, i, u.dep.bloom);
+  }
+  /* 隠す。散開のあとの機は次の瞬間移動まで隠したまま（hold）、席のなくなった機は後ろの遠く（ENTRY）から次の合流を待つ */
+  function departHide(h, u, i, bloom) {
+    h.visible = false; u.shown = false; u.rejoin = true; u.dep = null; u.from = null; u.qw = null;
+    if (bloom) { u.hold = 90; u.cur.set(0, -120, 0); }
+    else { const e = ENTRY[i]; u.cur.set(e[0], e[1], e[2]); u.k = 1; }
+  }
   function placeMates(dt) {
     /* 接地して減速しているあいだ（land）は、ふつうの編隊の置き方に任せる。
        追従機は 1 番機の通った道をたどるので、同じところへ順に降りてくる。
@@ -3863,6 +3909,15 @@ export function mount(container, opt = {}) {
       /* 無限遠へ飛び去った扱いの機は、次の瞬間移動まで出さない（出すと、遠くから隊形へ一気に寄って見える）。
          万一そのままにならないよう、時間で必ず解ける */
       if (u.hold > 0) { u.hold -= dt; holder.visible = false; u.shown = false; if (u.hold > 0) return; }
+      if (u.dep) {                                               // 飛び去っている途中
+        /* 席ができても、1 番機から 520 m より遠ければ飛び去り続ける（隠れてから、次の移す瞬間に席へ現れる）。
+           遠くから合流させると、遠い機の置き方（機首の向きだけで置く・世界の座標で持つ）が混ざって、
+           地面の下（−86 m）や上空 490 m へ振られた（実測: レインフォールのあとのクリスマスツリー・ローパス） */
+        if ((!target || holder.position.distanceTo(plane.position) > 520) && !snapForm) { departStep(holder, u, i, dt); return; }
+        /* 席ができて近ければ、いまの位置から ふつうの合流で寄る。移す瞬間（snapForm）は下で置き直す */
+        if (!snapForm) { mo.copy(holder.position).sub(plane.position).applyQuaternion(qInv.copy(att).invert()); u.cur.copy(mo); u.from = null; }
+        u.dep = null;
+      }
       if (u.gp || (u.ground && !u.tk)) { groundOne(holder, u, i, dt, emitting, on, cols); return; }   // まだ地上（順番待ち・誘導路）
       if (pathLag > 0 && !u.pfDone) { if (i + 1 < f.n) placeReplay(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); else { holder.visible = false; u.shown = false; } return; }
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
@@ -3881,7 +3936,7 @@ export function mount(container, opt = {}) {
       /* 描き物の最中: 式のとおりに置く。始めの 2.5 秒は、いまの位置から図の始点へなめらかに移る */
       if (fig) {
         if (i >= fig.n) { holder.visible = false; u.shown = false; return; }
-        const pu = Math.min(1.25, fig.t / fig.dur);                // 1 を超えても止めない（延長線上を飛び続ける）
+        const pu = fig.t / fig.dur;                                // 1 を超えても止めない（延長線上を飛び続ける。どこまでかは FIGS の end）
         const xy = figXY(fig.id, i, pu), xy2 = figXY(fig.id, i, pu + 0.004);
         figPoint(fp, xy, fig.s);
         figPoint(fp2, xy2, fig.s);
@@ -3977,7 +4032,13 @@ export function mount(container, opt = {}) {
       const settled = u.k > 0.97;
       if (settled && u.tkJoin) u.tkJoin = false;   // 離陸からの寄せが済んだ（次からはふつうに膨らませる）
       /* 離れていく機体は、十分に離れて小さくなってから消す */
-      if (!target && (settled || u.cur.length() > 520)) { holder.visible = false; u.shown = false; return; }
+      /* 席のない機は、後ろの遠く（ENTRY）へ離れたところで、見えていなければ消す。見えていれば、その向きのまま飛び去らせ、
+         視界から出てから消す（departStart）。以前はここで消していたので、500〜1100 m 先の機が視界の中で消えていた
+         （利用者の指摘 2026-09-24。実測: 旋回・コークスクリュー・レター・エイトなどの始め）。移す瞬間（snapForm）は画面が白くなるので、そのまま消す */
+      if (!target && (settled || u.cur.length() > 520)) {
+        if (u.shown && holder.visible && !snapForm && inCamView(holder.position)) { departStart(holder, u, false); return; }
+        holder.visible = false; u.shown = false; return;
+      }
       holder.visible = true;
       /* 時間差をつけない（1 番機の「いまの」位置と向きから置く）。
          遅らせると、旋回や横転のたびに後続機が道すじの内側・外側へずれて、列が曲がって見える。
@@ -4025,7 +4086,15 @@ export function mount(container, opt = {}) {
         const tz = 3 * (1 - Math.exp(-retT / 3));
         retFrom.set(u.ret.p.x + u.ret.v.x * retT, u.ret.p.y + u.ret.v.y * retT,
                     Math.max(80, u.ret.p.z + u.ret.v.z * tz));
+        crabP.copy(holder.position);
         holder.position.lerpVectors(retFrom, mp, e2);
+        /* 戻るあいだも飛べる速さに収める（下のふつうの置き方と同じ上限）。混ぜ元はまっすぐ飛び続け、混ぜ先は 1 番機について動くので、
+           次の課目の進入で 1 番機が離れていくと 2 点が開き、200 m/s で動いていた（実測: スタークロスのあとのキューピッドの進入） */
+        if (dt > 0.0005 && u.shown) {
+          flyV.copy(holder.position).sub(crabP);
+          const d3 = flyV.length(), lim3 = SPEED * Math.max(0.3, spdK) * MATE_SPD_MAX * dt;
+          if (d3 > lim3) holder.position.copy(crabP).addScaledVector(flyV, lim3 / d3);
+        }
         turnMate(holder, qa.copy(u.ret.q).slerp(mq, e2), dt);
       } else if (u.shown) {
         crabP.copy(holder.position);     // 動かす前の位置（実際に動いた向きを測るため）
@@ -4044,6 +4113,7 @@ export function mount(container, opt = {}) {
           const d2 = flyV.length(), lim2 = SPEED * Math.max(0.3, spdK) * MATE_SPD_MAX * dt;
           if (d2 > lim2 && d2 > 1e-6) { flyV.multiplyScalar(lim2 / d2); holder.position.copy(crabP).add(flyV); }
         }
+        if (holder.position.z < 3) holder.position.z = 3;   // なましても地面より下へは置かない
         aimNose(holder, u, mq, dt, far, crabP);
         turnMate(holder, mq, dt);
       } else { holder.position.copy(mp); holder.quaternion.copy(mq); }
@@ -4098,7 +4168,9 @@ export function mount(container, opt = {}) {
         /* 離陸のあいだ（tkOn か滑走中）は第一飛行群だけを見る: 滑走している機・浮いた機。駐機・順番待ち・誘導路の機は数えない */
         const taking = tkOn || gmode === 'takeoff';
         focus.copy(plane.position); let fn = 1;
-        mates.forEach(mt => { const u = mt.userData; if (!mt.visible) return; if (taking && (u.parked || u.gp || (u.ground && !u.tk))) return; focus.add(mt.position); fn++; });
+        /* 飛び去っている機と、隊形に席のない機（後ろへ離れていく機）は数えない（視線が引きずられて演技から外れる） */
+        const fo = (FORMATIONS[formation] || { offs: [] }).offs;
+        mates.forEach((mt, i) => { const u = mt.userData; if (!mt.visible || u.dep || (!fo[i] && !pathLag && !fig && !bloomS)) return; if (taking && (u.parked || u.gp || (u.ground && !u.tk))) return; focus.add(mt.position); fn++; });
         focus.multiplyScalar(1 / fn);
       }
       /* 見る先が飛んだら、その飛びを控えて足し戻す（上の AIM_JUMP の説明） */
@@ -4776,7 +4848,7 @@ export function mount(container, opt = {}) {
       st.show = ''; st.desc = ''; st.cue = '「離陸準備」で滑走路へ進みます';
       mates.forEach((h, i) => {
         const u = h.userData, sd = STANDS[i + 1];
-        u.tk = null; u.ld = null; u.mh = undefined; u.from = null; u.shown = false; u.gh = sd.h; u.pfDone = false; u.parked = true; u.lag = undefined; u.gp = null; u.lampOn = false;
+        u.tk = null; u.ld = null; u.dep = null; u.mh = undefined; u.from = null; u.shown = false; u.gh = sd.h; u.pfDone = false; u.parked = true; u.lag = undefined; u.gp = null; u.lampOn = false;
         h.position.set(sd.x, sd.y, 3);
         h.quaternion.setFromAxisAngle(AZ, -sd.h * D);
       });

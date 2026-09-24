@@ -995,6 +995,25 @@ export function mount(container, opt = {}) {
   const smBehindT = [];                    // 機ごと: 真後ろに他機がいる時間（+）／いない時間（−）。切り替えの遅れに使う
   let smDt = 0.05;                         // smokers を呼ぶコマの長さ（step で更新）
   const SM_SIDE = 7, SM_UP = 5, SM_BACK = 160;   // 左右・上下のそろい（m）と、後ろを見る距離（m）
+  const ORIGIN0 = [0, 0, 0];                     // 1 番機の席（隊形の表の原点）
+  const slotOcc = [];                     // 席の決まり（slotBehind）: 機ごとに、その席に着いているか
+  function slotBehind(n, seated) {
+    const f = FORMATIONS[formation]; if (!f) return;
+    const pos = k => k === 0 ? ORIGIN0 : f.offs[k - 1];
+    for (let k = 0; k < n; k++) { const u = k ? mates[k - 1].userData : null;
+      slotOcc[k] = k === 0 || !!(f.offs[k - 1] && u.shown && (u.tk || u.tkJoin || seated(u))); }
+    for (let k = 0; k < n; k++) {
+      if (!slotOcc[k]) continue;
+      const a = pos(k);
+      for (let j = 0; j < n; j++) {
+        if (j === k || !slotOcc[j]) continue;
+        const b = pos(j), dy = (b[1] - a[1]) * formScale;
+        if (Math.abs(b[0] - a[0]) * formScale < SM_SIDE && Math.abs(b[2] - a[2]) * formScale < SM_UP && dy < -2 && dy > -SM_BACK) {
+          smokeOnArr[k] = false; smWhyArr[k] = 'behind'; break;
+        }
+      }
+    }
+  }
   function smokers() {
     const n = mates.length + 1;
     smokeOnArr.length = 0; smWhyArr.length = 0;
@@ -1003,10 +1022,10 @@ export function mount(container, opt = {}) {
     smList.length = 0; smList.push(smSlot(0, plane.position, att));
     mates.forEach((h, i) => { if (h.userData.shown) smList.push(smSlot(i + 1, h.position, h.quaternion)); });
     const list = smList;
-    /* 編隊で飛んでいるあいだは、「真後ろに他機」の位置の決まりを使わない（利用者の指示 第 2 便 5・10）。
-       ダイヤモンドでは 4 番機が 1 番機の真後ろに入るため、この決まりで煙が途切れ途切れになっていた。
-       実際の展示飛行でも、真後ろの機は煙を出したまま飛ぶ。
-       自分で操縦しているとき（編隊を組んでいない）はこれまでどおり */
+    /* 編隊で飛んでいるあいだは、「真後ろに他機」の**位置**の決まりを使わない（利用者の指示 第 2 便 5・10）。
+       ダイヤモンドでは 4 番機が 1 番機の真後ろに入るため、毎コマの位置で判じると煙が途切れ途切れになっていた。
+       代わりに下（slotBehind）で、表の隊形の**席**で判じる（2026-09-24）。
+       自分で操縦しているとき（編隊を組んでいない）はこれまでどおり位置で判じる */
     const tkJoining = mates.some(h => h.userData.tkJoin);   // 離陸から隊形への寄せの途中
     const formFly = smokeAll || tkOn || tkJoining || gmode === 'stand'
                     || (((FORMATIONS[formation] ? FORMATIONS[formation].n : 1) > 1) && matesReady());
@@ -1047,6 +1066,13 @@ export function mount(container, opt = {}) {
       if (!u.tkJoin && !seated(u)) { smokeOnArr[k] = false; smWhyArr[k] = 'join'; } }
     /* 隊形に席のない機（例: チェンジオーバー・ターンのトレイルに入らない 6 番機）は出さない。smokeAll でも出さない */
     { const fo = FORMATIONS[formation] ? FORMATIONS[formation].offs : null; if (fo) for (let k = 1; k < n; k++) if (!fo[k - 1]) { smokeOnArr[k] = false; smWhyArr[k] = 'slot'; } }
+    /* 席の決まり: 編隊で飛んでいるあいだ、自分の席の真後ろ（左右 SM_SIDE・上下 SM_UP 以内、後ろ 2〜SM_BACK m）の席に
+       他機が着いている機は出さない（利用者の指示 2026-09-24「ダイヤモンドなど、後ろに機体がいる機は原則スモークオフ」。
+       後ろの機が煙の中を飛ぶため）。ダイヤモンドは 1 番機だけ（4 番機が真後ろ）、デルタは 1 番機（6 番機）、トレイルは最後尾以外。
+       位置ではなく表の席で決めるので、旋回や横転で位置が揺れても入り切りしない。
+       「着いている」は席に着いた機（seated）と、離陸で隊形のまま上がっている機（tk・tkJoin）。合流してくる機が席に着いた瞬間に切れる。
+       1 番機の道をたどる課目（pathLag: 間隔は数百 m）・描き物・散開・コークスクリュー・交差する課目は、席の形で飛んでいないので使わない */
+    if (formFly && pathLag <= 0 && !fig && !bloomS && corkT < 0 && !mir) slotBehind(n, seated);
     /* レター・エイト: 合流するまで先頭機は出し続ける（追いつく 1 機が後ろに入ると「後ろに機体がいる」規則で
        先頭機が 3.6 秒早く切れ、煙のない間ができた。実測）。合流した瞬間に先頭機と入れ替える（戻った 1 機が円を仕上げる） */
     if (e8 && !e8.done && !e8.out) smokeOnArr[0] = true;
@@ -1370,7 +1396,7 @@ export function mount(container, opt = {}) {
        実測: 本番の最初の 3 割で僚機が 150 m/s に張り付き、機首と進行方向のずれが平均 64.6 度（最大 71 度）。
        説明文の「高さの違う 5 機が一列で」も階段隊形のことなので、定義側の指定が実態と食い違っていた */
     { id: 'change', ja: 'チェンジオーバー・ターン', form: 'steps', alt: 200, at: 45, atR: 1300,
-      desc: '高さの違う 5 機が階段状の一列で北東から進入し、頂点で先頭以外が一斉に左右へ開いて扇形に並びます。隊形が整ってから、そろって旋回します。' },
+      desc: '高さの違う 5 機が階段状の一列で北東から進入し、頂点で先頭以外が一斉に左右へ開いて扇形に並び、そのまま まっすぐ抜けていきます。' },
     { id: 'rain', ja: 'レインフォール', form: 'fan', alt: 900, at: 180, atR: 1200,
       desc: '極めて高いところから 5 機が真下へ降り、正面の前方で一気に散らばって、煙の筋が五方向へ伸びます。' },
     { id: 'orbit', ja: '旋回', t: 6, front: false, form: 'solo', set: {}, desc: '次の課目へ移るための旋回です。ここで隊形を解き、次の課目までに組み直します。' },
@@ -1579,9 +1605,6 @@ export function mount(container, opt = {}) {
     if (emitting && color) { emitPos.set(0, -6.9, -0.3).applyQuaternion(bq).add(b.p); emit(emitPos, color, null, 0, i + 1); }
   }
   let chgT = -1;                           // チェンジオーバー・ターン: 隊形が組めてからの時間（秒）。-1 は待っているあいだ
-  /* 旋回を始めた時刻（chgT 基準）。-1 は「まだ始めていない」。
-     散開と同時に曲がると外側の機が振り回されて膨らむので、隊形が整うまで待つ（利用者の指摘 2026-09-13） */
-  let chgTurn = -1;
   /* 瞬間移動をしない進入（利用者の指示 13）。スタークロスの次の課目と、着陸で立てる。
      立っているあいだは、進入の入口まで実際に飛ぶ */
   let noJumpIn = false;
@@ -1740,6 +1763,10 @@ export function mount(container, opt = {}) {
     landClock = -1;
     startPath(LAND_LAG);
     mates.forEach(h => { h.userData.ld = null; h.userData.mh = undefined; });
+    /* 地上の視線は、視点が機内へ切り替わるまで先頭の着陸機（1 番機）だけを追う（利用者の指示 2026-09-24「視点が変わるまで先頭着陸機に注目」）。
+       以前は全機の平均を見ていたので、18 秒ずつ遅れて道をたどる僚機（最後尾は 5 km 後ろ）に引かれ、
+       視線が 1 番機から最大 113 度外れて空を見ていた（実測）。切り替えは一度の均一な振り向き（slowAim）で */
+    aimN = 1; slowAim = SLOW_AIM;
     st.show = '着陸'; st.desc = '2 機ずつ、間をあけて滑走路へ降ります。';
     st.cue = '着陸へ入ります';
     if (treeMode) setTreeMode(false);
@@ -1822,7 +1849,9 @@ export function mount(container, opt = {}) {
        席がないまま見えていると、描いている最中にまわりをうろつく（利用者の指摘）。次に席のある課目で合流して現れる */
     { const nf = FORMATIONS[PROGRAM[i].form || userForm] || { offs: [] };
       if (auto && !oneShot && PROGRAM[i].id !== 'dtake' && !tkOn && gmode === 'fly')
-        mates.forEach((h, k) => { const u = h.userData; if (!nf.offs[k] && u.shown && !u.ground && !u.gp && !u.tk) { h.visible = false; u.shown = false; u.rejoin = true; } }); }
+        /* 見えている機は消さない（視界の中で突然消えた。実測: コークスクリューの始めに 3〜6 番機が 30〜56 m 先で消えた）。
+           席がないので、そのまま隊形の後ろの遠く（ENTRY）へ離れていき、離れきったところで消える（placeMates） */
+        mates.forEach((h, k) => { const u = h.userData; if (!nf.offs[k] && u.shown && !u.ground && !u.gp && !u.tk && !inCamView(h.position)) { h.visible = false; u.shown = false; u.rejoin = true; } }); }
     reIn = 0; if (PROGRAM[i].id !== 'takeoff') aimN = 0;   // 離陸ではアプリが「先頭機を追う」と指すので消さない
     /* スタークロスの次の課目は、瞬間移動せずに入口まで飛ぶ（利用者の指示 13）。
        ここではまだ step_i が「前の課目」なので、それで判じる */
@@ -1839,7 +1868,7 @@ export function mount(container, opt = {}) {
     }
     formation = m.form || userForm;
     st.show = m.ja; st.desc = m.desc || '';
-    e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; chgTurn = -1; smokeAll = false;
+    e8 = null; touchDone = false; touchT = 0; touchAge = 0; mir = null; joinFast = false; chgT = -1; smokeAll = false;
     spreadOn = false; spreadT = 0; bloomOut = false; bloomS = null; rainDive = false; rainT = 0; tkWp = 0; tkT = 0; tkT2 = 0; dtT = -1; halfT = -1; oproX = false; oproUp = false; oproZ = -1; oproBack = false; noTurn = false; smokeNone = false; rollBoost = 1;
     bankLim = 52;                            // 舵取りのバンクの上限は、課目ごとに決め直す
     lifeNow = FIG_LIFE[m.id] || SMOKE_LIFE;   // 図を描く課目のあいだだけ、消えるまでの時間を延ばす
@@ -1855,12 +1884,24 @@ export function mount(container, opt = {}) {
          以前は「離れながら組む」で、僚機は進入のあいだずっと 1 番機を追いかけていた
          （実測: 平均 148 m/s・最大 150 m/s（上限）・1 番機から最大 867 m）。
          そのため反対側から超高速で来て急転回するように見えた。
-         1 番機と同じところから進入させる */
-      snapForm = true;
+         組み上がった形に置き直すのは、見えない距離で 1 番機を移す瞬間（snapForm は 'in' の移すところ）。
+         ここ（課目の変わり目・見えているところ）で置き直すと、ダイヤモンドからサンライズへ移るときに
+         3 機が扇の席へ跳び（速さの上限 150 m/s で 1 秒ほどで寄る）、隠れていた 5 番機が席に突然現れた
+         （利用者の指摘 2026-09-24。実測: 5 番機が 1 番機から 45 m の席に、視界の中で現れた）。
+         見えている機は、移すまでのあいだ ふつうの合流で席へ寄る。隠れている機は移す瞬間まで隠しておく（holdUnseen） */
+      holdUnseen();
       planEntry(m); manPhase = 'in';
     }
     else if (st.z < GATE.z - 60) { manPhase = 'climb'; st.cue = '高度を取ります'; markOn = false; }
     else { manPhase = 'do'; st.cue = ''; markOn = false; }
+  }
+  /* 隠れている機で、次の隊形に席があるものは、移す瞬間（hold を 0 にする所）まで隠したままにする。
+     置き場は隊形の後ろの遠く。移さないまま hold が切れたときは、そこから合流してくる */
+  function holdUnseen() {
+    const f = FORMATIONS[formation] || { offs: [] };
+    mates.forEach((h, i) => { const u = h.userData;
+      if (u.shown || !f.offs[i] || u.ground || u.gp || u.tk || u.parked || (u.queue !== undefined && u.queue >= 0)) return;
+      const e = ENTRY[i]; u.cur.set(e[0], e[1], e[2]); u.hold = Math.max(u.hold || 0, 90); u.k = 1; u.from = null; u.rejoin = true; });
   }
   function nextManeuver() {
     formScale = 1;
@@ -1967,10 +2008,17 @@ export function mount(container, opt = {}) {
             steerTo(dwX, dwY, Math.max(wz, 220));
             if (Math.hypot(dwX - st.x, dwY - st.y) < 600) landLeg = 1;
           } else {
-            steerTo(exX, exY, wz);
+            /* 延長線へは斜めに寄せて乗る（線の先の点を狙う。横のずれが大きいほど先を狙い、寄せる角はおおむね 45 度まで）。
+               以前は延長線上の 1 点（南 3.6 km）そのものを狙い、そこから 450 m・35 度以内で最終へ移していたので、
+               横に 120 m ずれたまま最終に入り、滑走路へ斜めに近づいていた（利用者の指摘 2026-09-24「滑走路に斜めに侵入している」。
+               実測: 接地点の手前 3 km で東へ 120 m、しきい値で 40 m、接地は中心線から 24 m） */
+            const xt = st.x - RWY.x;
+            steerTo(RWY.x, Math.max(st.y, exY - LAND_DW_Y) + clamp(Math.abs(xt), 600, 1500), wz);
           }
-          const dEx = Math.hypot(exX - st.x, exY - st.y), dHx = Math.abs(wrap180(RWY.h - st.h));
-          if (landLeg === 1 && dEx < 450 && dHx < 35) {
+          const xt0 = Math.abs(st.x - RWY.x), dHx = Math.abs(wrap180(RWY.h - st.h));
+          /* 最終へ移すのは、延長線に乗って（横 60 m・向き 12 度以内）南 3.6 km の近くまで来たとき。
+             乗り切れずに北へ行き過ぎたときも移す（最終の舵が中心線へ寄せる） */
+          if (landLeg === 1 && st.y > exY - 400 && ((xt0 < 60 && dHx < 12) || st.y > exY + 500)) {
             landStep = 1; landDesc = 0; landSide = 0; landLeg = 0;
             gearOn = false; lightsOn = false; applyGear();
             st.cue = '進入';
@@ -1979,6 +2027,7 @@ export function mount(container, opt = {}) {
           if (landStep === 0 && phaseT > 240 && (far0 > JUMP_FAR || phaseT > 300)) {
             st.x = RWY.x; st.y = RWY.y - LAND_FAR; st.z = 3 + (tdY - st.y) * LAND_SLOPE; st.h = RWY.h;
             spdK = 1; spdWant = 1; levelAttitude();
+            plane.position.set(st.x, st.y, st.z);                  // 道と並びは移した先から作る（plane はこのコマの終わりまで移す前の位置のまま）
             seedHistory(100); slowAim = SLOW_AIM; mates.forEach(h => { h.userData.hold = 0; }); if (opt.onJump) opt.onJump();
             landStep = 1; landDesc = 0; landSide = 0;
             gearOn = false; lightsOn = false; applyGear();         // 着陸体制は滑走路の手前 1.8 km で
@@ -1994,7 +2043,10 @@ export function mount(container, opt = {}) {
           let wz = far > 80 ? Math.min(3 + far * LAND_SLOPE, 400) : -25;
           const inStrip = Math.abs(st.y) < STRIP_END - 30;
           if (!inStrip) wz = Math.max(wz, 6);
-          const wantH = ((Math.atan2(RWY.x - st.x, (tdY + 800 * sgn) - st.y) / D) % 360 + 360) % 360;
+          /* 中心線に乗せる: 横のずれ 1 m につき 0.35 度 中心線へ向ける（30 度まで）。
+             接地点の先の 1 点を狙うと、ずれが接地まで残って斜めに降りた（上の実測）。ずれに比例して向けると、
+             ずれは約 3 秒ごとに 1/e へ縮み、最終の始めの 1 km ほどで中心線に乗り切る */
+          const wantH = (RWY.h - clamp((st.x - RWY.x) * 0.35, -30, 30) + 360) % 360;
           const turnMax = 8 * dt;
           const newH = (st.h + clamp(wrap180(wantH - st.h), -turnMax, turnMax) + 360) % 360;
           const bankL = clamp(wrap180(wantH - st.h) * 1.5, -20, 20);
@@ -2047,7 +2099,7 @@ export function mount(container, opt = {}) {
            （チェンジオーバー・ターンのスモークが出ない、コークスクリューが遠くへ行く、などの元） */
         if (matesReady() || phaseT > 150) {
           spdWant = 1;                                                  // 離陸待ちで落としていた速さを戻す
-          if (m.entry === 'front' || m.at !== undefined || m.rwy) { snapForm = true; planEntry(m); manPhase = 'in'; phaseT = 0; }
+          if (m.entry === 'front' || m.at !== undefined || m.rwy) { holdUnseen(); planEntry(m); manPhase = 'in'; phaseT = 0; }   // 席へ置き直すのは移す瞬間（見えているここではしない）
           else {
             /* 課目の時計（manT）と角度の積算は、ここから数え直す。以前は隊形を組んでいた時間が manT に乗ったままで、
                ハーフ・スロー・ロール（manT > 15 で終了）などは、組むのに 36 秒かかると始まった 1 コマ後に終わっていた
@@ -2090,6 +2142,7 @@ export function mount(container, opt = {}) {
           const dJ = Math.hypot(jx - st.x, jy - st.y), dH = Math.abs(wrap180(inH - st.h));
           if ((dJ < 260 && dH < 40) || phaseT > 150) {
             hist.length = 0; clearSmoke();
+            launchQueued();
             mates.forEach(h => { h.userData.hold = 0; h.userData.qw = null; });
             snapForm = true;                     // 僚機も隊形の位置へ置き直す
             slowAim = SLOW_AIM; beginMirror(m, false);
@@ -2098,16 +2151,21 @@ export function mount(container, opt = {}) {
         }
         else if (dO < JUMP_FAR) { const bj = Math.atan2(jx - GROUND_EYE.x, jy - GROUND_EYE.y); steerTo(GROUND_EYE.x + Math.sin(bj) * (JUMP_FAR + 600), GROUND_EYE.y + Math.cos(bj) * (JUMP_FAR + 600), GATE.z); }
         /* 向きは 60 度以内まで合わせれば移す（移す先で向きは進入の向きに置き直す）。
-           8 度まで待つと、遠くで 180 度回り切るのに 17 秒かかった（実測 v04.24）。隊形が組めるのは待つ */
-        else if (Math.abs(wrap180(inH - st.h)) > 60 || (!matesReady() && phaseT < 60)) {   // 向きをおおむね合わせ、隊形が組めるのを待ってから移す
+           8 度まで待つと、遠くで 180 度回り切るのに 17 秒かかった（実測 v04.24）。
+           隊形が組めるのは待たない（移す瞬間に全機を席へ置く snapForm。組み上がるのを遠くで待つ理由がない） */
+        else if (Math.abs(wrap180(inH - st.h)) > 60) {                                    // 向きをおおむね合わせてから移す
           holdBank(clamp(wrap180(inH - st.h) * 1.4, -45, 45));
           holdPitch(clamp((GATE.z - st.z) * 0.12, -15, 15));
         } else {                                                                          // 位置だけ移す
           st.x = jx; st.y = jy; st.z = GATE.z;
           att.setFromAxisAngle(AZ, -inH * D); readAttitude();
           hist.length = 0; clearSmoke();
+          launchQueued();                        // 取り付けで待たせたままの 5・6 番機も、ここで上がった扱いにする
           mates.forEach(h => { h.userData.hold = 0; h.userData.qw = null; });   // 無限遠で待たせていた機は、ここで現れる（移した先なので見えない）
           snapForm = true;                       // 僚機も隊形の位置へ置き直す（1 番機と同じところから進入する）
+          /* タッチ・アンド・ゴーの縦隊（9 秒ずつの間隔）も、ここで並べる。以前は技の始め（滑走路の手前、見えているところ）で並べていて、
+             僚機が 1 コマで 0.9〜2.9 km 後ろへ跳んで見えた（実測） */
+          if (m.id === 'touch') { plane.position.set(st.x, st.y, st.z); seedHistory(60); spreadOnLine(TOUCH_LAG); }   // 絵の位置（plane）はまだ移す前なので、先に合わせてから並べる
           slowAim = SLOW_AIM;                    // 地上の視線は、均一に振り向く（追いかけて飛ばない）
           beginMirror(m, true);                  // 交差する課目の相手は、この瞬間に鏡の位置へ移す（跳びが見えない）
           if (opt.onJump) opt.onJump();
@@ -2140,7 +2198,7 @@ export function mount(container, opt = {}) {
           /* 始める位置より ずっと内側に居るときは、門まで戻って入り直す。
              近くから始めると、遠くから向かってくる見せ場がなくなる */
           if (along < (m.far || FRONT_START) * 0.35 && reIn < 1) {
-            reIn++; snapForm = true; planEntry(m); manPhase = 'in'; phaseT = 0; safety(); return autoIn;
+            reIn++; planEntry(m); manPhase = 'in'; phaseT = 0; safety(); return autoIn;   // 席へ置き直すのは、入り直しで移す瞬間
           }
           const cone = along * 0.14 + 40;
           if ((along < (m.far || FRONT_START) && side < cone && Math.abs(wrap180(wantH - st.h)) < 25) || phaseT > 45) endEntry();
@@ -2522,19 +2580,17 @@ export function mount(container, opt = {}) {
         if ((tkWp >= 2 && dOt > 1400) || manT > 85) { spdWant = 1; nextManeuver(); }
         break;
       }
-      case 'change': {                           // チェンジオーバー・ターン: 北東から入り、頂点で開いて南東の無限遠へ
-        /* 北を x、東を y とした平面で下に凸の曲線。頂点は散開位置と原点の中間（北 300 m）。
-           階段の一列で頂点へ向かい、頂点で交互に開いてデルタになり、整った速度ベクトルのまま南東へ。
+      case 'change': {                           // チェンジオーバー・ターン: 北東から入り、頂点で開いて そのまま無限遠へ
+        /* 頂点は散開位置と原点の中間（北 300 m）。
+           階段の一列で頂点へ向かい、頂点で開いて扇になり、整った速度ベクトルのまま まっすぐ抜ける。
            捻れないよう、舵は頂点で 1 回だけ切る */
         const Oc = GROUND_EYE, vp = showPt(SPREAD_D / 2, 0), vx = vp.x, vy = vp.y;
         const dOc = Math.hypot(st.x - Oc.x, st.y - Oc.y);
         if (chgT < 0) {
           formation = 'steps'; formScale = 1;
           steerTo(vx, vy, GATE.z);
-          /* 頂点で一斉に開く。扇への切り替えはこのコマで行う（下の else で行うと、次のコマの matesReady() が
-             まだ階段の k=1 を見て「整った」と誤判定し、散開と同時に旋回が始まった。実測 2026-09-13:
-             扇にして 0.3 秒で 1 番機がバンク、僚機は k=0.46 の散開途中）。placeMates は課目の処理の後に走るので、
-             ここで切り替えれば次のコマの k は扇に対する値（ほぼ 0）から始まる */
+          /* 頂点で一斉に開く。扇への切り替えはこのコマで行う（placeMates は課目の処理の後に走るので、
+             ここで切り替えれば、このコマから扇へ寄せ始める） */
           if (Math.hypot(vx - st.x, vy - st.y) < 150 || manT > 60) { chgT = 0; smokeAll = true; joinFast = true; formation = 'fan'; formScale = 1.7; }   // joinFast も同じコマに（寄せの長さは道を引く瞬間に決まる。実測: 無いと開き切るのに 8.9 秒）
         } else {
           chgT += dt;
@@ -2548,20 +2604,15 @@ export function mount(container, opt = {}) {
              課目の途中で合流して現れていた。扇は 5 機の隊形なので、6 番機は合流するまで出てこない */
           joinFast = chgT < 3.5;                                                         // 開き始めだけ速く寄せる
           formation = 'fan'; formScale = 1.7;                                            // 初めから扇
-          /* 旋回は**隊形が整ってから**始める（利用者の指摘 2026-09-13:
-             「一番機の旋回開始が早いので、追従機が散開するときに変に膨らみが起きる。
-               正しい編隊になってから旋回する」）。
-             以前は chgT が 0 になった瞬間に、散開の開始と南東への旋回が同時に走っていた。
-             僚機が扇へ開いている最中に 1 番機が曲がるので、外側の機が振り回されて膨らんでいた。
-             時間で決め打ちにせず matesReady()（全機が持ち場に着いたか）で待つ。
-             万一そろわないときのために chgT > 5 で打ち切る（課目が進まなくなるのを防ぐ） */
-          if (chgTurn < 0 && (matesReady() || chgT > 5)) chgTurn = chgT;                 // 旋回を始めた時刻
-          if (chgTurn < 0) holdBank(0);                                                  // 整うまでは真っすぐ
-          else if (chgT - chgTurn < 7) { const se = keyPt(135, 4000); steerTo(se.x, se.y, GATE.z); }
-          else holdBank(0);                                                              // 整った速度ベクトルのまま
+          /* 散開のあとは曲がらず、翼を水平にしたまま まっすぐ抜ける（利用者の指示 2026-09-24
+             「散開直後に 1 番機がバンクするので、5 機の軌跡が外へ膨らむ。軌跡はまっすぐに」）。
+             2026-09-13 からは「隊形が整ってから旋回」にしていたが、整うのは散開の 2 秒後で、そこから 1 秒で 58 度まで傾けていた。
+             僚機は 1 番機の姿勢で置くので、扇（横 ±54 m）が 1 番機ごと転がり、外側の機は開いた直後に上下・内側へ振られていた
+             （実測: 散開 4 秒後に 5 番機が 23 m 内へ戻り、1 番機も 23 m 横へそれた） */
+          holdBank(0);
         }
         holdPitch(1); autoIn.r = 0;
-        if ((chgT > 7 && dOc > 1500) || manT > 90) nextManeuver();                        // 南東の無限遠
+        if ((chgT > 7 && dOc > 1500) || manT > 90) nextManeuver();                        // 抜けた先の無限遠
         break;
       }
       case 'turnloop':                           // 360 度ターン & ループ: 1 周旋回してから宙返り
@@ -3343,6 +3394,7 @@ export function mount(container, opt = {}) {
      着陸: 前の機が接地して減速し（10 秒）、滑走路の上を 20 m/s で北の出口まで出る（20 秒）のに足りる */
   const TOUCH_LAG = 9.0, LAND_LAG = 18.0;
   const LAG_RATE = 0.45;
+  const RP_BLEND = 6;                      // 隊形の席から 1 番機の道へ移るのにかける時間（秒。離れているときは長くする）
   function startPath(lag) {
     const cont = pathLag > 0; pathLag = lag;
     mates.forEach(h => { const u = h.userData; if (!cont) u.lag = undefined; u.pfDone = false; u.parked = false; });
@@ -3360,18 +3412,28 @@ export function mount(container, opt = {}) {
     const v = SPEED * spdK;
     pathLag = lagStep;
     mates.forEach((h, i) => { const u = h.userData; if (!u.shown) return;
-      const lag = (i + 1) * lagStep; u.lag = lag; u.rwx = ((i + 1) % 2) ? RWY2 : 0; u.pfDone = false; u.parked = false; u.ground = false; u.gp = null;
+      const lag = (i + 1) * lagStep; u.lag = lag; u.rpOff = null; u.rwx = ((i + 1) % 2) ? RWY2 : 0; u.pfDone = false; u.parked = false; u.ground = false; u.gp = null;
       h.position.set(plane.position.x - fwd.x * v * lag + u.rwx, plane.position.y - fwd.y * v * lag, plane.position.z - fwd.z * v * lag);
       h.quaternion.copy(att); });
   }
   function placeReplay(holder, u, i, dt, emitting, color) {
     const tgt = (i + 1) * pathLag;
+    let fresh = false;
     if (u.lag === undefined) {                                     // いまの間隔から始める（道の上の同じ位置）
       u.lag = u.shown ? Math.min(tgt, holder.position.distanceTo(plane.position) / Math.max(20, SPEED * spdK)) : tgt;
+      fresh = u.shown; if (!fresh) u.rpOff = null;
     }
     u.lag = Math.min(tgt, u.lag + LAG_RATE * dt);
     const sAt = stateAt(u.lag);
+    /* 道へ移る始めは、隊形の席と道の上の点の差（横に 30〜80 m）を RP_BLEND 秒かけて縮める。
+       そのまま置くと、着陸に入った瞬間に僚機が見えているところで横へ跳んだ（実測: 1 コマに 29〜81 m） */
+    if (fresh) { u.rpOff = (u.rpOff || new THREE.Vector3()).copy(holder.position).sub(sAt.p); u.rpOff.x -= (u.rwx || 0); u.rpT = 0;
+      u.rpDur = clamp(u.rpOff.length() / 60, RP_BLEND, 20); }       // 遠い機（描き物の終わりなど）は、縮める速さが 60 m/s を超えない長さに
     holder.position.copy(sAt.p); holder.position.x += (u.rwx || 0);   // 滑走路 2 に降りる機は 100 m 西の線
+    if (u.rpOff && u.rpT < u.rpDur) {
+      u.rpT += dt; const kb = clamp(u.rpT / u.rpDur, 0, 1);
+      holder.position.addScaledVector(u.rpOff, 1 - kb * kb * (3 - 2 * kb));
+    }
     if (holder.position.z < 3) holder.position.z = 3;
     if (!u.shown) holder.quaternion.copy(sAt.q); else turnMate(holder, sAt.q, dt);
     holder.visible = true; u.shown = true;
@@ -3613,7 +3675,24 @@ export function mount(container, opt = {}) {
     vSee.copy(p).project(cam);
     return Math.abs(vSee.x) < 1.15 && Math.abs(vSee.y) < 1.15;
   }
-  const QUEUE_WAIT_MAX = 25;                                // 見られ続けているときの上限（秒）。演目が止まらないように
+  const QUEUE_WAIT_MAX = 25;                                // 見られ続けているときの上限（秒）。演目が止まらないように（2 機ずつの離陸だけ）
+  /* 展示飛行のダイヤモンド・テイクオフで取り付けに待つ 5・6 番機は、滑走させずに「見えていないあいだに上がった」扱いにする
+     （利用者の指示 2026-09-24「ダイヤモンド・テイクオフの最中に 5・6 番機が視界の中で離陸してはいけない」）。
+     以前は待ちの位置が見えていないときに滑走へ出していたが、滑走と上昇の 30 秒ほどのあいだに、
+     1 番機を追って原点のまわりを回る視線が滑走路を横切り、離陸が見えていた（実測: 5 番機の滑走・上昇が 2.1 秒 視界に入った）。
+     さらに 25 秒見られ続けると見えていても出していた。
+     いまは、待ちの位置が視界の外にあるときに地上から消し、隊形の後ろの遠く（ENTRY）で隠して待たせる。
+     次の瞬間移動（進入で位置を移す瞬間。画面は一瞬白くなる）で隊形の席に現れる（hold を 0 にする所）。
+     瞬間移動がないまま hold が切れたら、後ろの遠くから合流してくる */
+  function launchHidden(h, i) {
+    const u = h.userData, e = ENTRY[i];
+    u.queue = -1; u.parked = false; u.ground = false; u.gp = null; u.tk = null; u.lineSpot = null;
+    h.visible = false; u.shown = false; u.rejoin = true; u.hold = 90;
+    u.cur.set(e[0], e[1], e[2]); u.k = 1; u.from = null; u.qw = null;
+  }
+  const queuedHidden = u => auto && (showLoop || showThru) && tkKind === 'diamond' && u.queue !== undefined && u.queue >= 0 && !u.tk;
+  /* 瞬間移動の瞬間に、まだ取り付けで待っている機（ずっと見られていて消せなかった機）も上がった扱いにする */
+  function launchQueued() { mates.forEach((h, i) => { if (queuedHidden(h.userData)) launchHidden(h, i); }); }
   function queueStep() {
     mates.forEach((h, i) => {
       const u = h.userData;
@@ -3624,6 +3703,7 @@ export function mount(container, opt = {}) {
       /* 展示飛行モードでは、見られているあいだは出さない（ダイヤモンド・テイクオフの最中に、
          追いかけている視界の中で 5・6 番機が上がってしまわないように）。
          ずっと見られているときのために、待ちの上限を置く */
+      if (queuedHidden(u)) { if (!inCamView(h.position)) launchHidden(h, i); return; }
       if (auto && (showLoop || showThru)) {
         if (!u.qT0) u.qT0 = clock;
         if (inCamView(h.position) && clock - u.qT0 < QUEUE_WAIT_MAX) return;
@@ -3788,6 +3868,9 @@ export function mount(container, opt = {}) {
       if (u.tk && !u.tk.done) { rollMate(holder, u, i, dt, emitting, on[i + 1] ? cols[(i + 1) % cols.length] : null); return; }   // まだ滑走・上昇の途中
       if (u.ld && !u.ld.done) { landMate(holder, u, i, dt); return; }   // 2 機ずつの着陸の途中
       if (mir && i === 0) {                                          // 交差する課目の相手
+        /* 相手は鏡の位置に置くので、隊形の寄せ（k）は進まない。移した瞬間（snapForm）に席に着いた扱いにする。
+           しないと合流の途中（join）のまま残り、スモークが出なかった（実測: タック・クロスの 2 番機） */
+        if (snapForm) { u.k = 1; u.from = null; }
         if (mir.vert) placeTuck(holder, u, dt, emitting, on[1] ? cols[1 % cols.length] : null);
         else placeMirror(holder, u, dt, emitting, on[1] ? cols[1 % cols.length] : null);
         return;
@@ -4560,8 +4643,15 @@ export function mount(container, opt = {}) {
     /* 一人称の見せ方を変える。切ると機内が消えて、外の景色がそのまま見える（縦画面はいつもこちら） */
     setCockpit(on) { inCockpit = !!on; const first = curView === 'first';
       cockpit.visible = first && inCockpit; applyBody(); }, cockpitOn() { return inCockpit; },
-    /* 画面のドラッグで視点を動かす（度）。一人称は首、三人称は機体のまわり */
-    addLook(dy, dp) { look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+    /* 画面のドラッグで視点を動かす（度）。一人称は首、三人称は機体のまわり。
+       三人称（後方 third・前方 front）は、機体の手前の面が指についてくる向きに回す（利用者の指摘 2026-09-24
+       「三人称で右になぞったら左にスライドしてしまう」）。以前は右へなぞるとカメラが機体の右へ回り込み、
+       手前の面（後方なら尾、前方なら機首）が左へ流れていた。前方は上下も逆だった（上へなぞると機首が下へ）。
+       ここで符号を返すので、一人称・地上と同じく「右へなぞれば視線が右へ、上へなぞれば上へ」になる（実測は内部設計書 v06.44）。
+       setLook（段取りで斜めから見せる角度）の意味は変えない。試験の世界（動きで見る）は呼ぶ側が符号を決めているので返さない */
+    addLook(dy, dp) {
+      if (!exam && (curView === 'third' || curView === 'front')) { dy = -dy; if (curView === 'front') dp = -dp; }
+      look.y = ((look.y + dy * D + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       look.p = clamp(look.p + dp * D, -LOOK_MAX_P, LOOK_MAX_P); },
     resetLook() { if (curView === 'ground') gAim(); else { look.y = 0; look.p = 0; } },
     setLook(yawDeg, pitchDeg) { look.y = (+yawDeg || 0) * D; look.p = (+pitchDeg || 0) * D; },   // 三人称前方を斜めから（並びのあいだ）
@@ -4758,6 +4848,7 @@ export function mount(container, opt = {}) {
                /* 1 番機の機首の向き */
                mf0: (() => { const v = gfw.copy(AY).applyQuaternion(plane.quaternion); return [+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)]; })(),
                form: formation, scale: formScale, smoke: smokeOnArr.slice(), smWhy: smWhyArr.slice(),
+               see: mates.map(h => h.visible && inCamView(h.position)), camP: [+cam.position.x.toFixed(1), +cam.position.y.toFixed(1), +cam.position.z.toFixed(1)],   // see: 各機がいまのカメラの視界に入っているか、camP: カメラの位置（瞬間移動・離陸・視線を測る）
                bloomC: bloomS ? { x: +bloomS.c.x.toFixed(1), y: +bloomS.c.y.toFixed(1) } : null,
                gearM: mates.map((h, i) => gearSets[i + 1] ? +gearSets[i + 1].visible : -1),
                mates: mates.map(h => ({ x: h.position.x, y: h.position.y, z: h.position.z, on: !!h.userData.shown,
@@ -4807,6 +4898,7 @@ export function mount(container, opt = {}) {
       att.setFromAxisAngle(AZ, -hh * D); readAttitude();
       spdK = 1; spdWant = 1;
       hist.length = 0; clearSmoke();
+      launchQueued();
       mates.forEach(h => { const u = h.userData; u.hold = 0; u.k = 1; u.from = null; u.qw = null; });
       snapForm = true;                           // 隊形は組み上がった形にする（置き直しは placeMates で行う）
       slowAim = SLOW_AIM; beginMirror(m, true); if (opt.onJump) opt.onJump();

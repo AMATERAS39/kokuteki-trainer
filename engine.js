@@ -150,14 +150,14 @@
     return matToAtt(mMul(R0, Rb));
   }
   const CMD_JA = { yaw: ['右旋回', '左旋回'], roll: ['右横転', '左横転'], pitch: ['機首上げ', '機首下げ'] };
-  const cmdText = c => `${CMD_JA[c.axis][c.deg >= 0 ? 0 : 1]} ${Math.abs(c.deg)}°`;
+  const cmdText = c => `${CMD_JA[c.axis][c.deg >= 0 ? 0 : 1]} ${Math.abs(c.deg)}°`;   // 語と角度のあいだは折らない（NBSP）
   const attText = a0 => {
     const a = { heading: Math.round(a0.heading) % 360, pitch: Math.round(a0.pitch), bank: Math.round(a0.bank) };   // 解説の文は整数の度
     const H = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
     const vert = Math.abs(a.pitch) >= 89;
-    const h = vert ? '' : (a.heading % 45 === 0 ? H[Math.round(a.heading / 45) % 8] : `方位 ${a.heading}°`) + '向き';
-    const p = a.pitch >= 89 ? '真上' : a.pitch <= -89 ? '真下' : a.pitch > 0 ? `機首上げ ${a.pitch}°` : a.pitch < 0 ? `機首下げ ${-a.pitch}°` : '';
-    const b = Math.abs(a.bank) >= 179 ? '背面' : a.bank > 0 ? `右バンク ${a.bank}°` : a.bank < 0 ? `左バンク ${-a.bank}°` : '';
+    const h = vert ? '' : (a.heading % 45 === 0 ? H[Math.round(a.heading / 45) % 8] : `方位 ${a.heading}°`) + '向き';
+    const p = a.pitch >= 89 ? '真上' : a.pitch <= -89 ? '真下' : a.pitch > 0 ? `機首上げ ${a.pitch}°` : a.pitch < 0 ? `機首下げ ${-a.pitch}°` : '';
+    const b = Math.abs(a.bank) >= 179 ? '背面' : a.bank > 0 ? `右バンク ${a.bank}°` : a.bank < 0 ? `左バンク ${-a.bank}°` : '';
     const t = [h, p, b].filter(Boolean);
     return t.length ? t.join('・') : '水平';
   };

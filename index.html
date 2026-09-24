@@ -181,6 +181,35 @@ svg text{user-select:none}
 .summary .cell .l{font-size:.6875rem;color:var(--muted)}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}   /* 画面には出さず、読み上げと検索には残す名前（v06.23） */
 .summary .acts{display:flex;flex-direction:column;gap:.5rem}
+/* 試験モードの問題の一覧（v06.41）: 出題中は番号から飛ぶ・見直しの印、結果では正誤を出して番号から問題と解説へ */
+.qhead{gap:.375rem}
+.qno{white-space:nowrap}
+.nw{white-space:nowrap}
+#explain li,.summary .sub,.prompt{text-wrap:pretty}   /* 行末に 1〜2 字だけ残る折り返しを避ける（対応する環境だけ） */
+#examStar,#examList,#examGrade{width:3rem;height:2.5rem;padding:0;flex-direction:column;justify-content:center;gap:.0625rem}   /* 出題画面の頭のボタンは 記号＋小さな文字 でそろえる（利用者の指示 2026-09-24「記号だけなら記号だけ、記号＋文字なら記号＋文字」「文字があってもスタイリッシュなら文字があった方がよい」） */
+#examStar .ic,#examList .ic,#examGrade .ic{width:1.125rem;height:1.125rem}
+.qhead .lb{font-size:.5625rem;line-height:1;font-weight:600;white-space:nowrap}
+#examStar.on{color:var(--accent);border-color:var(--accent)}#examStar.on .ic{fill:currentColor}
+.qnav{margin-top:.625rem;padding:.625rem;border:1px solid var(--line);border-radius:.75rem;background:var(--panel2)}
+#quiz.navopen :is(.prompt,#figs,#answers){display:none}
+.qgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:.375rem}
+.qc{position:relative;aspect-ratio:1;border:1px solid var(--line2);border-radius:.5rem;background:none;color:var(--muted);font:600 .75rem/1 var(--mono);display:grid;place-items:center;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.qc:disabled{cursor:default;opacity:.45}
+.qc.done{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--text)}
+.qc.cur{outline:2px solid var(--accent);outline-offset:1px}
+.qc.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 55%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.qc.ng{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 55%,transparent);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+.qc{flex-direction:column;gap:.0625rem;display:flex;align-items:center;justify-content:center}
+.qc .n{font-size:.5625rem;color:var(--muted);line-height:1}
+.qc .u{line-height:.95rem}
+.qc.done .ic{color:var(--accent)}
+.qc .ic.xs{width:.95rem;height:.95rem}
+.qc .st{position:absolute;top:-.3rem;right:-.3rem;width:.8rem;height:.8rem;color:var(--accent);fill:currentColor;stroke-width:1.5}
+.qnav .lg{display:flex;justify-content:center;gap:1rem;margin-top:.5rem;font-size:.6875rem;color:var(--muted)}
+.qnav .lg span{display:inline-flex;align-items:center;gap:.25rem}
+.qnav .lg .ic{width:.8rem;height:.8rem}.qnav .lg .ic.star{color:var(--accent);fill:currentColor}
+.summary .qnav{margin:0 0 1rem;text-align:left}
+.summary .qnav .sub{text-align:center;margin:0 0 .5rem}
 .setgroup{margin-top:1rem}
 .btn.sm{width:auto;height:2.25rem;padding:0 .875rem;font-size:.8125rem}
 .pccode{font-family:var(--mono);font-size:.8125rem;background:var(--panel2);border:1px solid var(--line2);border-radius:.375rem;padding:.25rem .5rem;user-select:all;-webkit-user-select:all}
@@ -960,6 +989,11 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .fig.wide{flex:1;min-height:0;display:flex;flex-direction:column}
   .d14{flex:1;min-height:6rem;display:flex;justify-content:center}
   .d14 img{height:100%!important;width:auto!important;max-width:100%;object-fit:contain}
+  /* 計器判読の Max（計器 → 機体）: 計器の組も余りの高さに合わせて縮める。以前は幅で大きさが決まり、低い画面（320×568・360×640）で選択肢の下に潜っていた（v06.41） */
+  .inst2{flex:1 1 0;min-height:5.5rem}
+  #figs:has(.inst2){min-height:8rem}   /* これより低くなる画面（320×568）では図を潰さず、画面をスクロールさせる */
+  .inst2 .i2{height:100%;display:flex;justify-content:center;align-items:center}
+  .inst2 .i2 svg{height:100%;width:auto;max-width:100%}
   /* 方位: 上面図 */
   .figs.heading > div:first-child{flex:1;min-height:0;display:flex;flex-direction:column}
   .fig.top,.answered .fig.top{flex:1;min-height:6rem;width:100%;display:flex;justify-content:center;align-items:center;transition:none}
@@ -1275,6 +1309,10 @@ body:not([data-view="home"]) .back{display:inline-flex}
 <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20v-4"/><path d="M10 20v-8"/><path d="M16 20v-12"/><path d="M22 20V4"/></symbol>
 <symbol id="i-talk" viewBox="0 0 24 24"><path d="M20 4H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3v4l5-4h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></symbol>
 <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13C8.5 17.5 10.5 18 12 19.5c1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2z"/><path d="M12 6.5v13"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></symbol>
+<symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/></symbol>
+<symbol id="i-grade" viewBox="0 0 24 24"><path d="M13 21H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h9l4 4v5"/><path d="M8.5 8h6M8.5 12h4"/><path d="M14.5 20.5l.5-2.5 5-5 2 2-5 5z"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
 <symbol id="i-list" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
 <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></symbol>
 <symbol id="i-cross" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
@@ -1425,10 +1463,12 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="qhead">
         <div class="qno"><b id="qno">1</b></div>
         <div class="timer" id="timer"><svg class="ic xs"><use href="#i-timer"/></svg><span id="tval">0.0</span><small id="tunit">s</small></div>
-        <button class="btn sm ghost" id="examPrev" hidden title="前の問題へ"><svg class="ic s"><use href="#i-back"/></svg><span class="sr">前の問題</span></button>
-        <button class="btn sm ghost" id="examGrade" hidden>採点</button>
+        <button class="btn sm ghost" id="examStar" hidden title="見直しの印" aria-pressed="false"><svg class="ic s"><use href="#i-star"/></svg><span class="lb">見直し</span></button>
+        <button class="btn sm ghost" id="examList" hidden title="問題の一覧" aria-expanded="false"><svg class="ic s"><use href="#i-grid"/></svg><span class="lb">一覧</span></button>
+        <button class="btn sm ghost" id="examGrade" hidden title="採点"><svg class="ic s"><use href="#i-grade"/></svg><span class="lb">採点</span></button>
         <button class="btn sm ghost" id="sessEnd" hidden>ここで終える</button>
       </div>
+      <div class="qnav" id="examNav" hidden></div>
       <p class="prompt" id="prompt"></p>
       <div id="figs"></div>
       <div id="answers"></div>
@@ -1463,7 +1503,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=76"></script>
+<script src="engine.js?v=77"></script>
 <script>
 (function(){
 'use strict';
@@ -1549,7 +1589,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.40';
+const APP_VER='v06.41';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1660,6 +1700,14 @@ const PRACTICE_N=3;
 const DESC={spatial:'命令のあとの機体の見え方を選ぶ',heading:'上面図から方位を読む',attitude:'南から見た姿勢を計器で選ぶ',combo:'方位と姿勢を同時に読む',control:'3 枚の視界から操作を選ぶ'};
 const MODE_ICON={spatial:'mode-spatial',heading:'mode-heading',attitude:'mode-attitude',combo:'mode-combo',control:'mode-control'};
 const ic=(id,cls)=>`<svg class="ic ${cls||''}"><use href="#i-${id}"/></svg>`;
+/* 日本語を句の切れ目で折る（利用者の指示 2026-09-24「常に不自然な改行や縦表記に注意」）: 漢字・カタカナ・英数のまとまりと、続くひらがな・句読点を 1 つの塊にして塊の途中では折らない。
+   「命令｜は」「両｜翼」「三人｜称」のような折れを防ぐ。WebKit には word-break:auto-phrase が無いので自前で包む（解説の文と見出しに使う） */
+const PHR=/[一-龯々〆ァ-ヶーA-Za-z0-9０-９°% 「（]+[ぁ-ゖ]*[。、」）・！？]*/g;
+function phraseWrap(root){if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),ns=[];while(w.nextNode())ns.push(w.currentNode);
+  for(const n of ns){const t=n.nodeValue;if(!t.trim()||(n.parentElement&&n.parentElement.closest('.nw,svg,button')))continue;
+    const f=document.createDocumentFragment();let i=0,m;PHR.lastIndex=0;
+    while((m=PHR.exec(t))){if(m[0].length<2)continue;if(m.index>i)f.appendChild(document.createTextNode(t.slice(i,m.index)));const sp=document.createElement('span');sp.className='nw';sp.textContent=m[0];f.appendChild(sp);i=m.index+m[0].length}
+    if(i===0)continue;if(i<t.length)f.appendChild(document.createTextNode(t.slice(i)));n.replaceWith(f)}}
 /* 乗り換えのアイコン: 垂直尾翼をかたどって、そこに機体の番号を書く */
 const finIcon=n=>`<svg class="ic fin" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 20.2 12.4 3.6h3.6l3.4 16.6z"/><text x="12.6" y="17.6" text-anchor="middle">${n}</text></svg>`;
 const dirLabel=i=>settings.dirLabel==='alpha'?E.DIRS[i].k:E.DIRS[i].ja;
@@ -1708,7 +1756,7 @@ function render(){
   $('#qno').textContent=(inPractice?`練習 ${practiceN()-practiceLeft+1} / ${practiceN()}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount));
   $('#qcard').classList.remove('answered');
   $('#quiz').classList.toggle('control',q.type==='control');   /* PC では視界を大きく見せるための印 */
-  $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');
+  $('#feedback').className='fb';$('#timer').classList.remove('stopped','warn');$('#timer').hidden=false;
   fbSimStop();const fbs=$('#fbSim');if(fbs){fbs.hidden=true;fbs.innerHTML=''}
   const figs=$('#figs'),ans=$('#answers');
   /* 前の問題の解説で freezeFigs() が #figs 自体に書いた inline の高さ（height / flex:0 0 auto）を外す。
@@ -1731,7 +1779,7 @@ function render(){
   }else if(q.type==='combo'&&q.reverse){
     /* 複合の Max（本番の B の形）: 計器 → 機体の絵。16 方位 */
     $('#prompt').textContent='計器（水平儀＋羅針儀）に合う機体の見え方を選ぶ';
-    figs.innerHTML=`<div class="figs"><div class="inst2"><div class="i2">${E.svgAI(q.bank,q.pitch)}</div><div class="i2">${E.svgHI(q.heading,q.mark)}</div></div><div class="cap">機首の方位は羅針儀の<b>上</b>。絵は<b>南</b>からの固定視点（奥が北、右が東）</div></div>`;
+    figs.innerHTML=`<div class="figs"><div class="inst2"><div class="i2">${E.svgAI(q.bank,q.pitch)}</div><div class="i2">${E.svgHI(q.heading,q.mark)}</div></div><div class="cap">機首の方位は羅針儀の<b>上</b>。<span class="nw">絵は<b>南</b>からの固定視点</span><span class="nw">（奥が北、右が東）</span></div></div>`;
     ans.innerHTML=`<div class="opts pics">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst"><img class="live" data-live="${i}" alt=""></span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else if(q.type==='heading'){
@@ -1741,7 +1789,7 @@ function render(){
     ans.innerHTML='';
     figs.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>answerHeading(+b.dataset.dir)));
   }else if(q.type==='attitude'||(q.type==='combo'&&!q.reverse)){
-    const cap14='<b>南</b>からの固定視点 — 画面の奥が北、右が東';
+    const cap14='<span class="nw"><b>南</b>からの固定視点 —</span> <span class="nw">画面の奥が北、右が東</span>';
     if(q.type==='attitude'){
       $('#prompt').textContent='この姿勢に合う水平儀を選ぶ';
       figs.innerHTML=`<div class="figs"><div class="fig wide">${E.figDir14(q.dir14,q.bank)}</div><div class="cap">${cap14}</div></div>`;
@@ -1817,9 +1865,10 @@ function finish(g,timedOut,picked){
   if(!inPractice&&!timedOut&&MS().skipExplain){const s0=session;setTimeout(()=>{if(answered&&session&&session===s0&&phase==='session')next()},450);return}
   freezeFigs();
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
-  $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'check':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
+  $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'circle':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
   fbSimShow();
   $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
+  phraseWrap($('#explain'));
   const toMeasure=inPractice&&practiceLeft===0&&backTo!=='about';
   if(inPractice&&practiceLeft===0)$('#next').innerHTML=backTo==='about'?ic('back','s')+'説明に戻る':'計測開始'+ic('next','s');
   else if(session&&session.ended)$('#next').textContent='結果を見る';
@@ -1854,7 +1903,7 @@ function revealFeedback(){
   },80);
 }
 function mark(btns,isCorrect,isPicked){btns.forEach(b=>{b.disabled=true;b.classList.remove('sel');
-  if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').innerHTML=ic('check')}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').innerHTML=ic('cross')}else b.classList.add('dim')})}
+  if(isCorrect(b)){b.classList.add('ok');b.querySelector('.mk').innerHTML=ic('circle')}else if(isPicked(b)){b.classList.add('ng');b.querySelector('.mk').innerHTML=ic('cross')}else b.classList.add('dim')})}
 function answerHeading(i){
   if(examOn())return examPick(i);
   if(answered)return;const g=E.gradeHeading(q,i);
@@ -1878,11 +1927,42 @@ $('#fbSkipRow').addEventListener('click',e=>{
 /* ===== 試験モード（v06.37、利用者の指示 2026-09-23）: 制限時間のあいだは前の問題に戻って選び直せる。
    正誤はその場で出さず、採点を押すか時間が切れたときにまとめて数える。配点は分からないので正答率で示す ===== */
 function showExamQ(){
-  const it=examQs[examIdx];q=it.q;render();
+  const it=examQs[examIdx];q=it.q;closeExamNav();render();
   $('#qno').textContent=`${examIdx+1}${qMax()>0?' / '+qMax():''}`;
-  $('#examPrev').hidden=examIdx<=0;
+  showExamStar();
   if(it.picked!=null)markExamPick(it.picked);
   toTop();
+}
+/* 問題の一覧（v06.41、利用者の指示 2026-09-24）: 出題中は番号から飛べる（まだ出していない番号は、そこまで先に作る）。
+   見直しの印（星）は出題中に付け外しでき、一覧と結果に出る。結果では同じ一覧に正誤を出し、番号を押すと問題・自分の答え・解説を通常と同じ形で見せる */
+const examGrade1=it=>{const qq=it.q,i=it.picked==null?-1:it.picked;return qq.type==='control'?E.gradeControl(qq,i):qq.type==='spatial'?E.gradeSpatial(qq,i):qq.type==='heading'?E.gradeHeading(qq,i):E.gradeOpts(qq,i)};
+function showExamStar(){const it=examQs[examIdx],b=$('#examStar'),on=!!(it&&it.star);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)}
+function examGridHTML(review){
+  /* 記号（利用者の指示 2026-09-24）: 採点前は 回答済み＝✔・未回答＝-、採点後は 正解＝○・不正解＝×。見直しの印は ☆ */
+  const N=Math.max(qMax(),examQs.length);let h='';
+  const cell=(k,cls,mk,sr,star,dis)=>`<button class="qc${cls}"${dis?' disabled':` data-k="${k}"`}><span class="n">${k+1}</span>${mk}<span class="sr">${sr}</span>${star?`<svg class="ic st"><use href="#i-star"/></svg>`:''}</button>`;
+  const dash='<span class="u">-</span>';
+  for(let k=0;k<N;k++){const it=examQs[k],star=!!(it&&it.star);
+    if(review){
+      if(!it){h+=cell(k,'',dash,'出題なし',false,true);continue}
+      const g=examGrade1(it),un=it.picked==null;
+      h+=cell(k,un?'':g.ok?' ok':' ng',un?dash:ic(g.ok?'circle':'cross','xs'),un?'未回答':g.ok?'正解':'不正解',star);
+    }else{
+      const done=!!(it&&it.picked!=null);
+      h+=cell(k,(done?' done':'')+(k===examIdx?' cur':''),done?ic('check','xs'):dash,done?'回答済み':'未回答',star);
+    }}
+  const st='<svg class="ic star"><use href="#i-star"/></svg>';
+  const lg=review?`<span>${ic('circle','xs')}正解</span><span>${ic('cross','xs')}不正解</span><span>- 未回答</span><span>${st}見直し</span>`
+    :`<span>${ic('check','xs')}回答済み</span><span>- 未回答</span><span>${st}見直し</span>`;
+  return `<div class="qgrid">${h}</div><div class="lg">${lg}</div>`;
+}
+function openExamNav(){const nav=$('#examNav');nav.innerHTML=examGridHTML(false);nav.hidden=false;$('#quiz').classList.add('navopen');$('#examList').setAttribute('aria-expanded','true');
+  nav.querySelectorAll('[data-k]').forEach(b=>b.addEventListener('click',()=>examGo(+b.dataset.k)))}
+function closeExamNav(){const nav=$('#examNav');nav.hidden=true;nav.innerHTML='';$('#quiz').classList.remove('navopen');$('#examList').setAttribute('aria-expanded','false')}
+function examGo(k){
+  if(!examOn())return;const N=qMax();if(k<0||(N>0&&k>=N))return;
+  while(examQs.length<=k)examQs.push({q:takeQ(),picked:null});
+  examIdx=k;showExamQ();
 }
 function markExamPick(i){
   const sel=q.type==='heading'&&!q.match?$('#figs').querySelectorAll('[data-dir]'):$('#answers').querySelectorAll('[data-i]');
@@ -1891,8 +1971,9 @@ function markExamPick(i){
 function examPick(i){
   const it=examQs[examIdx];if(!it)return;
   it.picked=i;markExamPick(i);
-  const last=qMax()>0&&examIdx+1>=qMax();   /* 最後の問題では止まる。見直すか「採点」で終える（総点検 2026-09-23: 最後に答えた瞬間に採点されていた） */
-  if(last){$('#prompt').textContent='全問に答えました。見直すか、採点で終えます。';$('#examGrade').classList.remove('ghost');return}   /* 採点を塗りにして目立たせる */
+  const N=qMax(),all=N>0&&examQs.length>=N&&examQs.every(x=>x.picked!=null);
+  if(all){$('#prompt').innerHTML=`全問に答えました。見直すか、${ic('grade','xs')}で採点します。`;$('#examGrade').classList.remove('ghost');return}   /* 最後に答えた瞬間には採点しない（総点検 2026-09-23）。採点を塗りにして目立たせる */
+  if(N>0&&examIdx+1>=N){$('#prompt').textContent='未回答の問題があります。一覧から選べます。';return}   /* 一覧から飛んで最後の問題に答えたとき */
   setTimeout(()=>{if(examOn()&&examQs[examIdx]===it)next()},260);   /* 選んだら次へ。戻れば選び直せる */
 }
 function examFinish(){
@@ -1914,7 +1995,26 @@ function examFinish(){
   session.n=examQs.length;session.c=c;session.t=el;
   showSummary();
 }
+function showReview(k){
+  const it=examQs[k];if(!it)return;
+  setPhase('review','見直し');showPane('quiz');closeExamNav();
+  q=it.q;render();answered=true;clearInterval(timerId);   /* 記録には数えない（finish を通らない）。時間も測らない */
+  $('#qno').textContent=`${k+1}${qMax()>0?' / '+qMax():''}`;$('#timer').hidden=true;
+  ['examStar','examList','examGrade','sessEnd'].forEach(id=>$('#'+id).hidden=true);
+  const g=examGrade1(it),pk=it.picked==null?-1:it.picked;
+  if(q.type==='heading'&&!q.match)mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,b=>+b.dataset.dir===pk);
+  else mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,b=>+b.dataset.i===pk);
+  freezeFigs();
+  $('#feedback').className='fb show '+(g.ok?'ok':'ng');
+  $('#fbTitle').innerHTML=(pk<0?'未回答':g.ok?'正解':'不正解')+ic(g.ok?'circle':'cross')+(it.star?`<svg class="ic s" style="color:var(--accent);fill:currentColor"><use href="#i-star"/></svg>`:'');$('#fbTime').textContent='';
+  fbSimShow();
+  $('#explain').innerHTML=`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;phraseWrap($('#explain'));
+  $('#next').innerHTML=`${ic('back','s')}<span class="sr">結果に戻る</span>`;$('#next').title='結果に戻る';
+  $('#fbSkipRow').hidden=true;
+  toTop();
+}
 function next(){
+  if(phase==='review'){$('#next').title='次の問題';showSummary(true);return}   /* 見直しから結果へ戻る（記録は二重に数えない） */
   if(phase==='practice'&&practiceLeft===0){
     if(backTo==='about'){leaveSession();scrollTarget='#abPractice';location.hash='#about';return}   // 説明から入った練習は計測に進まない
     startMeasured();return}
@@ -1998,7 +2098,7 @@ function showSetup(){
       /* 体験版の上限（5 問など）が並びに無いと、選ばれている値の option が無く、灰色の「10 問（完全版）」が見えていた。上限の選択肢を先頭に足す */
       if(!isFull()&&!o.some(([v])=>v===qCap()))o.unshift([qCap(),`${qCap()} 問`]);return o})(),v=>+v===0||+v>qCap())}
     ${isFull()?'':`<div class="sethelp">体験版は ${qCap()} 問までです。</div>`}
-    ${sel('qLimit','<span class="sr">1 問の制限時間</span>',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
+    ${sel('qLimit','1 問の制限時間',[[0,'なし'],[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[10,'10 秒'],[15,'15 秒'],[20,'20 秒'],[30,'30 秒']])}
     ${sw('skipChk',!ms.skipExplain,'解説')}
     ${sw('introChk',!hideIntro[mode],'説明・練習')}
     <div class="acts"><button class="btn" id="setupGo">${goLabel()}${ic('next','s')}</button></div>
@@ -2041,7 +2141,8 @@ function startMeasured(){
   setBack(null);
   markPlayed();setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
   session={n:0,c:0,t:0,start:performance.now(),ended:false,total:isExamSet()?E.EXAM_PACE[mode].min*60:0};nextQ=null;examQs=[];examIdx=-1;
-  $('#examGrade').hidden=!(session.total>0);$('#examGrade').classList.add('ghost');$('#examPrev').hidden=true;   /* 試験モードだけ全体の制限時間（本番の時間） */
+  $('#examGrade').hidden=!(session.total>0);$('#examGrade').classList.add('ghost');   /* 試験モードだけ全体の制限時間（本番の時間） */
+  $('#examStar').hidden=$('#examList').hidden=!(session.total>0);closeExamNav();
   /* 出題数「制限なし」では結果画面に至る道が無いので、そのときだけ「ここで終える」を出す（総点検 2026-09-13） */
   $('#sessEnd').hidden=!(qMax()<=0);
   renderStats();next();
@@ -2050,17 +2151,20 @@ function leaveSession(){clearInterval(timerId);session=null;stopSim();if(phase==
 /* 本番のペース（v06.13）: この平均解答時間で本番の問数（A・B・F 40 問 15 分、C 30 問 20 分）を解いたときの余り時間。Max（本番形式）の結果と記録分析に出す */
 function paceText(m,avgSec){const P=E.EXAM_PACE[m];if(!P||!avgSec)return '';const total=avgSec*P.n,rem=P.min*60-total;const mmss=x=>`${Math.floor(x/60)} 分 ${Math.round(x%60)} 秒`;
   return `本番のペース: この速さなら ${P.n} 問を ${mmss(total)} で解き、${P.min} 分のうち ${rem>=0?`<b>${mmss(rem)}</b> 余ります`:`<b>${mmss(-rem)}</b> 足りません`}。`}
-function showSummary(){
+function showSummary(back){
   clearInterval(timerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
   const avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
-  if(s.n>0)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit()});
+  if(s.n>0&&back!==true)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit()});
+  const rv=tot0=>tot0>0&&examQs.length?`<div class="qnav" id="rvNav"><div class="sub"><span class="nw">番号を押すと、</span><span class="nw">問題と解説を見られます。</span></div>${examGridHTML(true)}</div>`:'';
   const tot=s.total||0,used=s.start?Math.min(tot||1e9,(performance.now()-s.start)/1000):0,totText=tot%60?mmss(tot):`${Math.round(tot/60)} 分`;
-  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${s.timeUp?`${totText}の時間切れ（${s.n} 問）`:qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${tot>0?`<div class="sub">全体の制限時間 ${totText}のうち ${mmss(used)} を使いました。</div>`:''}${MS().level==='max'&&s.n&&!tot?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
-    <div class="grid"><div class="cell" title="出題"><div class="v">${s.n}</div><div class="l">${ic('cards','xs')}<span class="sr">出題</span></div></div><div class="cell" title="正解"><div class="v">${s.c}</div><div class="l">${ic('check','xs')}<span class="sr">正解</span></div></div><div class="cell ringcell" title="正答率">${ringHTML(s.n?s.c/s.n:null,'')}<span class="sr">正答率</span></div><div class="cell" title="1 問あたりの平均解答時間"><div class="v">${avg}</div><div class="l">${ic('timer1','xs')}<span class="sr">1 問あたりの平均解答時間</span></div></div></div>
-    <div class="acts"><button class="btn" id="again" title="もう一度">${ic('replay','s')}<span class="sr">もう一度</span></button><button class="btn ghost" id="toHome" title="ホームへ">${ic('home','s')}<span class="sr">ホームへ</span></button></div>`;
+  sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${s.timeUp?`${totText}の時間切れ（${s.n} 問）`:qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${tot>0?`<div class="sub"><span class="nw">全体の制限時間 ${totText}のうち</span> <span class="nw">${mmss(used)} を使いました。</span></div>`:''}${MS().level==='max'&&s.n&&!tot?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
+    <div class="grid"><div class="cell" title="出題"><div class="v">${s.n}</div><div class="l">${ic('cards','xs')}<span class="sr">出題</span></div></div><div class="cell" title="正解"><div class="v">${s.c}</div><div class="l">${ic('circle','xs')}<span class="sr">正解</span></div></div><div class="cell ringcell" title="正答率">${ringHTML(s.n?s.c/s.n:null,'')}<span class="sr">正答率</span></div><div class="cell" title="1 問あたりの平均解答時間"><div class="v">${avg}</div><div class="l">${ic('timer1','xs')}<span class="sr">1 問あたりの平均解答時間</span></div></div></div>
+    ${rv(tot)}<div class="acts"><button class="btn" id="again" title="もう一度">${ic('replay','s')}<span class="sr">もう一度</span></button><button class="btn ghost" id="toHome" title="ホームへ">${ic('home','s')}<span class="sr">ホームへ</span></button></div>`;
   $('#again').addEventListener('click',()=>startMeasured());
   $('#toHome').addEventListener('click',()=>{leaveSession();location.hash='#home'});
+  sm.querySelectorAll('#rvNav [data-k]').forEach(b=>b.addEventListener('click',()=>showReview(+b.dataset.k)));
+  if(back===true){const nav=$('#rvNav');if(nav)nav.scrollIntoView({block:'center'});return}   /* 見直しから戻ったときは一覧の位置へ。記録は送り直さない */
   sendRec();
   toTop();
 }
@@ -3127,7 +3231,7 @@ function makeSpin(qq){
 function fbSimShow(){
   const box=$('#fbSim');if(!box)return;
   fbSimStop();
-  if(q&&q.type==='spatial'){box.hidden=false;box.innerHTML='';fbMv=makeSpin(q);box.appendChild(fbMv.el);return}
+  if(q&&q.type==='spatial'){box.hidden=false;box.innerHTML='';fbMv=makeSpin(q);box.appendChild(fbMv.el);phraseWrap(box.querySelector('.fbsimh span'));return}
   if(!(q&&q.type==='control'&&q.frames)){box.hidden=true;box.innerHTML='';return}
   if(!isFull())fbView='first';
   box.hidden=false;
@@ -3135,13 +3239,13 @@ function fbSimShow(){
   const qq=q;
   fbMv=makeMover({traj:()=>{if(!qq.traj)qq.traj=E.simControl(qq.init,qq.ops,qq.simul,qq.mag);return qq.traj},   /* 出題と同じ飛行（1 問に 1 回だけ飛ばす） */
     forces:seg=>forcesOf(qq.ops,qq.simul,seg),hud:true,view:fbView,onView:v=>{fbView=v},lockThird:!isFull()});   /* 中央の十字（HUD）は必ず出す。見え方の一覧の「動きで見る」と同じ。Hard でも出す。出題の絵 ①②③ は変えない（利用者の指示 2026-09-15） */
-  box.appendChild(fbMv.el);
+  box.appendChild(fbMv.el);phraseWrap(box.querySelector('.fbsimh span'));
   fbMv.build();fbMv.play();   /* 解説が出たら動かし始める（以前と同じ） */
 }
 
 /* ===== 記録・設定 ===== */
 function renderStats(){
-  $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span class="rstat">${s.n?`<span class="mstat">${ic('cards','xs')}${s.n}</span><span class="mstat">${ic('check','xs')}${Math.round(s.c/s.n*100)}%</span><span class="mstat">${ic('timer1','xs')}${(s.t/s.n).toFixed(1)} s</span>`:'<span class="mstat dim">—</span>'}</span>`}).join('');
+  $('#record').innerHTML=Object.keys(E.MODES).map(m=>{const s=stats[m];return `<span>${E.MODES[m]}</span><span class="rstat">${s.n?`<span class="mstat">${ic('cards','xs')}${s.n}</span><span class="mstat">${ic('circle','xs')}${Math.round(s.c/s.n*100)}%</span><span class="mstat">${ic('timer1','xs')}${(s.t/s.n).toFixed(1)} s</span>`:'<span class="mstat dim">—</span>'}</span>`}).join('');
 }
 /* 展示飛行モード・演目の曲・音の設定。メニューの設定と、シミュレーターの設定画面の両方に出す
    （利用者の指示 2026-09-11）。同じ id が 2 か所に出ないよう、出すときに反対側の写しを消す */
@@ -3256,14 +3360,15 @@ const KBD={spatial:'1〜4 で選択、Enter で次へ',heading:'札の数字で�
 
 $('#next').addEventListener('click',next);
 $('#reset').addEventListener('click',()=>{if(!confirm(`${E.MODES[mode]} の記録を消しますか？`))return;stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
-$('#examPrev').addEventListener('click',()=>{if(!examOn()||examIdx<=0)return;examIdx--;showExamQ()});
+$('#examList').addEventListener('click',()=>{if(!examOn())return;if($('#examNav').hidden)openExamNav();else closeExamNav()});
+$('#examStar').addEventListener('click',()=>{if(!examOn())return;const it=examQs[examIdx];if(!it)return;it.star=!it.star;showExamStar()});
 $('#examGrade').addEventListener('click',()=>{if(!examOn())return;if(!confirm('ここまでの解答を採点しますか？'))return;examFinish()});
 $('#sessEnd').addEventListener('click',()=>{if(!session||session.ended||!confirm('ここで計測を終えて結果を見ますか？'))return;session.ended=true;showSummary()});
 document.addEventListener('keydown',e=>{
   if(document.body.dataset.view!=='train'||$('#quiz').hidden)return;
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){if(answered){e.preventDefault();next()}return}
-  if(answered)return;
+  if(answered||!$('#examNav').hidden)return;   /* 一覧を開いているあいだは数字で答えない */
   if(mode==='heading'&&!(q&&q.match)){if(/^[1-8]$/.test(e.key)){e.preventDefault();answerHeading(+e.key-1)}}   /* 方位判読の Max は 4 択（answerOpts） */
   else{if(/^[1-4]$/.test(e.key)){e.preventDefault();answerOpts(+e.key-1)}}
 });

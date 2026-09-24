@@ -1626,7 +1626,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.48';
+const APP_VER='v06.49';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1666,6 +1666,12 @@ let session=null;   // 計測セッション {n,c,t,start,ended}
 /* 学習記録（v05.69、利用者の指示 2026-09-18）: 計測ごとの履歴 hist（新しい順、300 件まで）と、問題の型ごとの成績 weak（種目 → 型 → {n,c,t}）。分析はメニューの「記録」から（ホームには置かない。模試は v05.72 で外した: 本番は 50 問×60 分を 10 分休憩を挟む形で、通しの模試は現実的でない）。
    型: 方位は正解の方位、姿勢指示器は機首の向き、複合は方位、操縦操作は操作（1 操作はその操作、2 操作は 順番／同時）。端末の中だけに置き、どこにも送らない */
 let hist=store.get('hist',[]),weak=store.get('weak',{});
+/* 難易度ごとの累計（v06.49）: 種目 → 難易度 → {n,c,t}。全体の累計（stats）と同じく 1 問ごとに数える。
+   以前は記録分析の難易度別を履歴（hist）から出していたが、途中でやめた計測は履歴に残らないので全体の出題数より少なかった（利用者の指摘 2026-09-25）。
+   初回は履歴から作る。それ以前の差は記録分析で「区別なし」の行に出す */
+let lvst=store.get('lvst',null);
+if(!lvst){lvst={};for(const x of hist){const a=lvst[x.m]||(lvst[x.m]={}),o=a[x.lv]||(a[x.lv]={n:0,c:0,t:0});o.n+=x.n;o.c+=x.c;o.t+=x.t}store.set('lvst',lvst)}
+function lvlog(m,lv,ok,t){const a=lvst[m]||(lvst[m]={}),o=a[lv]||(a[lv]={n:0,c:0,t:0});o.n++;if(ok)o.c++;o.t+=t;store.set('lvst',lvst)}
 const DIRJA=['北','北東','東','南東','南','南西','西','北西'];
 /* 1 問の型を切り口ごとに（「切り口|値」）。方位: 方位・印の位置、姿勢指示器: 見え方・機首の上下・傾き、複合: 見え方・方位・印の位置・機首の上下・傾き、操縦操作: 操作・操縦桿・方向舵・2 操作の形。
    v05.92（利用者の分析 2026-09-18）: 姿勢指示器の答えは バンク × ピッチ で方位は答えに含まれない。26 方向 × バンクの正答率は 1 回 10〜20 問では埋まらず揺れを描くだけなので、
@@ -1886,7 +1892,7 @@ function finish(g,timedOut,picked){
   answered=true;const s=stopTimer();
   const inPractice=phase==='practice';
   if(!inPractice){
-    const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=s;store.set('stats',stats);
+    const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=s;store.set('stats',stats);lvlog(mode,MS().level,g.ok,s);
     if(session){session.n++;if(g.ok)session.c++;session.t+=s}
     streak=g.ok?streak+1:0;
     wlog(mode,qCats(q),g.ok,s);
@@ -2030,7 +2036,7 @@ function examFinish(){
     const qq=it.q,i=it.picked;
     const g=qq.type==='control'?E.gradeControl(qq,i):qq.type==='spatial'?E.gradeSpatial(qq,i):qq.type==='heading'?E.gradeHeading(qq,i):E.gradeOpts(qq,i);
     n++;if(g.ok)c++;
-    const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=el/Math.max(1,examQs.length);
+    const st=stats[mode];st.n++;if(g.ok)st.c++;st.t+=el/Math.max(1,examQs.length);lvlog(mode,MS().level,g.ok,el/Math.max(1,examQs.length));
     wlog(mode,qCats(qq),g.ok,el/Math.max(1,examQs.length));
     if(!g.ok)wlog(mode,errCats(qq,i),false,el/Math.max(1,examQs.length));
   }
@@ -2196,7 +2202,8 @@ function showSummary(back){
   clearInterval(timerId);setPhase('summary','結果');const s=session||{n:0,c:0,t:0};
   const avg=s.n?(s.t/s.n).toFixed(1)+' s':'—';
   showPane('summary');const sm=$('#summary');
-  if(s.n>0&&back!==true)hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit()});
+  /* v06.49: 試験モードの計測は Max として数え（難易度別・本番のペース・推移に入る）、ex:1 の印だけ付けて履歴と推移で「Max（試験）」と見分ける（利用者「試験モードの記録は max でカウントしても良い。独立して記録すべきかは判断して」） */
+  if(s.n>0&&back!==true&&!s.logged&&(s.logged=true))hlog({d:Date.now(),m:mode,lv:MS().level,n:s.n,c:s.c,t:+s.t.toFixed(2),lim:qLimit(),...(isExamSet()?{ex:1}:{})});
   const rv=tot0=>tot0>0&&examQs.length?`<div class="qnav" id="rvNav"><div class="sub"><span class="nw">番号を押すと、</span><span class="nw">問題と解説を見られます。</span></div>${examGridHTML(true)}</div>`:'';
   const tot=s.total||0,used=s.start?Math.min(tot||1e9,(performance.now()-s.start)/1000):0,totText=tot%60?mmss(tot):`${Math.round(tot/60)} 分`;
   sm.innerHTML=`<h2>${E.MODES[mode]} 終了</h2><div class="sub">${s.timeUp?`${totText}の時間切れ（${s.n} 問）`:qMax()>0&&s.n>=qMax()?`${qMax()} 問を終えました`:'ここで終えました'}</div>${tot>0?`<div class="sub"><span class="nw">全体の制限時間 ${totText}のうち</span> <span class="nw">${mmss(used)} を使いました。</span></div>`:''}${MS().level==='max'&&s.n&&!tot?`<div class="sub pace">${paceText(mode,s.t/s.n)}</div>`:''}
@@ -3385,7 +3392,7 @@ function renderSettingsPage(){
     `;
   wireShowSet($('#settingsPage'));
   /* 記録の削除は種目ごとではなく 1 つのボタンで全種目（利用者の指示 2026-09-15） */
-  const rstAll=$('#rstAll');if(rstAll)rstAll.addEventListener('click',()=>{if(!confirm('すべての種目の記録を消しますか？'))return;Object.keys(E.MODES).forEach(m=>{stats[m]={n:0,c:0,t:0}});store.set('stats',stats);hist=[];weak={};store.set('hist',hist);store.set('weak',weak);renderSettingsPage()});
+  const rstAll=$('#rstAll');if(rstAll)rstAll.addEventListener('click',()=>{if(!confirm('すべての種目の記録を消しますか？'))return;Object.keys(E.MODES).forEach(m=>{stats[m]={n:0,c:0,t:0}});store.set('stats',stats);hist=[];weak={};lvst={};store.set('hist',hist);store.set('weak',weak);store.set('lvst',lvst);renderSettingsPage()});
   /* 共通の塊（展示飛行モード以下）の select は wireShowSet がつなぐので、ここでは除く */
   $('#settingsPage').querySelectorAll('select').forEach(s=>{if(s.closest('.showset'))return;s.addEventListener('change',()=>{const v=s.value;settings[s.dataset.key]=/^-?\d+$/.test(v)?+v:v;store.set('settings',settings);if(s.dataset.key==='theme')applyTheme();if(s.dataset.key==='scene')applyScene()})});
 }
@@ -3400,7 +3407,7 @@ const TIPS={
 const KBD={spatial:'1〜4 で選択、Enter で次へ',heading:'札の数字で選択、Enter で次へ',attitude:'1〜4 で選択、Enter で次へ',combo:'1〜4 で選択、Enter で次へ',control:'1〜4 で選択、Enter で次へ'};
 
 $('#next').addEventListener('click',next);
-$('#reset').addEventListener('click',()=>{if(!confirm(`${E.MODES[mode]} の記録を消しますか？`))return;stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
+$('#reset').addEventListener('click',()=>{if(!confirm(`${E.MODES[mode]} の記録を消しますか？`))return;stats[mode]={n:0,c:0,t:0};store.set('stats',stats);delete lvst[mode];store.set('lvst',lvst);renderStats()});
 $('#examPrev').addEventListener('click',()=>{if(!examOn()||examIdx<=0)return;examIdx--;showExamQ()});
 $('#examNext').addEventListener('click',()=>{if(!examOn()||(qMax()>0&&examIdx+1>=qMax()))return;next()});
 $('#examList').addEventListener('click',()=>{if(!examOn())return;if($('#examNav').hidden)openExamNav();else closeExamNav()});
@@ -3626,7 +3633,7 @@ function trendHTML(L){
   const fmtD=d=>new Date(d).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),ac=x=>x.n?x.c/x.n:0,av=x=>x.t/Math.max(1,x.n);
   /* v06.48: なぞった回の結果と前回との差（利用者「折れ線グラフをなぞると分析ができたり」） */
   const R=L.map((x,i)=>{const p=i?L[i-1]:null,dp=p?Math.round(ac(x)*100)-Math.round(ac(p)*100):null,dt=p?av(x)-av(p):null;
-    return `<span class="nw">${fmtD(x.d)}・${esc((E.LEVELS&&E.LEVELS[x.lv])||x.lv||'')}</span> <span class="nw"><b class="${accCls(ac(x))}">${pct(ac(x))}</b>（${x.c}/${x.n}）</span> <span class="nw">平均 ${av(x).toFixed(1)} s</span>`
+    return `<span class="nw">${fmtD(x.d)}・${esc((E.LEVELS&&E.LEVELS[x.lv])||x.lv||'')}${x.ex?'（試験）':''}</span> <span class="nw"><b class="${accCls(ac(x))}">${pct(ac(x))}</b>（${x.c}/${x.n}）</span> <span class="nw">平均 ${av(x).toFixed(1)} s</span>`
       +(p?`<br><span class="nw">前回比 <span class="dlt ${dp>0?'up':dp<0?'dn':''}">${dp>0?'+':dp<0?'−':'±'}${Math.abs(dp)} ポイント</span></span>${Math.abs(dt)>=0.05?`<span class="nw">・<span class="dlt ${dt<0?'up':'dn'}">${Math.abs(dt).toFixed(1)} s ${dt<0?'速く':'遅く'}</span></span>`:''}`:'')});
   const W=240,H=64,px=14,n=L.length,step=n>1?(W-px*2)/(n-1):0;
   const P=L.map((x,i)=>[px+i*step,8+(1-(x.n?x.c/x.n:0))*(H-20)]);
@@ -3694,15 +3701,17 @@ function renderStatsPage(){
   for(const m of Object.keys(E.MODES)){
     const st=stats[m]||{n:0,c:0,t:0},HL=hist.filter(x=>x.m===m),L=HL.slice(0,12).reverse();
     /* v06.48（利用者の指示 2026-09-25）: 正答率・出題数・平均解答時間の塊は押すと下に難易度別が開く。難易度別と本番のペースは履歴（hist）から。本番のペースは Max の計測だけで出す */
-    const byLv=lv=>HL.filter(x=>x.lv===lv).reduce((o,x)=>({n:o.n+x.n,c:o.c+x.c,t:o.t+x.t}),{n:0,c:0,t:0}),MX=byLv('max'),avg=st.n?(st.t/st.n).toFixed(1):null;
-    const lvRows=['easy','normal','hard','max'].map((lv,i)=>{const v=byLv(lv),a=v.n?v.c/v.n:null;return `<div class="wrow"><span class="wl">${E.LEVELS[lv]}</span><span class="wb"><i class="${accCls(a)} grow" style="--i:${i};width:${a==null?0:Math.max(2,Math.round(a*100))}%"></i></span><span class="wn">${v.n?`${pct(a)}・${v.n} 問・${(v.t/v.n).toFixed(1)} s`:'—'}</span></div>`}).join('');
+    const byLv=lv=>(lvst[m]||{})[lv]||{n:0,c:0,t:0},MX=byLv('max'),avg=st.n?(st.t/st.n).toFixed(1):null;
+    const rest=st.n-['easy','normal','hard','max'].reduce((a,lv)=>a+byLv(lv).n,0);   /* 難易度を数え始める前（v06.49 より前）に途中でやめた計測の分 */
+    const lvRows=['easy','normal','hard','max'].map((lv,i)=>{const v=byLv(lv),a=v.n?v.c/v.n:null;return `<div class="wrow"><span class="wl">${E.LEVELS[lv]}</span><span class="wb"><i class="${accCls(a)} grow" style="--i:${i};width:${a==null?0:Math.max(2,Math.round(a*100))}%"></i></span><span class="wn">${v.n?`${pct(a)}・${v.n} 問・${(v.t/v.n).toFixed(1)} s`:'—'}</span></div>`}).join('')
+      +(rest>0?`<div class="sub2 lvrest">ほかに難易度の区別がない以前の記録 ${rest} 問</div>`:'');
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
       <button type="button" class="sthead" aria-expanded="false" aria-label="${E.MODES[m]}の難易度別を開く">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<span class="stnum"><span title="出題数">${ic('cards','xs')}<b${st.n?` class="cnt" data-to="${st.n}"`:''}>${st.n}</b> 問</span><span title="1 問あたりの平均解答時間">${ic('timer1','xs')}<b${avg?` class="cnt" data-to="${avg}" data-dec="1"`:''}>${avg||'—'}</b> s</span></span><span class="stchev">${ic('down')}</span></button>
       <div class="stlv" hidden><div class="wg">難易度別</div>${lvRows}</div>
       ${MX.n?`<div class="sub pace">${paceText(m,MX.t/MX.n)}（Max の平均から）</div>`:E.EXAM_PACE[m]&&st.n?`<div class="sub pace">本番のペースは Max で計測すると出ます。</div>`:''}
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
       ${weakHTML(m)}
-      ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}
+      ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}${x.ex?'（試験）':''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}
     </div>`;
   }
   h+=`<div class="acts"><button class="btn ghost" id="stBack">ホームへ</button></div>`;

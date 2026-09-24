@@ -1668,9 +1668,10 @@ let session=null;   // 計測セッション {n,c,t,start,ended}
 let hist=store.get('hist',[]),weak=store.get('weak',{});
 /* 難易度ごとの累計（v06.49）: 種目 → 難易度 → {n,c,t}。全体の累計（stats）と同じく 1 問ごとに数える。
    以前は記録分析の難易度別を履歴（hist）から出していたが、途中でやめた計測は履歴に残らないので全体の出題数より少なかった（利用者の指摘 2026-09-25）。
-   初回は履歴から作る。それ以前の差は記録分析で「区別なし」の行に出す */
+   初回は履歴から作り、全体の累計（stats）もそれに合わせる（難易度の分からない以前の分は消す。利用者「一致しない記録なしの分は消して良い」） */
 let lvst=store.get('lvst',null);
-if(!lvst){lvst={};for(const x of hist){const a=lvst[x.m]||(lvst[x.m]={}),o=a[x.lv]||(a[x.lv]={n:0,c:0,t:0});o.n+=x.n;o.c+=x.c;o.t+=x.t}store.set('lvst',lvst)}
+if(!lvst){lvst={};for(const x of hist){const a=lvst[x.m]||(lvst[x.m]={}),o=a[x.lv]||(a[x.lv]={n:0,c:0,t:0});o.n+=x.n;o.c+=x.c;o.t+=x.t}store.set('lvst',lvst);
+  for(const m of Object.keys(stats))stats[m]=Object.values(lvst[m]||{}).reduce((o,v)=>({n:o.n+v.n,c:o.c+v.c,t:o.t+v.t}),{n:0,c:0,t:0});store.set('stats',stats)}
 function lvlog(m,lv,ok,t){const a=lvst[m]||(lvst[m]={}),o=a[lv]||(a[lv]={n:0,c:0,t:0});o.n++;if(ok)o.c++;o.t+=t;store.set('lvst',lvst)}
 const DIRJA=['北','北東','東','南東','南','南西','西','北西'];
 /* 1 問の型を切り口ごとに（「切り口|値」）。方位: 方位・印の位置、姿勢指示器: 見え方・機首の上下・傾き、複合: 見え方・方位・印の位置・機首の上下・傾き、操縦操作: 操作・操縦桿・方向舵・2 操作の形。
@@ -3702,9 +3703,8 @@ function renderStatsPage(){
     const st=stats[m]||{n:0,c:0,t:0},HL=hist.filter(x=>x.m===m),L=HL.slice(0,12).reverse();
     /* v06.48（利用者の指示 2026-09-25）: 正答率・出題数・平均解答時間の塊は押すと下に難易度別が開く。難易度別と本番のペースは履歴（hist）から。本番のペースは Max の計測だけで出す */
     const byLv=lv=>(lvst[m]||{})[lv]||{n:0,c:0,t:0},MX=byLv('max'),avg=st.n?(st.t/st.n).toFixed(1):null;
-    const rest=st.n-['easy','normal','hard','max'].reduce((a,lv)=>a+byLv(lv).n,0);   /* 難易度を数え始める前（v06.49 より前）に途中でやめた計測の分 */
     const lvRows=['easy','normal','hard','max'].map((lv,i)=>{const v=byLv(lv),a=v.n?v.c/v.n:null;return `<div class="wrow"><span class="wl">${E.LEVELS[lv]}</span><span class="wb"><i class="${accCls(a)} grow" style="--i:${i};width:${a==null?0:Math.max(2,Math.round(a*100))}%"></i></span><span class="wn">${v.n?`${pct(a)}・${v.n} 問・${(v.t/v.n).toFixed(1)} s`:'—'}</span></div>`}).join('')
-      +(rest>0?`<div class="sub2 lvrest">ほかに難易度の区別がない以前の記録 ${rest} 問</div>`:'');
+;
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
       <button type="button" class="sthead" aria-expanded="false" aria-label="${E.MODES[m]}の難易度別を開く">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<span class="stnum"><span title="出題数">${ic('cards','xs')}<b${st.n?` class="cnt" data-to="${st.n}"`:''}>${st.n}</b> 問</span><span title="1 問あたりの平均解答時間">${ic('timer1','xs')}<b${avg?` class="cnt" data-to="${avg}" data-dec="1"`:''}>${avg||'—'}</b> s</span></span><span class="stchev">${ic('down')}</span></button>
       <div class="stlv" hidden><div class="wg">難易度別</div>${lvRows}</div>

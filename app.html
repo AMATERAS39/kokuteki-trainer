@@ -750,9 +750,11 @@ ul.tips li{margin:.125rem 0}
 .summary .mockrec{text-align:left;margin:0 auto 1rem;max-width:22rem}
 /* 記録のページ（v05.71）: 出題の形に合わせた絵と、開いたときの演出 */
 .stmode{margin-top:.25rem}
-.sthead{display:flex;align-items:center;gap:1rem;margin-top:.5rem}
+.sthead{display:flex;align-items:center;gap:1rem;margin-top:.5rem;width:100%;padding:.25rem .5rem .25rem 0;border:0;border-radius:.75rem;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.sthead{flex-wrap:wrap;gap:.75rem}.sthead .ring~.ring{width:3.25rem;height:3.25rem}.sthead .ring~.ring .rv b{font-size:.75rem}.sthead:hover{background:var(--panel2)}.sthead{position:relative;padding-right:1.5rem}.sthead .stchev{position:absolute;right:.25rem;top:50%;transform:translateY(-50%);display:flex}.sthead .stchev .ic{width:1rem;height:1rem;color:var(--muted);transition:transform .2s}.sthead[aria-expanded="true"] .stchev .ic{transform:rotate(180deg)}
+.stlv .wrow{grid-template-columns:3.6rem 1fr auto}.stlv{margin:.25rem 0 .25rem;padding:.25rem .6rem .5rem;border-left:.125rem solid var(--line);animation:rise .4s ease-out both}
 .stnum{display:grid;gap:.15rem;font-size:.8125rem;color:var(--muted)}
-.stnum>div{display:flex;align-items:center;gap:.375rem}
+.stnum>span{display:flex;align-items:center;gap:.375rem;white-space:nowrap}.stnum b{font-variant-numeric:tabular-nums}
 .stnum .ic{color:var(--muted)}.stnum b{font-family:var(--mono);font-size:1rem;color:var(--text)}
 .ring{display:inline-grid;place-items:center;width:4.25rem;height:4.25rem;position:relative}
 .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
@@ -765,6 +767,15 @@ ul.tips li{margin:.125rem 0}
 .trend .gl{stroke:var(--line);stroke-width:1}.trend .area{fill:var(--accent);opacity:.12}.trend .line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .trend .dot{stroke:var(--panel);stroke-width:1.5}.trend .dot.pop{animation:fadein .4s ease-out both;animation-delay:calc(.2s + var(--i,0)*90ms)}.trend .dot.hi{fill:var(--accent)}.trend .dot.mid{fill:#e8b24a}.trend .dot.lo{fill:#d9534f}.trend .ax{font-size:7px;fill:var(--muted)}
 .trend .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.2s ease-out .1s both}
+/* v06.48 記録分析の演出: 輪は一周しながら伸びる。枠が画面に入るまで演出を止めておく。推移はなぞると縦線と各回の結果 */
+.stmode .ring svg{animation:ringlap 1.2s cubic-bezier(.2,.7,.2,1) both}.stmode .ring .fg{animation-duration:1.2s}
+@keyframes ringlap{from{transform:rotate(-450deg)}}
+.stack i{animation:barin .8s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*120ms)}
+.stmode:not(.seen) :is(.ring svg,.ring .fg,.draw,.dot,.fade,.pop,.wb i,.stack i,.seg){animation-play-state:paused}
+.trendw{max-width:18rem}.trend{touch-action:pan-y;cursor:crosshair}.trend .cur{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 2;opacity:0;transition:opacity .15s}.trend .curdot{fill:none;stroke-width:2;opacity:0;stroke:var(--accent);transition:cx .12s,cy .12s,opacity .15s}
+.trend .curdot.mid{stroke:#e8b24a}.trend .curdot.lo{stroke:#d9534f}.trendw.scrub .cur,.trendw.scrub .curdot{opacity:1}.trend .dot.sel{r:4.2}
+.trd{min-height:2.6em;margin-top:.2rem;font-size:.75rem;color:var(--muted);line-height:1.5}.trd b{font-family:var(--mono);color:var(--text)}.trd b.hi{color:var(--accent)}.trd b.mid{color:#e8b24a}.trd b.lo{color:#d9534f}
+.trd .dlt{font-family:var(--mono)}.trd .dlt.up{color:var(--accent)}.trd .dlt.dn{color:#d9534f}
 .wtop{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
 .wbadge{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:.75rem;border:1px solid var(--line);background:var(--panel2);font-size:.75rem;color:var(--muted);line-height:1.4}
 .wimg{display:block;width:4rem;height:4rem;flex:none;border-radius:.5rem;overflow:hidden;background:#dfe5ec}.wimg img{display:block;width:100%;height:100%;object-fit:cover;transform:scale(2.3)}   /* 出題の絵は機体が小さいので中央を拡大 */
@@ -803,7 +814,7 @@ ul.tips li{margin:.125rem 0}
 .fade{animation:fadein .6s ease-out .6s both}.pop{animation:rise .7s cubic-bezier(.2,.6,.2,1) both;animation-delay:calc(var(--i,0)*90ms)}   /* わずかに浮き上がる */
 @keyframes ringin{from{stroke-dasharray:0 100}}@keyframes draw{to{stroke-dashoffset:0}}@keyframes barin{from{transform:scaleX(0)}}
 @keyframes rise{from{opacity:0;transform:translateY(.4rem)}}@keyframes fadein{from{opacity:0}}
-@media (prefers-reduced-motion:reduce){.ring .fg,.trend .draw,.wrow .wb i,.seg,.fade,.pop{animation:none}.trend .draw{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.ring .fg,.ring svg,.trend .draw,.wrow .wb i,.stack i,.stlv,.seg,.fade,.pop{animation:none}.trend .draw{stroke-dashoffset:0}}
 .reset{font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:.375rem}
 .reset:hover{color:var(--text)}
 .h3row{display:flex;justify-content:space-between;align-items:center}
@@ -1615,7 +1626,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.47';
+const APP_VER='v06.48';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1676,9 +1687,7 @@ function qCats(q){
     const ax={yaw:'旋回',roll:'横転',pitch:'機首上げ下げ'}[q.cmd.axis],ini=q.init.bank&&q.init.pitch?'傾き＋上下':q.init.bank?'傾きあり':q.init.pitch?'機首の上下あり':'水平';
     const a=Math.abs(q.cmd.deg),fine=(a===30||a===60)?'微妙な角度（30°・60°）':a===180?'180°':'45°・90°';
     return ['命令|'+ax,'初期状態|'+ini,'角度|'+fine]}
-  if(q.type==='heading'&&q.match)return ['形|同じ方角の機体を選ぶ'];
-  if(q.type==='heading'){   /* v05.102: 利用者に見せるのは 右回り／左回り だけ。印からの角度（0〜7）はアプリが助言を決めるためだけに記録する（利用者「角度は利用者にとって不要。その判断はアプリがする上で必要なだけ」） */
-    const rel=((q.dir-(q.mark||0))%8+8)%8,L=['印からの位置|'+rel];if(rel!==0&&rel!==4)L.push('回り|'+(rel<4?'右回り':'左回り'));return L}
+  if(q.type==='heading')return [];   /* v06.48: 右回り／左回りの分析は廃止（利用者「左回り分析が無力化しているので廃止」）。方位判読は総合・難易度別・推移だけ */
   if(q.type==='attitude'){const d=q.dir14,dj=d.heading==null?(d.pitch>0?'真上':'真下'):DIRJA[d.heading/45],att=d.heading==null?(q.bank>0?'右バンク':q.bank<0?'左バンク':'水平'):attName(q);
     return ['見え方|'+viewCat(d),'組み合わせ|'+dj+'|'+att,'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)]}   /* v05.99: 組み合わせ（方位 × 姿勢）を絵つきで苦手に出す */
   if(q.type==='combo')return ['見え方|'+viewCat(q.dir14),'組み合わせ|'+DIRJA[q.dir]+'|'+attName(q),'機首の上下|'+pitchCat(q.pitch),'傾き|'+bankCat(q.bank)];   /* v05.94: 方位ごとの正答率は出さない（利用者「方角の詳細な正答率は不要」）。組み合わせは 方位 × 姿勢 */
@@ -1699,7 +1708,9 @@ function errCats(q,i){
   if(q.type==='control'){   /* 操縦操作: 操縦桿の向き／有無、方向舵の左右／有無、両方（利用者の指示 2026-09-18「操縦操作も同じく分析して」） */
     const grp=id=>E.OP_BY_ID[id].group,stk=a=>grp(a[0])==='stick'?a[0]:null,rud=a=>grp(a[1])==='rudder'?a[1]:grp(a[0])==='rudder'?a[0]:null;
     const sc=stk(c.ops),so=stk(o.ops),rc=rud(c.ops),ro=rud(o.ops),sd=sc!==so,rd=rc!==ro;
-    return ['誤り|'+(sd&&rd?'操縦桿と方向舵の両方':sd?(sc&&so?'操縦桿の向き':'操縦桿の有無'):rd?(rc&&ro?'方向舵の左右':'方向舵の有無'):'両方')]}
+    /* v06.48: 斜めの片方 = 正解か選んだ方が斜めで、傾きと機首の上下のどちらか一方だけ合っている */
+    const dg=id=>/^stick-(forward|back)-(left|right)$/.test(id),F=id=>FORCE_OF[id]||{},half=sc&&so&&(dg(sc)||dg(so))&&(((F(sc).roll||0)===(F(so).roll||0))!==((F(sc).pitch||0)===(F(so).pitch||0)));
+    return ['誤り|'+(sd&&rd?'操縦桿と方向舵の両方':sd?(half?'斜めの片方':sc&&so?'操縦桿の向き':'操縦桿の有無'):rd?(rc&&ro?'方向舵の左右':'方向舵の有無'):'両方')]}
   const bankErr=o.bank!==c.bank,pitchErr=o.pitch!==c.pitch,attErr=bankErr||pitchErr;
   if(q.type==='combo'){const hErr=o.heading!==c.heading;return ['誤り|'+(hErr&&attErr?'両方':hErr?'方位だけ':'姿勢だけ')]}
   if(bankErr&&pitchErr)return ['誤り|両方'];
@@ -1709,7 +1720,7 @@ function errCats(q,i){
 if(/^(127\.0\.0\.1|localhost)$/.test(location.hostname))window.__aatDbg={qCats,errCats,viewCat,simH:()=>sim&&sim.h};
 function wlog(m,cats,ok,t){const w=weak[m]||(weak[m]={});for(const cat of cats){const c=w[cat]||(w[cat]={n:0,c:0,t:0});c.n++;if(ok)c.c++;c.t+=t}store.set('weak',weak)}
 /* v05.69 の型（切り口なし）を切り口つきに直す。v05.92: 使わなくなった 機首の向き・姿勢 の切り口は捨てる */
-(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')||(m==='heading'&&!/^(回り|印からの位置)\|/.test(k))||(m==='combo'&&(k.startsWith('方位|')||k.startsWith('印の位置|')))){delete weak[m][k];ch=true;continue}
+(function(){let ch=false;for(const m of Object.keys(weak)){for(const k of Object.keys(weak[m])){if(k.startsWith('機首の向き|')||k.startsWith('姿勢|')||m==='heading'||(m==='combo'&&(k.startsWith('方位|')||k.startsWith('印の位置|')))){delete weak[m][k];ch=true;continue}
   const mv=/^傾き\|(左|右) \d+°$/.test(k)?'傾き|'+k[3]+'バンク':k==='誤り|傾きの大きさ・有無'?'誤り|傾きの有無':null;
   if(mv){const v=weak[m][k];delete weak[m][k];const c=weak[m][mv]||(weak[m][mv]={n:0,c:0,t:0});c.n+=v.n;c.c+=v.c;c.t+=v.t;ch=true;continue}
   if(k.includes('|'))continue;const v=weak[m][k];delete weak[m][k];ch=true;
@@ -3490,10 +3501,10 @@ function renderHome(){
    操縦桿: 十字（奥・手前・左・右）、方向舵: 左右のペダル
    機首の上下・傾き・操作・操作の数: 横棒（決まった順。角度は左→水平→右）
    色: 80% 以上は accent、50〜80% は琥珀、50% 未満は赤、まだ出ていないものは灰色 ===== */
-const ORDER={'誤り':['向きが逆','角度違い','軸違い'],'回り':['右回り','左回り'],'機首の上下':['機首上げ','水平','機首下げ'],'傾き':['左バンク','水平','右バンク'],'操作の数':['1 操作','2 操作（順番）','2 操作（同時）'],
-  '操縦桿':['奥','左','右','手前'],'方向舵':['左','右'],'見え方':['向こう向き（北側）','こちら向き（南側）','横向き（東・西）','真上・真下'],
+const ORDER={'機首の上下':['機首上げ','水平','機首下げ'],'傾き':['左バンク','水平','右バンク'],'操作の数':['1 操作','2 操作（順番）','2 操作（同時）'],
+  '操縦桿':['奥','左','右','手前','左奥','右奥','左手前','右手前'],'方向舵':['左','右'],'見え方':['向こう向き（北側）','こちら向き（南側）','横向き（東・西）','真上・真下'],
   '①の姿勢':['水平','傾きあり','機首の上下あり','傾き＋上下'],
-  '誤り':['傾きの左右','傾きの有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
+  '誤り':['傾きの左右','傾きの有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','斜めの片方','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
 /* 誤りの種類ごとの一言（次に何を意識するか。要所だけ） */
 const ERRHINT={'向きが逆':'右と左（上げと下げ）を取り違えています。命令は機体にとっての向きです。背面や傾いた姿勢では画面上の向きと逆になることがあります。','角度違い':'角度の大きさを取り違えています。90° で真横・真上、180° で反対（背面）です。','軸違い':'旋回（向きだけ変わる）・横転（翼の傾きだけ変わる）・機首上げ下げ（機首だけ動く）を取り違えています。','傾きの左右':'左右を逆に読んでいます。こちら向き（南側）の絵は左右が逆に見えます。機首の向きを基準に、どちらの翼が下がっているかを読みます。',
   '傾きの有無':'傾いているかどうかの見分けで落としています。水平線が傾いているかを先に見ます。',
@@ -3503,13 +3514,15 @@ const ERRHINT={'向きが逆':'右と左（上げと下げ）を取り違えて�
   '姿勢だけ':'方位は読めています。水平儀の傾きと上下を見直します。',
   '操縦桿の向き':'操縦桿の向きを取り違えています。①→② の変化だけを見て、まず操縦桿の向きを決めます。',
   '操縦桿の有無':'操縦桿を倒しているか、方向舵だけかの見分けで落としています。',
+  '斜めの片方':'斜めの操作で、傾きか機首の上下の片方を取り違えています。斜めは両方が同時に変わります。①→② で傾きと上下を別々に確かめます。',
   '方向舵の左右':'方向舵の左右を逆に読んでいます。②→③ で機首が先に振れる向きを見ます。',
   '方向舵の有無':'方向舵を踏んでいるかどうかの見分けで落としています。②→③ の変化を見比べます。',
   '操縦桿と方向舵の両方':'操縦桿と方向舵の両方を落としています。①→② で操縦桿、②→③ で方向舵、と分けて読みます。',
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
 /* v05.97（利用者「機体の状態の詳細な正答率も不要。総合と複合での個別正答率が分かればよい。その上で苦手な部分の分析を記せば良い」）:
    切り口ごとの棒はやめ、総合（輪）→ 誤りの種類（1 本の積み上げ）→ 苦手の札 → 一言、に絞る。見え方・機首の上下・傾き・①の姿勢・操作の数・操作 は記録だけして札の材料にする */
-const GROUPS={spatial:['誤り','命令','初期状態','角度'],heading:['回り'],attitude:['誤り','組み合わせ'],combo:['誤り','組み合わせ'],control:['傾向','誤り','パターン','操縦桿','方向舵']};
+/* v06.48: 苦手の札（先頭の札と操縦操作の苦手①②…）は見せたまま、誤りの種類から下は「詳細」に畳む */
+const GROUPS={spatial:['誤り','命令','初期状態','角度'],heading:[],attitude:['誤り','組み合わせ'],combo:['誤り','組み合わせ'],control:['パターン','誤り','傾向','操縦桿','方向舵']};
 const accCls=a=>a==null?'na':a>=0.8?'hi':a>=0.5?'mid':'lo';
 const pct=a=>a==null?'—':Math.round(a*100)+'%';
 const tip=(k,v)=>`<title>${esc(k)} ${v&&v.n?pct(v.c/v.n)+'（'+v.n+' 問・平均 '+(v.t/v.n).toFixed(1)+' s）':'未出題'}</title>`;
@@ -3538,19 +3551,10 @@ function weakHTML(m){
   const best=all.length?all[all.length-1]:null;
   if(best&&best.acc>=0.8&&all.length>1)h+=`<div class="wbadge hi pop" style="--i:${weakL.length}"><span class="wk">得意</span><span><b>${esc(best.k)}</b><small>（${esc(best.g)}）</small><br>${pct(best.acc)}・${best.n} 問</span></div>`;
   h+='</div>';
-  let gi=0;
-  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ'&&g!=='比べ'&&g!=='パターン'&&g!=='傾向')continue;gi++;
+  let gi=0;const OUT=[],IN=[];
+  for(const g of GROUPS[m]){const R=rows(g);if(!R.some(r=>r.v)&&g!=='組み合わせ'&&g!=='比べ'&&g!=='パターン'&&g!=='傾向')continue;gi++;const h0=h.length;
     h+=`<div class="wgroup pop" style="--i:${gi+1}"><div class="wg">${g==='誤り'?'誤りの種類':g==='組み合わせ'?(m==='attitude'?'苦手な姿勢':'苦手な方位と姿勢の組み合わせ'):g==='比べ'?'単独と複合の比べ':g==='パターン'?'苦手な操作パターン':g==='傾向'?'傾向':g}</div>`;
-    if(g==='回り'){
-      /* 方位（v05.102）: 右回り／左回り の正答率と平均秒だけ。一言はアプリが角度の記録から決める（印から遠い位置が低い・遅い → 反対側から数える） */
-      h+=R.map((x,i)=>`<div class="wrow"><span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${x.acc==null?0:Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${x.v?`${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s`:'—'}</span></div>`).join('');
-      const r=get(g,'右回り'),l=get(g,'左回り'),W=[];
-      if(r&&l&&r.n>=3&&l.n>=3){const ra=r.c/r.n,la=l.c/l.n;if(la<=ra-0.15)W.push('左回り（印より左）が苦手です。');else if(ra<=la-0.15)W.push('右回り（印より右）が苦手です。');else if(ra<0.7&&la<0.7)W.push('右回りも左回りも落としています。まず印の位置を確かめてから数えます。')}
-      const rel=k=>get('印からの位置',String(k)),far=[3,4,5].map(rel).filter(v=>v&&v.n>=2),near=[1,7].map(rel).filter(v=>v&&v.n>=2);
-      const avg=(L,f)=>L.length?L.reduce((a,v)=>a+f(v),0)/L.length:null,fa=avg(far,v=>v.c/v.n),na=avg(near,v=>v.c/v.n),ft=avg(far,v=>v.t/v.n),nt=avg(near,v=>v.t/v.n);
-      if(fa!=null&&na!=null&&(fa<=na-0.15||(ft!=null&&nt!=null&&ft>=nt*1.4)))W.push('印から遠い位置で落ちるか遅くなっています。印の反対側から数えると 1〜2 個で済みます。');
-      if(W.length)h+=`<div class="whint">${esc(W.join(' '))}</div>`;
-    }else if(g==='誤り'){
+    if(g==='誤り'){
       /* 誤りの種類（v05.97）: 間違えた問題の内訳を 1 本の積み上げ棒と凡例で。いちばん多い型に一言 */
       const E2=R.filter(x=>x.v&&x.v.n),tot=E2.reduce((a,x)=>a+x.v.n,0);E2.sort((a,b)=>b.v.n-a.v.n);
       const SC=['#d9534f','#e8b24a','#7b8fa6','#5aa8ec','#6fbf9a','#b08cd6'];
@@ -3583,8 +3587,10 @@ function weakHTML(m){
       const lv=A('①の姿勢','水平');for(const k of ['傾きあり','機首の上下あり','傾き＋上下']){const v=A('①の姿勢',k);if(lv&&v&&v.a<=lv.a-D)W.push(`①が${k==='傾きあり'?'傾いている':k==='機首の上下あり'?'機首が上下している':'傾いて機首も上下している'}と落ちています${p2(lv,v)}。①の姿勢を先に読んでから変化を見ます。`)}
       const rud=sum([get('方向舵','左'),get('方向舵','右')]),st=stats[m]||{n:0,c:0},norud=rud&&st.n-rud.n>=3?{a:Math.max(0,Math.min(1,(st.c-Math.round(rud.a*rud.n))/(st.n-rud.n))),n:st.n-rud.n}:null;   /* 方向舵なし ＝ 全体 − 方向舵あり（0〜100% に収める） */
       if(rud&&norud&&rud.a<=norud.a-D)W.push('方向舵が入ると落ちています'+p2(norud,rud)+'。');
+      const str=sum(['奥','手前','左','右'].map(k=>get('操縦桿',k))),dia=sum(['左奥','右奥','左手前','右手前'].map(k=>get('操縦桿',k)));   /* v06.48: 斜め（Max） */
+      if(str&&dia&&dia.a<=str.a-D)W.push('操縦桿が斜めになると落ちています'+p2(str,dia)+'。斜めは傾きと機首の上下が同時に変わります。');
       const need=!(one||seq||sim)||!lv;
-      h+=`<div class="whint">${esc(W.length?W.join(' '):need?'状況ごとに 3 問以上たまると、①の姿勢・操作の数・同時か順番か・方向舵の有無のどれで落ちるかが出ます。':'①の姿勢・操作の数・同時か順番か・方向舵の有無で、目立った差はありません。')}</div>`;
+      h+=`<div class="whint">${esc(W.length?W.join(' '):need?'状況ごとに 3 問以上たまると、①の姿勢・操作の数・同時か順番か・方向舵の有無・斜めのどれで落ちるかが出ます。':'①の姿勢・操作の数・同時か順番か・方向舵の有無・斜めで、目立った差はありません。')}</div>`;
     }else if(g==='パターン'){
       /* 苦手な操作パターン（v05.99）: 2 問以上出て落としたものを正答率の低い順に。「苦手パターン表を開く」で見え方の一覧へ（そこに同じパターンのボタンが並ぶ） */
       const P=weakPatterns(5);
@@ -3599,9 +3605,9 @@ function weakHTML(m){
       else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">落とした${m==='attitude'?'姿勢':'組み合わせ'}を、正答率の低い順に。絵は出題と同じ見え方（バンクは 30° の例）。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
-      const c=(k,x,y)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
-      h+=`<svg class="cross" viewBox="0 0 120 120" role="img" aria-label="操縦桿の向きごとの正答率">${c('奥',42,2)}${c('左',2,42)}${c('右',82,42)}${c('手前',42,82)}<circle cx="60" cy="60" r="12" class="hub"/></svg>
-        <div class="sub2">操縦桿を倒した向きごとの正答率（%）。2 操作は操縦桿の向きで数えています。</div>`;
+      const c=(k,x,y,i)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg" style="--i:${i}">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
+      h+=`<svg class="cross" viewBox="0 0 120 120" role="img" aria-label="操縦桿の向きごとの正答率">${c('奥',42,2,0)}${c('右奥',82,2,1)}${c('右',82,42,2)}${c('右手前',82,82,3)}${c('手前',42,82,4)}${c('左手前',2,82,5)}${c('左',2,42,6)}${c('左奥',2,2,7)}<circle cx="60" cy="60" r="12" class="hub"/></svg>
+        <div class="sub2">操縦桿を倒した向きごとの正答率（%）。四隅は斜め（Max）。2 操作は操縦桿の向きで数えています。</div>`;
     }else if(g==='方向舵'){
       const p=(k,x)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="8" width="44" height="60" rx="10" class="${accCls(a)} seg">${tip('方向舵 '+k,v)}</rect>${v?`<text x="${x+22}" y="42" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+22}" y="82" text-anchor="middle" class="cl2">${k}</text>`};
       h+=`<svg class="pedals" viewBox="0 0 140 90" role="img" aria-label="方向舵ごとの正答率">${p('左',18)}${p('右',78)}</svg>
@@ -3609,27 +3615,34 @@ function weakHTML(m){
     }else{
       h+=R.map((x,i)=>`<div class="wrow"><span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${x.acc==null?0:Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${x.v?`${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s`:'—'}</span></div>`).join('');
     }
-    h+='</div>';
+    h+='</div>';(g==='パターン'?OUT:IN).push(h.slice(h0));h=h.slice(0,h0);
   }
+  h+=OUT.join('')+(IN.length?`<details class="histd wdet"><summary>詳細</summary>${IN.join('')}</details>`:'');
   return h;
 }
 /* 推移: 直近 12 回の正答率の折れ線（面つき）と、点の下に平均秒。線は左から描かれる */
 function trendHTML(L){
   if(!L.length)return '<div class="sub2">まだ計測がありません</div>';
+  const fmtD=d=>new Date(d).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),ac=x=>x.n?x.c/x.n:0,av=x=>x.t/Math.max(1,x.n);
+  /* v06.48: なぞった回の結果と前回との差（利用者「折れ線グラフをなぞると分析ができたり」） */
+  const R=L.map((x,i)=>{const p=i?L[i-1]:null,dp=p?Math.round(ac(x)*100)-Math.round(ac(p)*100):null,dt=p?av(x)-av(p):null;
+    return `<span class="nw">${fmtD(x.d)}・${esc((E.LEVELS&&E.LEVELS[x.lv])||x.lv||'')}</span> <span class="nw"><b class="${accCls(ac(x))}">${pct(ac(x))}</b>（${x.c}/${x.n}）</span> <span class="nw">平均 ${av(x).toFixed(1)} s</span>`
+      +(p?`<br><span class="nw">前回比 <span class="dlt ${dp>0?'up':dp<0?'dn':''}">${dp>0?'+':dp<0?'−':'±'}${Math.abs(dp)} ポイント</span></span>${Math.abs(dt)>=0.05?`<span class="nw">・<span class="dlt ${dt<0?'up':'dn'}">${Math.abs(dt).toFixed(1)} s ${dt<0?'速く':'遅く'}</span></span>`:''}`:'')});
   const W=240,H=64,px=14,n=L.length,step=n>1?(W-px*2)/(n-1):0;
   const P=L.map((x,i)=>[px+i*step,8+(1-(x.n?x.c/x.n:0))*(H-20)]);
   const line=P.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
   const area=line+` L${P[n-1][0].toFixed(1)} ${H-8} L${P[0][0].toFixed(1)} ${H-8} Z`;
-  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="直近の正答率の推移">
+  return `<div class="trendw" data-t="${esc(JSON.stringify(R))}" data-x="${esc(JSON.stringify(P.map(p=>[+p[0].toFixed(1),+p[1].toFixed(1)])))}"><svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="直近の正答率の推移。なぞると各回の結果">
     <line x1="${px}" y1="8" x2="${W-px}" y2="8" class="gl"/><line x1="${px}" y1="${8+(H-20)/2}" x2="${W-px}" y2="${8+(H-20)/2}" class="gl"/><line x1="${px}" y1="${H-12}" x2="${W-px}" y2="${H-12}" class="gl"/>
     <path d="${area}" class="area fade"/><path d="${line}" class="line draw" pathLength="1"/>
     ${P.map((p,i)=>{const a=L[i].n?L[i].c/L[i].n:0;return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" class="dot ${accCls(a)} pop" style="--i:${i}"><title>${new Date(L[i].d).toLocaleDateString('ja-JP')} ${pct(a)}・平均 ${(L[i].t/Math.max(1,L[i].n)).toFixed(1)} s</title></circle>`}).join('')}
     <text x="${px}" y="${H-1}" class="ax">古い</text><text x="${W-px}" y="${H-1}" text-anchor="end" class="ax">最新</text>
-    <text x="${W-px+2}" y="11" class="ax">100</text><text x="${W-px+2}" y="${H-9}" class="ax">0</text></svg>`;
+    <text x="${W-px+2}" y="11" class="ax">100</text><text x="${W-px+2}" y="${H-9}" class="ax">0</text>
+    <line class="cur" x1="0" y1="6" x2="0" y2="${H-12}"/><circle class="curdot" r="5" cx="0" cy="0"/></svg><div class="trd" aria-live="polite">${R[n-1]}</div></div>`;
 }
 /* 円グラフ（正答率）。開いたときに弧が伸びる */
 function ringHTML(acc,label){const v=acc==null?0:Math.round(acc*100);
-  return `<div class="ring ${accCls(acc)}"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" class="bg"/><circle cx="22" cy="22" r="18" class="fg" pathLength="100" style="stroke-dasharray:${v} 100"/></svg><div class="rv"><b>${acc==null?'—':v+'%'}</b><span>${label}</span></div></div>`}
+  return `<div class="ring ${accCls(acc)}"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" class="bg"/><circle cx="22" cy="22" r="18" class="fg" pathLength="100" style="stroke-dasharray:${v} 100"/></svg><div class="rv"><b${acc==null?'':` class="cnt" data-to="${v}" data-suf="%"`}>${acc==null?'—':v+'%'}</b><span>${label}</span></div></div>`}
 /* 記録の苦手パターンの中身（v05.103）: 出題と同じ飛行（flight.js）で ①②③ を作り、見え方の一覧と同じ「動きで見る」を置く。①の初期状態は記録した値（なければパターンの区分から 30°/10°） */
 const statMovers=[];
 function disposeStatMovers(){while(statMovers.length){const m=statMovers.pop();try{m.dispose()}catch(e){}}}
@@ -3646,6 +3659,33 @@ function buildPatBody(d,body){
   body.querySelector('.patmv').appendChild(mv.el);mv.build();statMovers.push(mv);
 }
 const initText3=i=>{const t=[i.bank?(i.bank>0?'右バンク':'左バンク')+Math.abs(i.bank)+'°':'',i.pitch?(i.pitch>0?'機首上げ':'機首下げ')+Math.abs(i.pitch)+'°':'',i.yaw?'機首が'+(i.yaw>0?'右':'左')+'へ '+Math.abs(i.yaw)+'°':''].filter(Boolean);return t.length?t.join('・'):'水平'};
+/* 記録分析の演出（v06.48、利用者「記録分析は最もワクワクする必要がある」）: 種目の枠が画面に入ったときに 輪が一周しながら伸びる・数字が数え上がる・棒が伸びる・折れ線が描かれる。
+   折れ線はなぞる（押したまま横へ動かす）とその回の結果と前回比を下に出す。「視覚効果を減らす」の端末では演出を止め、なぞる機能だけ残す */
+function countUp(el){const to=+el.dataset.to,dec=+(el.dataset.dec||0),suf=el.dataset.suf||'',t0=performance.now(),D=1000;
+  const f=now=>{const k=Math.min(1,(now-t0)/D),e=1-Math.pow(1-k,3);el.textContent=(to*e).toFixed(dec)+suf;if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)}
+function bindTrend(w){
+  const svg=w.querySelector('svg'),R=JSON.parse(w.dataset.t),X=JSON.parse(w.dataset.x),out=w.querySelector('.trd'),cur=svg.querySelector('.cur'),cd=svg.querySelector('.curdot'),dots=[...svg.querySelectorAll('.dot')];
+  const W=svg.viewBox.baseVal.width;let last=-1;
+  const show=i=>{if(i===last)return;last=i;const [x,y]=X[i];cur.setAttribute('x1',x);cur.setAttribute('x2',x);cd.setAttribute('cx',x);cd.setAttribute('cy',y);cd.setAttribute('class','curdot on '+(dots[i]?[...dots[i].classList].find(c=>/^(hi|mid|lo)$/.test(c)):''));
+    w.classList.add('scrub');out.innerHTML=R[i];dots.forEach((d,j)=>d.classList.toggle('sel',j===i))};
+  const at=e=>{const r=svg.getBoundingClientRect(),vx=(e.clientX-r.left)/r.width*W;let bi=0,bd=1e9;X.forEach(([x],i)=>{const d=Math.abs(x-vx);if(d<bd){bd=d;bi=i}});return bi};
+  svg.addEventListener('pointerdown',e=>show(at(e)));
+  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)show(at(e))});
+}
+function statsFx(page){
+  const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  page.querySelectorAll('.trendw').forEach(bindTrend);
+  page.querySelectorAll('.sthead').forEach(b=>b.addEventListener('click',()=>{const p=b.nextElementSibling,open=p.hidden;p.hidden=!open;b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',b.getAttribute('aria-label').replace(/を(開く|閉じる)$/,open?'を閉じる':'を開く'))}));
+  const blocks=[...page.querySelectorAll('.stmode')];
+  const go=el=>{if(el.classList.contains('seen'))return;el.classList.add('seen');if(!RM)el.querySelectorAll('.sthead .cnt').forEach(countUp)};
+  if(RM){blocks.forEach(go);return}
+  blocks.forEach(el=>el.querySelectorAll('.sthead .cnt').forEach(c=>{c.textContent=(0).toFixed(+(c.dataset.dec||0))+(c.dataset.suf||'')}));
+  /* 枠の上端が画面の 85% より上に来たら始める。一気に飛ばした枠も、通り過ぎた時点で始める（IntersectionObserver だと飛ばした枠が 0 のまま残る） */
+  let raf=0;const chk=()=>{raf=0;if(!page.isConnected||page.offsetParent===null)return;const lim=innerHeight*.85;blocks.forEach(el=>{if(!el.classList.contains('seen')&&el.getBoundingClientRect().top<lim)go(el)})};
+  if(statsFx.h)document.removeEventListener('scroll',statsFx.h,true);
+  statsFx.h=()=>{if(!raf)raf=requestAnimationFrame(chk)};document.addEventListener('scroll',statsFx.h,{capture:true,passive:true});
+  requestAnimationFrame(chk);
+}
 /* ===== 記録のページ: 種目ごとの 正答率の輪・累計・推移・苦手・履歴 ===== */
 function renderStatsPage(){
   const page=$('#statsPage');
@@ -3653,9 +3693,13 @@ function renderStatsPage(){
   let h=`<h3>記録分析</h3><div class="sub2">この端末の中だけに残ります。どこにも送りません。</div>`;
   for(const m of Object.keys(E.MODES)){
     const st=stats[m]||{n:0,c:0,t:0},HL=hist.filter(x=>x.m===m),L=HL.slice(0,12).reverse();
+    /* v06.48（利用者の指示 2026-09-25）: 正答率・出題数・平均解答時間の塊は押すと下に難易度別が開く。難易度別と本番のペースは履歴（hist）から。本番のペースは Max の計測だけで出す */
+    const byLv=lv=>HL.filter(x=>x.lv===lv).reduce((o,x)=>({n:o.n+x.n,c:o.c+x.c,t:o.t+x.t}),{n:0,c:0,t:0}),MX=byLv('max'),avg=st.n?(st.t/st.n).toFixed(1):null;
+    const lvRows=['easy','normal','hard','max'].map((lv,i)=>{const v=byLv(lv),a=v.n?v.c/v.n:null;return `<div class="wrow"><span class="wl">${E.LEVELS[lv]}</span><span class="wb"><i class="${accCls(a)} grow" style="--i:${i};width:${a==null?0:Math.max(2,Math.round(a*100))}%"></i></span><span class="wn">${v.n?`${pct(a)}・${v.n} 問・${(v.t/v.n).toFixed(1)} s`:'—'}</span></div>`}).join('');
     h+=`<div class="stmode"><h4 class="codeh">${E.MODES[m]}</h4>
-      <div class="sthead">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<div class="stnum"><div title="解いた数">${ic('cards','xs')}<b>${st.n}</b></div><div title="1 問あたりの平均解答時間">${ic('timer1','xs')}<b>${st.n?(st.t/st.n).toFixed(1):'—'}</b> s</div><div title="計測した回数">${ic('list','xs')}<b>${HL.length}</b></div></div></div>
-      ${st.n?`<div class="sub pace">${paceText(m,st.t/st.n)}（全難易度の平均から）</div>`:''}
+      <button type="button" class="sthead" aria-expanded="false" aria-label="${E.MODES[m]}の難易度別を開く">${ringHTML(st.n?st.c/st.n:null,m==='combo'?'総合':'正答率')}${m==='combo'?[['部分|方位','方位'],['部分|姿勢','姿勢']].map(([k,l])=>{const v=(weak[m]||{})[k];return ringHTML(v&&v.n?v.c/v.n:null,l)}).join(''):''}<span class="stnum"><span title="出題数">${ic('cards','xs')}<b${st.n?` class="cnt" data-to="${st.n}"`:''}>${st.n}</b> 問</span><span title="1 問あたりの平均解答時間">${ic('timer1','xs')}<b${avg?` class="cnt" data-to="${avg}" data-dec="1"`:''}>${avg||'—'}</b> s</span></span><span class="stchev">${ic('down')}</span></button>
+      <div class="stlv" hidden><div class="wg">難易度別</div>${lvRows}</div>
+      ${MX.n?`<div class="sub pace">${paceText(m,MX.t/MX.n)}（Max の平均から）</div>`:E.EXAM_PACE[m]&&st.n?`<div class="sub pace">本番のペースは Max で計測すると出ます。</div>`:''}
       <div class="wg">推移（直近 ${L.length} 回の正答率）</div>${trendHTML(L)}
       ${weakHTML(m)}
       ${HL.length?`<details class="histd"><summary>履歴（${HL.length} 回）</summary><div class="rec">${HL.slice(0,20).map(x=>`<span>${fmt(x.d)}・${(E.LEVELS&&E.LEVELS[x.lv])||x.lv||''}</span><span>${x.c} / ${x.n}（${x.n?Math.round(x.c/x.n*100):0}%）・${x.n?(x.t/x.n).toFixed(1):'—'} s</span>`).join('')}</div></details>`:''}
@@ -3663,6 +3707,7 @@ function renderStatsPage(){
   }
   h+=`<div class="acts"><button class="btn ghost" id="stBack">ホームへ</button></div>`;
   page.innerHTML=h;$('#stBack').addEventListener('click',()=>{location.hash='#home'});
+  statsFx(page);
   page.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{location.hash=b.dataset.go}));
   disposeStatMovers();
   /* 苦手の札を押すと、その枠内で「動きで見る」を開く（もう一度で畳む）。中身は最初に開いたときに作る */

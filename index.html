@@ -186,10 +186,23 @@ svg text{user-select:none}
 .qno{white-space:nowrap}
 .nw{white-space:nowrap}
 #explain li,.summary .sub,.prompt{text-wrap:pretty}   /* 行末に 1〜2 字だけ残る折り返しを避ける（対応する環境だけ） */
-#examPrev,#examStar,#examList,#examGrade{width:2.75rem;height:2.5rem;padding:0;flex-direction:column;justify-content:center;gap:.0625rem}   /* 出題画面の頭のボタンは 記号＋小さな文字 でそろえる（利用者の指示 2026-09-24「記号だけなら記号だけ、記号＋文字なら記号＋文字」「文字があってもスタイリッシュなら文字があった方がよい」） */
-#examPrev .ic,#examStar .ic,#examList .ic,#examGrade .ic{width:1.125rem;height:1.125rem}
-#examPrev:disabled{opacity:.35}
-@media (max-width:22.5rem){#examPrev,#examStar,#examList,#examGrade{width:2.375rem}.qhead{gap:.25rem}body[data-phase="session"] .qhead .timer .ic{display:none}}   /* 幅 320〜360: 問番号と残り時間がボタンに押されて重ならないように */
+#examStar,#examList,#examGrade{width:2.75rem;height:2.5rem;padding:0;flex-direction:column;justify-content:center;gap:.0625rem}   /* 出題画面の頭のボタンは 記号＋小さな文字 でそろえる（利用者の指示 2026-09-24「記号だけなら記号だけ、記号＋文字なら記号＋文字」「文字があってもスタイリッシュなら文字があった方がよい」） */
+#examStar .ic,#examList .ic,#examGrade .ic{width:1.125rem;height:1.125rem}
+/* 試験モードは本番の CBT に寄せ、選んでも自動では進まない。選択肢の下の 前へ・次へ で移る（利用者の指示 2026-09-24） */
+.examnav{display:flex;gap:.5rem;margin-top:.625rem}
+.examnav .btn{flex:1;height:2.75rem;font-size:.875rem}
+.examnav .btn:disabled{opacity:.35}
+#quiz.navopen .examnav{display:none}
+#quiz:has(#examMove:not([hidden])) .figs .cap{display:none}   /* 試験モードは絵の下の説明を出さない（向きや印の読み方は説明と練習で案内済み。利用者の指示 2026-09-24） */
+#quiz:has(#examMove:not([hidden])) #figs{min-height:9rem}   /* 前へ・次へのぶん絵が潰れて選択肢の下に潜らないよう下限（絵 6rem＋説明）。入らない低い画面だけスクロール */
+@media (max-height:40rem){.examnav{margin-top:.375rem}.examnav .btn{height:2.25rem}}
+@media (max-width:63.99rem) and (max-height:44rem){#quiz:has(#examMove:not([hidden])) .opts .ab .inst{width:56%}#quiz:has(#examMove:not([hidden])) .opts .ab{padding:.5rem .5rem .375rem;gap:.25rem}}   /* 低いスマホ（SE・640 の Android）: 前へ・次へのぶん選択肢の絵を小さくして 1 画面に収める */
+/* 入りきらない低い画面（JS が .examTall を付ける）: 絵を下限の高さに固定し、カードごと伸ばしてページをスクロール（中身だけカードの外へあふれない） */
+body[data-phase="session"]:has(#examMove:not([hidden])) .modebar{display:none}   /* 試験モードは種目名の帯を出さない（問題に高さを回す。利用者の指摘 2026-09-24） */
+body.examTall[data-view="train"]{height:auto;max-height:none;min-height:100vh;min-height:100svh}
+body.examTall :is(.layout,.layout > .card,#quiz){flex:none;min-height:0}
+body.examTall #figs{flex:none;height:9rem}
+body.examTall #figs:has(.inst2){height:8.5rem}
 .qhead .lb{font-size:.5625rem;line-height:1;font-weight:600;white-space:nowrap}
 #examStar.on{color:var(--accent);border-color:var(--accent)}#examStar.on .ic{fill:currentColor}
 .qnav{margin-top:.625rem;padding:.625rem;border:1px solid var(--line);border-radius:.75rem;background:var(--panel2)}
@@ -204,7 +217,7 @@ svg text{user-select:none}
 .qc{flex-direction:column;gap:.0625rem;display:flex;align-items:center;justify-content:center}
 .qc .n{font-size:.5625rem;color:var(--muted);line-height:1}
 .qc .u{line-height:.95rem}
-.qc.done .ic{color:var(--accent)}
+.qc .pk{font:700 .8125rem/1 var(--mono);color:var(--accent)}
 .qc .ic.xs{width:.95rem;height:.95rem}
 .qc .st{position:absolute;top:-.3rem;right:-.3rem;width:.8rem;height:.8rem;color:var(--accent);fill:currentColor;stroke-width:1.5}
 .qnav .lg{display:flex;justify-content:center;gap:1rem;margin-top:.5rem;font-size:.6875rem;color:var(--muted)}
@@ -835,14 +848,16 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .mode .ico{width:2.75rem;height:2.75rem;border-radius:.75rem;background:var(--panel2);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .mode .n,.mode .d,.mode .r{display:block}
 .mode .n{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:.5rem;min-width:0;white-space:nowrap}
-.mode .tag{flex-shrink:0}
+:is(.mode,.examtitle) .tag{flex-shrink:0}
+body.examHead #updBtn{display:none}   /* 試験中は更新ボタンを出さない（見出しの種目名を切らさない。更新は試験の後に届く） */
+.examtitle{display:inline-flex;align-items:center;gap:.5rem;vertical-align:middle}   /* 試験モードの見出し: TENRYU の代わりに 区分のバッジ＋種目名（利用者の指示 2026-09-24） */
 @media (max-width:24rem){.mode{grid-template-columns:2.25rem 1fr auto auto auto;gap:.5rem;padding:1rem .75rem}.mode .ico{width:2.25rem;height:2.25rem}}   /* 狭い画面: 種目名を途中で折らない（総点検 2026-09-23） */
 @media (max-width:21rem){.mode{grid-template-columns:1fr auto auto auto}.mode .ico{display:none}}
 .mode .mring{width:3rem;display:grid;place-items:center}
 .mode .mring .ring{width:3rem;height:3rem}   /* 輪の大きさは種目名と記録の 2 行ぶん（v06.31） */
 .mode .mring .ring .rv b{font-size:.75rem}
 .mode .mring .ring .bg{stroke:var(--line2)}
-.mode .tag{display:grid;place-items:center;width:1.375rem;height:1.375rem;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding-bottom:.07em}   /* 文字が枠の中心に来るよう、下に少しだけ余白（字の下の余白ぶん） */   /* 本番の区分 A・B・C・F。大きさをそろえ、名前との間は行の gap だけ（v06.33） */
+:is(.mode,.examtitle) .tag{display:grid;place-items:center;width:1.375rem;height:1.375rem;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding-bottom:.07em}   /* 文字が枠の中心に来るよう、下に少しだけ余白（字の下の余白ぶん） */   /* 本番の区分 A・B・C・F。大きさをそろえ、名前との間は行の gap だけ（v06.33） */
 .mode .tag.sub{width:auto;padding:0 .35rem;color:var(--muted)}
 .summary .sub.pace,.stmode .sub.pace{display:block;margin:.5rem 0 0;font-size:.8125rem;color:var(--muted);line-height:1.6}
 .figs .cmd{margin-top:.5rem;text-align:center;font-weight:700;font-size:1.125rem;letter-spacing:.04em;color:var(--accent)}   /* 空間認識の命令 */
@@ -854,7 +869,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .fbspin .spin3d{width:min(100%,24rem);margin:.5rem auto 0;border-radius:.5rem;overflow:hidden}   /* 背景は出題の絵と同じ地平線（下の --horizon） */
 .fbspin .fbsimh .btn{width:auto;height:2rem;font-size:.75rem;padding:0 .75rem;margin:0}
 .inst2{display:flex;gap:.75rem;justify-content:center;align-items:center;width:min(100%,22rem);margin:0 auto}
-.inst2 .i2{flex:1 1 0;min-width:0}
+.inst2 .i2{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center}
+.inst2 .il{margin-top:.25rem;font-size:.75rem;color:var(--muted);line-height:1}
 .fig.top.match{max-width:14rem;margin:0 auto}
 .mode .d{font-size:.8125rem;color:var(--muted);margin-top:.125rem}
 .mode .r{font-family:var(--mono);font-size:.6875rem;color:var(--faint);margin-top:.25rem}
@@ -920,7 +936,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
 .about .sub2{font-size:.75rem;color:var(--muted);margin:.25rem 0 .5rem}
 .about h4{margin:1rem 0 .25rem;font-size:.75rem;font-weight:700}   /* 種目のカードの中の小見出し（B の水平儀・羅針儀など） */
 .atag{display:grid;place-items:center;width:1.375rem;height:1.375rem;font-family:var(--mono);font-size:.6875rem;font-weight:700;line-height:1;color:var(--accent);border:1px solid currentColor;border-radius:.375rem;padding-bottom:.07em}   /* ホームの種目バッジと同じ形。アプリ説明は A・B・C・F の順（利用者の指示 2026-09-23） */
-@supports (text-box:trim-both cap alphabetic){.mode .tag,.atag{padding-bottom:0;text-box:trim-both cap alphabetic}}   /* 種目バッジの字を、大文字の高さで枠の中心に（フォントに左右されない。未対応の端末は .07em の下余白で JetBrains Mono に合わせる。利用者 2026-09-23「上寄り」） */
+@supports (text-box:trim-both cap alphabetic){.mode .tag,.examtitle .tag,.atag{padding-bottom:0;text-box:trim-both cap alphabetic}}   /* 種目バッジの字を、大文字の高さで枠の中心に（フォントに左右されない。未対応の端末は .07em の下余白で JetBrains Mono に合わせる。利用者 2026-09-23「上寄り」） */
 .fig2{display:grid;grid-template-columns:40% 1fr;gap:.75rem;align-items:center;margin-top:.5rem}
 .fig2 ul{margin:0}
 .figbox{width:100%}
@@ -993,9 +1009,9 @@ body:not([data-view="home"]) .back{display:inline-flex}
   .d14 img{height:100%!important;width:auto!important;max-width:100%;object-fit:contain}
   /* 計器判読の Max（計器 → 機体）: 計器の組も余りの高さに合わせて縮める。以前は幅で大きさが決まり、低い画面（320×568・360×640）で選択肢の下に潜っていた（v06.41） */
   .inst2{flex:1 1 0;min-height:5.5rem}
-  #figs:has(.inst2){min-height:8rem}   /* これより低くなる画面（320×568）では図を潰さず、画面をスクロールさせる */
-  .inst2 .i2{height:100%;display:flex;justify-content:center;align-items:center}
-  .inst2 .i2 svg{height:100%;width:auto;max-width:100%}
+  #figs:has(.inst2){min-height:8.5rem}   /* これより低くなる画面（320×568）では図を潰さず、画面をスクロールさせる */
+  .inst2 .i2{height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center}
+  .inst2 .i2 svg{height:calc(100% - 1rem);width:auto;max-width:100%}
   /* 方位: 上面図 */
   .figs.heading > div:first-child{flex:1;min-height:0;display:flex;flex-direction:column}
   .fig.top,.answered .fig.top{flex:1;min-height:6rem;width:100%;display:flex;justify-content:center;align-items:center;transition:none}
@@ -1156,6 +1172,8 @@ body:not([data-view="home"]) .back{display:inline-flex}
   #quiz.control .qhead,#quiz.control .prompt,#quiz.control .fb{grid-column:1/-1}
   #quiz.control #figs{grid-column:1;grid-row:3;min-height:0}
   #quiz.control #answers{grid-column:2;grid-row:3;align-self:start}
+  #quiz.control .examnav{grid-column:2;grid-row:4}
+  #quiz.control .qnav{grid-column:1/-1}
   #quiz.control .opts.text{margin-top:0}
   #quiz.control .opts.text .ab{min-height:4.5rem}
   /* 解説（.fb.show）が出ているときは 1 画面に収まらないので、画面の高さの枠を外して下へ伸ばす（スマホと同じ考え）。
@@ -1465,7 +1483,6 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <div class="qhead">
         <div class="qno"><b id="qno">1</b></div>
         <div class="timer" id="timer"><svg class="ic xs"><use href="#i-timer"/></svg><span id="tval">0.0</span><small id="tunit">s</small></div>
-        <button class="btn sm ghost" id="examPrev" hidden title="前の問題"><svg class="ic s"><use href="#i-back"/></svg><span class="lb">前へ</span></button>
         <button class="btn sm ghost" id="examStar" hidden title="見直しの印" aria-pressed="false"><svg class="ic s"><use href="#i-star"/></svg><span class="lb">見直し</span></button>
         <button class="btn sm ghost" id="examList" hidden title="問題の一覧" aria-expanded="false"><svg class="ic s"><use href="#i-grid"/></svg><span class="lb">一覧</span></button>
         <button class="btn sm ghost" id="examGrade" hidden title="採点"><svg class="ic s"><use href="#i-grade"/></svg><span class="lb">採点</span></button>
@@ -1475,6 +1492,7 @@ body:not([data-view="home"]) .back{display:inline-flex}
       <p class="prompt" id="prompt"></p>
       <div id="figs"></div>
       <div id="answers"></div>
+      <div class="examnav" id="examMove" hidden><button class="btn ghost" id="examPrev" type="button"><svg class="ic s"><use href="#i-back"/></svg>前へ</button><button class="btn ghost" id="examNext" type="button">次へ<svg class="ic s"><use href="#i-next"/></svg></button></div>
       <div class="fb" id="feedback">
         <div class="fbh"><div class="t" id="fbTitle"></div><div class="s" id="fbTime"></div></div>
         <ul id="explain"></ul>
@@ -1592,7 +1610,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.42';
+const APP_VER='v06.43';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1750,11 +1768,12 @@ const ckCompact=svg=>svg.replace('viewBox="0 0 360 240"','viewBox="0 0 360 188"'
 /* ===== 画面内の領域の切り替え ===== */
 function showPane(name){['setup','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name});if(name!=='quiz')$('#feedback').className='fb';
   if(name!=='gallery'&&typeof galDispose==='function')galDispose()}
-function setPhase(p,label){phase=p;document.body.dataset.phase=p;const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
+function setPhase(p,label){phase=p;document.body.dataset.phase=p;document.body.classList.remove('examTall');examTitle(false);const t=$('#phaseTag');if(label){t.textContent=label;t.hidden=false}else t.hidden=true}
 
 /* ===== 出題 ===== */
 function render(){
   qcount++;answered=false;applyScene();
+  if(!examOn())['examMove','examStar','examList','examGrade'].forEach(id=>$('#'+id).hidden=true);   /* 試験モードの外（練習・通常の計測）では出さない */
   const inPractice=phase==='practice';
   $('#qno').textContent=(inPractice?`練習 ${practiceN()-practiceLeft+1} / ${practiceN()}`:(qMax()>0?`${qcount} / ${qMax()}`:qcount));
   $('#qcard').classList.remove('answered');
@@ -1782,7 +1801,7 @@ function render(){
   }else if(q.type==='combo'&&q.reverse){
     /* 複合の Max（本番の B の形）: 計器 → 機体の絵。16 方位 */
     $('#prompt').textContent='計器（水平儀＋羅針儀）に合う機体の見え方を選ぶ';
-    figs.innerHTML=`<div class="figs"><div class="inst2"><div class="i2">${E.svgAI(q.bank,q.pitch)}</div><div class="i2">${E.svgHI(q.heading,q.mark)}</div></div><div class="cap">機首の方位は羅針儀の<b>上</b>。<span class="nw">絵は<b>南</b>からの固定視点</span><span class="nw">（奥が北、右が東）</span></div></div>`;
+    figs.innerHTML=`<div class="figs"><div class="inst2"><div class="i2">${E.svgAI(q.bank,q.pitch)}<span class="il">水平儀</span></div><div class="i2">${E.svgHI(q.heading,q.mark)}<span class="il">羅針儀</span></div></div></div>`;   /* 説明は省き、計器の名前だけ（利用者の指示 2026-09-24） */
     ans.innerHTML=`<div class="opts pics">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="inst"><img class="live" data-live="${i}" alt=""></span><span class="lab">${i+1}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }else if(q.type==='heading'){
@@ -1932,7 +1951,7 @@ $('#fbSkipRow').addEventListener('click',e=>{
 function showExamQ(){
   const it=examQs[examIdx];q=it.q;closeExamNav();render();
   $('#qno').textContent=`${examIdx+1}${qMax()>0?' / '+qMax():''}`;
-  showExamStar();$('#examPrev').disabled=examIdx<=0;   /* 1 問前にも戻れる（一覧と併用。利用者の指示 2026-09-24） */
+  fitExam();showExamStar();$('#examPrev').disabled=examIdx<=0;$('#examNext').disabled=qMax()>0&&examIdx+1>=qMax();   /* 前へ・次へ（一覧と併用。利用者の指示 2026-09-24） */
   if(it.picked!=null)markExamPick(it.picked);
   toTop();
 }
@@ -1941,7 +1960,7 @@ function showExamQ(){
 const examGrade1=it=>{const qq=it.q,i=it.picked==null?-1:it.picked;return qq.type==='control'?E.gradeControl(qq,i):qq.type==='spatial'?E.gradeSpatial(qq,i):qq.type==='heading'?E.gradeHeading(qq,i):E.gradeOpts(qq,i)};
 function showExamStar(){const it=examQs[examIdx],b=$('#examStar'),on=!!(it&&it.star);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)}
 function examGridHTML(review){
-  /* 記号（利用者の指示 2026-09-24）: 採点前は 回答済み＝✔・未回答＝-、採点後は 正解＝○・不正解＝×。見直しの印は ☆ */
+  /* 記号（利用者の指示 2026-09-24）: 採点前は 回答済み＝選んだ番号・未回答＝-、採点後は 正解＝○・不正解＝×。見直しの印は ☆ */
   const N=Math.max(qMax(),examQs.length);let h='';
   const cell=(k,cls,mk,sr,star,dis)=>`<button class="qc${cls}"${dis?' disabled':` data-k="${k}"`}><span class="n">${k+1}</span>${mk}<span class="sr">${sr}</span>${star?`<svg class="ic st"><use href="#i-star"/></svg>`:''}</button>`;
   const dash='<span class="u">-</span>';
@@ -1952,13 +1971,19 @@ function examGridHTML(review){
       h+=cell(k,un?'':g.ok?' ok':' ng',un?dash:ic(g.ok?'circle':'cross','xs'),un?'未回答':g.ok?'正解':'不正解',star);
     }else{
       const done=!!(it&&it.picked!=null);
-      h+=cell(k,(done?' done':'')+(k===examIdx?' cur':''),done?ic('check','xs'):dash,done?'回答済み':'未回答',star);
+      const pk=done?(it.q.type==='heading'&&!it.q.match?dirLabel(it.picked):String(it.picked+1)):'';
+      h+=cell(k,(done?' done':'')+(k===examIdx?' cur':''),done?`<span class="u pk">${pk}</span>`:dash,done?`回答 ${pk}`:'未回答',star);   /* 回答済みは選んだ番号（CBT と同じ。利用者の指示 2026-09-24） */
     }}
   const st='<svg class="ic star"><use href="#i-star"/></svg>';
   const lg=review?`<span>${ic('circle','xs')}正解</span><span>${ic('cross','xs')}不正解</span><span>- 未回答</span><span>${st}見直し</span>`
-    :`<span>${ic('check','xs')}回答済み</span><span>- 未回答</span><span>${st}見直し</span>`;
+    :`<span>1〜4 回答済み</span><span>- 未回答</span><span>${st}見直し</span>`;
   return `<div class="qgrid">${h}</div><div class="lg">${lg}</div>`;
 }
+function examTitle(on){const h=document.querySelector('.brand .name');if(!h)return;document.body.classList.toggle('examHead',!!on);h.innerHTML=on?`<span class="examtitle">${E.MODE_TAG[mode]?`<span class="tag">${E.MODE_TAG[mode]}</span>`:''}${E.MODES[mode]}</span>`:'TENRYU'}
+/* 前へ・次へがカードに入りきらないときだけ、ページをスクロールさせる形に切り替える */
+function fitExam(){const b=document.body;b.classList.remove('examTall');if(!examOn())return;
+  const mv=$('#examMove').getBoundingClientRect(),cd=$('#qcard').getBoundingClientRect();if(mv.bottom>cd.bottom-1)b.classList.add('examTall')}
+addEventListener('resize',()=>{if(examOn())fitExam();else document.body.classList.remove('examTall')});
 function openExamNav(){const nav=$('#examNav');nav.innerHTML=examGridHTML(false);nav.hidden=false;$('#quiz').classList.add('navopen');$('#examList').setAttribute('aria-expanded','true');
   nav.querySelectorAll('[data-k]').forEach(b=>b.addEventListener('click',()=>examGo(+b.dataset.k)))}
 function closeExamNav(){const nav=$('#examNav');nav.hidden=true;nav.innerHTML='';$('#quiz').classList.remove('navopen');$('#examList').setAttribute('aria-expanded','false')}
@@ -1976,8 +2001,8 @@ function examPick(i){
   it.picked=i;markExamPick(i);
   const N=qMax(),all=N>0&&examQs.length>=N&&examQs.every(x=>x.picked!=null);
   if(all){$('#prompt').innerHTML=`全問に答えました。見直すか、${ic('grade','xs')}で採点します。`;$('#examGrade').classList.remove('ghost');return}   /* 最後に答えた瞬間には採点しない（総点検 2026-09-23）。採点を塗りにして目立たせる */
-  if(N>0&&examIdx+1>=N){$('#prompt').textContent='未回答の問題があります。一覧から選べます。';return}   /* 一覧から飛んで最後の問題に答えたとき */
-  setTimeout(()=>{if(examOn()&&examQs[examIdx]===it)next()},260);   /* 選んだら次へ。戻れば選び直せる */
+  if(N>0&&examIdx+1>=N){$('#prompt').textContent='未回答の問題があります。一覧から選べます。';return}   /* 最後の問題に答えたが、空きがあるとき */
+  /* 選んでも自動では次へ進まない（本番の CBT と同じ。v06.43）。次へ・前へ・一覧で移る */
 }
 function examFinish(){
   if(!session||session.ended)return;
@@ -2003,7 +2028,7 @@ function showReview(k){
   setPhase('review','見直し');showPane('quiz');closeExamNav();
   q=it.q;render();answered=true;clearInterval(timerId);   /* 記録には数えない（finish を通らない）。時間も測らない */
   $('#qno').textContent=`${k+1}${qMax()>0?' / '+qMax():''}`;$('#timer').hidden=true;
-  ['examPrev','examStar','examList','examGrade','sessEnd'].forEach(id=>$('#'+id).hidden=true);
+  ['examMove','examStar','examList','examGrade','sessEnd'].forEach(id=>$('#'+id).hidden=true);
   const g=examGrade1(it),pk=it.picked==null?-1:it.picked;
   if(q.type==='heading'&&!q.match)mark($('#figs').querySelectorAll('[data-dir]'),b=>+b.dataset.dir===g.correct,b=>+b.dataset.dir===pk);
   else mark($('#answers').querySelectorAll('[data-i]'),b=>+b.dataset.i===g.correct,b=>+b.dataset.i===pk);
@@ -2145,7 +2170,7 @@ function startMeasured(){
   markPlayed();setPhase('session','計測');showPane('quiz');qcount=0;streak=0;
   session={n:0,c:0,t:0,start:performance.now(),ended:false,total:isExamSet()?E.EXAM_PACE[mode].min*60:0};nextQ=null;examQs=[];examIdx=-1;
   $('#examGrade').hidden=!(session.total>0);$('#examGrade').classList.add('ghost');   /* 試験モードだけ全体の制限時間（本番の時間） */
-  $('#examPrev').hidden=$('#examStar').hidden=$('#examList').hidden=!(session.total>0);closeExamNav();
+  $('#examStar').hidden=$('#examList').hidden=$('#examMove').hidden=!(session.total>0);closeExamNav();examTitle(session.total>0);
   /* 出題数「制限なし」では結果画面に至る道が無いので、そのときだけ「ここで終える」を出す（総点検 2026-09-13） */
   $('#sessEnd').hidden=!(qMax()<=0);
   renderStats();next();
@@ -3364,6 +3389,7 @@ const KBD={spatial:'1〜4 で選択、Enter で次へ',heading:'札の数字で�
 $('#next').addEventListener('click',next);
 $('#reset').addEventListener('click',()=>{if(!confirm(`${E.MODES[mode]} の記録を消しますか？`))return;stats[mode]={n:0,c:0,t:0};store.set('stats',stats);renderStats()});
 $('#examPrev').addEventListener('click',()=>{if(!examOn()||examIdx<=0)return;examIdx--;showExamQ()});
+$('#examNext').addEventListener('click',()=>{if(!examOn()||(qMax()>0&&examIdx+1>=qMax()))return;next()});
 $('#examList').addEventListener('click',()=>{if(!examOn())return;if($('#examNav').hidden)openExamNav();else closeExamNav()});
 $('#examStar').addEventListener('click',()=>{if(!examOn())return;const it=examQs[examIdx];if(!it)return;it.star=!it.star;showExamStar()});
 $('#examGrade').addEventListener('click',()=>{if(!examOn())return;if(!confirm('ここまでの解答を採点しますか？'))return;examFinish()});
@@ -3371,7 +3397,7 @@ $('#sessEnd').addEventListener('click',()=>{if(!session||session.ended||!confirm
 document.addEventListener('keydown',e=>{
   if(document.body.dataset.view!=='train'||$('#quiz').hidden)return;
   if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
-  if(e.key==='Enter'){if(answered){e.preventDefault();next()}return}
+  if(e.key==='Enter'){if(answered){e.preventDefault();next()}else if(examOn()&&$('#examNav').hidden&&!$('#examNext').disabled){e.preventDefault();$('#examNext').click()}return}
   if(answered||!$('#examNav').hidden)return;   /* 一覧を開いているあいだは数字で答えない */
   if(mode==='heading'&&!(q&&q.match)){if(/^[1-8]$/.test(e.key)){e.preventDefault();answerHeading(+e.key-1)}}   /* 方位判読の Max は 4 択（answerOpts） */
   else{if(/^[1-4]$/.test(e.key)){e.preventDefault();answerOpts(+e.key-1)}}

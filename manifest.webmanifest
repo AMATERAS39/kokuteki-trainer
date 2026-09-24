@@ -3,7 +3,7 @@
   "short_name": "TENRYU",
   "description": "航空学生の適性検査対策：空間認識・計器判読・操縦操作・方位判読の反復練習",
   "lang": "ja",
-  "start_url": "./",
+  "start_url": "./app",
   "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],

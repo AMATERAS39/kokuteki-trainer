@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
-/* 専用サイト（/guide）・プライバシーポリシー（/privacy）と同じ意匠。寸法はすべて相対単位 */
+/* 専用サイト（/）・プライバシーポリシー（/privacy）と同じ意匠。寸法はすべて相対単位 */
 :root{
   --bg:#0b1017;--panel:#0f1620;
   --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.16);
@@ -126,8 +126,8 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
 
 <header class="bar">
   <div class="barin">
-    <a class="brand" href="/guide">TENRYU</a>
-    <a class="back" href="/guide"><span class="nw">専用サイト</span>へ戻る</a>
+    <a class="brand" href="/">TENRYU</a>
+    <a class="back" href="/"><span class="nw">専用サイト</span>へ戻る</a>
   </div>
 </header>
 
@@ -187,8 +187,8 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
     <p>この<span class="nw">サイト</span>と TENRYU は個人が作ったもので、防衛省や<span class="nw">自衛隊</span>（<span class="nw">航空自衛隊</span>・<span class="nw">海上自衛隊</span>）の公式ではありません。
       <span class="nw">アンケート</span>の回答は匿名で、<span class="nw">アプリ</span>の改善にだけ使います。</p>
     <div class="links">
-      <a href="/guide"><span class="nw">専用サイト</span></a>
-      <a href="/"><span class="nw">体験版</span></a>
+      <a href="/"><span class="nw">専用サイト</span></a>
+      <a href="/app"><span class="nw">体験版</span></a>
       <a href="/privacy"><span class="nw">プライバシーポリシー</span></a>
     </div>
     <div class="sig">TENRYU · 2026 · 最終更新 2026-09-19</div>
@@ -234,7 +234,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
      .catch(failed);
   });
 })();
-/* Android の端末で開いたら、Google Play のボタンを App Store の前に出す（/guide の ctaAndroid と同じ） */
+/* Android の端末で開いたら、Google Play のボタンを App Store の前に出す（/ の ctaAndroid と同じ） */
 (function(){
   if(!/Android/i.test(navigator.userAgent))return;
   var a=document.getElementById('revAndroid'); if(a&&a.previousElementSibling)a.parentNode.insertBefore(a,a.previousElementSibling);

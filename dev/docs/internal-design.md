@@ -5871,3 +5871,23 @@ sim3d.js v=171。v06.44 の「直していないもの」の 4 つ。測り方�
   - 直し方: `beginLanding` で決め直す（2・4・6 番機は滑走路 2、3・5 番機は滑走路 1。同じ滑走路は 36 秒おき）。
   - 実測（2〜6 番機の接地の x）: 直す前 タッチ・アンド・ゴーのない並び [0, 0, 0, 0, 0]、ある並び [−100, 0, −100, 0, 0] → 全部の通しで [−100, 0, −100, 0, −100]。誘導路から駐機場まで戻る。
 - 通しの結果（直したあと）: おまかせ 5 通り・自分で選ぶ 3 通りで、瞬間移動 0・地面の下 0・視界の中で消える 0、全課目が終わって駐機場まで戻った。繰り返し（4000 秒・65 課目）は瞬間移動の判定にハーフ・スロー・ロールの 2 コマが当たるが、どちらも速さの上限ちょうど（7.5 m/コマ）。直す前にあった「繰り返しのダイヤモンド・テイクオフで僚機が高さ 0.5 m」も 0。
+
+## v06.46 URL の入れ替え: / を公式サイト、体験版を /app に（2026-09-24、利用者の指示）
+
+- 利用者「リンクはそのままで、中身を公式サイトと体験版とで入れ替えられないか」→ 形は「/ が公式サイト、体験版は /app、/guide は / へ転送」、出すのは 9/27 の公開に同梱。
+- **ファイル**: `index.html`（アプリ）→ `app.html`、`guide.html`（公式サイト）→ `index.html`。
+- **転送（worker.js、`wrangler.jsonc` の `assets.run_worker_first: ["/", "/guide", "/guide/", "/guide.html", "/index.html"]`）**: `/` に `?key=`（Android 版 TWA の起動・全機能版の解除）か `?rec=` が付いていれば 302 で `/app` へ（クエリはそのまま）。`/guide`・`/guide/`・`/guide.html`・`/index.html` は 301 で `/` へ（広告・note・ストアのリンクと検索の評価を引き継ぐ）。静的配信は Worker より先に返すので、この 5 つの道だけ Worker を先に通す。
+- **公式サイトの受け皿**: `index.html` の head の先頭で、`?key=`・`?rec=` 付き、またはホーム画面から起動（display-mode standalone・window-controls-overlay、前のページなし）なら `/app` へ置き換える。移るときは広告の計測（gtag の config と conversion）を送らない。
+- **アプリ**: canonical・og:url を `/app`（noindex のまま）。メニューの「専用サイト」と `GUIDE_URL` を `/`。WebSite の構造化データ（サイト名）はサイトの家（`/`）へ移した。
+- **Service Worker**: アプリの控えは `./app`（`./`・`./index.html` は外した）。`/` は公式サイトとして通信優先（`SITE_RE`）。つながらないときは控え（クエリを無視）、`/` の控えがなければ体験版を返す（ホーム画面の旧い起動 URL `/` をオフラインで開いたとき）。画面遷移の最後の受け皿も `./app`。
+- **manifest**: `start_url` を `./app`（scope は `./` のまま）。
+- **iOS 版**: `mobile/copy-web.js` は `app.html` を `www/index.html` として同梱（アプリの入口は変わらない）。`codemagic.yaml` の版の読み取りも `app.html`。アプリの中の見え方は変わらない。
+- **サイトの中のリンク・構造化データ**: 体験版へのリンク `/` → `/app`、`/guide` → `/`（index・exam・android・privacy・survey・survey-results）。canonical・og:url・WebPage・SoftwareApplication・パンくず（「TENRYU 公式サイト」→ `/`）、`llms.txt`、`sitemap.xml`（`/` を 1.0、`/guide` を外す）。
+- 同じオリジンのままなので、ブラウザ版の記録と解除（localStorage）は残る。
+- **検証（ローカル、WebKit）**: `/` は公式サイト、`/?key=`・`/?rec=`・ホーム画面起動（matchMedia を差し替えて模擬）は `/app` へ移る。サイト 6 ページの内部リンクに 404 なし。回帰 t1〜t10 は `/app` で流した（lib.py の BASE を `/app` に）。**Worker の転送と `run_worker_first` はローカルの試験サーバーでは動かないので未検証**。公開した直後に確かめる。
+- **公開の日にすること**:
+  1. push のあと curl で確かめる: `/`（200、公式サイト）、`/app`（200）、`/guide`（301 → `/`）、`/guide.html`（301）、`/index.html`（301）、`/?key=x`（302 → `/app?key=x`）、`/sw.js` の CACHE。
+  2. Android 版（TWA）を実機で起動し、体験版ではなく全機能版の画面が開くこと。ホーム画面に置いた体験版からの起動。
+  3. Search Console: `/` の URL 検査 → インデックス登録をリクエスト（`/guide` は転送に変わったことが自然に伝わる）。sitemap を送り直す。
+  4. Google 広告のサイトリンク「体験版を試す」の行き先を `/app` に（利用者の操作。広告は停止中）。
+  5. ドメイン移転の準備スクリプト（kokuteki-private/domain_move/domain_move.py）を直す: 書き換える一覧の `guide.html` を外して `app.html` を入れる、版の書き換え（`rw('index.html', ver)`）を `app.html` に、`REDIRECT_PAGES` に `/app`・`/app.html` を足す。

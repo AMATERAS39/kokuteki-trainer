@@ -66,6 +66,19 @@ const json = (o, s, extra) => new Response(JSON.stringify(o), {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    /* URL の入れ替え（2026-09-24、利用者の指示）: / は公式サイト、体験版（アプリ本体）は /app。
+       ・/ に ?key=（Android 版 TWA の起動・全機能版の解除）か ?rec=（記録の合言葉）が付いていれば /app へ（クエリはそのまま）
+       ・旧 /guide（公式サイト）と /index.html は / へ恒久的に（広告・note・ストアのリンクと検索の評価を引き継ぐ）
+       この 3 つの道は静的配信より先にここへ来るよう、wrangler.jsonc の assets.run_worker_first に並べてある */
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      const p = url.pathname;
+      if (p === '/' && (url.searchParams.has('key') || url.searchParams.has('rec'))) {
+        return new Response(null, { status: 302, headers: { Location: '/app' + url.search + url.hash, 'Cache-Control': 'no-store' } });
+      }
+      if (p === '/guide' || p === '/guide/' || p === '/guide.html' || p === '/index.html') {
+        return new Response(null, { status: 301, headers: { Location: '/' + url.search + url.hash } });
+      }
+    }
 
     if (url.pathname === '/api/avg') {
       if (request.method === 'GET') {

@@ -10,15 +10,17 @@ const ROOT = path.resolve(__dirname, '..'), WWW = path.join(__dirname, 'www');
    2026-09-14 の v05.13 で flight.js（飛行モデル）を足したとき、ここに加え忘れたため、App Store の 5.31〜5.45 では
    操縦操作の出題・解説・「動きで見る」・シミュレーターが動かなかった（ブラウザ版は sw.js が別に配るので無事だった）。
    同じ事故を繰り返さないよう、下で index.html の <script src> と import() を読み取って、欠けがあればビルドを止める */
-const FILES = ['index.html', 'engine.js', 'flight.js', 'sim3d.js', 'viewer.js', 'feedback.js', 'attshot.js', 'news.json', 'manifest.webmanifest', 'privacy.html'];   // attshot.js: 空間認識・複合 Max の絵をその場で描く（v06.11）
+const FILES = ['app.html', 'engine.js', 'flight.js', 'sim3d.js', 'viewer.js', 'feedback.js', 'attshot.js', 'news.json', 'manifest.webmanifest', 'privacy.html'];   // attshot.js: 空間認識・複合 Max の絵をその場で描く（v06.11）
 const DIRS = ['img', 'icons', 'model', 'vendor'];
+/* 2026-09-24 からリポジトリの index.html は公式サイト、アプリ本体は app.html。アプリの入口は www/index.html なので、app.html をその名前で入れる */
+const DEST = { 'app.html': 'index.html' };
 
 fs.rmSync(WWW, { recursive: true, force: true });
 fs.mkdirSync(WWW, { recursive: true });
 for (const f of FILES) {
   const src = path.join(ROOT, f);
   if (!fs.existsSync(src)) { console.error('見つかりません:', f); process.exit(1); }
-  fs.copyFileSync(src, path.join(WWW, f));
+  fs.copyFileSync(src, path.join(WWW, DEST[f] || f));
 }
 for (const d of DIRS) {
   const src = path.join(ROOT, d);

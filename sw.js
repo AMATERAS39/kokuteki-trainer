@@ -1,13 +1,14 @@
 /* オフライン対応サービスワーカー。ファイルを更新したら CACHE の版数を上げる。 */
-const CACHE = 'aat-v06.45';
+const CACHE = 'aat-v06.46';
 /* 大きくて変わらないもの（3D モデル）は、版を上げても消さない入れ物に置く。
    ここを消してしまうと、更新のたびに 5.6 MB を取り直すことになり、オフラインで 3D が動かなくなる */
 const BIG = 'aat-big-v1';
 const BIG_RE = /\/model\/|\.glb($|\?)/;
 /* 公式サイトのページ（アプリ本体ではないもの）。これまでは同一オリジンの何でもキャッシュ優先だったので、体験版を一度開いた端末では
    /guide などが CACHE の版を上げるまで古いままだった（利用者の指摘 2026-09-17「反映されてない」）。通信を先にして、取れたら控えを更新する */
-const SITE_RE = /^\/(guide|exam|android|privacy|survey|survey-results|llms\.txt|sitemap\.xml|robots\.txt)(\.html)?$/;
-const ASSETS = ['./', './index.html', './flight.js?v=7', './engine.js?v=78', './viewer.js?v=23', './feedback.js?v=2', './sim3d.js?v=171', './attshot.js?v=1',
+/* 2026-09-24 から / も公式サイト（体験版は /app）。/ は ?key= 付きでも来るので、控えはクエリを無視して探す */
+const SITE_RE = /^\/((index|guide|exam|android|privacy|survey|survey-results)(\.html)?|llms\.txt|sitemap\.xml|robots\.txt)?$/;
+const ASSETS = ['./app', './flight.js?v=7', './engine.js?v=78', './viewer.js?v=23', './feedback.js?v=2', './sim3d.js?v=171', './attshot.js?v=1',
   './vendor/three/three.module.js', './vendor/three/addons/loaders/GLTFLoader.js', './vendor/three/addons/controls/OrbitControls.js', './vendor/three/addons/utils/BufferGeometryUtils.js', './manifest.webmanifest', './privacy.html', './news.json',
   './icons/icon-192.png', './icons/icon-192.png?v=2', './icons/icon-512.png', './icons/apple-touch-icon.png', './favicon.ico', './icons/favicon-96.png?v=2', './img/t4-top.webp', './img/hero.webp?v=3',
   ...['north', 'south', 'east', 'west', 'up', 'down', 'ne_up', 'nw_up', 'se_up', 'sw_up', 'ne_down', 'nw_down', 'se_down', 'sw_down', 'north_up', 'north_down', 'east_up', 'east_down', 'south_up', 'south_down', 'west_up', 'west_down', 'ne', 'nw', 'se', 'sw'].map(n => `./img/bi-${n}.webp`),
@@ -37,7 +38,9 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (sameOrigin && SITE_RE.test(url.pathname)) {
-    e.respondWith(fetch(e.request).then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); } return res; }).catch(() => caches.match(e.request)));
+    /* つながらないとき: 控えがあれば控え。/ の控えがなければ体験版（ホーム画面に置いた旧い起動 URL / から、オフラインで開いたとき） */
+    e.respondWith(fetch(e.request).then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); } return res; })
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then(hit => hit || (url.pathname === '/' && e.request.mode === 'navigate' ? caches.match('./app') : undefined))));
     return;
   }
   const box = sameOrigin && BIG_RE.test(url.pathname) ? BIG : CACHE;   // 3D モデルは消さない入れ物へ
@@ -50,6 +53,6 @@ self.addEventListener('fetch', e => {
         const copy = res.clone(); caches.open(box).then(c => c.put(e.request, copy));
       }
       return res;
-    }).catch(() => e.request.mode === 'navigate' ? caches.match('./index.html') : undefined))
+    }).catch(() => e.request.mode === 'navigate' ? caches.match('./app') : undefined))
   );
 });

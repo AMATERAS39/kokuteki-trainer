@@ -1626,7 +1626,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.49';
+const APP_VER='v06.50';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3461,11 +3461,19 @@ function applyShow(){if(!sim||!sim.h||!sim.h.setShowLen)return;
 const REVIEW_URL_IOS='itms-apps://itunes.apple.com/app/id6808281696?action=write-review',REVIEW_URL_ANDROID='https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki';
 const IS_TWA=IS_ANDROID&&matchMedia('(display-mode:standalone)').matches;   /* Android 版（TWA）はホーム画面のアイコンから開いた standalone */
 function markPlayed(){if(!store.get('firstPlay'))store.set('firstPlay',Date.now())}
+/* v06.50（利用者 2026-09-25「アプリ内での誘導はストレスなので、サイトに飛んだ時や試験終了後のアプリ内の方がいい」）:
+   ふだんの利用中には出さない（それまでの「最初のプレイから 24 時間後の夕方に 1 回」は廃止）。出すのは次の 2 か所だけ。
+   - 受験者アンケートのページ（/survey）で答え終えたとき（サイト側。お礼の下に App Store／Google Play のボタン）
+   - 本番の試験のあと（受験日の 16 時から 30 日のあいだ）に、ホームで 1 回だけ。アンケートの案内が出る人は、それを出したあと
+     1 時間以上あけた次の起動で出す（同じ起動で 2 枚続けない）。受けないと答えた人には出さない。
+     以前の札（reviewAsked）を見た人にも、試験のあとの 1 回は出す（別の鍵 reviewExamAsked） */
 function reviewDue(){
-  if(!(NATIVE||IS_TWA))return false;
-  const t0=store.get('firstPlay');if(!t0||store.get('reviewAsked'))return false;
-  const h=new Date().getHours();
-  return Date.now()-t0>=24*3600*1000&&h>=16&&h<20;
+  if(!(NATIVE||IS_TWA)||!store.get('firstPlay')||store.get('reviewExamAsked'))return false;
+  const plan=store.get('examPlan');if(plan==='no')return false;
+  const d=store.get('examDate')||EXAM_END,end=Date.parse(d+'T16:00:00+09:00'),now=Date.now();
+  if(now<end||now>=end+30*86400000)return false;
+  const sa=store.get('surveyAsked');if(plan==='yes'&&(!sa||now-sa<3600*1000))return false;
+  return true;
 }
 /* ===== 受験者アンケート（アプリ版だけ）=====
    最初にホームを開いたとき、今年度の一次試験を受ける予定かを 1 回だけ尋ねる（答えはこの端末にだけ残す。集計はしない。利用者の指示 2026-09-16）。
@@ -3483,7 +3491,7 @@ function surveyDue(){
 }
 function examPlanHTML(){return `<div class="demo ask askplan"><span>今年度の航空学生の一次試験を受ける予定ですか。受ける方は日程を選んでください。答えはこの端末にだけ残ります（集計はしません）。</span><span class="askbtns">${EXAM_DATES.map(([d,ja])=>`<button class="btn" data-plan="${d}">${ja}に受ける</button>`).join('')}<button class="btn ghost" id="planNo">受けない</button></span></div>`}
 function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よければ受験者アンケートにご協力ください（3 分ほど。専用サイトが開きます）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}
-function reviewCardHTML(){return `<div class="demo review"><span>もしよければ、${NATIVE?'App Store':'Google Play'} でレビューをお願いします。</span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
+function reviewCardHTML(){return `<div class="demo review"><span><span class="nw">受験おつかれさまでした。</span><span class="nw">TENRYU が役に立ったら、</span><span class="nw">${NATIVE?'App Store':'Google Play'} で</span><span class="nw">レビューを</span><span class="nw">いただけると</span><span class="nw">うれしいです。</span></span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   /* ホームの記録は記号で（時計に 1＝1 問あたりの平均、チェック＝正答率、重ねた札＝解いた数。利用者の指示 2026-09-23） */
@@ -3497,7 +3505,7 @@ function renderHome(){
   const sg=$('#surveyGo');if(sg){store.set('surveyAsked',Date.now());   /* 出した時点で一度だけを満たす */
     sg.addEventListener('click',()=>{setTimeout(()=>sg.closest('.ask')&&sg.closest('.ask').remove(),300)});
     $('#surveyNo').addEventListener('click',()=>sg.closest('.ask').remove())}
-  const rv=$('#reviewGo');if(rv){store.set('reviewAsked',Date.now());   /* 出した時点で一度だけを満たす（無視されても二度目は出さない） */
+  const rv=$('#reviewGo');if(rv){store.set('reviewExamAsked',Date.now());   /* 出した時点で一度だけを満たす（無視されても二度目は出さない） */
     rv.addEventListener('click',()=>{rv.closest('.review').remove();location.href=NATIVE?REVIEW_URL_IOS:REVIEW_URL_ANDROID});
     $('#reviewNo').addEventListener('click',()=>rv.closest('.review').remove())}
   $('#modeCards').querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{location.hash='#train/'+b.dataset.mode}));

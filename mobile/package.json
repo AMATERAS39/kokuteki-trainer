@@ -9,6 +9,7 @@
     "icons": "capacitor-assets generate --ios --assetPath assets"
   },
   "dependencies": {
+    "@capacitor-community/in-app-review": "~7.1.0",
     "@capacitor/core": "^7.0.0",
     "@capacitor/haptics": "^7.0.0",
     "@capacitor/ios": "^7.0.0"

@@ -1626,7 +1626,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v06.50';
+const APP_VER='v06.51';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -3491,6 +3491,14 @@ function surveyDue(){
 }
 function examPlanHTML(){return `<div class="demo ask askplan"><span>今年度の航空学生の一次試験を受ける予定ですか。受ける方は日程を選んでください。答えはこの端末にだけ残ります（集計はしません）。</span><span class="askbtns">${EXAM_DATES.map(([d,ja])=>`<button class="btn" data-plan="${d}">${ja}に受ける</button>`).join('')}<button class="btn ghost" id="planNo">受けない</button></span></div>`}
 function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よければ受験者アンケートにご協力ください（3 分ほど。専用サイトが開きます）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}
+/* iPhone は標準のレビュー画面（星をその場で付けられる。@capacitor-community/in-app-review、v06.51）。利用者「TestFlight で表示されなくてもできるならして欲しい」。
+   出すかどうかは iOS が決め（1 年に 3 回まで。TestFlight では出ない）、出たかどうかはアプリから分からない。部品が無い古い版では札に戻す */
+let nativeReviewNG=false;const nativeReview=()=>NATIVE&&!nativeReviewNG&&!!(window.Capacitor&&window.Capacitor.nativePromise);
+function askNativeReview(){
+  store.set('reviewExamAsked',Date.now());
+  setTimeout(()=>{window.Capacitor.nativePromise('InAppReview','requestReview',{}).catch(()=>{
+    nativeReviewNG=true;store.set('reviewExamAsked',0);const mc=$('#modeCards');if(mc&&!mc.querySelector('.review')&&location.hash.replace('#','')in{'':1,home:1}){renderHome()}})},1500);   /* ホームが落ち着いてから */
+}
 function reviewCardHTML(){return `<div class="demo review"><span><span class="nw">受験おつかれさまでした。</span><span class="nw">TENRYU が役に立ったら、</span><span class="nw">${NATIVE?'App Store':'Google Play'} で</span><span class="nw">レビューを</span><span class="nw">いただけると</span><span class="nw">うれしいです。</span></span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
@@ -3499,12 +3507,13 @@ function renderHome(){
   /* 体験版では「完全版で使えます」を先頭に出す（利用者の指示 2026-09-23） */
   $('#modeCards').innerHTML=(isFull()?'':`<div class="demo"><span><b>体験版</b>: <span class="nw">鍵のかかった機能は</span><span class="nw">完全版で使えます</span></span><button class="btn" data-go2="buy">くわしく</button></div>`)+Object.keys(E.MODES).map(m=>`<button class="mode" data-mode="${m}"><span class="ico">${ic(MODE_ICON[m])}</span><span class="tx"><span class="n">${E.MODE_TAG[m]?`<span class="tag">${E.MODE_TAG[m]}</span>`:''}${E.MODES[m]}${m==='attitude'?'<span class="tag sub">練習用</span>':''}</span></span><span class="mstats">${avgText(m)}</span>${(()=>{const t=stats[m];return t&&t.n?`<span class="mring" title="正答率">${ringHTML(t.c/t.n,'')}</span>`:'<span class="mring"></span>'})()}<span class="go">${ic('next','s')}</span></button>`).join('')
     
-    +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()?reviewCardHTML():'');
+    +(examPlanDue()?examPlanHTML():surveyDue()?surveyCardHTML():reviewDue()&&!nativeReview()?reviewCardHTML():'');
   const pn=$('#planNo');if(pn){const ans=(v,d)=>{store.set('examPlan',v);if(d)store.set('examDate',d);store.set('examAsked',Date.now());pn.closest('.ask').remove()};
     pn.closest('.ask').querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>ans('yes',b.dataset.plan)));pn.addEventListener('click',()=>ans('no'))}
   const sg=$('#surveyGo');if(sg){store.set('surveyAsked',Date.now());   /* 出した時点で一度だけを満たす */
     sg.addEventListener('click',()=>{setTimeout(()=>sg.closest('.ask')&&sg.closest('.ask').remove(),300)});
     $('#surveyNo').addEventListener('click',()=>sg.closest('.ask').remove())}
+  if(!examPlanDue()&&!surveyDue()&&reviewDue()&&nativeReview())askNativeReview();
   const rv=$('#reviewGo');if(rv){store.set('reviewExamAsked',Date.now());   /* 出した時点で一度だけを満たす（無視されても二度目は出さない） */
     rv.addEventListener('click',()=>{rv.closest('.review').remove();location.href=NATIVE?REVIEW_URL_IOS:REVIEW_URL_ANDROID});
     $('#reviewNo').addEventListener('click',()=>rv.closest('.review').remove())}

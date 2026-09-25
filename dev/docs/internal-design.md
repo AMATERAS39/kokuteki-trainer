@@ -5928,3 +5928,11 @@ sim3d.js v=171。v06.44 の「直していないもの」の 4 つ。測り方�
 - アプリ: `reviewDue()` = アプリ版・一度でも練習か計測をした・受けないと答えていない・受験日（examDate、なければ EXAM_END）の 16 時から 30 日のあいだ・まだ出していない（`reviewExamAsked`）。受けると答えた人はアンケートの札を出して 1 時間以上たった次の起動で出す（ホームの札は 1 回に 1 枚）。文言「受験おつかれさまでした。TENRYU が役に立ったら、App Store でレビューをいただけるとうれしいです。」。以前の札（reviewAsked）を見た人にも 1 回出す。
 - iOS の標準のレビュー画面（SKStoreReviewController）は使わない（部品の追加が要り、TestFlight では表示を確かめられない。押したら App Store のレビュー画面へ）。
 
+## v06.51 iPhone は標準のレビュー画面（2026-09-25、利用者の指示）
+
+- 利用者「TestFlight で表示されなくてもできるならして欲しい」。
+- `mobile/package.json` に `@capacitor-community/in-app-review`（~7.1.0、Capacitor 7 用。iOS 14 以上。iOS 17 以上は `AppStore.requestReview`、それ未満は `SKStoreReviewController`）。`cap sync ios` で Pod に入る。
+- app.html は部品の JS を読まず、Capacitor の橋の `Capacitor.nativePromise('InAppReview','requestReview',{})` で呼ぶ（バンドラを使っていないため）。
+- 出す時は v06.50 の `reviewDue()` と同じ（試験のあとの 1 回）。iPhone は札を出さず、ホームを開いて 1.5 秒後に標準の画面を頼む。出すかどうかは iOS が決める（1 年 3 回まで、TestFlight では出ない。出たかは分からない）。呼び出しが失敗したとき（部品の無い版）は印を戻して札を出す。Android（TWA）は札のまま。
+- 確かめられるのは App Store の公開版だけ。TestFlight ではビルドが通ること（部品が入ること）と、札が出ないことまで。
+

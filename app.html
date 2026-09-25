@@ -3795,6 +3795,7 @@ async function renderNews(){
     return `<div class="it"><div class="hd"><span class="tag${notice?' notice':''}">${notice?'お知らせ':'更新'}</span><span class="dt">${esc(i.date)}</span></div>`
       +`<div class="t">${esc(i.title)}</div><div class="b">${esc(i.body)}</div></div>`}).join('')}</div>`   /* 取得元は自ドメインだが、文字はそのまま出す（監査 #12、2026-09-14） */
     :'<div class="sub2">お知らせはまだありません。</div>');
+  page.querySelectorAll('.news .t,.news .b').forEach(phraseWrap);   /* 句の途中で折らない（v07.00、長い更新の文で「加え／ました」と折れていた） */
 }
 /* ご要望・お問い合わせ。利用者はログインしない。送ると合言葉が端末に残り、
    その合言葉で自分の投稿と返信だけを読み返せる。メールアドレスを書いた人にはメールでも届く。

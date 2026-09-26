@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" crossorigin href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700&family=JetBrains+Mono:wght@500;700&display=swap">
 <title>TENRYU（体験版）｜航空学生 適性検査トレーニングアプリ</title>
-<meta name="description" content="航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査を、制限時間つきで反復練習できるアプリ。空間認識・計器判読・操縦操作・方位判読の 4 種目を、2026 年度の一次試験の形式で練習できます。解説では機体の動きを 3D で確かめられます。ブラウザでそのまま試せます。">
+<meta name="description" content="航空学生（航空自衛隊・海上自衛隊）の一次試験で課される適性検査を、制限時間つきで反復練習できるアプリ。空間認識・計器判読・操縦操作・方位判読の 4 種目を、2026 年度の一次試験の形式で練習できます。解説では機体の動きを 3D で確かめられます。ブラウザでそのまま試せます。">
 <link rel="canonical" href="https://kokuteki.amaterasu-vocab.com/app">
 <meta name="robots" content="noindex,follow">   <!-- 体験版（アプリ本体）は検索結果に出さない。検索で見せるのは公式サイト /（利用者の指示 2026-09-19: 体験版が公式サイトより上に出て紛らわしい。2026-09-24 に体験版を /app へ、公式サイトを / へ入れ替え） -->
 <meta property="og:type" content="website">
@@ -36,7 +36,7 @@
 <meta name="twitter:title" content="TENRYU｜航空学生の適性検査トレーニング">
 <meta name="twitter:description" content="空間認識・計器判読・操縦操作・方位判読の 4 種目を、2026 年度の一次試験の形式で反復練習。解説では機体の動きを 3D で確かめられます。">
 <meta name="twitter:image" content="https://kokuteki.amaterasu-vocab.com/img/og.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","sameAs":["https://apps.apple.com/app/id6808281696","https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki","https://note.com/amateras87/n/n304f337b3d21"],"applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ","inLanguage":"ja","description":"航空学生（航空自衛隊・海上自衛隊）の一次試験で出る適性検査（空間認識・計器判読・操縦操作・方位判読）を、2026 年度の形式で反復練習する学習アプリ。解説では機体の動きを 3D で確かめられる。ブラウザ版は体験版で、完全版は App Store と Google Play のアプリ（有償）。"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"TENRYU 航空学生の適性検査トレーニング","url":"https://kokuteki.amaterasu-vocab.com/","sameAs":["https://apps.apple.com/app/id6808281696","https://play.google.com/store/apps/details?id=com.amaterasuvocab.kokuteki","https://note.com/amateras87/n/n304f337b3d21"],"applicationCategory":"EducationalApplication","operatingSystem":"Web ブラウザ","inLanguage":"ja","description":"航空学生（航空自衛隊・海上自衛隊）の一次試験で課される適性検査（空間認識・計器判読・操縦操作・方位判読）を、2026 年度の形式で反復練習する学習アプリ。解説では機体の動きを 3D で確かめられる。ブラウザ版は体験版で、完全版は App Store と Google Play のアプリ（有償）。"}</script>
 <!-- three.js はこのアプリの中に置く（外の CDN だと、更新のたびに取り直しになり オフラインで 3D が動かない） -->
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
 <style>
@@ -779,7 +779,7 @@ ul.tips li{margin:.125rem 0}
 .wtop{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
 .wbadge{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:.75rem;border:1px solid var(--line);background:var(--panel2);font-size:.75rem;color:var(--muted);line-height:1.4}
 .wimg{display:block;width:4rem;height:4rem;flex:none;border-radius:.5rem;overflow:hidden;background:#dfe5ec}.wimg img{display:block;width:100%;height:100%;object-fit:cover;transform:scale(2.3)}   /* 出題の絵は機体が小さいので中央を拡大 */
-.wbadge .wimg{margin-left:auto}.wrow.wrow-img{grid-template-columns:2.6rem minmax(5rem,7rem) 1fr auto}.wimg.s{width:2.6rem;height:2.6rem;border-radius:.35rem}
+.wbadge .wimg{margin-left:auto}.wrow.wrow-img{grid-template-columns:2.6rem minmax(5rem,7rem) 1fr auto}@media (max-width:22.5rem){.wrow.wrow-img{grid-template-columns:2.6rem 1fr auto}.wrow.wrow-img .wb{display:none}}   /* 狭い幅では絵つきの行の棒を外し、数字を切らさない（320 幅で「33%・3 問・4.」と切れていた） */.wimg.s{width:2.6rem;height:2.6rem;border-radius:.35rem}
 .wbadge b{color:var(--text);font-size:.8125rem}.wbadge small{font-size:.7rem;color:var(--muted)}
 .wbadge .wk{font-family:var(--mono);font-size:.625rem;letter-spacing:.14em;padding:.15rem .4rem;border-radius:.3rem;border:1px solid currentColor;color:var(--muted);white-space:nowrap;flex:none}.wbadge>span:not(.wk):not(.patchev){min-width:0;flex:1 1 auto}   /* 札は折り返さない（利用者 2026-09-18「バッジは常に不自然な改行や幅に気をつける」） */
 .wbadge.lo .wk{color:#d9534f}.wbadge.hi .wk{color:var(--accent)}.wbadge.lo{border-left:.125rem solid #d9534f}.wbadge.hi{border-left:.125rem solid var(--accent)}
@@ -1430,7 +1430,7 @@ body.examHead #updBtn{display:none}   /* 試験中は更新ボタンを出さな
       </div>
       <div class="card">
         <h3>練習する</h3>
-        <div class="sub2">どの種目も、計測の前に、制限時間なしで解説つきの練習があります。計測条件の「説明・練習」を外すと、練習なしで始まります。試験モードは、本番と同じ問数と時間を、解説も練習もなしで解きます。</div>
+        <div class="sub2">どの種目も、計測の前に、制限時間なしで解説つきの練習があります。計測条件の「説明・練習」を外すと、練習なしで始まります。試験モードでは、本番と同じ問数と制限時間で、解説も練習もなしで解きます。</div>
         <div class="prow" id="abPractice"></div>
       </div>
       <div class="card wide">
@@ -1445,7 +1445,7 @@ body.examHead #updBtn{display:none}   /* 試験中は更新ボタンを出さな
         <ul>
           <li>端末を横にすると視界が画面いっぱいになり、編隊・スモーク・演目のボタンが出ます。</li>
           <li>展示飛行モード（自動操縦のボタンを上へなぞる）は、離陸から着陸までをひと続きで行います。構成はおまかせか、枠ごとに自分で選べます。</li>
-          <li>音のボタンで飛行音と曲を入り切りします。</li>
+          <li>音のボタンで飛行音と曲をオン・オフします。</li>
           <li>設定の「演目の曲」で、端末に入っている曲を選べます。曲は端末の中だけで鳴り、どこにも送りません。配信サービスの曲は使えません。</li>
         </ul>
         <div class="prow"><button class="btn ghost" id="abSim">シミュレーターを開く</button><button class="btn ghost" id="abGallery">操作ごとの見え方</button></div>
@@ -1534,7 +1534,7 @@ body.examHead #updBtn{display:none}   /* 試験中は更新ボタンを出さな
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=78"></script>
+<script src="engine.js?v=79"></script>
 <script>
 (function(){
 'use strict';
@@ -1637,7 +1637,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v07.02';
+const APP_VER='v07.03';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -2091,10 +2091,10 @@ function next(){
 /* ===== 種目の開始の流れ: （操縦操作は 練習/計測 の選択）→ 計測条件 → 説明 → 練習 3 問 → 計測 ===== */
 const INTRO={
   spatial:['南から見た機体の絵（初期状態）と、命令（右旋回 45° など）が出ます。奥が北、右が東です。','命令のあとの機体の見え方を 1〜4 の絵から選びます。','旋回は方向舵（機体の上下軸まわり）、横転は操縦桿の左右（機首の軸まわり）、機首上げ・下げは操縦桿の前後（翼の軸まわり）。どれも機体にとっての向きで回ります。','Normal から初期状態に機首の上げ下げ、Hard から翼の傾き（背面も）が混ざります。Max は 30°・60° の微妙な角度も出ます。'],
-  heading:['上から見た機体と方位の印が表示されます。','機首が向いている方位を 8 方位から選びます。Max は、同じ方角を向いた機体を 4 枚の上面図から選びます。','印の向きは Normal 以上で毎回変わります（Easy では N が上）。Hard では印が N とは限りません。まず印から北を決めてから機首を読みます。'],
+  heading:['上から見た機体と方位の印が表示されます。','機首が向いている方位を 8 方位から選びます。Max は、同じ方角を向いた機体を 4 枚の上面図から選びます。','印の向きは Normal 以上で毎回変わります（Easy では N が上）。Hard では印が N とは限りません。まず印から北を決め、次に機首の方位を読みます。'],
   attitude:['南から見た機体の絵が表示されます。奥が北、右が東です。','その姿勢に合う水平儀（姿勢指示器）を 1〜4 から選びます。','機首が上向きなら空が広がり、下向きなら地面が広がります。翼が傾いていれば（バンク）、水平線も傾きます。右バンクで右上がり。'],
   combo:['練習は、水平儀だけの問題 3 問のあと、水平儀と羅針儀の問題 3 問です。','南から見た機体の絵が表示されます。奥が北、右が東です。','機首の方位と、上下の向き・バンクの両方に合う「水平儀＋羅針儀」の組を 1〜4 から選びます。Max は逆に、計器に合う機体の絵を選びます。','羅針儀は現在の方位が上に来ます。'],
-  control:['外の様子が①→②→③の 3 枚で出ます。','①→②→③ の変化から、行った操作を 1〜4 から選びます。','景色が回る＝操縦桿の左右。目印が上下へ動く＝奥・手前。目印が左右へ大きく流れる＝方向舵。','絵は実機と同じ物理で飛ばした景色です。傾いていると目印は少しずつ横へ流れます。','2 つの操作は同時でも順番でも答えは同じです。']
+  control:['外の様子が①→②→③の 3 枚で出ます。','①→②→③ の変化から、行われた操作を 1〜4 から選びます。','景色が回る＝操縦桿の左右。目印が上下へ動く＝奥・手前。目印が左右へ大きく流れる＝方向舵。','絵は実機と同じ物理で飛ばした景色です。傾いていると目印は少しずつ横へ流れます。','2 つの操作は同時でも順番でも答えは同じです。']
 };
 /* 戻るボタン: 「アプリの説明」の練習ボタンから練習に入ったときは、ヘッダーのホームボタンを戻るボタンにして、説明ページの練習ボタンの位置へ戻す。
    計測に進んだら（startMeasured）ホームボタンに戻る。入口の判定は説明ページのボタンが立てる pendingBack で行う（同じハッシュを操縦操作の選択画面からも使うため） */
@@ -2134,12 +2134,12 @@ function enterMode(m,sub){
   showSetup();
 }
 /* 計測条件（種目ごとに保存）: 出題数・1 問の制限時間・解説スキップ、説明と練習の表示 */
-const LEVEL_HELP={   /* 難易度の説明。1 行で、初見の人が分かる言葉だけ（利用者の指示 2026-09-22）。Max は「本番形式」とここで言う（選択肢の名は Max だけ） */
-  spatial:{easy:'水平の機体に、旋回・横転・機首上げ下げの命令が 1 つ。',normal:'機体が最初から機首を上げ下げしている。',hard:'最初から翼も傾いている（背面もある）。',max:'本番形式。30°・60° の細かい角度も出る。'},
-  heading:{easy:'東西南北だけ。N は上。',normal:'東西南北だけ。N の向きが変わる。',hard:'8 方位。印は N 以外もある。',max:'本番形式。同じ方角を向いた機体を 4 枚から選ぶ。'},
-  attitude:{easy:'機首は北・真上・真下だけ。',normal:'機首は全方向。翼は水平。',hard:'機首は全方向。翼も傾く。'},
-  combo:{easy:'東西南北だけ。印は N。水平飛行。',normal:'東西南北だけ。印は N。翼が傾く。',hard:'8 方位と上下。印は N 以外もある。',max:'本番形式。水平儀と羅針儀から機体の絵を選ぶ。16 方位。'},
-  control:{easy:'操作は 1 つ。',normal:'操作は 1 つか 2 つ。',hard:'中央の目盛りなし。初期状態の傾きと上下が重なることもある。操作の大きさが変わる。',max:'本番形式。操縦桿の斜めも出る。'}};
+const LEVEL_HELP={   /* 難易度の説明。320 幅でも 1 行に収める（利用者 2026-09-26「設定画面のサイズが種目によって異なる。余計に長い説明があるのでは」）。です・ます調。Max は「本番形式」とここで言う */
+  spatial:{easy:'水平の機体に命令が 1 つ出ます。',normal:'最初から機首が上下しています。',hard:'翼も傾き、背面もあります。',max:'本番形式です。細かい角度も出ます。'},
+  heading:{easy:'東西南北だけで、N は上です。',normal:'東西南北だけで、N が回ります。',hard:'8 方位で、印は N 以外もあります。',max:'本番形式です。同じ方角の機体を選びます。'},
+  attitude:{easy:'機首は北・真上・真下だけです。',normal:'機首は全方向、翼は水平です。',hard:'機首は全方向で、翼も傾きます。'},
+  combo:{easy:'東西南北、印は N、水平飛行です。',normal:'東西南北、印は N、翼が傾きます。',hard:'8 方位と上下、印は N 以外もあります。',max:'本番形式です。計器から機体の絵を選びます。'},
+  control:{easy:'操作は 1 つです。',normal:'操作は 1 つか 2 つです。',hard:'目盛りがなく、操作の量も変わります。',max:'本番形式です。操縦桿の斜めも出ます。'}};
 function showSetup(){
   setPhase('setup','計測条件');showPane('setup');
   const ms=MS();
@@ -2165,8 +2165,9 @@ function showSetup(){
     ${sw('introChk',!introHidden(),'説明・練習')}
     <div class="acts"><button class="btn" id="setupGo">${goLabel()}${ic('next','s')}</button></div>
     ${mode!=='control'?'':`<div class="acts"><button class="btn ghost" id="setupGal">操作ごとの見え方</button></div>
-    <div class="sethelp">出題ではありません。操作ごとの①②③を見比べる画面です。</div>`}`;
+`}`;   /* 下の説明（出題ではありません…）は外した。ボタンの名前で足りる（利用者 2026-09-26） */
   /* 試験モードのまま条件を 1 つでも変えたら、試験モードはオフ（利用者の指示 2026-09-24）。変えた値だけが保存に残る */
+  $('#setup').querySelectorAll('.sethelp').forEach(phraseWrap);   /* 説明の行は句の途中で折らない（「出ま／す」「練習／なし」になっていた。2026-09-26） */
   const examOff=was=>{if(!was)return false;examFlag=null;showSetup();return true};
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS(),was=isExamSet();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
     if(el.dataset.key==='level'&&before.qLimit===qLimitDef(mode,before.level)){delete modeSet[mode].qLimit;store.set('modeSet',modeSet)}   /* 前の難易度の既定のままなら、新しい難易度の既定に付いていく */
@@ -2275,7 +2276,7 @@ function runSim(opt){applyScene();
       ${hudSvg()}
       <div class="wallmsg" id="wallMsg" hidden>壁です。これ以上は進めません</div>
       <div class="showname" id="showName" hidden></div>
-      <div class="pausemsg" id="pauseMsg" hidden>一時停止中（画面を 2 回叩くと再開）</div>
+      <div class="pausemsg" id="pauseMsg" hidden>一時停止中（画面を 2 回タップすると再開）</div>
       <div class="pbar"><button class="iconbtn" id="pLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button><button class="iconbtn" id="pHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button></div>   <!-- 縦画面だけ。学習に要る最低限（v06.01） -->
       <div class="trickdesc" id="trickDesc" hidden></div>
       <button class="iconbtn landback" id="simBack" aria-label="一つ前に戻る" title="一つ前（シミュレーターの設定）に戻る"><svg class="ic"><use href="#i-back"/></svg></button>
@@ -2288,14 +2289,14 @@ function runSim(opt){applyScene();
       <button class="iconbtn landscape seatbtn" id="simSeat" aria-label="乗り換え" title="乗り換え（1〜6 番機）"></button>
       <button class="iconbtn" id="simLevel" aria-label="水平に戻す" title="水平に戻す"><svg class="ic"><use href="#i-level"/></svg></button>
       <button class="iconbtn" id="simHome" aria-label="初期位置に戻す" title="初期位置に戻す"><svg class="ic"><use href="#i-reset"/></svg></button>
-      <button class="iconbtn swipebtn" id="simSound" aria-label="音" aria-pressed="false" title="音（押すと飛行音と曲の両方を入り切り。上へなぞると飛行音、下へなぞると曲）"><svg class="ic"><use href="#i-sound"/></svg><span class="sdot a" id="sndDotA"></span><span class="sdot m" id="sndDotM"></span></button>
+      <button class="iconbtn swipebtn" id="simSound" aria-label="音" aria-pressed="false" title="音（押すと飛行音と曲の両方をオン・オフ。上へなぞると飛行音、下へなぞると曲）"><svg class="ic"><use href="#i-sound"/></svg><span class="sdot a" id="sndDotA"></span><span class="sdot m" id="sndDotM"></span></button>
       <button class="iconbtn" id="simSmoke" data-key="Space" aria-label="スモーク" aria-pressed="false" title="スモーク"><svg class="ic"><use href="#i-smoke"/></svg></button>
       <button class="iconbtn" id="simShot" aria-label="写真" title="いまの景色を写真に保存（操作ボタンは写りません）"><svg class="ic"><use href="#i-cam"/></svg></button>
       <button class="iconbtn landscape" id="simSky" aria-label="空" title="空を切り替える（昼／夕方／夜）"><svg class="ic"><use href="#i-sky"/></svg></button>
       <button class="iconbtn landscape" id="simGear" aria-label="タイヤ" aria-pressed="false" title="タイヤを出す／しまう"><svg class="ic"><use href="#i-gear"/></svg></button>
       <button class="iconbtn landscape" id="simLight" aria-label="ライト" aria-pressed="false" title="ライト（離着陸とクリスマスツリー・ローパスでは自動で点きます）"><svg class="ic"><use href="#i-light"/></svg></button>
       <button class="iconbtn landscape" id="simFollow" aria-label="機体を目で追う" aria-pressed="false" title="機体を目で追う（地上から見るとき）"><svg class="ic"><use href="#i-follow"/></svg></button>
-      <button class="iconbtn landscape showui swipebtn" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（押すと入り切り。上へなぞると展示飛行モード: 離陸から着陸まで）"><svg class="ic"><use href="#i-auto"/></svg><span class="sdot a" id="autoDot"></span></button>
+      <button class="iconbtn landscape showui swipebtn" id="simAuto" aria-label="自動操縦" aria-pressed="false" title="自動操縦（押すとオン・オフ。上へなぞると展示飛行モード: 離陸から着陸まで）"><svg class="ic"><use href="#i-auto"/></svg><span class="sdot a" id="autoDot"></span></button>
       <span class="formwrap landscape"><button class="iconbtn" id="simTrickBtn" aria-label="技" title="技（押すと一覧。押したまま技のほうへなぞって離すとホイール）"><svg class="ic"><use href="#i-trick"/></svg></button><div class="formmenu trickmenu" id="simTrickMenu" hidden></div></span>
       <span class="formwrap landscape"><button class="iconbtn" id="simFormBtn" aria-label="編隊" title="編隊"><svg class="ic fmi" id="simFormIcon" viewBox="0 0 24 24"></svg></button><div class="formmenu" id="simFormMenu" hidden></div></span>
       <select id="simColor" aria-label="スモークの色"></select>
@@ -3323,7 +3324,7 @@ function showSetHTML(){
     </div>
     <div class="setgroup"><h4>演目の曲${isFull()?'':'（完全版）'}</h4>
       ${isFull()?`<div id="musList" class="muslist"></div>
-      <div class="setting"><span id="musName">選んでいません</span><span class="musbtns"><button class="btn sm" id="musPick">追加</button><button class="btn sm ghost" id="musClear" hidden>全部取り消す</button></span></div>
+      <div class="setting"><span id="musName">選んでいません</span><span class="musbtns"><button class="btn sm" id="musPick">追加</button><button class="btn sm ghost" id="musClear" hidden>すべて取り消す</button></span></div>
       <input type="file" id="musFile" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.aiff,.ogg" multiple hidden>
 `
       :`<div class="sethelp">お手持ちの曲を展示飛行モードに合わせて流す機能は、完全版で使えます。</div>`}
@@ -3353,7 +3354,7 @@ function wireShowSet(root){
      const list=PROG_LIST(),cur=store.get('progSlots',[]);
      const names=[['序盤','open'],['中盤 ①','mid'],['中盤 ②','mid'],['終盤','close'],['フィナーレ','finale']];
      slots.innerHTML=names.map(([nm,role],k)=>`<div class="setting"><span>${nm}</span><select data-slot="${k}"><option value="">なし</option>${list.map(m=>`<option value="${m.id}"${(cur[k]||'')===m.id?' selected':''}>${m.ja}${m.role===role?'':'（'+ROLE_JA[m.role]+'）'}</option>`).join('')}</select></div>`).join('')
-       +'<div class="sethelp">「なし」の枠は使いません。役割の違う課目も置けます（かっこ内はもともとの役割）。</div>';
+       +'<div class="sethelp">「なし」の枠は使いません。役割の違う課目も置けます（かっこ内は本来の役割）。</div>';
      slots.querySelectorAll('select').forEach(se=>se.addEventListener('change',()=>{const arr=[...slots.querySelectorAll('select')].map(x=>x.value);store.set('progSlots',arr);applyShow()}));
      applyShow()};
    paintSlots();
@@ -3376,7 +3377,7 @@ function wireShowSet(root){
        await musPutList(l);
        paint(l);
        if(sim&&sim.h&&sim.h.setMusicList){const info=await sim.h.setMusicList(l.map(x=>({name:x.name,buf:x.buf.slice(0)})));
-         toast(info?`${l.length} 曲になりました（${info.lead.toFixed(1)} 秒目に浮きます）`:'登録しました')}
+         toast(info?`${l.length} 曲になりました（${info.lead.toFixed(1)} 秒目に離陸します）`:'登録しました')}
        else toast(`${l.length} 曲になりました`);
      }catch(e){toast('この形式は読み込めませんでした')}});}
 }
@@ -3393,14 +3394,14 @@ function renderSettingsPage(){
       ${sel('scene','背景',[['auto','自動'],['day','昼'],['night','夜']],v=>v!=='day')}
       ${sel('simDesc','演目の字幕解説',[['on','出す'],['off','出さない']])}
       ${NATIVE?'':sel('net','通信',[['wifi','Wi-Fi のときだけ'],['any','いつでも']])+   /* 通信の設定はブラウザ版だけ。アプリ版は同梱のファイルで動き、お知らせ・更新・3D のための通信をしない（利用者の指示 2026-09-15） */
-      `<div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。回線の種類が分かる端末では、携帯の回線のときは通信しません（iPhone など回線の種類が分からない端末では通信します）。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div>`}</div>
+      `<div class="sethelp">既定では、Wi-Fi につながっているときだけ通信します（お知らせの取得・更新の確認・3D モデルの先読み）。回線の種類が分かる端末では、モバイル回線のときは通信しません（iPhone など回線の種類が分からない端末では通信します）。いちど読み込んだものは端末に残るため、通信しなくてもアプリは動きます。</div>`}</div>
     ${showSetHTML()}
     <div class="setgroup"><h4>記録</h4>
       ${Object.keys(E.MODES).map(m=>{const s=stats[m]||{n:0,c:0,t:0};return `<div class="setting"><span>${E.MODES[m]}</span><span>${s.n?`${s.n} 問・正答率 ${Math.round(s.c/s.n*100)}%・平均 ${(s.t/s.n).toFixed(1)} 秒`:'記録なし'}</span></div>`}).join('')}
       ${Object.keys(E.MODES).some(m=>stats[m]&&stats[m].n>0)?'<div class="setting"><span class="musbtns"><button class="btn sm ghost" id="rstAll">記録を削除</button></span></div>':''}
       <div class="sethelp">この端末の中だけに保存されます。</div></div>
     <div class="setgroup"><h4>この端末の版</h4><div class="setting"><span>アプリの版</span><code class="pccode">${APP_VER}</code></div>
-      <div class="sethelp">${NATIVE?'新しい版は App Store / Google Play が配ります。アプリの中では新しい版の確認をしません。':'ヘッダーの更新ボタンで最新版を確認できます（赤い点は新しい版の印）。'}</div></div>
+      <div class="sethelp">${NATIVE?'新しい版は App Store / Google Play から配信されます。アプリの中では新しい版の確認をしません。':'ヘッダーの更新ボタンで最新版を確認できます（赤い点は新しい版の印）。'}</div></div>
     `;
   wireShowSet($('#settingsPage'));
   /* 記録の削除は種目ごとではなく 1 つのボタンで全種目（利用者の指示 2026-09-15） */
@@ -3501,7 +3502,7 @@ function surveyDue(){
   return now>=end&&now<end+30*86400000;   /* 受験日の当日 16 時以降（試験のあと）から 30 日のあいだ。時間帯は問わない */
 }
 function examPlanHTML(){return `<div class="demo ask askplan"><span>今年度の航空学生の一次試験を受ける予定ですか。受ける方は日程を選んでください。答えはこの端末にだけ残ります（集計はしません）。</span><span class="askbtns">${EXAM_DATES.map(([d,ja])=>`<button class="btn" data-plan="${d}">${ja}に受ける</button>`).join('')}<button class="btn ghost" id="planNo">受けない</button></span></div>`}
-function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よければ受験者アンケートにご協力ください（3 分ほど。専用サイトが開きます）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}
+function surveyCardHTML(){return `<div class="demo ask"><span>受験おつかれさまでした。よろしければ受験者アンケートにご協力ください（3 分ほど。専用サイトが開きます）。</span><a class="btn" id="surveyGo" href="${SURVEY_URL}" target="_blank" rel="noopener">答える</a><button class="btn ghost" id="surveyNo">閉じる</button></div>`}
 /* iPhone は標準のレビュー画面（星をその場で付けられる。@capacitor-community/in-app-review、v06.51）。利用者「TestFlight で表示されなくてもできるならして欲しい」。
    出すかどうかは iOS が決め（1 年に 3 回まで。TestFlight では出ない）、出たかどうかはアプリから分からない。部品が無い古い版では札に戻す */
 let nativeReviewNG=false;const nativeReview=()=>NATIVE&&!nativeReviewNG&&!!(window.Capacitor&&window.Capacitor.nativePromise);
@@ -3510,7 +3511,7 @@ function askNativeReview(){
   setTimeout(()=>{window.Capacitor.nativePromise('InAppReview','requestReview',{}).catch(()=>{
     nativeReviewNG=true;store.set('reviewExamAsked',0);const mc=$('#modeCards');if(mc&&!mc.querySelector('.review')&&location.hash.replace('#','')in{'':1,home:1}){renderHome()}})},1500);   /* ホームが落ち着いてから */
 }
-function reviewCardHTML(){return `<div class="demo review"><span><span class="nw">受験おつかれさまでした。</span><span class="nw">TENRYU が役に立ったら、</span><span class="nw">${NATIVE?'App Store':'Google Play'} で</span><span class="nw">レビューを</span><span class="nw">いただけると</span><span class="nw">うれしいです。</span></span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
+function reviewCardHTML(){return `<div class="demo review"><span><span class="nw">受験おつかれさまでした。</span><span class="nw">TENRYU がお役に立てたなら、</span><span class="nw">${NATIVE?'App Store':'Google Play'} で</span><span class="nw">レビューを</span><span class="nw">いただけると</span><span class="nw">うれしいです。</span></span><button class="btn" id="reviewGo">書く</button><button class="btn ghost" id="reviewNo">閉じる</button></div>`}
 function renderHome(){
   /* 正答率もここに出す。記録カード（訓練画面の右）は幅の狭い端末では出ないので、これが唯一の置き場所になる（総点検 2026-09-13） */
   /* ホームの記録は記号で（時計に 1＝1 問あたりの平均、チェック＝正答率、重ねた札＝解いた数。利用者の指示 2026-09-23） */
@@ -3543,17 +3544,17 @@ const ORDER={'機首の上下':['機首上げ','水平','機首下げ'],'傾き'
   '誤り':['傾きの左右','傾きの有無','機首の上下','方位だけ','姿勢だけ','両方','操縦桿の向き','斜めの片方','操縦桿の有無','方向舵の左右','方向舵の有無','操縦桿と方向舵の両方','時間切れ']};
 /* 誤りの種類ごとの一言（次に何を意識するか。要所だけ） */
 const ERRHINT={'向きが逆':'右と左（上げと下げ）を取り違えています。命令は機体にとっての向きです。背面や傾いた姿勢では画面上の向きと逆になることがあります。','角度違い':'角度の大きさを取り違えています。90° で真横・真上、180° で反対（背面）です。','軸違い':'旋回（向きだけ変わる）・横転（翼の傾きだけ変わる）・機首上げ下げ（機首だけ動く）を取り違えています。','傾きの左右':'左右を逆に読んでいます。こちら向き（南側）の絵は左右が逆に見えます。機首の向きを基準に、どちらの翼が下がっているかを読みます。',
-  '傾きの有無':'傾いているかどうかの見分けで落としています。水平線が傾いているかを先に見ます。',
+  '傾きの有無':'傾いているかどうかを見誤っています。水平線が傾いているかを先に見ます。',
   '機首の上下':'機首の上下を逆に読んでいます。腹面が見えれば機首上げ、背面が見えれば機首下げ。',
-  '両方':'傾きと機首の上下の両方を落としています。まず上下、次に傾き、と順に確かめます。',
-  '方位だけ':'姿勢は読めています。羅針儀の印（N 以外のとき）から数え直す練習を。',
+  '両方':'傾きと機首の上下の両方を誤っています。まず上下、次に傾き、と順に確かめます。',
+  '方位だけ':'姿勢は読めています。羅針儀の印（N 以外のとき）から数え直す練習をします。',
   '姿勢だけ':'方位は読めています。水平儀の傾きと上下を見直します。',
   '操縦桿の向き':'操縦桿の向きを取り違えています。①→② の変化だけを見て、まず操縦桿の向きを決めます。',
-  '操縦桿の有無':'操縦桿を倒しているか、方向舵だけかの見分けで落としています。',
+  '操縦桿の有無':'操縦桿を倒しているか、方向舵だけかを見誤っています。',
   '斜めの片方':'斜めの操作で、傾きか機首の上下の片方を取り違えています。斜めは両方が同時に変わります。①→② で傾きと上下を別々に確かめます。',
   '方向舵の左右':'方向舵の左右を逆に読んでいます。②→③ で機首が先に振れる向きを見ます。',
-  '方向舵の有無':'方向舵を踏んでいるかどうかの見分けで落としています。②→③ の変化を見比べます。',
-  '操縦桿と方向舵の両方':'操縦桿と方向舵の両方を落としています。①→② で操縦桿、②→③ で方向舵、と分けて読みます。',
+  '方向舵の有無':'方向舵を踏んでいるかどうかを見誤っています。②→③ の変化を見比べます。',
+  '操縦桿と方向舵の両方':'操縦桿と方向舵の両方を誤っています。①→② で操縦桿、②→③ で方向舵、と分けて読みます。',
   '時間切れ':'時間切れです。まず正確に、次に速く。'};
 /* v05.97（利用者「機体の状態の詳細な正答率も不要。総合と複合での個別正答率が分かればよい。その上で苦手な部分の分析を記せば良い」）:
    切り口ごとの棒はやめ、総合（輪）→ 誤りの種類（1 本の積み上げ）→ 苦手の札 → 一言、に絞る。見え方・機首の上下・傾き・①の姿勢・操作の数・操作 は記録だけして札の材料にする */
@@ -3605,12 +3606,12 @@ function weakHTML(m){
       /* v05.97: 棒は出さない（総合と輪で足りる）。一言だけ */
       const hs=A[0][1],hc=A[1][1],as=A[2][1],ac=A[3][1],MIN=3;
       let v='';
-      if(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)v='方位モード・水平儀の練習・複合をそれぞれ 3 問以上解くと、複合で何が落ちるかが出ます。';
+      if(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)v='方位モード・水平儀の練習・複合をそれぞれ 3 問以上解くと、複合で何を誤りやすいかが出ます。';
       else v='単独では 方位 '+pct(hs)+'（方位モード '+sh.n+' 問）・姿勢 '+pct(as)+'（水平儀の練習 '+sa.n+' 問）。複合の中では 方位 '+pct(hc)+'・姿勢 '+pct(ac)+'。';
       if(!(sh.n<MIN||sa.n<MIN||!ph||ph.n<MIN)){v+=' ';const dh=hs-hc,da=as-ac,W=[];if(hs<0.7)W.push('方位は単独でも '+pct(hs)+'。まず方位モードで固めます。');if(as<0.7)W.push('姿勢は単独でも '+pct(as)+'。まず水平儀の練習で固めます。');
-        if(dh>=0.1&&da>=0.1)W.push('複合になると方位も姿勢も落ちています（方位 '+pct(hs)+' → '+pct(hc)+'、姿勢 '+pct(as)+' → '+pct(ac)+'）。方位 → 姿勢の順に 1 つずつ確かめる手順を固めます。');
-        else if(dh>=0.1)W.push('単独では読めている方位を、複合になると落としています（'+pct(hs)+' → '+pct(hc)+'）。姿勢に気を取られて方位の確認が抜けています。');
-        else if(da>=0.1)W.push('単独では読めている姿勢を、複合になると落としています（'+pct(as)+' → '+pct(ac)+'）。方位を読んだあと、姿勢を確かめ直します。');
+        if(dh>=0.1&&da>=0.1)W.push('複合になると方位も姿勢も正答率が下がっています（方位 '+pct(hs)+' → '+pct(hc)+'、姿勢 '+pct(as)+' → '+pct(ac)+'）。方位 → 姿勢の順に 1 つずつ確かめる手順を固めます。');
+        else if(dh>=0.1)W.push('単独では読めている方位を、複合になると誤っています（'+pct(hs)+' → '+pct(hc)+'）。姿勢に気を取られて方位の確認が抜けています。');
+        else if(da>=0.1)W.push('単独では読めている姿勢を、複合になると誤っています（'+pct(as)+' → '+pct(ac)+'）。方位を読んだあと、姿勢を確かめ直します。');
         if(!W.length)W.push('単独でも複合でも同じ精度で読めています。あとは速さです。');v+=W.join(' ')}
       h+=`<div class="whint">${esc(v)}</div>`;
     }else if(g==='傾向'){
@@ -3618,27 +3619,27 @@ function weakHTML(m){
       const A=(g2,k)=>{const v=get(g2,k);return v&&v.n>=3?{a:v.c/v.n,n:v.n}:null},sum=L=>{const t=L.filter(Boolean).reduce((o,v)=>({n:o.n+v.n,c:o.c+v.c}),{n:0,c:0});return t.n>=3?{a:t.c/t.n,n:t.n}:null};
       const W=[],D=0.15,p2=(x,y)=>`（${pct(x.a)} → ${pct(y.a)}）`;
       const one=A('操作の数','1 操作'),seq=A('操作の数','2 操作（順番）'),sim=A('操作の数','2 操作（同時）'),two=sum([get('操作の数','2 操作（順番）'),get('操作の数','2 操作（同時）')]);
-      if(one&&two&&two.a<=one.a-D)W.push('2 操作になると落ちています'+p2(one,two)+'。');
-      if(seq&&sim){if(seq.a<=sim.a-D)W.push('2 操作は順番のときに落ちています'+p2(sim,seq)+'。②→③ の方向舵の変化を見比べます。');else if(sim.a<=seq.a-D)W.push('2 操作は同時のときに落ちています'+p2(seq,sim)+'。')}
-      const lv=A('①の姿勢','水平');for(const k of ['傾きあり','機首の上下あり','傾き＋上下']){const v=A('①の姿勢',k);if(lv&&v&&v.a<=lv.a-D)W.push(`①が${k==='傾きあり'?'傾いている':k==='機首の上下あり'?'機首が上下している':'傾いて機首も上下している'}と落ちています${p2(lv,v)}。①の姿勢を先に読んでから変化を見ます。`)}
+      if(one&&two&&two.a<=one.a-D)W.push('2 操作になると正答率が下がっています'+p2(one,two)+'。');
+      if(seq&&sim){if(seq.a<=sim.a-D)W.push('2 操作は順番のときに正答率が下がっています'+p2(sim,seq)+'。②→③ の方向舵の変化を見比べます。');else if(sim.a<=seq.a-D)W.push('2 操作は同時のときに正答率が下がっています'+p2(seq,sim)+'。')}
+      const lv=A('①の姿勢','水平');for(const k of ['傾きあり','機首の上下あり','傾き＋上下']){const v=A('①の姿勢',k);if(lv&&v&&v.a<=lv.a-D)W.push(`①が${k==='傾きあり'?'傾いている':k==='機首の上下あり'?'機首が上下している':'傾いて機首も上下している'}と正答率が下がっています${p2(lv,v)}。①の姿勢を先に読んでから変化を見ます。`)}
       const rud=sum([get('方向舵','左'),get('方向舵','右')]),st=stats[m]||{n:0,c:0},norud=rud&&st.n-rud.n>=3?{a:Math.max(0,Math.min(1,(st.c-Math.round(rud.a*rud.n))/(st.n-rud.n))),n:st.n-rud.n}:null;   /* 方向舵なし ＝ 全体 − 方向舵あり（0〜100% に収める） */
-      if(rud&&norud&&rud.a<=norud.a-D)W.push('方向舵が入ると落ちています'+p2(norud,rud)+'。');
+      if(rud&&norud&&rud.a<=norud.a-D)W.push('方向舵が入ると正答率が下がっています'+p2(norud,rud)+'。');
       const str=sum(['奥','手前','左','右'].map(k=>get('操縦桿',k))),dia=sum(['左奥','右奥','左手前','右手前'].map(k=>get('操縦桿',k)));   /* v06.48: 斜め（Max） */
-      if(str&&dia&&dia.a<=str.a-D)W.push('操縦桿が斜めになると落ちています'+p2(str,dia)+'。斜めは傾きと機首の上下が同時に変わります。');
+      if(str&&dia&&dia.a<=str.a-D)W.push('操縦桿が斜めになると正答率が下がっています'+p2(str,dia)+'。斜めは傾きと機首の上下が同時に変わります。');
       const need=!(one||seq||sim)||!lv;
-      h+=`<div class="whint">${esc(W.length?W.join(' '):need?'状況ごとに 3 問以上たまると、①の姿勢・操作の数・同時か順番か・方向舵の有無・斜めのどれで落ちるかが出ます。':'①の姿勢・操作の数・同時か順番か・方向舵の有無・斜めで、目立った差はありません。')}</div>`;
+      h+=`<div class="whint">${esc(W.length?W.join(' '):need?'状況ごとの記録が 3 問以上になると、①の姿勢・操作の数・同時か順番か・方向舵の有無・斜めのどれで正答率が下がるかが出ます。':'①の姿勢・操作の数・同時か順番か・方向舵の有無・斜めで、目立った差はありません。')}</div>`;
     }else if(g==='パターン'){
       /* 苦手な操作パターン（v05.99）: 2 問以上出て落としたものを正答率の低い順に。「苦手パターン表を開く」で見え方の一覧へ（そこに同じパターンのボタンが並ぶ） */
       const P=weakPatterns(5);
-      if(!P.length)h+=`<div class="sub2">落とした状況は、まだありません。</div>`;
+      if(!P.length)h+=`<div class="sub2">間違えた状況は、まだありません。</div>`;
       /* v05.108（利用者の指示 2026-09-18）: 状況は「苦手①②…」の札。初期は全部畳んであり、札を押すとその枠内で「動きで見る」（解説と同じ部品）が開く。①②③ の表は出さない */
       else h+=P.map((x,i)=>`<div class="pat"><button type="button" class="wbadge lo patb" data-pat="${esc(x.key)}" data-init="${esc(JSON.stringify(x.v.init||null))}" aria-expanded="false"><span class="wk">苦手${CIRC[i]||i+1}</span><span><b>${esc(patLabel(x.key))}</b><br>${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span><span class="patchev">${ic('down')}</span></button><div class="patbody fbsim" hidden></div></div>`).join('');
       h+=`<div class="sub2">札を押すと、その状況（①の姿勢・操作・同時か順番か）の動きをその場で再生します。見え方の一覧にも同じ番号の札があります。</div>`;
     }else if(g==='組み合わせ'){
       /* 苦手な 方位 × 姿勢 の組み合わせ（v05.94、利用者の指示）: 2 問以上出たものを正答率の低い順に 5 つ。100% のものは出さない */
       const C=Object.entries(w).filter(([k,v])=>k.startsWith('組み合わせ|')&&v.c<v.n).map(([k,v])=>({raw:k.slice(6),k:k.split('|').slice(1).join(' × '),v,acc:v.c/v.n})).sort((a,b)=>a.acc-b.acc||b.v.n-a.v.n).slice(0,5);
-      if(!C.length)h+=`<div class="sub2">落とした${m==='attitude'?'姿勢':'組み合わせ'}は、まだありません。</div>`;
-      else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">落とした${m==='attitude'?'姿勢':'組み合わせ'}を、正答率の低い順に。絵は出題と同じ見え方（バンクは 30° の例）。</div>`;
+      if(!C.length)h+=`<div class="sub2">間違えた${m==='attitude'?'姿勢':'組み合わせ'}は、まだありません。</div>`;
+      else h+=C.map((x,i)=>{const im=weakImg('組み合わせ',x.raw);return `<div class="wrow wrow-img">${im?`<span class="wimg s"><img src="${im}" alt="" loading="lazy"></span>`:'<span></span>'}<span class="wl">${esc(x.k)}</span><span class="wb"><i class="${accCls(x.acc)} grow" style="--i:${i};width:${Math.max(2,Math.round(x.acc*100))}%"></i></span><span class="wn">${pct(x.acc)}・${x.v.n} 問・${(x.v.t/x.v.n).toFixed(1)} s</span></div>`}).join('')+`<div class="sub2">間違えた${m==='attitude'?'姿勢':'組み合わせ'}を、正答率の低い順に並べています。絵は出題と同じ<span class="nw">見え方</span>（バンクは 30° の例）。</div>`;
     }else if(g==='操縦桿'){
       /* 十字: 上＝奥、下＝手前、左、右。中央に操縦桿の丸 */
       const c=(k,x,y,i)=>{const v=get(g,k),a=acc(v);return `<rect x="${x}" y="${y}" width="36" height="36" rx="8" class="${accCls(a)} seg" style="--i:${i}">${tip('操縦桿 '+k,v)}</rect>${v?`<text x="${x+18}" y="${y+22}" text-anchor="middle" class="cv fade">${Math.round(a*100)}</text>`:''}<text x="${x+18}" y="${y+33}" text-anchor="middle" class="cl2">${k}</text>`};
@@ -3744,6 +3745,7 @@ function renderStatsPage(){
   }
   h+=`<div class="acts"><button class="btn ghost" id="stBack">ホームへ</button></div>`;
   page.innerHTML=h;$('#stBack').addEventListener('click',()=>{location.hash='#home'});
+  page.querySelectorAll('.whint,.sub2,.sub.pace,.wrow .wl').forEach(phraseWrap);   /* 一言と注記は句の途中で折らない（「分け／て」「読／んで」になっていた。2026-09-26） */
   statsFx(page);
   page.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{location.hash=b.dataset.go}));
   disposeStatMovers();
@@ -3922,7 +3924,7 @@ async function renderInbox(){
     $('#aLogin').addEventListener('click',async()=>{
       $('#aNote').textContent='確かめています…';
       try{await m.adminLogin($('#aMail').value.trim(),$('#aPass').value);$('#inboxItem').hidden=false;renderInbox()}
-      catch(e){$('#aNote').textContent='入れませんでした。メールと合言葉を確かめてください。'}});
+      catch(e){$('#aNote').textContent='ログインできませんでした。メールと合言葉を確かめてください。'}});
     return;
   }
   let rows=[];
@@ -4050,7 +4052,7 @@ function renderBuy(){
   /* 体験版では、完全版で増える機能の一覧・解除コード・購入の復元は出さない（利用者の指示 2026-09-17: 完全版の紹介は専用サイトで行う。
      ブラウザの全機能版と解除コードは作者しか使わないので案内しない。?key= で開いて端末に記憶する道はそのまま） */
   $('#buyPage').innerHTML=`<h3>完全版</h3>
-    <div class="sethelp">鍵のかかった機能は、完全版（アプリ）で使えます。完全版は買い切りで広告なし（いまは ${curPrice()}。価格は時期で変わります）。くわしくは専用サイトをご覧ください。</div>
+    <div class="sethelp">鍵のかかった機能は、完全版（アプリ）で使えます。完全版は買い切りで広告なし（現在は ${curPrice()}。価格は時期で変わります）。くわしくは専用サイトをご覧ください。</div>
     <div class="acts">${IS_ANDROID
       ?`<a class="btn" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a><a class="btn ghost" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a>`
       :`<a class="btn" href="${APPSTORE_URL}" target="_blank" rel="noopener">App Store で見る</a><a class="btn ghost" href="${ANDROID_URL}" target="_blank" rel="noopener">Android 版の購入方法</a>`}

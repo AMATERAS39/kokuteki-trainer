@@ -390,7 +390,7 @@
     if (q.match) {
       const ci = q.opts.findIndex(o => o.ok), ok = dir === ci;
       const lines = [`出題の絵: 印 ${DIRS[q.mark].k} から北を決めると、機首は${DIRS[q.dir].ja}（${DIRS[q.dir].k}）。`,
-        '4 枚は印の向きがまちまちなので、絵の機首の向きではなく、印から数えた方角で比べます。'];
+        '4 枚は印の向きがそれぞれ異なるので、絵の機首の向きではなく、印から数えた方角で比べます。'];
       if (!ok && dir >= 0 && q.opts[dir]) lines.push(`選んだ絵の機首は${DIRS[q.opts[dir].heading].ja}を向いています。`);
       return { ok, correct: ci, answerText: `${ci + 1}（${DIRS[q.dir].ja}）`, lines };
     }

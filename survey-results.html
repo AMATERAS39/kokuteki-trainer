@@ -36,12 +36,12 @@ button.ghost{background:transparent;color:var(--accent)}
 </style>
 </head>
 <body>
-<header><a class="brand" href="/">TENRYU</a><a class="back" href="/">案内ページへ戻る</a></header>
+<header><a class="brand" href="/">TENRYU</a><a class="back" href="/"><span class="nw">専用サイト</span>へ戻る</a></header>
 <main>
   <h1>受験者アンケートの集計</h1>
-  <p>作成者用のページです。合言葉（平均回答時間と同じもの）を入れると、サイトにたまっている回答を集計して出します。回答は匿名で、名前・メール・端末の識別子・IP は含まれません。</p>
+  <p>作成者用のページです。合言葉（平均解答時間と同じもの）を入れると、サイトに<span class="nw">保存された</span>回答を集計して<span class="nw">表示します</span>。回答は匿名で、名前・メール・端末の識別子・IP は含まれません。</p>
   <div class="keyrow"><input type="password" id="key" placeholder="合言葉" autocomplete="off"><button id="go">集計する</button><button class="ghost" id="dl" hidden>JSON を保存</button></div>
-  <p id="remember" hidden>合言葉はこの端末に覚えました。次からは開くだけで集計が出ます。<a href="#" id="forget">この端末から消す</a></p>
+  <p id="remember" hidden>合言葉はこの端末に<span class="nw">保存しました</span>。次からは開くだけで集計が出ます。<a href="#" id="forget">この端末から消す</a></p>
   <div class="status" id="st"></div>
   <div id="out"></div>
 </main>

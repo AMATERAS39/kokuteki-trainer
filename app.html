@@ -184,7 +184,9 @@ svg text{user-select:none}
 .qhead{gap:.375rem}
 .qno{white-space:nowrap}
 .nw{white-space:nowrap}
-#explain li,.summary .sub,.prompt{text-wrap:pretty}   /* 行末に 1〜2 字だけ残る折り返しを避ける（対応する環境だけ） */
+#explain li,.summary .sub,.prompt{text-wrap:pretty}
+.figs.degrading .frame .v,.degrading .frames .frame .v{visibility:hidden}.ckdeg{display:block;width:100%;aspect-ratio:360/188}   /* 試験モードの操縦操作の景色（v07.04） */
+#explain li.cmp3{list-style:none;margin-left:-1rem}.cmp3>span{display:block;font-size:.75rem;color:var(--muted);margin-bottom:.25rem}.c3{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}.c3 small{display:block;text-align:center;font-size:.6875rem;color:var(--muted);margin-top:.15rem}   /* 行末に 1〜2 字だけ残る折り返しを避ける（対応する環境だけ） */
 #examStar,#examList,#examGrade{width:2.75rem;height:2.5rem;padding:0;flex-direction:column;justify-content:center;gap:.0625rem}   /* 出題画面の頭のボタンは 記号＋小さな文字 でそろえる（利用者の指示 2026-09-24「記号だけなら記号だけ、記号＋文字なら記号＋文字」「文字があってもスタイリッシュなら文字があった方がよい」） */
 #examStar .ic,#examList .ic,#examGrade .ic{width:1.125rem;height:1.125rem}
 /* 試験モードは本番の CBT に寄せ、選んでも自動では進まない。選択肢の下の 前へ・次へ で移る（利用者の指示 2026-09-24） */
@@ -1534,7 +1536,7 @@ body.examHead #updBtn{display:none}   /* 試験中は更新ボタンを出さな
 </div>
 
 <script src="flight.js?v=7"></script>
-<script src="engine.js?v=79"></script>
+<script src="engine.js?v=80"></script>
 <script>
 (function(){
 'use strict';
@@ -1603,7 +1605,7 @@ const takeQ=()=>{
   if(phase==='practice'&&PRACTICE[mode]){   /* 計画のある練習: 何問目かで種目と難易度を決める（先読みはしない） */
     const plan=PRACTICE[mode],i=Math.max(0,Math.min(plan.length-1,plan.length-practiceLeft)),[m,lv]=plan[i];
     const x=E.generate(m,Object.assign({},settings,GEN,{level:lv}));nextQ=null;preloadQ(x);prepLive(x);return x}
-  const x=nextQ||genQ();nextQ=genQ();preloadQ(nextQ);prepLive(nextQ);return x};
+  const x=nextQ||genQ();nextQ=null;setTimeout(()=>{if(!nextQ){nextQ=genQ();preloadQ(nextQ);prepLive(nextQ)}},30);return x};   /* 先読みは表示のあとで（v07.04。操縦操作の Hard・Max は作るのに 0.1 秒ほどかかる） */
 /* 設定は localStorage に残すが、ブラウザは置き場所が足りないときや、
    しばらく開かれないときに消すことがある（iOS の Safari は 7 日で消す）。
    消さないでほしいと申し込んでおく。断られても動きは変わらない */
@@ -1637,7 +1639,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v07.03';
+const APP_VER='v07.04';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -1798,6 +1800,47 @@ function applyScene(){
 
 /* 視界 SVG を風防の部分だけ（下のグレアシールドを除く）にして縦を節約する。出題・練習・見え方で共通 */
 const ckCompact=svg=>svg.replace('viewBox="0 0 360 240"','viewBox="0 0 360 188"').replace('aspect-ratio:360/240','aspect-ratio:360/188');
+/* 試験モードの操縦操作（v07.04、利用者の指示 2026-09-25）: 本番は実機から撮った写真を PDF にして軽くしたような、画質の悪いモノクロだった。
+   景色の絵だけを、実機の写真に寄せた明るさ（空は明るく、山は中間、地面は暗く。部品ごとに灰色を決める）のモノクロにし、解像度 1/2・JPEG 品質 0.3 相当に落とす（軽量化「弱」）。
+   ①②③の番号・選択肢・文字には触れない（利用者「①まで画質悪くなると意味がない」）。練習と解説はカラーのまま。
+   処理が終わるまでは絵を隠す（くっきりした絵が一瞬見えないように） */
+async function degradeFrames(root){
+  const svgs=[...root.querySelectorAll('.frame .v svg')];if(!svgs.length)return;
+  root.classList.add('degrading');
+  for(const svg of svgs){
+    try{
+      const cl=svg.cloneNode(true),src=[svg,...svg.querySelectorAll('*')],dst=[cl,...cl.querySelectorAll('*')];
+      /* 色は部品ごとに実機の写真の明るさへ置き換える（空の色は時刻の背景で変わるので、色相では決めない）。CSS 変数は画像にすると効かないので値を書き込む */
+      const GRAY={earth:62,mtn:112,mtn2:128,snow:222,sun:236,field:78,field2:88,lake:70,road:54,town:150};
+      let si=0;
+      src.forEach((e,k)=>{const cs=getComputedStyle(e),d=dst[k],fa=e.getAttribute('fill')||'';
+        if(e.tagName==='stop'){const g=si++?214:188;d.setAttribute('stop-color',`rgb(${g},${g},${g})`);d.removeAttribute('style');return}   /* 空: 上は少し暗く、地平線ほど明るい */
+        const m=fa.match(/--ck-([a-z0-9]+)/)||(/--earth/.test(fa)?[0,'earth']:null);
+        if(m&&GRAY[m[1]]!=null){const g=GRAY[m[1]];d.setAttribute('fill',`rgb(${g},${g},${g})`)}else if(e.hasAttribute('fill'))d.setAttribute('fill',cs.fill);
+        if(e.hasAttribute('stroke'))d.setAttribute('stroke',cs.stroke)});
+      const r=svg.getBoundingClientRect(),w=Math.max(120,Math.round(r.width*(window.devicePixelRatio||1)/2)),h=Math.round(w*188/360);
+      cl.setAttribute('width',w);cl.setAttribute('height',h);
+      const img=new Image();await new Promise((ok,ng)=>{img.onload=ok;img.onerror=ng;img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(cl))});
+      const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(img,0,0,w,h);
+      const id=x.getImageData(0,0,w,h),p=id.data;
+      for(let k=0;k<p.length;k+=4){const L=0.299*p[k]+0.587*p[k+1]+0.114*p[k+2];p[k]=p[k+1]=p[k+2]=L}   /* 残り（枠・塔など）もモノクロに */
+      x.putImageData(id,0,0);
+      const out=new Image();out.className='ckdeg';out.alt='';out.src=c.toDataURL('image/jpeg',0.3);
+      if(out.decode)await out.decode().catch(()=>{});
+      if(svg.isConnected)svg.replaceWith(out);
+    }catch(e){}
+  }
+  root.classList.remove('degrading');
+}
+/* 解説: 選んだ操作なら③はどう見えるか（v07.04、利用者の指示 2026-09-25）。正解の③と並べて、どこで見分けるかを絵で示す。
+   選んだ操作は①から同じ順番・同時の形で飛ばす（大きさは出題と同じ操作ならその倍率、ほかは 1 倍） */
+function cmp3HTML(qq,i){
+  if(!qq||qq.type!=='control'||i==null||i<0||!qq.opts[i]||qq.opts[i].ok)return '';
+  const o=qq.opts[i].ops,two=o[0]!==o[1],mg=qq.mag?Object.fromEntries([...new Set(o)].map(id=>[id,qq.mag[id]||1])):null;
+  let f;try{f=E.simControl(qq.init,o,two?!!qq.simul:false,mg).frames[2]}catch(e){return ''}
+  const v=st=>ckCompact(E.svgCockpit(st,{hud:qq.hud!==false}));
+  return `<li class="cmp3"><span>③を比べると</span><div class="c3"><div><div class="v">${v(qq.frames[2])}</div><small>正解の③</small></div><div><div class="v">${v(f)}</div><small>選んだ操作なら</small></div></div></li>`;
+}
 
 /* ===== 画面内の領域の切り替え ===== */
 function showPane(name){['setup','intro','sim','gallery','summary','quiz'].forEach(id=>{$('#'+id).hidden=id!==name});if(name!=='quiz')$('#feedback').className='fb';
@@ -1859,6 +1902,7 @@ function render(){
   }else{
     $('#prompt').textContent='①→②→③ の変化から、行われた操作を選ぶ';
     figs.innerHTML=`<div class="figs"><div class="frames">${q.frames.map((f,i)=>`<div class="frame"><div class="n">${'①②③'[i]}</div><div class="v">${ckCompact(E.svgCockpit(f,{hud:q.hud!==false}))}</div></div>`).join('')}</div></div>`;
+    if(isExamSet()&&phase!=='practice')degradeFrames(figs);
     ans.innerHTML=`<div class="opts text">${q.opts.map((o,i)=>`<button class="ab" data-i="${i}"><span class="lab">${i+1}</span><span class="t">${o.text}</span><span class="mk"></span></button>`).join('')}</div>`;
     ans.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>answerOpts(+b.dataset.i)));
   }
@@ -1923,7 +1967,7 @@ function finish(g,timedOut,picked){
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').innerHTML=(timedOut?'時間切れ':g.ok?'正解':'不正解')+ic(g.ok&&!timedOut?'circle':'cross');$('#fbTime').textContent=s.toFixed(1)+' s';
   fbSimShow();
-  $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;
+  $('#explain').innerHTML=(!inPractice&&timedOut)?`<li>正答は <b>${g.answerText}</b>。</li>`:`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}${cmp3HTML(q,picked)}`;
   phraseWrap($('#explain'));
   const toMeasure=inPractice&&practiceLeft===0&&backTo!=='about';
   if(inPractice&&practiceLeft===0)$('#next').innerHTML=backTo==='about'?ic('back','s')+'説明に戻る':'計測開始'+ic('next','s');
@@ -2070,7 +2114,7 @@ function showReview(k){
   $('#feedback').className='fb show '+(g.ok?'ok':'ng');
   $('#fbTitle').innerHTML=(pk<0?'未回答':g.ok?'正解':'不正解')+ic(g.ok?'circle':'cross')+(it.star?`<svg class="ic s" style="color:var(--accent);fill:currentColor"><use href="#i-star"/></svg>`:'');$('#fbTime').textContent='';
   fbSimShow();
-  $('#explain').innerHTML=`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}`;phraseWrap($('#explain'));
+  $('#explain').innerHTML=`<li>正答は <b>${g.answerText}</b>。</li>${g.lines.map(l=>`<li>${l}</li>`).join('')}${cmp3HTML(q,pk)}`;phraseWrap($('#explain'));
   $('#next').innerHTML=`${ic('back','s')}<span class="sr">結果に戻る</span>`;$('#next').title='結果に戻る';
   $('#fbSkipRow').hidden=true;
   toTop();

@@ -316,6 +316,10 @@
   /* 操作の大きさ（v06.18、利用者の指示 2026-09-22「C は Hard 以上は大きさも変えて。同じ機首上げでも上がり具合が違うように見えるものもあった」）:
      mag は { 操作 id: 倍率 } で、その操作の舵の入力（flight.js の EXAM.INPUT）を倍率で掛ける。無ければ従来どおり 1 倍。答え（操作の名前）は変わらず、見え方の量だけが変わる */
   const MAG = [0.6, 0.8, 1, 1.25, 1.5];
+  /* ①と③で見分けられるとみなす差（度）。試験モードは画質を落とすので、細かい差は数えない（利用者 2026-09-25） */
+  const UNIQ_TOL = 8;
+  /* 操縦桿の左右の成分（右 +1・左 −1・なし 0。斜めも含む） */
+  const latOf = id => ({ 'stick-right': 1, 'stick-forward-right': 1, 'stick-back-right': 1, 'stick-left': -1, 'stick-forward-left': -1, 'stick-back-left': -1 })[id] || 0;
   function scaledInputs(mag) {
     const IN = F().EXAM.INPUT; if (!mag) return IN;
     const out = {}; for (const id of Object.keys(IN)) { const k = mag[id] || 1, o = {}; for (const c of Object.keys(IN[id])) o[c] = IN[id][c] * k; out[id] = o; } return out;
@@ -333,10 +337,15 @@
     const lv0 = lvOf(s), lv = lv0 === 'max' ? 'hard' : lv0, max = lv0 === 'max' || lv0 === 'hard', diag = lv0 === 'max';
     const DIAG = EXTRA_OPS;
     /* v05.69〜v06.16 は hard を必ず 2 操作にしていた。v06.17: Hard も 1 操作が 1/3 で混ざる（利用者の指示 2026-09-22「C Hard は、必ずしも複合でなくともよい」。本番も 1 操作の問題がある） */
+    /* v07.04（利用者の指示 2026-09-25〜26）: 本番の選択肢は、左右の成分と同じ側の方向舵の組・奥手前＋方向舵・方向舵だけ・斜め。
+       逆向きの組（左＋右方向舵、左奥＋右方向舵）は本番に無かったようだが出ない保証もないので、1 割ほどに減らして残す。
+       紛らわしい誤答（同じ左右の仲間）も出すが、①と③だけで答えが 1 つに決まるものに限る（UNIQ_TOL）。誤答が 3 つそろわなければ作り直す */
+    for (let attempt = 0; ; attempt++) {
     const one = s.ops === 'single' || lv === 'easy' || (s.ops !== 'double' && Math.random() < 1 / 3);
     const stickPool = diag ? STICK.concat(DIAG) : STICK, opsPool = diag ? OPS.concat(DIAG) : OPS;
     const first = one ? pick(opsPool).id : pick(stickPool).id;
-    const ops = one ? [first, first] : [first, pick(RUDDER).id];
+    const sameRud = id => latOf(id) > 0 ? 'rudder-right' : 'rudder-left', oppRud = id => latOf(id) > 0 ? 'rudder-left' : 'rudder-right';
+    const ops = one ? [first, first] : [first, latOf(first) ? (Math.random() < 0.1 ? oppRud(first) : sameRud(first)) : pick(RUDDER).id];
     const rand = s.init === 'random';
     const pat = max ? pick(['level', 'bank', 'pitch', 'both']) : rand ? pick(['level', 'bank', 'pitch']) : 'level';   // ①の姿勢の型
     const init = { bank: (pat === 'bank' || pat === 'both') ? pick([-30, -15, 15, 30]) : 0,
@@ -348,11 +357,25 @@
     const simul = !single && Math.random() < 0.5;
     const mag = max ? Object.fromEntries([...new Set(ops)].map(id => [id, pick(MAG)])) : null;   // Hard 以上は操作ごとに大きさが変わる（0.6〜1.5 倍）
     const frames = simControl(init, ops, simul, mag).frames.map(f => ({ bank: f.bank, pitch: f.pitch, yaw: f.yaw, dx: f.dx, dy: f.dy, dz: f.dz }));
+    /* ①と③だけで見分けられるか: その操作を大きさ（Hard 以上は出題と同じ 0.6〜1.5 倍の 5 段）と順番・同時のすべてで飛ばし、③の姿勢が正解の③と UNIQ_TOL 度未満に重なれば「見分けられない」 */
+    const f3 = frames[2], MAGC = max ? MAG : [null], w180 = a => ((a + 540) % 360) - 180, nearMemo = {};
+    const dist = g => Math.max(Math.abs(w180(g.bank - f3.bank)), Math.abs(g.pitch - f3.pitch), Math.abs(w180(g.yaw - f3.yaw)));
+    const near = c => { const k = c.join('|'); if (k in nearMemo) return nearMemo[k]; const two = c[0] !== c[1]; let hit = false;
+      /* 早めの見切り: 1 倍で 30° 以上離れていれば、0.6〜1.5 倍でも重ならない（量は倍率にほぼ比例） */
+      if (max && Math.min(...(two ? [false, true] : [false]).map(sm => dist(simControl(init, c, sm, null).frames[2]))) >= 30) return (nearMemo[k] = false);
+      for (const sm of two ? [false, true] : [false]) { for (const m0 of MAGC) for (const m1 of two ? MAGC : [m0]) {
+        const mg = m0 == null ? null : Object.assign({ [c[0]]: m0 }, two ? { [c[1]]: m1 } : {});
+        const g = simControl(init, c, sm, mg).frames[2];
+        if (dist(g) < UNIQ_TOL) { hit = true; break; } }
+        if (hit) break; }
+      return (nearMemo[k] = hit); };
     /* 4 択: 1 操作（6 通り）と「操縦桿 → 方向舵」（8 通り）を混ぜた中から、正解以外を誤答にする */
     const key = a => a.join('|');
     const cands = [];
     for (const o of opsPool) cands.push([o.id, o.id]);
-    if (lv !== 'easy' && s.ops !== 'single') for (const st of stickPool) for (const rd of RUDDER) cands.push([st.id, rd.id]);
+    const oppPair = a => a[0] !== a[1] && latOf(a[0]) !== 0 && a[1] === oppRud(a[0]);   // 操縦桿の左右と方向舵が逆の組
+    const allowOpp = oppPair(ops) || Math.random() < 0.1;
+    if (lv !== 'easy' && s.ops !== 'single') for (const st of stickPool) for (const rd of RUDDER) { const c = [st.id, rd.id]; if (allowOpp || !oppPair(c)) cands.push(c); }
     /* 誤答の選び方（利用者の指摘 v04.25）: 操縦桿を倒している向きが写真で明らかなとき、本番の難しさは
        「方向舵を踏んでいるかどうか」の見分けにある。正解と同じ操縦桿の向きで方向舵だけ違う選択肢
        （右だけ／右 + 右方向舵／右 + 左方向舵）を必ず混ぜる。Hard は 2 つ、Normal は 1 つ。
@@ -368,14 +391,20 @@
     const decoy = stickOf(ops) && Math.random() < 0.5 ? pick(stickPool.filter(o => o.id !== stickOf(ops))).id : null;
     const pad = decoy || stickOf(ops);
     const rudPad = !stickOf(ops) && Math.random() < 0.5;
-    const same = (pad ? cands.filter(c => stickOf(c) === pad && key(c) !== key(ops))
+    /* Max: 同じ左右の仲間（左・左＋左方向舵・左奥・左手前＋左方向舵 など）を枕にする。半分は反対側の仲間に張り、並びの数で答えが分からないように */
+    const L = latOf(stickOf(ops) || ''), famL = diag && L ? (Math.random() < 0.5 ? -L : L) : 0;
+    const same = famL ? cands.filter(c => latOf(c[0]) === famL && key(c) !== key(ops))
+               : (pad ? cands.filter(c => stickOf(c) === pad && key(c) !== key(ops))
                       : rudPad ? cands.filter(c => c[0] === c[1] && OP_BY_ID[c[0]].group === 'rudder' && key(c) !== key(ops)) : []);
-    const nSame = Math.min(same.length, (lv === 'hard' ? 2 : 1) + (decoy ? 1 : 0));
-    const disSame = pickDistractors(same, () => true, nSame);
-    const disRest = pickDistractors(cands, c => key(c) !== key(ops) && !disSame.some(f => key(f) === key(c)), 3 - disSame.length);
+    const nSame = Math.min(same.length, (lv === 'hard' ? 2 : 1) + ((famL ? famL !== L : decoy) ? 1 : 0));
+    const okDis = c => key(c) !== key(ops) && !near(c);
+    const disSame = pickDistractors(same, okDis, nSame);
+    const disRest = pickDistractors(cands, c => okDis(c) && !disSame.some(f => key(f) === key(c)), 3 - disSame.length);
     const dis = disSame.concat(disRest);
+    if (dis.length < 3 && attempt < 20) continue;
     const opts = shuffle([{ ops, ok: true }, ...dis.map(c => ({ ops: c, ok: false }))]).map(o => ({ ...o, text: opsText(o.ops) }));
     return { type: 'control', ops, mag, frames, init, single, simul, opts, level: lv0, hud: lv !== 'hard' };
+    }
   }
   function generate(mode, settings) {
     const s = Object.assign({}, DEFAULT_SETTINGS, settings);

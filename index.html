@@ -237,7 +237,7 @@ main{overflow-x:clip}
 .tile b{display:block;font-family:var(--mono);font-size:clamp(1.5rem,4vw,2rem);font-weight:600;color:var(--amber)}
 .tile b.cy{font-family:var(--disp);font-weight:900;color:var(--cyan)}
 /* 直下の span だけ。折り返し防止の .nw（入れ子の span）に色や display が及ばないように（利用者の指摘 2026-09-17: Q&A の色分けが不自然、札の「計器判読」が 2 行に割れる） */
-.tile > span{display:block;font-size:var(--small);color:var(--muted);margin-top:.25rem}
+.tile > span{display:block;font-size:var(--small);color:var(--muted)}.tile > span + b{margin-top:.25rem}   /* 種目名 → 目標時間 → 本番の時間の順（2026-09-26） */
 .tile .pace{display:block;font-style:normal;font-family:var(--mono);font-size:var(--tiny);color:var(--cyan);margin-top:.375rem}   /* 本番の問題数と制限時間（作者の平均回答時間の表示は 2026-09-23 に廃止） */
 .tnote{grid-column:1/-1;font-size:var(--tiny);color:var(--faint);line-height:1.7}
 .two{display:grid;grid-template-columns:1fr;gap:clamp(1.25rem,4vw,2.75rem);align-items:start;margin-top:1.375rem}
@@ -511,12 +511,12 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <p class="lead"><span class="nw">適性検査</span>は覚えた量を測る試験ではありません。<span class="nw">本番</span>は 40 問 15 分（<span class="nw">操縦操作</span>は 30 問 20 分）。1 問に使えるのは 20 秒あまり（<span class="nw">操縦操作</span>は 40 秒）で、絵を見て迷わずに答えを選べるかどうかだけが問われます。</p>
       <p class="lead">筆記試験のほうは<span class="nw">基礎学力</span>を測るもので、問題は比較的やさしく、時間も余ります（20 問に 40 分など）。必要なのは<span class="nw">瞬発力</span>ではなく<span class="nw">集中力</span>です。多くの<span class="nw">受験</span>者が高得点になるので、差がつくのは<span class="nw">適性検査</span>です。</p>
       <div class="tiles">
-        <p class="tlab" id="tlab"><span class="nw">目標解答時間</span>（1 周見直す時間を残す）</p>
-        <div class="tile"><b>11 秒</b><span>A <span class="nw">空間認識</span></span><i class="pace">本番 40 問 15 分</i></div>
-        <div class="tile"><b>11 秒</b><span>B <span class="nw">計器判読</span></span><i class="pace">本番 40 問 15 分</i></div>
-        <div class="tile"><b>20 秒</b><span>C <span class="nw">操縦操作</span></span><i class="pace">本番 30 問 20 分</i></div>
-        <div class="tile"><b>11 秒</b><span>F <span class="nw">方位判読</span></span><i class="pace">本番 40 問 15 分</i></div>
-        <p class="tnote">本番の問題数と<span class="nw">制限時間</span>から、全問を解いたあと 1 周見直せるように、1 問あたりの時間を半分にした目安です。</p>
+        <p class="tlab" id="tlab"><span class="nw">目標解答時間</span></p>
+        <div class="tile"><span>A <span class="nw">空間認識</span></span><b>10 秒</b><i class="pace">本番 40 問 15 分</i></div>
+        <div class="tile"><span>B <span class="nw">計器判読</span></span><b>10 秒</b><i class="pace">本番 40 問 15 分</i></div>
+        <div class="tile"><span>C <span class="nw">操縦操作</span></span><b>20 秒</b><i class="pace">本番 30 問 20 分</i></div>
+        <div class="tile"><span>F <span class="nw">方位判読</span></span><b>10 秒</b><i class="pace">本番 40 問 15 分</i></div>
+        <p class="tnote">本番の問題数と<span class="nw">制限時間</span>から、全問を解いたあと 1 周見直せるように、1 問あたりの時間を半分にし、きりのよい秒数にした目安です。<span class="nw">アプリ</span>の Max の 1 問の<span class="nw">制限時間</span>も同じです。</p>
       </div>
     </div>
     <h2 class="h2mid">数字が語る、狭き門</h2>
@@ -725,7 +725,7 @@ body{word-break:auto-phrase}.nw{white-space:nowrap}
       <a href="https://note.com/amateras87/n/n304f337b3d21">開発の記事</a>
       <a href="/privacy"><span class="nw">プライバシーポリシー</span></a>
     </div>
-    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-27</div>
+    <div class="sig">TENRYU · 2026 · 最終更新 2026-09-26</div>
   </div>
 </footer>
 

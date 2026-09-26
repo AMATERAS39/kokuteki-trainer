@@ -1550,18 +1550,28 @@ const DEFAULTS=Object.assign({},E.DEFAULT_SETTINGS,{theme:'auto',dirLabel:'alpha
    全体の制限時間は設定の項目ではなく、試験モードの条件（isExamSet）がそろっているときだけ本番の時間（EXAM_PACE.min）で効く（利用者の指示 2026-09-22「全体の制限時間は試験モードを選択したときのみ」）。
    試験モードのボタンは 難易度 Max・出題数を本番（EXAM_PACE）・1 問の制限なし・解説なし・練習なし にまとめて入れる */
 const MODE_DEFAULTS={
-  spatial:{level:'easy',qCount:20,qLimit:20,skipExplain:false},   // 本番の A は 40 問 15 分（1 問 22 秒ほど）。解説つきが既定（利用者の指示 2026-09-21）
-  heading:{level:'easy',qCount:20,qLimit:5,skipExplain:true},
-  attitude:{level:'easy',qCount:10,qLimit:10,skipExplain:true},
-  combo:{level:'easy',qCount:20,qLimit:15,skipExplain:true},
-  control:{level:'easy',qCount:10,qLimit:20,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
+  spatial:{level:'easy',qCount:20,skipExplain:false},   // 解説つきが既定（利用者の指示 2026-09-21）
+  heading:{level:'easy',qCount:20,skipExplain:true},
+  attitude:{level:'easy',qCount:10,skipExplain:true},
+  combo:{level:'easy',qCount:20,skipExplain:true},
+  control:{level:'easy',qCount:10,skipExplain:false}};   // 操縦操作は解説を見ながら進める（利用者の指定）
+/* 1 問の制限時間の既定（v07.01、利用者の指示 2026-09-26「Max は実際の試験時間の半分でキリのいい数字。他は今のやつも見ながら調整」）:
+   Max は本番の 1 問あたり（A・B・F 40 問 15 分＝22.5 秒、C 30 問 20 分＝40 秒）の半分を丸めた 10 秒・20 秒（全問のあと 1 周見直せる速さ。サイトの「目標解答時間」と同じ）。
+   ほかは Easy を覚える段として長め、Hard に向けて Max へ寄せる。自分で選んだ値（modeSet の qLimit）があればそちらが優先。難易度を変えたとき、前の難易度の既定のままなら新しい難易度の既定に付いていく */
+const QLIMIT_DEF={spatial:{easy:20,normal:15,hard:15,max:10},combo:{easy:15,normal:15,hard:15,max:10},control:{easy:15,normal:20,hard:20,max:20},heading:{easy:5,normal:5,hard:8,max:10},attitude:{easy:10,normal:10,hard:10,max:10}};
+const qLimitDef=(m,lv)=>(QLIMIT_DEF[m]||{})[lv]??10;
 const modeSet=store.get('modeSet',{});
+/* v07.01 まで既定のまま保存されていた値（種目ごとの一律の既定と、方位判読の Max の 20 秒）は捨てて新しい既定に付いていく */
+(function(){if(store.get('qlimMig'))return;const OLD={spatial:[20],heading:[5,20],attitude:[10],combo:[15],control:[20]};let ch=false;
+  for(const m of Object.keys(modeSet)){const o=modeSet[m];if(o&&'qLimit' in o&&(OLD[m]||[]).includes(o.qLimit)){delete o.qLimit;ch=true}}
+  if(ch)store.set('modeSet',modeSet);store.set('qlimMig',1)})();
 const MS=()=>{const m=Object.assign({},MODE_DEFAULTS[mode],modeSet[mode]||{});if(m.level==='medium')m.level='normal';if(m.level==='max'&&mode==='attitude')m.level='hard';   // medium は旧称。Max は操縦操作だけ
   if(DEMO_ON&&!isFull()){                                    // 体験版は Easy まで・出題数は上限まで（前に選んだ値が残っていても戻す）
     if(!DEMO.levels.includes(m.level))m.level=DEMO.levels[0];
     const cap=Math.max(1,Math.round((MODE_DEFAULTS[mode].qCount||20)*DEMO.qDefRatio));
     if(m.qCount===0||m.qCount>cap)m.qCount=cap;
   }
+  if(!('qLimit' in m))m.qLimit=qLimitDef(mode,m.level);   /* 自分で選んでいなければ難易度ごとの既定 */
   if(isExamSet()){const P=E.EXAM_PACE[mode];m.level='max';m.qCount=P.n;m.qLimit=0;m.skipExplain=true}   /* 試験モードは保存した設定の上に重ねるだけ */
   return m};
 function setMS(key,val){modeSet[mode]=Object.assign({},modeSet[mode]||{},{[key]:val});store.set('modeSet',modeSet)}
@@ -1626,7 +1636,7 @@ const NATIVE=!!window.Capacitor||/^capacitor:|^ionic:/.test(location.protocol);
 const loadFailMsg=what=>NATIVE?`${what}を読み込めませんでした。アプリを閉じて開き直してください。直らないときは App Store / Google Play から入れ直してください。`
   :`${what}を読み込めませんでした（通信環境を確認してください）`;
 /* 版の表記: 大きい更新で v02 → v03 と上げ、小さい更新は v02.01 → v02.02 と小数側を上げる。sw.js の CACHE と必ずそろえる */
-const APP_VER='v07.00';
+const APP_VER='v07.01';
 /* 題名: 検索結果の見出し用に「（体験版）」を付けてある（利用者の指示 2026-09-17）。アプリ版は完全版なので外す */
 if(NATIVE)document.title='TENRYU｜航空学生 適性検査トレーニングアプリ';
 let edition=(DEMO_ON&&!NATIVE)?store.get('edition','demo'):'full';
@@ -2158,7 +2168,7 @@ function showSetup(){
   /* 試験モードのまま条件を 1 つでも変えたら、試験モードはオフ（利用者の指示 2026-09-24）。変えた値だけが保存に残る */
   const examOff=was=>{if(!was)return false;examFlag=null;showSetup();return true};
   $('#setup').querySelectorAll('select').forEach(el=>el.addEventListener('change',()=>{const v=el.value;const before=MS(),was=isExamSet();setMS(el.dataset.key,/^-?\d+$/.test(v)?+v:v);
-    if(el.dataset.key==='level'&&mode==='heading'){if(v==='max'&&before.level!=='max'&&before.qLimit===5)setMS('qLimit',20);else if(v!=='max'&&before.level==='max'&&before.qLimit===20)setMS('qLimit',5)}   /* 方位判読の Max（同じ方角の機体を選ぶ）は既定 1 問 20 秒（利用者の指示 2026-09-22） */
+    if(el.dataset.key==='level'&&before.qLimit===qLimitDef(mode,before.level)){delete modeSet[mode].qLimit;store.set('modeSet',modeSet)}   /* 前の難易度の既定のままなら、新しい難易度の既定に付いていく */
     if(examOff(was))return;
     if(el.dataset.key==='level')showSetup()}));
   if(!isFull()){const qs=$('#setup select[data-key="qCount"]');if(qs)qs.value=String(qMax())}   // 体験版は、実際に出す数（上限で切った値）を選んで見せる

@@ -118,7 +118,16 @@ export async function mount(container, { modelUrl = 'model/t4.glb?v=2', onProgre
         v.fromBufferAttribute(pos, k).applyMatrix4(o.matrixWorld);
         if (v.x < lx) { lx = v.x; L = v.clone(); }
         if (v.x > rx) { rx = v.x; R = v.clone(); }
-        if (v.y < ty) { ty = v.y; T = v.clone(); }
+      }
+    });
+    /* 尾部の白は機体の中心線上のいちばん後ろ（尾端）。以前は全頂点でいちばん後ろを取っていたため、左の水平尾翼の端に付き「白は左後方だけ」に見えた（利用者の指摘 2026-09-26） */
+    const cx = (lx + rx) / 2, tol = (rx - lx) * 0.04;
+    gltf.scene.traverse(o => {
+      if (!o.isMesh || !o.geometry || underGear(o)) return;
+      const pos = o.geometry.attributes.position;
+      for (let k = 0; k < pos.count; k++) {
+        v.fromBufferAttribute(pos, k).applyMatrix4(o.matrixWorld);
+        if (Math.abs(v.x - cx) < tol && v.y < ty) { ty = v.y; T = v.clone(); }
       }
     });
     return { L, R, T };
